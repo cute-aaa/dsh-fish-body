@@ -1,0 +1,11 @@
+# dsh-fish-body bundle patch —— 把大肥鱼桌宠挂进 DSH 配置树。
+# 安装：`dsh plugin --profile <profile> add <本包目录>`（plugin_manager install_bundle 同效）。
+# id 必须与包名一致（DSH 插件目录 / 商城预检按 entryId 比对）。
+- insert:
+    - id: dsh-fish-body
+      name: 'dsh-fish-body'
+      config:
+        enabled: true
+        form: browser
+        modelType: webm
+        personaSource: fish-soul

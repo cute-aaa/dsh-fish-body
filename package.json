@@ -1,0 +1,60 @@
+{
+  "name": "dsh-fish-body",
+  "version": "0.2.0",
+  "description": "大肥鱼桌宠：原生接入 dsh-fish-soul 人设卡，支持 layered 分层皮肤（surfcore 格式）/ live2d / webm 动画、点击与动画音效、资源扩展、语音（GPT-SoVITS/TTS/云端）、人设互动、实时任务状态、屏幕识别、浏览器内与桌面独立窗口（Electron/Chromium 应用窗口）双形态与多选避让。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./assets/icon.svg"
+  },
+  "files": [
+    "lib",
+    "client.js",
+    "assets",
+    "locale",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "desktop-pet",
+    "persona",
+    "live2d",
+    "webm",
+    "layered",
+    "surfcore",
+    "voice",
+    "tts"
+  ],
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-session"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  }
+}
