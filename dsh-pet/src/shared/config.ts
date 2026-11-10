@@ -28,6 +28,32 @@ export const isWebVisible = (display: PetDisplay): boolean => display === 'web' 
 /** 该宠物是否参与桌面模式（Electron 透明窗）渲染。 */
 export const isDesktopVisible = (display: PetDisplay): boolean => display === 'desktop' || display === 'both';
 
+/** 一个显示面的渲染名单：显示面上同时只渲染一只宠物。 */
+export interface SurfacePick {
+  /** 要渲染的那只；该显示面没有可见宠物时缺省。 */
+  pet?: Pet;
+  /** 可见但被「一面一只」挤掉的宠物（留作告警与诊断，不参与渲染）。 */
+  hidden: Pet[];
+}
+
+/**
+ * 从一个显示面的可见宠物里挑出唯一要渲染的那只。
+ *
+ * 内置条目（main）优先于导入的文件宠物，其余按配置顺序。导入的皮肤包只是候选素材：
+ * 它们被标成同一显示面时不能叠出一排宠物，换哪只看由用户改 display 决定。
+ *
+ * @param pets - 拍平后的宠物列表，顺序即配置顺序。
+ * @param isVisible - 该显示面的可见判定（web 与 desktop 各自一套）。
+ * @returns 唯一渲染目标与被挤掉的宠物。
+ */
+export function pickSurfacePet(pets: readonly Pet[], isVisible: (pet: Pet) => boolean): SurfacePick {
+  const visible = pets.filter(isVisible);
+  const first = visible[0];
+  if (visible.length <= 1) return first === undefined ? { hidden: [] } : { pet: first, hidden: [] };
+  const pet = visible.find((p) => p.extra !== true) ?? first;
+  return { pet, hidden: visible.filter((p) => p !== pet) };
+}
+
 /** 把成品聚合拍平成渲染用宠物列表。
  *  条目级字段（animations / physics / font 等）由所属条目一份、多实例共享；assetRoot 取条目 key，
  *  即素材根。非 main 条目打 extra 标记：文件宠物在设置页不可编辑、保存时排除。 */

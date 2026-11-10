@@ -6,7 +6,7 @@
  */
 import type { FunctionComponent, ReactNode } from 'react';
 import { petBridge } from '../settings/bridge.ts';
-import { flattenConfigPets, isWebVisible } from '../../shared/config.ts';
+import { flattenConfigPets, isWebVisible, pickSurfacePet } from '../../shared/config.ts';
 import { decideBalanceNotice } from '../../shared/balance/index.ts';
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import { readFocusSession } from '../../shared/focus-session.ts';
@@ -169,8 +169,19 @@ export function createPetMulti(
       };
     }, []);
 
-    // overlay 只渲染 display 为 web 或 both 的宠物。
-    const visiblePets = pets.filter((p) => isWebVisible(p.display));
+    // overlay 只渲染 display 为 web 或 both 的宠物，且一个页面只渲染一只：
+    // 导入的皮肤包默认同标 web，全渲染就会在页面上叠出一排宠物。
+    const { pet: shownPet, hidden: hiddenPets } = pickSurfacePet(pets, (p) => isWebVisible(p.display));
+    const hiddenIds = hiddenPets.map((p) => p.id).join(',');
+    // 配置冲突只在变化时告警一次，避免每帧刷屏；换配置会重拉，故按 id 集合判重。
+    const warnedHiddenRef = useRef('');
+    useEffect(() => {
+      if (hiddenIds === '' || warnedHiddenRef.current === hiddenIds) return;
+      warnedHiddenRef.current = hiddenIds;
+      console.warn(
+        '[dsh-pet] 一个网页只渲染一只宠物，已忽略：' + hiddenIds + '（在设置页把这些宠物的显示方式改为不显示）',
+      );
+    }, [hiddenIds]);
 
     // 统一轮询 /state：每个叶子 = { counter, data }，首拉只记基线，之后 counter 变化才分发。
     // 说话等命令与宠物开关无关，所以不为功能开关裁剪轮询。
@@ -349,36 +360,33 @@ export function createPetMulti(
       };
     }, [ready]);
 
-    return ready
-      ? visiblePets.map((p) => {
-          // 未启用工作状态联动：在分发处就断掉，下游（动画恢复、播完判定、气泡）不必各判一次。
-          const workOn = p.workStatusEnabled;
-          return h(Card, {
-            key: p.id,
-            cfg: p as RuntimePet,
-            balance,
-            balanceTick,
-            balanceNoticeTick,
-            balanceManual,
-            workStatus: workOn ? workStatus : null,
-            workStatusTick: workOn ? workStatusTick : 0,
-            onFocusSession: jumpToSession,
-            say: sayRef.current[p.id],
-            sayTick,
-            animCue: animCueRef.current[p.id],
-            animCueTick,
-            posCue: posCueRef.current[p.id],
-            posCueTick,
-            throwCue: throwCueRef.current[p.id],
-            throwCueTick,
-            lock: lockRef.current[p.id],
-            lockTick,
-            sleep: sleepRef.current[p.id],
-            sleepTick,
-            menuItemsRef,
-            arena: arenaRef,
-          });
-        })
-      : null;
+    if (!ready || shownPet === undefined) return null;
+    // 未启用工作状态联动：在分发处就断掉，下游（动画恢复、播完判定、气泡）不必各判一次。
+    const workOn = shownPet.workStatusEnabled;
+    return h(Card, {
+      key: shownPet.id,
+      cfg: shownPet as RuntimePet,
+      balance,
+      balanceTick,
+      balanceNoticeTick,
+      balanceManual,
+      workStatus: workOn ? workStatus : null,
+      workStatusTick: workOn ? workStatusTick : 0,
+      onFocusSession: jumpToSession,
+      say: sayRef.current[shownPet.id],
+      sayTick,
+      animCue: animCueRef.current[shownPet.id],
+      animCueTick,
+      posCue: posCueRef.current[shownPet.id],
+      posCueTick,
+      throwCue: throwCueRef.current[shownPet.id],
+      throwCueTick,
+      lock: lockRef.current[shownPet.id],
+      lockTick,
+      sleep: sleepRef.current[shownPet.id],
+      sleepTick,
+      menuItemsRef,
+      arena: arenaRef,
+    });
   };
 }

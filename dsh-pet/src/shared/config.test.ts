@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-import { flattenConfigPets } from './config.ts';
+import { flattenConfigPets, pickSurfacePet } from './config.ts';
 import { readAllConfig } from '../host/config.ts';
 import type { Pet } from './types.ts';
 
@@ -43,6 +43,45 @@ const ENTRY_FIELDS: Array<keyof Pet> = [
 
 /** 包内文件源码（守卫用；相对 src/shared/ 解析） */
 const readSource = (rel: string): string => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+
+describe('pickSurfacePet —— 一个显示面只渲染一只宠物', () => {
+  /** 只填判定用得到的字段：display 与 extra（条目归属）。 */
+  const pet = (id: string, display: Pet['display'], extra = false): Pet => ({ id, display, extra }) as unknown as Pet;
+  const isWeb = (p: Pet): boolean => p.display === 'web' || p.display === 'both';
+
+  test('只有一只可见：直接渲染它，没有隐藏项', () => {
+    const picked = pickSurfacePet([pet('main', 'desktop'), pet('feiyu-01', 'web', true)], isWeb);
+    assert.equal(picked.pet?.id, 'feiyu-01');
+    assert.deepEqual(picked.hidden, []);
+  });
+
+  test('多只可见：内置条目优先，导入的皮肤包进 hidden（不叠一屏宠物）', () => {
+    const picked = pickSurfacePet(
+      [pet('feiyu-01', 'web', true), pet('main', 'both'), pet('feiyu-02', 'web', true)],
+      isWeb,
+    );
+    assert.equal(picked.pet?.id, 'main');
+    assert.deepEqual(
+      picked.hidden.map((p) => p.id),
+      ['feiyu-01', 'feiyu-02'],
+    );
+  });
+
+  test('全是导入条目：按配置顺序取第一只', () => {
+    const picked = pickSurfacePet([pet('feiyu-03', 'web', true), pet('feiyu-01', 'web', true)], isWeb);
+    assert.equal(picked.pet?.id, 'feiyu-03');
+    assert.deepEqual(
+      picked.hidden.map((p) => p.id),
+      ['feiyu-01'],
+    );
+  });
+
+  test('一只都不可见：渲染目标缺省（页面不出现宠物）', () => {
+    const picked = pickSurfacePet([pet('main', 'none'), pet('feiyu-01', 'desktop', true)], isWeb);
+    assert.equal(picked.pet, undefined);
+    assert.deepEqual(picked.hidden, []);
+  });
+});
 
 describe('flattenConfigPets —— 成品 → 渲染列表的唯一填充点', () => {
   test('真实内置默认配置：每只实例的条目级字段齐全（含 physics.throwPower）', () => {

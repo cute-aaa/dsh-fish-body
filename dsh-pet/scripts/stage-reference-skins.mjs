@@ -10,8 +10,12 @@
  *   node scripts/stage-reference-skins.mjs                 # 只导 layered（5 套 surfcore）
  *   node scripts/stage-reference-skins.mjs --with-live2d   # 追加 live2d 源工程（大，默认不含 PSD）
  *   node scripts/stage-reference-skins.mjs --with-psd      # live2d 同时拷贝 PSD
+ *   node scripts/stage-reference-skins.mjs --display=web   # 导入即显示（默认 none，见下）
  *   node scripts/stage-reference-skins.mjs --dry-run       # 只打印计划，不落盘
  *   node scripts/stage-reference-skins.mjs --force         # 覆盖已有目标
+ *
+ * 导入项默认 display=none：它们是候选皮肤，一次只在页面上留一只宠物。
+ * 想让某一套上屏，导入时给 --display，或在设置页把该种类的显示方式改成 web/desktop。
  * @module dsh-pet/scripts/stage-reference-skins
  */
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -28,18 +32,27 @@ const force = argv.has('--force');
 const withLive2d = argv.has('--with-live2d');
 const withPsd = argv.has('--with-psd');
 
+/** 合法显示方式（与宿主 PET_DISPLAYS 同集合）；缺省 none = 导入了但不上屏。 */
+const DISPLAYS = new Set(['web', 'desktop', 'both', 'none']);
+const displayArg = [...argv].find((arg) => arg.startsWith('--display='));
+const display = displayArg === undefined ? 'none' : displayArg.slice('--display='.length);
+if (!DISPLAYS.has(display)) {
+  console.error(`[error] --display 只能是 web / desktop / both / none：${display}`);
+  process.exit(1);
+}
+
 /** DSH_HOME：显式环境变量优先，本机默认。 */
 const DSH_HOME = process.env.DSH_HOME ?? 'D:\\NodeJs\\DSH_home';
 const petDir = join(DSH_HOME, 'dsh-pet', 'pet');
 
-/** 默认实例字段：layered/live2d 不启用 webm 专属的事件联动。 */
+/** 默认实例字段：layered/live2d 不启用 webm 专属的事件联动；display 由 --display 决定（默认 none）。 */
 const BASE_PET = {
   size: 462,
   balanceEnabled: false,
   whisperEnabled: false,
   workStatusEnabled: false,
   fixedEnabled: false,
-  display: 'web',
+  display,
   position: { corner: 'bottom-right', marginX: 24, marginY: 100 },
 };
 
@@ -126,7 +139,8 @@ function main() {
     staged += stage(item);
   }
   console.log(`\n[done] ${dryRun ? '（dry-run）' : ''}处理 ${items.length} 项，落盘 ${staged} 项`);
-  console.log('       重启 fish 实例后 /config 即出现对应条目；右键「渲染方式」切 layered/live2d 测试。');
+  console.log(`       重启 fish 实例后 /config 即出现对应条目（display=${display}）；`);
+  console.log('       要上屏就在设置页把该种类的显示方式改成 web/desktop，一个显示面同时只留一只宠物。');
   console.log(`       包根：${pkgRoot}`);
 }
 
