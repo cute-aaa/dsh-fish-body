@@ -1,5 +1,5 @@
 /**
- * 静态素材：/font、/pic（含表情包链）、/sound、/thumb 的取文件与路径守卫。
+ * 静态素材：/font、/pic（含表情包链）、/sound、/skin、/thumb 的取文件与路径守卫。
  *
  * 不决定素材归属，只按给定目录链查找。
  * 依赖（PetRouteDeps）显式传入，模块内不读全局、不建状态。
@@ -94,6 +94,24 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     if (soundFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: sound not found' };
     const ext = soundFile.slice(soundFile.lastIndexOf('.')).toLowerCase();
     return { kind: 'file', file: soundFile, contentType: MIME[ext] ?? 'application/octet-stream' };
+  }
+
+  // 分层 / live2d 皮肤：/skin/<素材根>/<file> → pet/<素材根>-skin/（manifest.json + art/*.png / .moc3 / 纹理）。
+  // 与 /thumb 同一套归属语义：skin 目录只查自己的目录，绝不回落主素材池；素材根含分隔符/保留字符即 400。
+  if (scope === 'skin') {
+    const [assetRoot, ...nameParts] = restParts;
+    if (!assetRoot || nameParts.length === 0) {
+      return { kind: 'text', status: 400, body: 'dsh-pet: expected /dsh-pet-7340/skin/<petId>/<file>' };
+    }
+    if (!isValidPetId(assetRoot)) {
+      return { kind: 'text', status: 400, body: 'dsh-pet: invalid skin asset root' };
+    }
+    const rel = nameParts.join('/');
+    const skinDir = resolveAsset(petConfigDir, assetRoot + '-skin');
+    const skinFile = skinDir === undefined ? undefined : resolveExisting(skinDir, rel);
+    if (skinFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: skin file not found' };
+    const ext = skinFile.slice(skinFile.lastIndexOf('.')).toLowerCase();
+    return { kind: 'file', file: skinFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
 
   if (scope !== 'thumb') {

@@ -52,6 +52,12 @@ const LAYERED = [
   { id: 'feiyu-05', name: '今天硬气一点', src: 'D:\\AI\\FishChi\\body\\skins\\feiyu-05' },
 ].map((item) => ({ ...item, renderer: 'layered' }));
 
+/** 已编译 Live2D 模型（.moc3 + .model3.json + 纹理 + 动作/表情）：T2.4 可直接加载。 */
+const LIVE2D_MODEL = [
+  { id: 'deepseek-live2d', name: '大肥鱼（DeepSeek 公皮）', src: 'G:\\Download\\DeepSeek免费公皮\\DeepSeek' },
+].map((item) => ({ ...item, renderer: 'live2d' }));
+
+/** live2d 源工程（分层 PNG + PSD，未编译 .moc3）：仅作 T2.4 皮肤参考。 */
 const LIVE2D = [
   { id: 'live2d-furina', name: '芙宁娜·海', src: 'C:\\Users\\I\\live2d_build\\01_furina_sea' },
   { id: 'live2d-ororon', name: '欧洛伦', src: 'C:\\Users\\I\\live2d_build\\02_ororon' },
@@ -103,14 +109,14 @@ function stage(item) {
   return 1;
 }
 
-/** 主流程：layered 恒导，live2d 按开关。 */
+/** 主流程：layered 与已编译 live2d 恒导，live2d 源工程按 --with-live2d。 */
 function main() {
   if (!existsSync(petDir)) {
     console.log(`[warn] 宠物数据目录不存在：${petDir}`);
     console.log('       请先启动一次 fish 实例，或手动创建后重跑。');
     if (!dryRun) return;
   }
-  const items = [...LAYERED, ...(withLive2d ? LIVE2D : [])];
+  const items = [...LAYERED, ...LIVE2D_MODEL, ...(withLive2d ? LIVE2D : [])];
   if (items.length === 0) {
     console.log('[info] 没有要导入的项');
     return;

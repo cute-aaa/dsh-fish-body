@@ -6,6 +6,7 @@
  */
 import { registerRenderer } from './registry.ts';
 import { createWebmRenderer } from './webm.ts';
+import { createLayeredRenderer } from './layered.ts';
 import { createPlaceholderRenderer } from './placeholder.ts';
 
 /**
@@ -16,7 +17,7 @@ import { createPlaceholderRenderer } from './placeholder.ts';
 export function registerRenderers(): () => void {
   const disposers = [
     registerRenderer('webm', createWebmRenderer),
-    registerRenderer('layered', () => createPlaceholderRenderer('layered')),
+    registerRenderer('layered', createLayeredRenderer),
     registerRenderer('live2d', () => createPlaceholderRenderer('live2d')),
   ];
   return () => {
