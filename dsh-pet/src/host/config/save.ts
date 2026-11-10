@@ -76,6 +76,11 @@ export function saveUserConfig(
     const rawPersona = pp.whisperPrompt;
     if (rawPersona !== undefined && rawPersona !== null && typeof rawPersona !== 'string') return null;
     const persona = typeof rawPersona === 'string' ? rawPersona.trim() : '';
+    // 皮肤/模型选择（可选）：非空字符串才落盘（trim 后写）；空串 = 不写该键（回落第一个）。
+    // 非字符串（且非 undefined/null）与其它字段同口径：整包 400。
+    const rawModel = pp.model;
+    if (rawModel !== undefined && rawModel !== null && typeof rawModel !== 'string') return null;
+    const model = typeof rawModel === 'string' ? rawModel.trim() : '';
     const pet: Record<string, unknown> = {
       id,
       name,
@@ -89,6 +94,7 @@ export function saveUserConfig(
       position: { corner, marginX, marginY },
     };
     if (persona) pet.whisperPrompt = persona;
+    if (model) pet.model = model;
     if (sizePercent !== undefined && sizePercent !== null) pet.sizePercent = sizePercent;
     out.push(pet);
   }

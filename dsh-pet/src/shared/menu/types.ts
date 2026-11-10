@@ -26,6 +26,7 @@ export interface MenuLeaf {
     | 'reload'
     | 'set-display'
     | 'set-renderer'
+    | 'set-model'
     | 'sleep'
     | 'wake'
     | 'third-party';
@@ -33,6 +34,8 @@ export interface MenuLeaf {
   display?: PetDisplay;
   /** set-renderer 的目标渲染方式（与 pets[].renderer 同一套取值） */
   renderer?: RendererKind;
+  /** set-model 的目标模型（layered 皮肤 id / live2d .model3.json 相对路径） */
+  model?: string;
   /** third-party：注册它的 owner（身份键，只用于回传，不显示）；同一个 owner 的项收在同一分组下，
    *  只有一项时跳过这层直接平铺。 */
   owner?: string;

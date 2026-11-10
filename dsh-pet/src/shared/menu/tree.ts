@@ -19,6 +19,7 @@ const SLEEP_ALLOWED_ACTIONS: readonly string[] = [
   'home',
   'set-display',
   'set-renderer',
+  'set-model',
   'reload',
   'third-party',
 ];
@@ -65,6 +66,19 @@ export const rendererMenuBranch = (): MenuBranch => ({
     renderer,
   })),
 });
+
+/** 「模型」子菜单：layered 皮肤 / live2d 模型的列表（相对皮肤目录路径）；空列表返回 null。 */
+export const modelMenuBranch = (models: readonly string[], current?: string): MenuBranch | null => {
+  if (models.length === 0) return null;
+  return {
+    label: '模型',
+    children: models.map((model): MenuLeaf => ({
+      label: current === model ? `${model} ✓` : model,
+      action: 'set-model',
+      model,
+    })),
+  };
+};
 
 /** 第三方菜单项统一收在这个一级菜单下（宿主自己的菜单项不进这里）。 */
 export const MORE_MENU_LABEL = '更多';

@@ -20,6 +20,7 @@ import { failResult, okResult } from '../result.ts';
 import { saveConfigRoute } from './save.ts';
 import { setPetDisplay } from './display.ts';
 import { setPetRenderer } from './renderer.ts';
+import { setPetModel } from './model.ts';
 import { savePetLayer } from './entry.ts';
 
 /** 内容配置领域：未命中返回 undefined，命中返回应答。 */
@@ -32,6 +33,8 @@ export async function handleConfigRoutes(deps: PetRouteDeps, input: RouteInput):
   if (input.rest === 'pet-display') return setPetDisplay(deps, input);
   // 单只宠物的渲染方式（右键「渲染方式」子菜单 → POST /pet-renderer）
   if (input.rest === 'pet-renderer') return setPetRenderer(deps, input);
+  // 单只宠物的皮肤/模型（右键「模型」子菜单 → POST /pet-model）
+  if (input.rest === 'pet-model') return setPetModel(deps, input);
   // 整个种类层的实例写回（设置页改文件宠物的配置 → POST /pet-config）
   if (input.rest === 'pet-config') return savePetLayer(deps, input);
   // 配置文件路径 + 存储位置清单（设置页「高级配置」与「卸载与存储」展示用）

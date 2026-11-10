@@ -1,5 +1,5 @@
 /**
- * 静态素材：/font、/pic（含表情包链）、/sound、/skin、/thumb 的取文件与路径守卫。
+ * 静态素材：/font、/pic（含表情包链）、/sound、/cubism、/skin、/thumb 的取文件与路径守卫。
  *
  * 不决定素材归属，只按给定目录链查找。
  * 依赖（PetRouteDeps）显式传入，模块内不读全局、不建状态。
@@ -10,9 +10,25 @@ import { PACKAGE_ROOT } from '../paths.ts';
 import { MIME, resolveAsset, resolveExisting } from '../http.ts';
 import { isValidPetId } from '../config.ts';
 import { petAvatarFile } from '../pet-avatar.ts';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import type { RouteResult } from '../http.ts';
+
+/** 递归列出皮肤目录下全部 `.model3.json`（相对路径，posix 分隔符，排序稳定）。 */
+function listModel3(dir: string): string[] {
+  const out: string[] = [];
+  try {
+    for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
+      if (entry.isFile() && entry.name.endsWith('.model3.json')) {
+        const rel = entry.parentPath ? entry.parentPath.slice(dir.length).replace(/\\/g, '/') : '';
+        out.push((rel ? rel.replace(/^\//, '') + '/' : '') + entry.name);
+      }
+    }
+  } catch {
+    return []; // 目录不存在 / 读失败：当作无模型。
+  }
+  return out.sort();
+}
 
 /** 静态素材领域：未命中返回 undefined，命中返回应答。 */
 export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
@@ -96,6 +112,16 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     return { kind: 'file', file: soundFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
 
+  // Live2D Cubism Core：/dsh-pet-7340/cubism/<file> → 包内 assets/cubism（live2dcubismcore.min.js）。
+  // 与 font 同一套扁平形式：只放行包内一份，客户端按需注入 <script> 后读 window.Live2DCubismCore。
+  if (scope === 'cubism') {
+    const cubismRoot = join(PACKAGE_ROOT, 'assets', 'cubism');
+    const cubismFile = resolveExisting(cubismRoot, restParts.join('/'));
+    if (cubismFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: cubism core not found' };
+    const ext = cubismFile.slice(cubismFile.lastIndexOf('.')).toLowerCase();
+    return { kind: 'file', file: cubismFile, contentType: MIME[ext] ?? 'application/octet-stream' };
+  }
+
   // 分层 / live2d 皮肤：/skin/<素材根>/<file> → pet/<素材根>-skin/（manifest.json + art/*.png / .moc3 / 纹理）。
   // 与 /thumb 同一套归属语义：skin 目录只查自己的目录，绝不回落主素材池；素材根含分隔符/保留字符即 400。
   if (scope === 'skin') {
@@ -108,6 +134,11 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     }
     const rel = nameParts.join('/');
     const skinDir = resolveAsset(petConfigDir, assetRoot + '-skin');
+    // /skin/<root>/models：列出皮肤目录里全部 .model3.json（相对路径，供 live2d 右键「模型」切换）。
+    if (nameParts.length === 1 && nameParts[0] === 'models') {
+      const models = skinDir !== undefined && existsSync(skinDir) ? listModel3(skinDir) : [];
+      return { kind: 'json', status: 200, obj: { models } };
+    }
     const skinFile = skinDir === undefined ? undefined : resolveExisting(skinDir, rel);
     if (skinFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: skin file not found' };
     const ext = skinFile.slice(skinFile.lastIndexOf('.')).toLowerCase();

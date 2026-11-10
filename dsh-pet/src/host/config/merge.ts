@@ -178,6 +178,8 @@ function mergePet(
     // 这里刻意不填生效值：人设的默认值是所属条目那一份，一旦填进每只实例，/pet-display 写回就会把
     // 「跟随条目」固化成显式覆盖——之后用户改条目人设，这些实例不再跟着变。
     ...petPersonaField(p.whisperPrompt, label, id),
+    // 皮肤/模型选择（可选）：layered 选皮肤 id、live2d 选 .model3.json 相对路径；缺省/空串 = 取第一个。
+    ...petModelField(p.model, label, id),
   };
 }
 
@@ -192,6 +194,20 @@ function petPersonaField(own: unknown, label: string, id: string): { whisperProm
   }
   if (own !== undefined && own !== null) {
     warnOnce(`${label}:whisperPrompt:${id}`, `宠物「${id}」的 whisperPrompt 非法，已忽略（回落所属条目人设）`);
+  }
+  return {};
+}
+
+/**
+ * 实例级皮肤/模型选择的合并：写了非空字符串 → 原样带出；否则返回空对象（该键不出现）。
+ * 显式写了非字符串（数字/对象/布尔）才算配置错误 → 告警一次并忽略（回落第一个）。
+ */
+function petModelField(own: unknown, label: string, id: string): { model?: string } {
+  if (typeof own === 'string') {
+    return own.trim() === '' ? {} : { model: own };
+  }
+  if (own !== undefined && own !== null) {
+    warnOnce(`${label}:model:${id}`, `宠物「${id}」的 model 非法，已忽略（取该素材根下第一个）`);
   }
   return {};
 }

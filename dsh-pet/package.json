@@ -67,6 +67,7 @@
     "assets/pic",
     "assets/memes",
     "assets/sound",
+    "assets/cubism",
     "assets/config.jsonc",
     "assets/logo.png",
     "assets/main-character.png",
@@ -107,6 +108,8 @@
     "@electron-internal/extract-zip": "^1.0.5",
     "@electron/get": "^5.1.0",
     "openai": "7.39.0",
+    "pixi-live2d-display": "0.4.0",
+    "pixi.js": "6.5.10",
     "zod": "4.6.7"
   },
   "dsh": {

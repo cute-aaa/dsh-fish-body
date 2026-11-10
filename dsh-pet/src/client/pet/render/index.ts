@@ -7,7 +7,7 @@
 import { registerRenderer } from './registry.ts';
 import { createWebmRenderer } from './webm.ts';
 import { createLayeredRenderer } from './layered.ts';
-import { createPlaceholderRenderer } from './placeholder.ts';
+import { createLive2dRenderer } from './live2d.ts';
 
 /**
  * 注册全部渲染后端；重复调用会因 kind 重复而抛错，由调用方保证只调一次。
@@ -18,7 +18,7 @@ export function registerRenderers(): () => void {
   const disposers = [
     registerRenderer('webm', createWebmRenderer),
     registerRenderer('layered', createLayeredRenderer),
-    registerRenderer('live2d', () => createPlaceholderRenderer('live2d')),
+    registerRenderer('live2d', createLive2dRenderer),
   ];
   return () => {
     for (const dispose of disposers) dispose();

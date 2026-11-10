@@ -58,6 +58,8 @@ const keep = [
   'assets/memes',
   // 点击音效：宿主半侧的 /sound 路由只读包内这一份，漏掉则点击静音；同 memes，必须加在本数组。
   'assets/sound',
+  // Live2D Cubism Core：/cubism 路由只读包内这一份（live2dcubismcore.min.js，wasm 内嵌单文件），漏掉 live2d 无法加载。
+  'assets/cubism',
   'assets/config.jsonc',
   // 插件图标：package.json 顶层 icon 指向这张图；缺图时读取方 dsh-app-boot 的 iconOf 会抛错、退回默认插画。
   'assets/logo.png',

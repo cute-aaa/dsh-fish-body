@@ -103,6 +103,23 @@ async function switchRenderer(deps: MenuActionDeps, renderer: string): Promise<v
   }
 }
 
+/** 皮肤/模型：写配置后宿主回成品聚合，交给容器重渲染（live2d/layered 换模型）。 */
+async function switchModel(deps: MenuActionDeps, model: string): Promise<void> {
+  try {
+    const response = await fetch(ROUTE_PATH + '/pet-model', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: deps.petId, model }),
+    });
+    if (!response.ok) throw new Error('pet-model HTTP ' + response.status);
+    const body = (await response.json()) as Record<string, unknown>;
+    if (body.ok === false) throw new Error('pet-model 被拒：' + String(body.reason ?? ''));
+    deps.applyMerged(body as Record<string, Record<string, unknown>>);
+  } catch (error) {
+    deps.warn('[dsh-pet] 模型切换失败 ' + (error instanceof Error ? error.message : String(error)));
+  }
+}
+
 /**
  * 造菜单派发器。
  *
@@ -191,6 +208,13 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       if (!renderer) return;
       console.info('[dsh-pet] 菜单切换渲染方式 pet=' + petId + ' renderer=' + renderer);
       void switchRenderer(deps, renderer);
+      return;
+    }
+    if (leaf.action === 'set-model') {
+      const model = leaf.model;
+      if (model === undefined) return;
+      console.info('[dsh-pet] 菜单切换模型 pet=' + petId + ' model=' + model);
+      void switchModel(deps, model);
       return;
     }
     if (leaf.action === 'home') {

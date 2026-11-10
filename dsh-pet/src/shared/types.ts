@@ -115,6 +115,9 @@ export interface Pet {
   position: { corner: Corner; marginX: number; marginY: number };
   /** 渲染后端（可选，缺省 webm）：决定用哪套素材渲染这只宠物。三种互斥，右键切换。 */
   renderer?: RendererKind;
+  /** 皮肤/模型选择（可选）：layered 选皮肤 id、live2d 选 `.model3.json` 相对路径（相对 <素材根>-skin/）。
+   *  缺省/空串 = 取该素材根下第一个；右键「模型」子菜单切换时写回。 */
+  model?: string;
   /** 实例级人设（pets[].whisperPrompt）：碎碎念与对话共用的系统提示词正文。
    *  写了就取代所属条目顶层那一份（替换而非拼接），没写或空串则回落条目——回落发生在宿主半侧，不是错误。
    *  只写正文：名字与时间背景由宿主无条件追加，不要在这里重复写。 */

@@ -800,6 +800,36 @@ describe('/pet-renderer —— 业务失败 200 + 实体，协议失败用真实
   });
 });
 
+describe('/pet-model —— 业务失败 200 + 实体，协议失败用真实状态码', () => {
+  test('GET → 405 + method-not-allowed', async () => {
+    const r = await call('/dsh-pet-7340/pet-model');
+    assert.equal(r.status, 405);
+    assert.equal((JSON.parse(r.body) as { reason: string }).reason, 'method-not-allowed');
+  });
+
+  test('请求体不是合法 JSON → 400 + invalid-json（协议失败）', async () => {
+    const r = await call('/dsh-pet-7340/pet-model', 'POST', '{ 不是 json');
+    assert.equal(r.status, 400);
+    assert.equal((JSON.parse(r.body) as { reason: string }).reason, 'invalid-json');
+  });
+
+  test('缺 id → 200 + pet-required', async () => {
+    const r = await call('/dsh-pet-7340/pet-model', 'POST', JSON.stringify({ model: 'a.model3.json' }));
+    assert.equal(r.status, 200);
+    const parsed = JSON.parse(r.body) as { ok: boolean; reason: string };
+    assert.equal(parsed.ok, false);
+    assert.equal(parsed.reason, 'pet-required');
+  });
+
+  test('model 非字符串 → 200 + bad-request', async () => {
+    const r = await call('/dsh-pet-7340/pet-model', 'POST', JSON.stringify({ id: 'main', model: 42 }));
+    assert.equal(r.status, 200);
+    const body = JSON.parse(r.body) as { ok: boolean; reason: string };
+    assert.equal(body.ok, false);
+    assert.equal(body.reason, 'bad-request');
+  });
+});
+
 describe('/work-status —— 外部写入工作状态', () => {
   type StateBody = { sections: { workStatus: { data: { state: string | null; task: string | null } } } };
   const work = async () => JSON.parse((await call('/dsh-pet-7340/state')).body) as StateBody;

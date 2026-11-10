@@ -14,6 +14,7 @@ export {
   displayMenuBranch,
   isNoMirrorAnimation,
   isSleepAllowedAction,
+  modelMenuBranch,
   readMenuItems,
   rendererMenuBranch,
 } from './menu/tree.ts';

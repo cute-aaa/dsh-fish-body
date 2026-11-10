@@ -20,6 +20,8 @@ export interface RendererCfg {
   readonly assetRoot?: string;
   /** 动画池。 */
   readonly animations: Animations;
+  /** 皮肤/模型选择（layered 皮肤 id / live2d `.model3.json` 相对路径）；缺省取素材根下第一个。 */
+  readonly model?: string;
 }
 
 /**

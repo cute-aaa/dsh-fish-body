@@ -25,6 +25,7 @@ import {
   buildMoreBranch,
   displayMenuBranch,
   memeThumbUrl,
+  modelMenuBranch,
   mountContextMenu,
   rendererMenuBranch,
   type MenuNode,
@@ -105,6 +106,27 @@ export function createCardEntry(rt: CardEntryRuntime) {
     // 右键菜单与对话弹窗当前的句柄，卸载或重开前清理。对话弹窗还要按住说话遥控开录/收尾。
     const menuRef = useRef<{ close: () => void } | null>(null);
     const chatRef = useRef<ChatDialogMount | null>(null);
+    // live2d/layered 的可用模型清单（相对皮肤目录路径）：右键「模型」子菜单用它，挂载时拉一次。
+    const modelsRef = useRef<string[]>([]);
+
+    // live2d/layered 皮肤目录的模型清单：只在需要时拉一次，供右键「模型」子菜单枚举。
+    useEffect(() => {
+      const cfg = cfgRef.current;
+      if (cfg.renderer !== 'live2d' && cfg.renderer !== 'layered') return;
+      let alive = true;
+      void fetch(ROUTE_PATH + '/skin/' + encodeURIComponent(cfg.assetRoot ?? cfg.id) + '/models')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((b: { models?: unknown } | null) => {
+          if (alive && b && Array.isArray(b.models)) {
+            modelsRef.current = b.models.filter((m): m is string => typeof m === 'string');
+          }
+        })
+        .catch(() => undefined);
+      return () => {
+        alive = false;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖只有渲染方式与素材根；变更即重拉一次
+    }, [cfgRef.current.renderer, cfgRef.current.assetRoot]);
 
     /** 把提示框摆到光标右下，放不下时翻边并夹回视口。
      *  直接写 DOM style：每次鼠标移动都走 React 状态会让整个 PetCard 重渲染。
@@ -352,6 +374,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
       const sleepItem: MenuNode = asleep
         ? { label: '起来', action: 'wake', hint: SLEEP_HOTKEY_HINT }
         : { label: '睡觉', action: 'sleep', hint: SLEEP_HOTKEY_HINT };
+      // 模型子菜单：live2d/layered 皮肤目录下多模型时出现（modelsRef 在挂载时拉取）。
+      const modelBranch = modelMenuBranch(modelsRef.current, cfgRef.current.model);
       // 顺序与桌面端同一排法：余额 / 待办 / 碎碎念 / 对话 / 配图 / 睡觉 → 动作树 → 显示位置 / 回到初始位置。
       // 桌面专属的两项（打开软件、重载配置）在网页端没有对应动作，不出现。
       const tools: MenuNode[] = [
@@ -363,6 +387,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
         ...(canSleep ? [sleepItem] : []),
         // 渲染方式：三种后端互斥，切完由宿主回成品聚合 → 容器重渲染 → stage 即时重建。
         rendererMenuBranch(),
+        // 模型：live2d/layered 皮肤目录下多模型时列出，切完同样回成品聚合重建。
+        ...(modelBranch !== null ? [modelBranch] : []),
       ];
       const tail: MenuNode[] = [
         // 显示位置子菜单与桌面端同一份；改成不含 web 的值后本宠物会从页面消失。
