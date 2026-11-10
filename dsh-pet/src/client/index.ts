@@ -15,6 +15,8 @@ declare const window: {
 };
 
 window.__ModuleLoader__.load({
-  id: 'dsh-pet',
+  // 必须与 package.json 的 name 以及配置树里该行的 entry id 一致：
+  // 宿主按「包名/client.js」加载，模块自报的 id 不匹配就会 could not load。
+  id: 'dsh-fish-body',
   factory: makeFactory(),
 });
