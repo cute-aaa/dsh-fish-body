@@ -1,5 +1,6 @@
 /**
- * 宠物卡的 DOM 结构：根节点、舞台与两路视频、命中区、气泡槽、悬浮提示。
+ * 宠物卡的 DOM 结构：根节点、舞台（渲染后端挂载点）与命中区、气泡槽、悬浮提示。
+ * 舞台本身不再持有视频元素：渲染后端（webm / layered / live2d）挂载后自行注入视觉元素。
  * 不持有状态、不做判定：尺寸变量、定位样式与事件回调都由 PetCard 当帧传入，这里只按顺序拼装。
  * 依赖注入的 h、pet/motion/geometry 的命中区样式与 shared/tooltip 的类名。
  * 不变量：命中区在 stage 内，气泡与提示是根节点的直接子节点——三者的定位都相对根节点。
@@ -16,12 +17,8 @@ import type { Corner } from '../../../shared/types.ts';
 export interface CardViewProps {
   /** 根节点：定位与尺寸变量的宿主。 */
   rootRef: ReactNS.MutableRefObject<HTMLDivElement | null>;
-  /** 舞台：位移恒定，脚底垫高不随拖拽取消。 */
+  /** 舞台：位移恒定，脚底垫高不随拖拽取消；也是渲染后端的挂载点。 */
   stageRef: ReactNS.MutableRefObject<HTMLDivElement | null>;
-  /** 前台视频（A/B 双缓冲之一）。 */
-  videoARef: ReactNS.MutableRefObject<HTMLVideoElement | null>;
-  /** 后台视频。 */
-  videoBRef: ReactNS.MutableRefObject<HTMLVideoElement | null>;
   /** 悬浮提示：位置由 placeTip 直接写 style。 */
   tipRef: ReactNS.MutableRefObject<HTMLDivElement | null>;
   /** 角落定位，写进 data-corner 由 CSS 取值。 */
@@ -64,11 +61,7 @@ export interface CardViewProps {
   onContextMenu(e: ReactNS.MouseEvent<HTMLDivElement>): void;
 }
 
-/** 两路视频的共同属性：静音、内联播放并自动播放。 */
-const VIDEO_PROPS = { muted: true, playsInline: true, autoPlay: true };
-
-/**
- * 制造宠物卡视图。
+/** 制造宠物卡视图。
  *
  * @param rt - 注入的 react 能力。
  * @returns 只做拼装的纯展示组件。
@@ -101,8 +94,6 @@ export function makeCardView(rt: { h: typeof jsx }) {
           className: 'dsh-pet-stage',
           style: props.stageStyle,
           children: [
-            h('video', Object.assign({}, VIDEO_PROPS, { ref: props.videoARef, className: 'dsh-pet-video is-front' })),
-            h('video', Object.assign({}, VIDEO_PROPS, { ref: props.videoBRef, className: 'dsh-pet-video' })),
             h('div', {
               className: 'dsh-pet-hit',
               style: PET_HIT_STYLE,

@@ -6,8 +6,8 @@
  * @module dsh-pet/src/client/settings/pet-card-parts
  */
 import type { ChangeEvent } from 'react';
-import type { Corner, Pet, PetDisplay } from '../../shared/types.ts';
-import { PET_DISPLAYS } from '../../shared/config.ts';
+import type { Corner, Pet, PetDisplay, RendererKind } from '../../shared/types.ts';
+import { PET_DISPLAYS, RENDERERS } from '../../shared/config.ts';
 import { SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit, numberInputProps } from './ui.ts';
@@ -146,6 +146,17 @@ export function makePetIdentityFields(rt: SettingsRuntime) {
           onChange: (id: string) => onChange({ display: id as PetDisplay }),
         }),
         t('displayHint'),
+      ),
+      field(
+        t('rendererLabel'),
+        h(Select, {
+          label: t('rendererLabel'),
+          value: pet.renderer ?? 'webm',
+          options: RENDERERS.map((r) => ({ id: r, label: t('renderer.' + r) })),
+          disabled: busy,
+          onChange: (id: string) => onChange({ renderer: id as RendererKind }),
+        }),
+        t('rendererHint'),
       ),
     ];
   };

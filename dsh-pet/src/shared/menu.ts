@@ -15,6 +15,7 @@ export {
   isNoMirrorAnimation,
   isSleepAllowedAction,
   readMenuItems,
+  rendererMenuBranch,
 } from './menu/tree.ts';
 export { buildMemeBranch, groupMemes, memeThumbUrl } from './menu/memes.ts';
 export { MENU_CSS } from './menu/css.ts';

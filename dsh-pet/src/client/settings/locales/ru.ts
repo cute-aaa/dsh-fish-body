@@ -87,6 +87,12 @@ export const ru: Record<Key, string> = {
   'display.desktop': 'Только рабочий стол',
   'display.both': 'Везде',
   'display.none': 'Нигде',
+  rendererLabel: 'Рендер',
+  rendererHint:
+    'webm = видеоанимация / layered = слоёный PNG (скины surfcore) / live2d = модель Cubism. Три типа взаимоисключающие; смена сразу пересобирает сцену.',
+  'renderer.webm': 'webm (видео)',
+  'renderer.layered': 'layered (PNG)',
+  'renderer.live2d': 'live2d (Cubism)',
   cornerLabel: 'Позиция',
   'corner.top-left': 'Верхний левый',
   'corner.top-right': 'Верхний правый',

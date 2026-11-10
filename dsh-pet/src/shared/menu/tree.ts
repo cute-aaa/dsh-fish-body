@@ -6,13 +6,22 @@
  * @module dsh-pet/src/shared/menu/tree
  */
 import { DISPLAY_HOTKEY_HINTS, DISPLAY_ORDER } from '../display-hotkey.ts';
-import { type Animations, type Category, type PetDisplay } from '../types.ts';
+import { RENDERERS } from '../config.ts';
+import { type Animations, type Category, type PetDisplay, type RendererKind } from '../types.ts';
 import type { MenuBranch, MenuLeaf, MenuMoreItem, MenuNode } from './types.ts';
 
 /** 睡着时仍然放行的菜单动作：维护类、「叫醒它」本身，以及第三方菜单项。
  *  第三方要做什么由它自己决定——真去驱动宠物时会带占用锁调接口，宿主闸门在那一层再判
  *  （锁优先）。在渲染端先拦掉，等于让「更多」里的第三方入口在睡觉时整体失效。 */
-const SLEEP_ALLOWED_ACTIONS: readonly string[] = ['sleep', 'wake', 'home', 'set-display', 'reload', 'third-party'];
+const SLEEP_ALLOWED_ACTIONS: readonly string[] = [
+  'sleep',
+  'wake',
+  'home',
+  'set-display',
+  'set-renderer',
+  'reload',
+  'third-party',
+];
 
 /** 该菜单动作在睡着时是否放行（两端共用：对话弹窗、待办面板、动作点播都是渲染端行为，宿主闸门拦不到）。 */
 export const isSleepAllowedAction = (action: string | undefined): boolean =>
@@ -37,6 +46,23 @@ export const displayMenuBranch = (): MenuBranch => ({
     action: 'set-display',
     display,
     hint: DISPLAY_HOTKEY_HINTS[index],
+  })),
+});
+
+/** 三种渲染方式的菜单文案。 */
+const RENDERER_LABELS: Readonly<Record<RendererKind, string>> = {
+  webm: 'webm（视频）',
+  layered: 'layered（分层 PNG）',
+  live2d: 'live2d（Cubism）',
+};
+
+/** 「渲染方式」子菜单：三种互斥后端，点击即切换（与 pets[].renderer 同一套取值）。 */
+export const rendererMenuBranch = (): MenuBranch => ({
+  label: '渲染方式',
+  children: RENDERERS.map((renderer): MenuLeaf => ({
+    label: RENDERER_LABELS[renderer],
+    action: 'set-renderer',
+    renderer,
   })),
 });
 

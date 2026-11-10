@@ -85,7 +85,7 @@ export function createCardDrag(rt: CardDragRuntime) {
         stopAutonomy: () => motion.stopMove(),
         stopFlight: () => motion.flight.stop(),
         startFlight: motion.startThrow,
-        isFrozen: () => live.current.ownAnim.isFrozen(),
+        isFrozen: () => live.current.ownAnim?.isFrozen() ?? false,
         releaseLock: () => live.current.releaseLock(),
         grabVelocity: () => (motion.flight.isFlying() ? motion.flight.velocity() : null),
         playClickSound: () => playClickSound(),

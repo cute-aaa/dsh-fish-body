@@ -170,7 +170,7 @@ export function createCardMotion(rt: CardMotionRuntime) {
       commitFinal: setCustomPos,
       onLanding: (impactVy) => {
         // 落地 Q 弹压的是新首帧：等前台视频就位后再压。
-        const frontEl = live.current.ownAnim.frontVideo();
+        const frontEl = live.current.frontVideo();
         if (frontEl) live.current.squash.start(frontEl, landingSquash(impactVy));
       },
       onImpact: (impact) => {

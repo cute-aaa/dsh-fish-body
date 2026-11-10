@@ -86,6 +86,12 @@ export const de: Record<Key, string> = {
   'display.desktop': 'Nur Desktop',
   'display.both': 'Beides',
   'display.none': 'Nichts',
+  rendererLabel: 'Renderer',
+  rendererHint:
+    'webm = Videoanimation / layered = Ebenen-PNG (surfcore-Skins) / live2d = Cubism-Modell. Die drei Arten schließen sich aus; ein Wechsel baut die Bühne sofort neu auf.',
+  'renderer.webm': 'webm (Video)',
+  'renderer.layered': 'layered (PNG)',
+  'renderer.live2d': 'live2d (Cubism)',
   cornerLabel: 'Position',
   'corner.top-left': 'Oben links',
   'corner.top-right': 'Oben rechts',

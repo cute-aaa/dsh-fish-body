@@ -119,7 +119,7 @@ export function createCueEffects(rt: CueEffectsRuntime) {
         prevWorkStateRef.current = null;
         // 回空闲时把循环中的工作动画改成「播完即停」：否则 ended 永不触发，动画链拿不到
         // 推进信号，宠物会一直卡在工作动画上。
-        if (poolIncludes(hub.anims().events?.workStatus ?? [], card.animRef.current)) hub.ownAnim.stopLoopingFront();
+        if (poolIncludes(hub.anims().events?.workStatus ?? [], card.animRef.current)) hub.ownAnim.stopLooping();
         hub.bubbles.resetWork();
         return;
       }
@@ -185,7 +185,6 @@ export function createCueEffects(rt: CueEffectsRuntime) {
       // 不走菜单动作——裸地址没有文字类、移动类这些属性。
       if (animCue.url !== undefined) {
         hub.stopMotion();
-        hub.ownAnim.setCueUrl(animCue.url);
         card.actions.setOnce(true);
         card.actions.bumpSeq(); // 同一地址连播两次时状态不变，递增序号强制再走一遍换源。
         card.actions.setAnim(animCue.url);

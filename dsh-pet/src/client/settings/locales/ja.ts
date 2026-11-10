@@ -86,6 +86,12 @@ export const ja: Record<Key, string> = {
   'display.desktop': 'デスクトップのみ',
   'display.both': '両方に表示',
   'display.none': 'どちらも非表示',
+  rendererLabel: '描画方式',
+  rendererHint:
+    'webm=動画アニメ / layered=レイヤー PNG（surfcore スキン）/ live2d=Cubism モデル。素材は排他で、切り替えると舞台を即座に再構築します。',
+  'renderer.webm': 'webm（動画）',
+  'renderer.layered': 'layered（レイヤー PNG）',
+  'renderer.live2d': 'live2d（Cubism）',
   cornerLabel: '位置',
   'corner.top-left': '左上',
   'corner.top-right': '右上',

@@ -86,6 +86,23 @@ async function switchDisplay(deps: MenuActionDeps, display: string): Promise<voi
   }
 }
 
+/** 渲染方式：写配置后宿主回成品聚合，交给容器重渲染（stage 即时重建）。 */
+async function switchRenderer(deps: MenuActionDeps, renderer: string): Promise<void> {
+  try {
+    const response = await fetch(ROUTE_PATH + '/pet-renderer', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: deps.petId, renderer }),
+    });
+    if (!response.ok) throw new Error('pet-renderer HTTP ' + response.status);
+    const body = (await response.json()) as Record<string, unknown>;
+    if (body.ok === false) throw new Error('pet-renderer 被拒：' + String(body.reason ?? ''));
+    deps.applyMerged(body as Record<string, Record<string, unknown>>);
+  } catch (error) {
+    deps.warn('[dsh-pet] 渲染方式切换失败 ' + (error instanceof Error ? error.message : String(error)));
+  }
+}
+
 /**
  * 造菜单派发器。
  *
@@ -167,6 +184,13 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       if (!display) return;
       console.info('[dsh-pet] 菜单切换显示位置 pet=' + petId + ' display=' + display);
       void switchDisplay(deps, display);
+      return;
+    }
+    if (leaf.action === 'set-renderer') {
+      const renderer = leaf.renderer;
+      if (!renderer) return;
+      console.info('[dsh-pet] 菜单切换渲染方式 pet=' + petId + ' renderer=' + renderer);
+      void switchRenderer(deps, renderer);
       return;
     }
     if (leaf.action === 'home') {

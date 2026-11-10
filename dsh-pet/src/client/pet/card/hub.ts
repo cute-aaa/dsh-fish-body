@@ -6,7 +6,7 @@
  * @module dsh-pet/src/client/pet/card/hub
  */
 import type { CardStateApi } from './state.ts';
-import type { OwnAnimation } from '../animation/animation.ts';
+import type { Renderer } from '../render/types.ts';
 import type { BubbleSlots } from './bubble-slots.ts';
 import type { PositionFollow } from '../motion/position-follow.ts';
 import type { Animations } from '../../../shared/types.ts';
@@ -26,8 +26,8 @@ export interface CardHub {
   anims(): Animations;
   /** 卡片状态与写入口。 */
   card: CardStateApi;
-  /** 动画链：换源、冻结、回执都在这里。 */
-  ownAnim: OwnAnimation;
+  /** 渲染实例：换源、冻结、回执都在这里。 */
+  ownAnim: Renderer;
   /** 三种气泡的单槽。 */
   bubbles: BubbleSlots;
   /** 位置跟随的弹簧。 */

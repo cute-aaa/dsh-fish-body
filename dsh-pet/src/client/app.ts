@@ -6,6 +6,7 @@
  * @module dsh-pet/src/client/app
  */
 import { makePetUI } from './pet.ts';
+import { registerRenderers } from './pet/render/index.ts';
 import { readPose } from './pose.ts';
 import { readProgress } from './progress.ts';
 import { takeMenuEvents } from './menu-service.ts';
@@ -75,6 +76,8 @@ export function makeFactory(): (require: (mod: string) => any) => any {
       // 设置页文案字典。
       ctx.effect(() => ctx.locale.register(NS, dicts), 'dsh-pet: dictionaries');
       const t = ctx.locale.bind(NS);
+      // 渲染后端注册表：webm + layered/live2d 占位；宠物卡挂载时按 pets[].renderer 选一个。
+      ctx.effect(() => registerRenderers(), 'dsh-pet: renderers');
       // 侧栏对话的文案独立成命名空间：只覆盖对话面板，不与设置页字典混在一起。
       ctx.effect(() => ctx.locale.register(CHAT_NS, chatDicts), 'dsh-pet: chat dictionaries');
       const chatT = ctx.locale.bind(CHAT_NS);

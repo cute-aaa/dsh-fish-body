@@ -5,7 +5,7 @@
  * 必须始终成立：叶子带 action 或 anim（至少其一），分支必须带 children，二者不可兼得。
  * @module dsh-pet/src/shared/menu/types
  */
-import { type PetDisplay } from '../types.ts';
+import { type PetDisplay, type RendererKind } from '../types.ts';
 
 /** 叶子：可点击的菜单项。 */
 export interface MenuLeaf {
@@ -25,11 +25,14 @@ export interface MenuLeaf {
     | 'home'
     | 'reload'
     | 'set-display'
+    | 'set-renderer'
     | 'sleep'
     | 'wake'
     | 'third-party';
   /** set-display 的目标显示位置（与设置页的下拉框同一套取值） */
   display?: PetDisplay;
+  /** set-renderer 的目标渲染方式（与 pets[].renderer 同一套取值） */
+  renderer?: RendererKind;
   /** third-party：注册它的 owner（身份键，只用于回传，不显示）；同一个 owner 的项收在同一分组下，
    *  只有一项时跳过这层直接平铺。 */
   owner?: string;

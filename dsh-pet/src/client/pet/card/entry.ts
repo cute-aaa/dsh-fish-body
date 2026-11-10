@@ -26,6 +26,7 @@ import {
   displayMenuBranch,
   memeThumbUrl,
   mountContextMenu,
+  rendererMenuBranch,
   type MenuNode,
 } from '../../../shared/menu.ts';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
@@ -360,6 +361,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
         { label: '对话', action: 'chat', hint: CHAT_HOTKEY_HINT },
         ...(memes ? [memes] : []),
         ...(canSleep ? [sleepItem] : []),
+        // 渲染方式：三种后端互斥，切完由宿主回成品聚合 → 容器重渲染 → stage 即时重建。
+        rendererMenuBranch(),
       ];
       const tail: MenuNode[] = [
         // 显示位置子菜单与桌面端同一份；改成不含 web 的值后本宠物会从页面消失。

@@ -93,8 +93,6 @@ export function createCardRuntime(rt: PetRuntime) {
     // DOM 节点：视图挂载后才有值，驱动全部经取值函数读。
     const rootRef = useRef<HTMLDivElement | null>(null);
     const stageRef = useRef<HTMLDivElement | null>(null);
-    const videoARef = useRef<HTMLVideoElement | null>(null);
-    const videoBRef = useRef<HTMLVideoElement | null>(null);
     const tipRef = useRef<HTMLDivElement | null>(null);
 
     // 回执在 playback-report.ts：地址、请求体与失败日志都在那里，这里只要一个函数。
@@ -142,8 +140,7 @@ export function createCardRuntime(rt: PetRuntime) {
       petId: cfg.id,
       report: reportPlayback,
       setCuePlayback: actions.setCuePlayback,
-      videoA: () => videoARef.current,
-      videoB: () => videoBRef.current,
+      stage: () => stageRef.current,
       workStatusRef,
     });
 
@@ -304,7 +301,7 @@ export function createCardRuntime(rt: PetRuntime) {
         // 真睡着（循环中或醒来过渡）：点一下 = 叫醒。挤压与音效照常，
         // 但不播点击回应动画——这一下的产物是「起来」。
         if (phase !== null && phase !== 'start') {
-          const front = ownAnim.frontVideo();
+          const front = liveRef.current.frontVideo();
           if (front) liveRef.current.squash.start(front);
           playClickSound();
           void postAction(ROUTE_PATH + '/wake?pet=' + encodeURIComponent(cfg.id));
@@ -327,8 +324,6 @@ export function createCardRuntime(rt: PetRuntime) {
       stageStyle,
       tipOn,
       tipRef,
-      videoARef,
-      videoBRef,
     };
   };
 }

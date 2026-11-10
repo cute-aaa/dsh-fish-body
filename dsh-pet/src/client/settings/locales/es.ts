@@ -88,6 +88,12 @@ export const es: Record<Key, string> = {
   'display.desktop': 'Solo escritorio',
   'display.both': 'Ambos',
   'display.none': 'Ninguno',
+  rendererLabel: 'Renderer',
+  rendererHint:
+    'webm = animación de vídeo / layered = PNG por capas (skins surfcore) / live2d = modelo Cubism. Las tres clases se excluyen entre sí; cambiar reconstruye el escenario al instante.',
+  'renderer.webm': 'webm (vídeo)',
+  'renderer.layered': 'layered (PNG)',
+  'renderer.live2d': 'live2d (Cubism)',
   cornerLabel: 'Posición',
   'corner.top-left': 'Arriba a la izquierda',
   'corner.top-right': 'Arriba a la derecha',

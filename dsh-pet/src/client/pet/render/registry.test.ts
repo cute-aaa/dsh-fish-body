@@ -16,6 +16,12 @@ function fakeRenderer(kind: string): Renderer {
     destroy: () => {},
     playAction: () => {},
     setIdle: () => {},
+    setEndedHandler: () => {},
+    stopLooping: () => {},
+    setFrozen: () => null,
+    isFrozen: () => false,
+    frontElement: () => null,
+    progress: () => ({ playbackId: null, anim: '', currentTime: 0, duration: 0, paused: true, buffering: false }),
     ready: false,
   };
 }

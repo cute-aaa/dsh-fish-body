@@ -4,7 +4,7 @@
  * 不负责状态：这里全是驱动实例与调用入口，响应式状态归 card-state。
  * @module dsh-pet/src/client/pet/card/live
  */
-import type { OwnAnimation } from '../animation/animation.ts';
+import type { Renderer } from '../render/types.ts';
 import type { AnimationFlow } from './animation-flow.ts';
 import type { Drag } from '../motion/drag.ts';
 import type { Flight } from '../motion/flight.ts';
@@ -14,8 +14,10 @@ import type { Walk } from '../motion/walk.ts';
 
 /** 装配根迟绑的驱动与服务：先创建的一方经它回调后创建的一方。 */
 export interface CardLive {
-  /** 动画链：先于运动驱动创建，回调里要读走位、拖拽与挤压。 */
-  ownAnim: OwnAnimation;
+  /** 渲染实例：先于运动驱动创建，回调里要读走位、拖拽与挤压；`null` = 尚未挂载。 */
+  ownAnim: Renderer | null;
+  /** 当前前台视频元素（Q 弹 / 走位读它）；非视频后端（layered/live2d 占位）返回 null。 */
+  frontVideo: () => HTMLVideoElement | null;
   /** 走位。 */
   walk: Walk;
   /** 抛掷飞行。 */

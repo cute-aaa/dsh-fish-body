@@ -44,6 +44,7 @@ export function draftPet(template: Pet, id: string): Pet {
     workStatusEnabled: template.workStatusEnabled,
     fixedEnabled: template.fixedEnabled,
     display: template.display,
+    renderer: template.renderer ?? 'webm',
     position: { ...template.position },
   } as Pet;
 }

@@ -768,6 +768,38 @@ describe('/pet-display —— 业务失败 200 + 实体，协议失败用真实�
   });
 });
 
+describe('/pet-renderer —— 业务失败 200 + 实体，协议失败用真实状态码', () => {
+  test('GET → 405 + method-not-allowed（方法错是协议失败）', async () => {
+    const r = await call('/dsh-pet-7340/pet-renderer');
+    assert.equal(r.status, 405);
+    assert.equal((JSON.parse(r.body) as { reason: string }).reason, 'method-not-allowed');
+  });
+
+  test('请求体不是合法 JSON → 400 + invalid-json（协议失败）', async () => {
+    const r = await call('/dsh-pet-7340/pet-renderer', 'POST', '{ 不是 json');
+    assert.equal(r.status, 400);
+    assert.equal((JSON.parse(r.body) as { reason: string }).reason, 'invalid-json');
+  });
+
+  test('缺 id → 200 + pet-required', async () => {
+    for (const body of [{ renderer: 'layered' }, { id: '   ', renderer: 'layered' }, { renderer: 'layered' }]) {
+      const r = await call('/dsh-pet-7340/pet-renderer', 'POST', JSON.stringify(body));
+      assert.equal(r.status, 200, JSON.stringify(body));
+      const parsed = JSON.parse(r.body) as { ok: boolean; reason: string };
+      assert.equal(parsed.ok, false);
+      assert.equal(parsed.reason, 'pet-required');
+    }
+  });
+
+  test('renderer 非法 → 200 + bad-request（白名单 webm/layered/live2d）', async () => {
+    const r = await call('/dsh-pet-7340/pet-renderer', 'POST', JSON.stringify({ id: 'main', renderer: 'nope' }));
+    assert.equal(r.status, 200);
+    const body = JSON.parse(r.body) as { ok: boolean; reason: string };
+    assert.equal(body.ok, false);
+    assert.equal(body.reason, 'bad-request');
+  });
+});
+
 describe('/work-status —— 外部写入工作状态', () => {
   type StateBody = { sections: { workStatus: { data: { state: string | null; task: string | null } } } };
   const work = async () => JSON.parse((await call('/dsh-pet-7340/state')).body) as StateBody;
