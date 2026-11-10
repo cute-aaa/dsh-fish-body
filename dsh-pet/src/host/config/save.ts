@@ -8,7 +8,7 @@
 import { defaultLog } from '../log-file.ts';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CORNER_SET, isValidPetId, PET_DISPLAY_SET } from './constants.ts';
+import { CORNER_SET, isValidPetId, PET_DISPLAY_SET, RENDERER_SET } from './constants.ts';
 import { isValidSizePercent } from '../../shared/pet-size.ts';
 import type { ConfigPaths } from './constants.ts';
 import { fontValid, modelSelectionValid, physicsValid, topFieldValid } from './validate.ts';
@@ -60,6 +60,9 @@ export function saveUserConfig(
     if (fixedEnabled !== undefined && typeof fixedEnabled !== 'boolean') return null;
     const display = String(pp.display ?? '');
     if (!PET_DISPLAY_SET.has(display)) return null;
+    // 渲染后端（可选）：缺省按 webm；显式写了必须是白名单内的值，否则整包 400。
+    const renderer = String(pp.renderer ?? 'webm');
+    if (!RENDERER_SET.has(renderer)) return null;
     const pos = pp.position && typeof pp.position === 'object' ? (pp.position as Record<string, unknown>) : {};
     const corner = String(pos.corner ?? '');
     if (!CORNER_SET.has(corner)) return null;
@@ -82,6 +85,7 @@ export function saveUserConfig(
       workStatusEnabled,
       fixedEnabled,
       display,
+      renderer,
       position: { corner, marginX, marginY },
     };
     if (persona) pet.whisperPrompt = persona;

@@ -264,6 +264,9 @@
       // 设置页有同名勾选框。改动后刷新或重启生效。
       "fixedEnabled": false,
       "display": "both",
+      // 渲染后端（可选，缺省 webm）：webm=视频动画 / layered=分层 PNG（surfcore 皮肤）/ live2d=Cubism 模型。
+      // 三种素材互斥（会冲突），用户在桌宠右键菜单选择常态；缺省或非法都回落 webm。
+      "renderer": "webm",
       "position": {
         "corner": "top-right",
         "marginX": 24,

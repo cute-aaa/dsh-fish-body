@@ -38,6 +38,7 @@ const BASE = {
       workStatusEnabled: false,
       fixedEnabled: false,
       display: 'web',
+      renderer: 'webm',
       position: { corner: 'bottom-right', marginX: 40, marginY: 40 },
     },
   ],

@@ -5,7 +5,7 @@
  * 必须始终成立：只填缺省、不覆盖显式值；未知字段不透传。
  * @module dsh-pet/src/host/config/merge
  */
-import { CORNER_SET, GLOBAL_DEFAULT_KEYS, isValidPetId, PET_DISPLAY_SET, warnOnce } from './constants.ts';
+import { CORNER_SET, GLOBAL_DEFAULT_KEYS, isValidPetId, PET_DISPLAY_SET, RENDERER_SET, warnOnce } from './constants.ts';
 import { isValidSizePercent, SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
 import { topFieldValid } from './validate.ts';
 
@@ -166,6 +166,8 @@ function mergePet(
     workStatusEnabled: petBool(p.workStatusEnabled, base.workStatusEnabled, label, 'workStatusEnabled', id),
     fixedEnabled: petBool(p.fixedEnabled, base.fixedEnabled, label, 'fixedEnabled', id),
     display: petEnum(p.display, PET_DISPLAY_SET, base.display, label, 'display', id),
+    // 渲染后端（可选）：缺省 / 非法都取默认 webm（base.renderer 缺失时兜 webm，兼容旧配置）。
+    renderer: petEnum(p.renderer, RENDERER_SET, base.renderer ?? 'webm', label, 'renderer', id),
     position: {
       corner: petEnum(ownPos.corner, CORNER_SET, basePos.corner, label, 'position.corner', id),
       marginX: petNumber(ownPos.marginX, basePos.marginX, -Infinity, label, 'position.marginX', id),

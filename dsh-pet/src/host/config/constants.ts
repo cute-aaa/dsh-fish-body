@@ -6,7 +6,7 @@
  * @module dsh-pet/src/host/config/constants
  */
 import { FONT_PRESETS } from '../../shared/fonts.ts';
-import { PET_DISPLAYS } from '../../shared/config.ts';
+import { PET_DISPLAYS, RENDERERS } from '../../shared/config.ts';
 import { defaultLog } from '../log-file.ts';
 
 /** 位置角落白名单 */
@@ -17,6 +17,9 @@ export const CORNER_SET: ReadonlySet<string> = new Set(CORNERS);
 /** display 白名单（导出：宿主路由 POST /pet-display 写单只宠物的显示位置时复用同一份枚举）。
  *  唯一来源是 shared/config 的 PET_DISPLAYS，读写两侧必须同一份规则，不在路由里另写一个 Set。 */
 export const PET_DISPLAY_SET: ReadonlySet<string> = new Set(PET_DISPLAYS);
+
+/** 渲染后端白名单（唯一来源 shared/config 的 RENDERERS；读写两侧同一份规则）。 */
+export const RENDERER_SET: ReadonlySet<string> = new Set(RENDERERS);
 
 /** font.family 白名单：唯一来源是 shared/fonts 的 FONT_PRESETS，宿主只取 id 做校验。 */
 export const FONT_FAMILY_SET: ReadonlySet<string> = new Set(FONT_PRESETS.map((preset) => preset.id));

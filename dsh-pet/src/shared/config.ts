@@ -5,10 +5,22 @@
  * 条目级字段必须吹进每只实例：多实例共享所属条目的同一份值。
  * @module dsh-pet/src/shared/config
  */
-import type { Animations, FontConfig, ModelSelection, Pet, PetDisplay, PhysicsParams, Weights } from './types.ts';
+import type {
+  Animations,
+  FontConfig,
+  ModelSelection,
+  Pet,
+  PetDisplay,
+  PhysicsParams,
+  RendererKind,
+  Weights,
+} from './types.ts';
 
 /** 显示位置白名单。 */
 export const PET_DISPLAYS: PetDisplay[] = ['web', 'desktop', 'both', 'none'];
+
+/** 渲染后端白名单（与 shared/types 的 RendererKind 一一对应，改一处必须同步另一处）。 */
+export const RENDERERS: RendererKind[] = ['webm', 'layered', 'live2d'];
 
 /** 该宠物是否参与浏览器半侧渲染。 */
 export const isWebVisible = (display: PetDisplay): boolean => display === 'web' || display === 'both';

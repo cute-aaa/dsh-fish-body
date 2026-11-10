@@ -19,6 +19,10 @@ export interface Rect {
 /** 显示位置：决定宠物在浏览器半侧与桌面中的可见性。 */
 export type PetDisplay = 'web' | 'desktop' | 'both' | 'none';
 
+/** 渲染后端：webm（视频）/ layered（分层 PNG canvas）/ live2d（Cubism 模型）。
+ *  三种素材互斥（会冲突），由用户在桌宠右键菜单选择常态。 */
+export type RendererKind = 'webm' | 'layered' | 'live2d';
+
 /** 移动动作：动作名 + 可选覆盖参数（未写字段取 moves.default）。 */
 export interface MoveSpec {
   name: string;
@@ -109,6 +113,8 @@ export interface Pet {
   /** 显示位置（必填）：缺失即配置错误，代码不做兜底 */
   display: PetDisplay;
   position: { corner: Corner; marginX: number; marginY: number };
+  /** 渲染后端（可选，缺省 webm）：决定用哪套素材渲染这只宠物。三种互斥，右键切换。 */
+  renderer?: RendererKind;
   /** 实例级人设（pets[].whisperPrompt）：碎碎念与对话共用的系统提示词正文。
    *  写了就取代所属条目顶层那一份（替换而非拼接），没写或空串则回落条目——回落发生在宿主半侧，不是错误。
    *  只写正文：名字与时间背景由宿主无条件追加，不要在这里重复写。 */
