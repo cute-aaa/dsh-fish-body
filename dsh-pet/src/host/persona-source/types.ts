@@ -7,9 +7,9 @@
 /** 内置人格来源 id；同步器默认用它，第三方注册别的 id 即可扩展。 */
 export const BUILTIN_PERSONA_SOURCE_ID = 'fish-soul';
 
-/** 投影结果：成功给正文，失败给结构化原因（同步器据此留痕，不伪造文案）。 */
+/** 投影结果：成功给正文与角色名（导入语义，名字一并覆盖），失败给结构化原因。 */
 export type PersonaResolution =
-  { ok: true; text: string } | { ok: false; reason: 'not-found' | 'invalid-card'; message?: string };
+  { ok: true; text: string; name: string } | { ok: false; reason: 'not-found' | 'invalid-card'; message?: string };
 
 /** 一个人格来源：读取并投影某个项目的人设卡。 */
 export interface PersonaSource {

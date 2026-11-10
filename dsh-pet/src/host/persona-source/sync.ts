@@ -1,5 +1,5 @@
 /**
- * 人设同步器：把人格来源投影出的正文写进主配置第一只宠物的 whisperPrompt，并监听卡片文件变化。
+ * 人设同步器：把人格来源投影出的正文与角色名写进主配置第一只宠物的 whisperPrompt/name，并监听卡片文件变化。
  * 不读 LLM、不碰渲染；失败只留痕，绝不写空人设覆盖既有值。
  * 写盘后不重启 Helper：碎碎念与对话每次生成都现读配置，改 whisperPrompt 无需重启。
  * 必须始终成立：只有 resolve 成功才写盘，not-found / invalid-card 一律跳过。
@@ -28,16 +28,16 @@ export interface PersonaSyncInput {
 }
 
 /**
- * 把投影正文写进主配置第一只宠物的 whisperPrompt。
+ * 把投影正文与角色名写进主配置第一只宠物的 whisperPrompt / name（导入语义，名字一并覆盖）。
  *
  * 走与设置页保存同一条白名单重建链路（saveUserConfig），非白名单字段从磁盘原样带回；
- * 没变化或写不了就不动文件。
+ * 没变化或写不了就不动文件。名字只在卡里非空时覆盖——空名不覆盖既有显示名。
  * @internal 导出供测试；生产只经 createPersonaSync 调用。
  */
 export async function applyPersona(
   configPaths: ConfigPaths,
   userConfigPath: string,
-  text: string,
+  persona: { text: string; name: string },
   sourceId: string,
 ): Promise<void> {
   const merged = readAllConfig(configPaths);
@@ -47,9 +47,13 @@ export async function applyPersona(
     defaultLog('warn', 'dsh-pet: 人设同步跳过：主配置没有宠物');
     return;
   }
-  const current = typeof mainPets[0].whisperPrompt === 'string' ? mainPets[0].whisperPrompt : '';
-  if (current === text) return;
-  const pets = mainPets.map((pet, index) => (index === 0 ? { ...pet, whisperPrompt: text } : pet));
+  const currentText = typeof mainPets[0].whisperPrompt === 'string' ? mainPets[0].whisperPrompt : '';
+  const currentName = typeof mainPets[0].name === 'string' ? mainPets[0].name : '';
+  const nextName = persona.name !== '' ? persona.name : currentName;
+  if (currentText === persona.text && currentName === nextName) return;
+  const pets = mainPets.map((pet, index) =>
+    index === 0 ? { ...pet, whisperPrompt: persona.text, ...(nextName !== '' ? { name: nextName } : {}) } : pet,
+  );
   const existing = readUserConfig(configPaths);
   const clean = saveUserConfig({ pets }, existing);
   if (!clean) {
@@ -58,7 +62,10 @@ export async function applyPersona(
   }
   await mkdir(dirname(userConfigPath), { recursive: true });
   await writeFile(userConfigPath, JSON.stringify(clean, null, 2), 'utf8');
-  defaultLog('info', `dsh-pet: 人设已同步自 ${sourceId}，${text.length} 字`);
+  defaultLog(
+    'info',
+    `dsh-pet: 人设已同步自 ${sourceId}，${persona.text.length} 字${nextName ? '，角色名 ' + nextName : ''}`,
+  );
 }
 
 /**
@@ -87,7 +94,7 @@ export function createPersonaSync(input: PersonaSyncInput): { start(): void; sto
       );
       return;
     }
-    await applyPersona(configPaths, userConfigPath, resolution.text, sourceId);
+    await applyPersona(configPaths, userConfigPath, { text: resolution.text, name: resolution.name }, sourceId);
   };
 
   const schedule = (): void => {

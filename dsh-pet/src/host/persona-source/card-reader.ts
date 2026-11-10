@@ -162,5 +162,5 @@ export async function readCardFile(path: string): Promise<PersonaResolution> {
   if (!data) return { ok: false, reason: 'invalid-card', message: path };
   const text = projectCard(data);
   if (!text) return { ok: false, reason: 'invalid-card', message: '人设卡没有可用正文' };
-  return { ok: true, text };
+  return { ok: true, text, name: data.name };
 }

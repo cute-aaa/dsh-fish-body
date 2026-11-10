@@ -1,5 +1,5 @@
 /**
- * 人设同步写回单元测试：钉住「投影正文写进主配置第一只宠物的 whisperPrompt」与「没变化不重写」。
+ * 人设同步写回单元测试：钉住「投影正文与角色名写进主配置第一只宠物」与「没变化不重写」。
  * @module dsh-pet/src/host/persona-source/sync.test
  */
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -42,24 +42,37 @@ async function tempConfigPaths(): Promise<{ paths: ConfigPaths; userConfigPath: 
   return { paths, userConfigPath, dir };
 }
 
-test('applyPersona：投影正文写进第一只宠物的 whisperPrompt', async () => {
+test('applyPersona：投影正文与角色名写进第一只宠物（导入语义，名字覆盖）', async () => {
   const { paths, userConfigPath, dir } = await tempConfigPaths();
   try {
-    await applyPersona(paths, userConfigPath, '我是鱼生，一只蓝色大肥鱼。', 'fish-soul');
+    await applyPersona(paths, userConfigPath, { text: '我是鱼生，一只蓝色大肥鱼。', name: '鱼生' }, 'fish-soul');
     const saved = JSON.parse(await readFile(userConfigPath, 'utf8'));
     assert.equal(saved.pets[0].whisperPrompt, '我是鱼生，一只蓝色大肥鱼。');
+    assert.equal(saved.pets[0].name, '鱼生');
     assert.equal(saved.pets[0].id, 'main');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
 
-test('applyPersona：正文没变化时不重写用户文件', async () => {
+test('applyPersona：卡名空时不覆盖既有显示名', async () => {
   const { paths, userConfigPath, dir } = await tempConfigPaths();
   try {
-    await applyPersona(paths, userConfigPath, '我是鱼生。', 'fish-soul');
+    await applyPersona(paths, userConfigPath, { text: '我是鱼生。', name: '' }, 'fish-soul');
+    const saved = JSON.parse(await readFile(userConfigPath, 'utf8'));
+    assert.equal(saved.pets[0].name, '主宠');
+    assert.equal(saved.pets[0].whisperPrompt, '我是鱼生。');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('applyPersona：正文与名字都没变化时不重写用户文件', async () => {
+  const { paths, userConfigPath, dir } = await tempConfigPaths();
+  try {
+    await applyPersona(paths, userConfigPath, { text: '我是鱼生。', name: '鱼生' }, 'fish-soul');
     const before = await readFile(userConfigPath, 'utf8');
-    await applyPersona(paths, userConfigPath, '我是鱼生。', 'fish-soul');
+    await applyPersona(paths, userConfigPath, { text: '我是鱼生。', name: '鱼生' }, 'fish-soul');
     const after = await readFile(userConfigPath, 'utf8');
     assert.equal(before, after);
   } finally {

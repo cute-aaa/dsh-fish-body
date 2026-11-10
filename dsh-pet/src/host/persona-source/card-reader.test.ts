@@ -66,6 +66,7 @@ test('readCardFile：JSON 卡投影成功', async () => {
     await writeFile(path, JSON.stringify(CARD), 'utf8');
     const result = await readCardFile(path);
     assert.ok(result.ok);
+    assert.equal(result.name, '鱼生');
     assert.match(result.text, /鱼生是一只蓝色大肥鱼/);
   } finally {
     await rm(dir, { recursive: true, force: true });
