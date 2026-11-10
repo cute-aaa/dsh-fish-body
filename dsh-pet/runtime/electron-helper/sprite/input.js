@@ -403,6 +403,17 @@ Object.assign(PetSprite.prototype, {
     }
     // 点击音效与浏览器同位置：放在「按下已触发积分」的早退之后、点击动画判断之前
     playClickSound();
+    // layered：按命中区（头 / 尾 / 身）播装配手势——皮肤 manifest 声明 regions 才能分区；
+    // 没命中或没声明区域就继续走下面的 webm 点击池（名字由 backend 映射成装配动作）。
+    if (this.renderer === 'layered' && this.backend && typeof this.backend.gestureAt === 'function') {
+      const gesture = this.backend.gestureAt(e.clientX, e.clientY);
+      if (window.__dshPetDebug) window.__dshPetDebug.lastClick = { gesture: gesture || null, at: Date.now() };
+      if (gesture) {
+        this.pendingSquash = true;
+        this.playOnce(gesture);
+        return;
+      }
+    }
     if (!this.animations.clicks.length) return;
     this.pendingSquash = true; // 等新点击动画切到前台后 Q 弹（压新首帧，与浏览器一致）
     this.playOnce(S.pick(this.animations.clicks));

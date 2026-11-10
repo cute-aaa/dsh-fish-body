@@ -41,14 +41,51 @@ async function loadSkinImage(url) {
   });
 }
 
-/** 装配动作名 → 触发哪种装配（与浏览器端 actionKind 同一套词表）。 */
+/** 皮肤 manifest 声明的交互手势 → 装配动作：pat=摸头、poke=戳身、tailpet=摸尾。 */
+const GESTURE_KINDS = {
+  pat: 'jelly',
+  poke: 'hop',
+  tailpet: 'wag',
+  wag: 'wag',
+  tail: 'wag',
+  hop: 'hop',
+  jump: 'hop',
+  blink: 'blink',
+  talk: 'talk',
+  speak: 'talk',
+  mouth: 'mouth',
+  jelly: 'jelly',
+};
+
+/** webm 动画池的动作名 → 装配动作（按顺序匹配，先中先得）。 */
+const NAME_RULES = [
+  [/blink|眨/, 'blink'],
+  [/wag|tail|摇尾|甩尾/, 'wag'],
+  [/hop|jump|跳|跃/, 'hop'],
+  [/talk|say|speak|说|碎碎念|对话|聊/, 'talk'],
+  [/mouth|张嘴|嘴|吃/, 'mouth'],
+  [/pat|poke|摸|戳|点击|回应|click|tap/, 'jelly'],
+  [/余额|钱/, 'jelly'],
+  [/工作状态|busy|work/, 'blink'],
+];
+
+/**
+ * 动作名 → 装配动作。
+ *
+ * 先认皮肤清单里的手势 id（regions/menu 用的那套词汇），再回落到 webm 池的动作名关键词：
+ * layered 没有逐帧素材，动画池里的名字只有「说 / 摸 / 跳 / 余额」这几类语义值得翻译。
+ *
+ * @param {string} name - 动画名或手势 id。
+ * @returns {'blink'|'wag'|'hop'|'talk'|'mouth'|'jelly'|null} 装配动作；无对应时为 null（保持待机循环）。
+ */
 function actionKind(name) {
-  if (/blink|眨/.test(name)) return 'blink';
-  if (/wag|摇尾|tail/.test(name)) return 'wag';
-  if (/hop|跳/.test(name)) return 'hop';
-  if (/talk|说|speak/.test(name)) return 'talk';
-  if (/mouth|张嘴|嘴/.test(name)) return 'mouth';
-  if (/pat|poke|摸|戳|tailpet/.test(name)) return 'jelly';
+  const key = String(name || '')
+    .trim()
+    .toLowerCase();
+  if (GESTURE_KINDS[key] !== undefined) return GESTURE_KINDS[key];
+  for (const [re, kind] of NAME_RULES) {
+    if (re.test(key)) return kind;
+  }
   return null;
 }
 
@@ -199,7 +236,10 @@ async function mountLayered(sprite, host, api) {
   loop();
 
   api.playAction = (name) => {
-    switch (actionKind(name)) {
+    const kind = actionKind(name);
+    // 命中区手势（regions 的 gesture）与动画名同一条路：记录最后一次，供 DSH_PET_DEBUG 探针核对。
+    if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: String(name), kind, at: Date.now() };
+    switch (kind) {
       case 'blink':
         blinkT = 1;
         break;
@@ -233,6 +273,24 @@ async function mountLayered(sprite, host, api) {
   api.destroy = () => {
     if (api.frame) cancelAnimationFrame(api.frame);
     if (talkTimer !== null) window.clearTimeout(talkTimer);
+  };
+  /**
+   * 视口坐标 → 命中区手势（canvas 坐标换算后交给 PetLayered.hitTest）。
+   *
+   * @param {number} clientX - 视口 x。
+   * @param {number} clientY - 视口 y。
+   * @returns {string|undefined} 区域声明的 gesture（缺省回落区域 id）；没命中返回 undefined。
+   */
+  api.gestureAt = (clientX, clientY) => {
+    if (!skin || !api.canvas) return undefined;
+    const rect = api.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return undefined;
+    const x = ((clientX - rect.left) / rect.width) * skin.canvas.w;
+    const y = ((clientY - rect.top) / rect.height) * skin.canvas.h;
+    const id = window.PetLayered.hitTest(skin, x, y);
+    if (id === undefined) return undefined;
+    const region = (skin.interaction.regions || []).find((item) => item.id === id);
+    return (region && region.gesture) || id;
   };
   api.ready = true;
   console.log('[dsh-pet] 桌面 layered 已挂载 pet=' + sprite.pet.id + ' 皮肤=' + root);
@@ -293,7 +351,8 @@ async function mountLive2d(sprite, host, api) {
   api.app = app;
   api.model = model;
   api.playAction = (name) => {
-    if (/tap|click|摸|戳/i.test(name)) {
+    if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: String(name), kind: 'tap', at: Date.now() };
+    if (/tap|click|点击|摸|戳/i.test(name)) {
       model.tap(sprite.size / 2, sprite.size / 2);
       return;
     }

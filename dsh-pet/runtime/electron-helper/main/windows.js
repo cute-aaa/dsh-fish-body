@@ -249,24 +249,54 @@ function createWindows({
       console.warn(`[renderer:${level}] ${message}`);
     });
     // DSH_PET_DEBUG=1：透明窗口没有 DevTools，排查渲染后端时把关键现场打到主进程日志。
+    // DSH_PET_DEBUG_CLICK=1 额外模拟一次点击，用来核对命中区手势（lastGesture）。
     if (process.env.DSH_PET_DEBUG === '1') {
+      const dump = () =>
+        win.webContents.executeJavaScript(
+          `(() => ({
+            sprites: document.querySelectorAll('.pet-sprite').length,
+            visual: document.querySelectorAll('.pet-visual').length,
+            canvas: document.querySelectorAll('.pet-visual-canvas').length,
+            pixi: typeof window.PIXI,
+            live2dNs: !!(window.PIXI && window.PIXI.live2d),
+            core: typeof window.Live2DCubismCore,
+            base: typeof BASE === 'string' ? BASE : String(BASE),
+            err: (document.getElementById('pet-error') || {}).textContent || '',
+            lastGesture: (window.__dshPetDebug && window.__dshPetDebug.lastGesture) || null,
+            lastClick: (window.__dshPetDebug && window.__dshPetDebug.lastClick) || null,
+          }))()`,
+        );
+      const clickPet = () =>
+        win.webContents.executeJavaScript(
+          `(() => {
+            const hit = document.querySelector('.pet-hit');
+            if (!hit) return false;
+            const r = hit.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            hit.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y, pointerId: 71 }));
+            window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x, clientY: y, pointerId: 71 }));
+            hit.dispatchEvent(new PointerEvent('click', { bubbles: true, clientX: x, clientY: y, pointerId: 71 }));
+            return true;
+          })()`,
+        );
       win.webContents.once('did-finish-load', () => {
         setTimeout(() => {
-          void win.webContents
-            .executeJavaScript(
-              `(() => ({
-                sprites: document.querySelectorAll('.pet-sprite').length,
-                visual: document.querySelectorAll('.pet-visual').length,
-                canvas: document.querySelectorAll('.pet-visual-canvas').length,
-                pixi: typeof window.PIXI,
-                live2dNs: !!(window.PIXI && window.PIXI.live2d),
-                core: typeof window.Live2DCubismCore,
-                base: typeof BASE === 'string' ? BASE : String(BASE),
-                err: (document.getElementById('pet-error') || {}).textContent || '',
-              }))()`,
-            )
-            .then((dump) => console.warn('[dsh-pet-debug] ' + JSON.stringify(dump)))
+          void dump()
+            .then((state) => console.warn('[dsh-pet-debug] ' + JSON.stringify(state)))
             .catch((error) => console.warn('[dsh-pet-debug] executeJavaScript 失败 ' + String(error)));
+          if (process.env.DSH_PET_DEBUG_CLICK !== '1') return;
+          setTimeout(() => {
+            void clickPet()
+              .then(() =>
+                setTimeout(() => {
+                  void dump()
+                    .then((state) => console.warn('[dsh-pet-debug:click] ' + JSON.stringify(state)))
+                    .catch(() => undefined);
+                }, 1200),
+              )
+              .catch(() => undefined);
+          }, 500);
         }, 12000);
       });
     }
