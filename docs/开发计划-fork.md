@@ -1,6 +1,6 @@
 # dsh-fish-body → dsh-pet fork 开发计划
 
-> 状态：待启动（2026-11-09 决策定稿，第二版）
+> 状态：**P0 已完成**（2026-11-10），P1 交接见 `docs/交接-P1.md`
 > 基线：dsh-pet `v0.4.7`（commit be4536d，MIT；**素材禁止商用**，fork 保留 NOTICE 与来源链接）
 > 目标：把 `dsh-fish-body` 从 4.8k 行自研实现，整体替换为 dsh-pet 的 fork，并在其上补齐 fish-body 的差异能力。
 
