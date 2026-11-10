@@ -32,8 +32,9 @@ PetSprite.prototype.onWorkTick = function onWorkTick(snapshot, tick) {
     // 宠物会卡在那段工作动画上。只改当前段：它结束后走 handleEnded → playIdle。
     // 睡觉时前台那段是睡姿循环：改掉它的 loop/onended 会既打断睡姿又把随机链拽回来，跳过。
     if (!this.sleeping && S.poolIncludes(this.animations.events?.workStatus ?? [], this.anim)) {
-      const frontEl = this.front === 0 ? this.videoA : this.videoB;
-      if (frontEl) {
+      const frontEl = this.frontEl();
+      // 只有视频支持改 loop/onended；画布后端的节奏由 backend 的合成计时器管。
+      if (frontEl && typeof frontEl.pause === 'function') {
         frontEl.loop = false;
         frontEl.onended = () => this.handleEnded();
       }

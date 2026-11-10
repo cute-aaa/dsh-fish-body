@@ -158,8 +158,7 @@ Object.assign(PetSprite.prototype, {
       const curBounds = sp.bounds[res.screen] || sp.bounds[0];
       const grounded = curBounds ? res.y >= curBounds.maxY - 1 : false;
       if (res.bounced && grounded && !prevGrounded) {
-        const frontEl = this.front === 0 ? this.videoA : this.videoB;
-        this.startSquash(frontEl, S.landingSquash(fallingVy));
+        this.startSquash(this.frontEl(), S.landingSquash(fallingVy));
       }
       prevGrounded = grounded;
       if (res.atRest) {
@@ -277,6 +276,7 @@ Object.assign(PetSprite.prototype, {
   /** Q 弹挤压：前台视频垂直压扁（贴地锚定再回弹），曲线在 shared。depth = 下压幅度
    *  （点击固定 0.55，落地按冲击速度动态取）；reduce-motion 时跳过。 */
   startSquash(el, depth = S.SQ_SQUASH) {
+    if (!el) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const token = ++this.squashToken;
     if (this.squashRef !== null) cancelAnimationFrame(this.squashRef);

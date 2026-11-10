@@ -239,6 +239,37 @@ function createWindows({
     win.webContents.setBackgroundThrottling(false);
     // 屏蔽 Electron 默认右键菜单：右键菜单由渲染端统一自绘，绝无双菜单
     win.webContents.on('context-menu', (event) => event.preventDefault());
+    // 渲染端 console 转进主进程日志：layered/live2d 的挂载失败、皮肤 404、pixi 初始化异常都只在这里可见
+    // （透明窗口没有 DevTools，出问题时不转发就完全静默）。走 warn：宿主把 helper 的 stderr 当 warn 落盘，
+    // console.log 会落到 debug 级被日志过滤掉。
+    win.webContents.on('console-message', (event) => {
+      const level = String(event.level ?? '');
+      const message = String(event.message ?? '');
+      if (level !== 'warning' && level !== 'error' && !message.includes('[dsh-pet]')) return;
+      console.warn(`[renderer:${level}] ${message}`);
+    });
+    // DSH_PET_DEBUG=1：透明窗口没有 DevTools，排查渲染后端时把关键现场打到主进程日志。
+    if (process.env.DSH_PET_DEBUG === '1') {
+      win.webContents.once('did-finish-load', () => {
+        setTimeout(() => {
+          void win.webContents
+            .executeJavaScript(
+              `(() => ({
+                sprites: document.querySelectorAll('.pet-sprite').length,
+                visual: document.querySelectorAll('.pet-visual').length,
+                canvas: document.querySelectorAll('.pet-visual-canvas').length,
+                pixi: typeof window.PIXI,
+                live2dNs: !!(window.PIXI && window.PIXI.live2d),
+                core: typeof window.Live2DCubismCore,
+                base: typeof BASE === 'string' ? BASE : String(BASE),
+                err: (document.getElementById('pet-error') || {}).textContent || '',
+              }))()`,
+            )
+            .then((dump) => console.warn('[dsh-pet-debug] ' + JSON.stringify(dump)))
+            .catch((error) => console.warn('[dsh-pet-debug] executeJavaScript 失败 ' + String(error)));
+        }, 12000);
+      });
+    }
     // 页面级缩放与渲染端 CONFIG.scale 同源；show:false 的窗口 zoomFactor 不生效，须加载后设置
     win.webContents.on('did-finish-load', () => win.webContents.setZoomFactor(scale));
     setWindowIgnore(win, true);

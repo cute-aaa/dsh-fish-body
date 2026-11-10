@@ -14,6 +14,11 @@ Object.assign(PetSprite.prototype, {
     // 交给调用方维护时 switchTo(x, false) 会留下过期值，events.js 判「是不是工作动画」就永远不成立。
     this.anim = next;
     this.once = !nextOnce;
+    // layered / live2d 没有视频源：动作交给画布后端，动画链靠合成的「播完」推进（见 sprite/backend.js）。
+    if (this.renderer !== 'webm') {
+      this.switchBackend(next, nextOnce, playbackId);
+      return;
+    }
     const pending = this.pending;
     if (pending && pending.anim === next && pending.once === nextOnce) {
       // 防重命中（单动画点击时目标=当前动画，不重播）：仍消费 Q 弹标记，压当前前台视频，
@@ -137,13 +142,15 @@ Object.assign(PetSprite.prototype, {
   applyFreeze(next) {
     if (this.frozen === next) return;
     this.frozen = next;
-    const el = this.front === 0 ? this.videoA : this.videoB;
+    const el = this.frontEl();
     const stamp = '[dsh-pet] ' + new Date().toTimeString().slice(0, 8) + ' pet=' + this.pet.id;
     if (next) {
       // 停住正在播的那一段：宿主停不掉一段视频，完全静止只能由渲染端执行；只堵随机链入口不够，
       // 那个入口要等动画播完才被调用。
       this.stopMove();
-      if (el) el.pause();
+      // 视频能暂停定帧；画布后端没有 pause，停掉换动作计时器即「停在当前画面」。
+      if (el && typeof el.pause === 'function') el.pause();
+      this.setBackendPaused(true);
       // 播放回执：冻结打断了正在播的第三方点播 → 如实回 cancelled，而不是让它一直挂着 playing
       // （挂 wait=ended 的调用方会白等一个 timeout）。解冻走的是回 idle/恢复档位，不会把它接回来。
       // 先清 this.playback 再上报，免得后续换源又当成「被顶掉」再报一次。
@@ -161,6 +168,7 @@ Object.assign(PetSprite.prototype, {
       return;
     }
     console.log(stamp + ' 占用锁解除：恢复');
+    this.setBackendPaused(false);
     // 解冻：睡姿优先接回（冻结只暂停、没换源，续播即可），其次非终态工作状态回档位循环，
     // 否则回 idle 一次，播完由 handleEnded 接回随机链。
     if (this.resumeSleepAnim()) return;
@@ -395,14 +403,16 @@ Object.assign(PetSprite.prototype, {
   // 不在睡返回 false，让调用方继续走它原来的恢复路径。
   resumeSleepAnim() {
     if (!this.sleeping) return false;
-    const el = this.front === 0 ? this.videoA : this.videoB;
-    if (el) el.play().catch(() => {});
+    const el = this.frontEl();
+    if (el && typeof el.play === 'function') el.play().catch(() => {});
     return true;
   },
 
   // 漫游（rAF 驱动，动画首尾各 leadSec/tailSec 秒原地不动；几何在 shared/planMove）。
   // preferredName 传入时固定用该动画（菜单点播移动动画），否则与随机链一致随机选。
   tryMove(preferredName, playbackId) {
+    // layered / live2d 没有「走路」素材：不规划位移（与浏览器端 frontElement() 为 null 时同一口径）。
+    if (this.renderer !== 'webm') return false;
     if (this.moveRef !== null || this.pendingMove || this.throwRef !== null) return true;
     const moves = this.animations.moves;
     const actions = moves.actions;

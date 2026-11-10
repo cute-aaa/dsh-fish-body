@@ -12,6 +12,10 @@ Object.assign(PetSprite.prototype, {
     // 动画池与权重由拍平层按条目注入（renderer 的 S.flattenConfigPets），条目缺 animations 就是配置不全：
     // 明确报错交给 boot 的红条与 5s 重试，绝不回落到没有定义的全局（那只会变成一句 ReferenceError）。
     if (!pet.animations) throw new Error('宠物缺少 animations 段：' + String(pet.id ?? ''));
+    // 渲染方式：webm 走原有视频双缓冲，layered / live2d 走 sprite/backend.js 的画布层。
+    this.renderer = pet.renderer === 'layered' || pet.renderer === 'live2d' ? pet.renderer : 'webm';
+    this.backend = null;
+    this.endTimer = null;
     this.animations = pet.animations;
     this.weights = pet.animationWeights;
     this.front = 0; // 0 = A, 1 = B
@@ -145,14 +149,19 @@ Object.assign(PetSprite.prototype, {
     stage.className = 'pet-stage';
     // 位移恒定：拖拽中也不取消，否则视频会相对光标上跳、抓取点全程偏移 bottomPad。
     stage.style.transform = 'translateY(' + this.bottomPad + 'px)';
-    this.videoA = document.createElement('video');
-    this.videoA.className = 'pet-video is-front';
-    this.videoB = document.createElement('video');
-    this.videoB.className = 'pet-video';
-    for (const v of [this.videoA, this.videoB]) {
-      v.muted = true;
-      v.playsInline = true;
-      v.autoplay = true;
+    // 只给 webm 建视频双缓冲；layered / live2d 的舞台由 backend 自己填（见 sprite/backend.js）。
+    if (this.renderer === 'webm') {
+      this.videoA = document.createElement('video');
+      this.videoA.className = 'pet-video is-front';
+      this.videoB = document.createElement('video');
+      this.videoB.className = 'pet-video';
+      for (const v of [this.videoA, this.videoB]) {
+        v.muted = true;
+        v.playsInline = true;
+        v.autoplay = true;
+      }
+      stage.appendChild(this.videoA);
+      stage.appendChild(this.videoB);
     }
     this.hit = document.createElement('div');
     this.hit.className = 'pet-hit';
@@ -182,13 +191,12 @@ Object.assign(PetSprite.prototype, {
     this.tip.className = S.TOOLTIP_CLASS;
     this.tip.setAttribute('aria-hidden', 'true');
 
-    stage.appendChild(this.videoA);
-    stage.appendChild(this.videoB);
     stage.appendChild(this.hit);
     this.el.appendChild(this.bubble);
     this.el.appendChild(this.tip);
     this.el.appendChild(stage);
     rootEl.appendChild(this.el);
+    if (this.renderer !== 'webm') this.mountBackend(stage);
     this.position();
   },
 

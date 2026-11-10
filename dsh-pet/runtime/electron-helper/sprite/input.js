@@ -388,7 +388,7 @@ Object.assign(PetSprite.prototype, {
     // 这里直接压当前前台那一帧：平时靠 pendingSquash 等新动画就位，这条路没有换源。
     if (this.sleeping) {
       playClickSound();
-      const front = this.front === 0 ? this.videoA : this.videoB;
+      const front = this.frontEl();
       if (front) this.startSquash(front);
       this.postSleepAction('wake');
       // 入睡过渡里被点：这次入睡作废，按普通点击播回应动画——「起来」那段不再播。

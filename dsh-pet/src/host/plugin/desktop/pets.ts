@@ -78,16 +78,10 @@ export function createDesktopPets(deps: DesktopPetsInput) {
           `（${desktopPets.map((pet) => String(pet.id)).join(',') || '无'}）→` +
           ` hasDesktopPet=${desktopPets.length > 0} tray=${trayOn}`,
       );
-      // 桌面 Helper 只有 webm 播放器：renderer=layered/live2d 的桌面宠物会一直是 webm 画面，
-      // 用户会以为「切了没反应」。这里把被忽略的值显式点出来，并指出正确的验证位置。
-      const ignoredRenderer = desktopPets.filter((pet) => pet.renderer !== undefined && pet.renderer !== 'webm');
-      if (ignoredRenderer.length > 0) {
-        log.warn(
-          '[dsh-pet] 桌面模式只实现 webm 渲染，以下桌面宠物的 renderer 被忽略：' +
-            ignoredRenderer.map((pet) => `${String(pet.id)}=${String(pet.renderer)}`).join('、') +
-            '；要验证 layered/live2d 请把该宠物的显示方式设为 web，在浏览器页面里看。',
-        );
-      }
+      // 桌面 Helper 的三种渲染后端现在都落地了（webm 视频 / layered 画布 / live2d pixi），
+      // 这里只留一行判定信息；挂载失败由渲染端自己的 warn 暴露（见 runtime/electron-helper/sprite/backend.js）。
+      const renderers = desktopPets.map((pet) => `${String(pet.id)}=${String(pet.renderer ?? 'webm')}`).join('、');
+      if (renderers !== '') log.info('[dsh-pet] 桌面渲染方式：' + renderers);
     } catch (e) {
       log.warn(`[dsh-pet] 宠物配置非法，桌面模式已跳过：${e instanceof Error ? e.message : String(e)}`);
     }
