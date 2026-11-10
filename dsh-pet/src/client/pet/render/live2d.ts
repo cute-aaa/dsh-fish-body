@@ -2,7 +2,7 @@
  * live2d 渲染后端：`pixi-live2d-display`（cubism4 框架）+ Live2D Cubism Core（wasm 内嵌单文件）。
  * 与 layered 类似没有 video：模型在 PIXI 画布上跑自然运动（呼吸/眨眼/物理），
  * 口型 / 视线走标准参数（ParamMouthOpenY / ParamEyeBallX/Y）；动作（motion）/表情（expression）
- * 依赖 model3.json 声明（本机 DeepSeek 公皮未声明，故静默降级为自然运动）。
+ * 依赖 model3.json 声明，声明的组同时决定右键「动作」树（本机 DeepSeek 公皮未声明，故两者都为空）。
  * 皮肤目录 `pet/<素材根>-skin/` 下可放多个 `.model3.json`，按 pets[].model 选择，缺省取第一个。
  * 两个依赖一律走 `/vendor` 的 UMD 脚本 + 全局 PIXI：按 ESM 打进 client bundle 会带出 node 的
  * url/punycode 垫片与顶层 import，经典脚本下必然加载失败（详见 docs/交接-P3.md 踩坑 11）。
@@ -11,13 +11,21 @@
 import type * as PIXI from 'pixi.js';
 import type { Live2DModel } from 'pixi-live2d-display/cubism4';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
+import { model3ActionGroups } from '../../../shared/menu/renderer-actions.ts';
+import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
 
 /** cubism4 UMD 注册到 `PIXI.live2d` 上的面（只取用到的两项）。 */
 interface Live2dNamespace {
   Live2DModel: typeof Live2DModel;
-  MotionPriority: { IDLE: number };
+  MotionPriority: { readonly IDLE: number; readonly NORMAL: number };
 }
+
+/** 菜单动作名 → motion 组与序号（`motion:<组>:<序号>`，见 shared/menu/renderer-actions）。 */
+const MOTION_ID = /^motion:(.+):(\d+)$/;
+
+/** 菜单动作名 → 表情（`expression:<名>`）。 */
+const EXPRESSION_PREFIX = 'expression:';
 
 /** 浏览器全局：pixi UMD 的导出面（pixi-live2d-display UMD 再挂一个 live2d 命名空间）。 */
 interface Live2dWindow {
@@ -88,6 +96,23 @@ async function listModels(root: string): Promise<string[]> {
 }
 
 /**
+ * 读模型清单声明的动作组（Motions / Expressions）供右键「动作」树用。
+ *
+ * @param root - 素材根。
+ * @param rel - 选定的 `.model3.json` 相对路径。
+ * @returns 动作组；取不到或解析不出时返回空数组（菜单少一组，画面照常）。
+ */
+async function loadActionGroups(root: string, rel: string): Promise<RendererActionGroup[]> {
+  try {
+    const res = await fetch(skinUrl(root, rel));
+    if (!res.ok) return [];
+    return model3ActionGroups((await res.json()) as unknown);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * 造 live2d 渲染实例（工厂语义：每张宠物卡一个，互不共享 PIXI app 与模型）。
  *
  * @returns 实现 {@link Renderer} 的 live2d 渲染实例。
@@ -98,6 +123,8 @@ export function createLive2dRenderer(): Renderer {
   let model: Live2DModel | null = null;
   /** cubism4 命名空间（mount 时加载）：模型工厂与动作优先级都从这里取。 */
   let cubism: Live2dNamespace | null = null;
+  /** 模型声明的动作组：右键「动作」树读它（网页端不把 webm 动画池混进来）。 */
+  let actionGroups: readonly RendererActionGroup[] = [];
   let ready = false;
   let destroyed = false;
   let size = 0;
@@ -116,6 +143,8 @@ export function createLive2dRenderer(): Renderer {
     const configured = opts.source.cfg().model;
     const chosen = configured !== undefined && models.includes(configured) ? configured : models[0];
     if (chosen === undefined) throw new Error('皮肤目录没有 .model3.json：' + root);
+    if (destroyed) return;
+    actionGroups = await loadActionGroups(root, chosen);
     if (destroyed) return;
 
     app = new pixi.Application({
@@ -153,6 +182,7 @@ export function createLive2dRenderer(): Renderer {
     destroyed = true;
     model?.destroy();
     model = null;
+    actionGroups = [];
     if (app !== null) {
       app.destroy(true, { children: true, texture: true, baseTexture: true });
       app = null;
@@ -175,8 +205,18 @@ export function createLive2dRenderer(): Renderer {
     mount,
     destroy,
     playAction: (name) => {
-      // 动作名来自 webm 池，live2d 用不上；有「Idle」组时尝试播一段，其余静默。
       if (model === null || cubism === null) return;
+      // 菜单来自模型声明：motion / expression 的标识由 shared/menu/renderer-actions 生成，这里只拆解。
+      const motion = MOTION_ID.exec(name);
+      if (motion !== null) {
+        void model.motion(motion[1], Number(motion[2]), cubism.MotionPriority.NORMAL);
+        return;
+      }
+      if (name.startsWith(EXPRESSION_PREFIX)) {
+        void model.expression(name.slice(EXPRESSION_PREFIX.length));
+        return;
+      }
+      // 其余名字来自 webm 池（点击回应 / 摸头等）：模型没声明动作时退回自然运动。
       if (/tap|click|点击|回应|摸|戳/i.test(name)) {
         model.tap(size / 2, size / 2);
         return;
@@ -198,6 +238,7 @@ export function createLive2dRenderer(): Renderer {
       setParam('ParamEyeBallY', Math.max(-1, Math.min(1, y)));
     },
     hitTest: () => undefined, // model3.json 未声明 HitAreas 时无命中区。
+    listActionGroups: () => actionGroups,
     get ready() {
       return ready;
     },

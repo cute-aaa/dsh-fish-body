@@ -6,6 +6,8 @@
  * @module dsh-pet/src/client/pet/render/layered
  */
 import { ROUTE_PATH } from '../../../shared/constants.ts';
+import { skinMenuGroups } from '../../../shared/menu/renderer-actions.ts';
+import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
 import { assemblyActionOf, type AssemblyAction } from './layered/gestures.ts';
 import { gestureAtPoint } from './layered/hit.ts';
@@ -61,6 +63,8 @@ export function createLayeredRenderer(): Renderer {
   let skin: SkinManifest | null = null;
   let layers: LoadedLayer[] = [];
   let openMouth: CanvasImageSource | null = null;
+  /** 清单声明的可播手势：右键「动作」树读它（layered 不用 webm 动画池）。 */
+  let actionGroups: readonly RendererActionGroup[] = [];
   let raf = 0;
   let ready = false;
   let destroyed = false;
@@ -93,6 +97,7 @@ export function createLayeredRenderer(): Renderer {
     if (destroyed) return; // 加载期间被卸载：丢弃。
 
     skin = parsed;
+    actionGroups = skinMenuGroups(parsed.interaction.menu ?? []);
     layers = await Promise.all(
       parsed.layers.map(async (layer): Promise<LoadedLayer> => ({
         role: layer.role,
@@ -130,6 +135,7 @@ export function createLayeredRenderer(): Renderer {
     skin = null;
     layers = [];
     openMouth = null;
+    actionGroups = [];
     stage = null;
     ready = false;
   };
@@ -237,6 +243,7 @@ export function createLayeredRenderer(): Renderer {
       gazeY = Math.max(-1, Math.min(1, y));
     },
     hitTest: (x, y) => (skin === null ? undefined : skinHitTest(skin, x, y)),
+    listActionGroups: () => actionGroups,
     /** 视口坐标 → 皮肤清单声明的命中手势；画布未挂载或没命中返回 undefined。 */
     gestureAt: (clientX, clientY) =>
       skin === null || canvas === null

@@ -20,8 +20,8 @@ import type { PetDisplay } from '../../../shared/types.ts';
 import { bindOpenChat } from './open-chat.ts';
 import { registerPetChatHandle } from './registry.ts';
 import {
+  actionMenuTree,
   buildMemeBranch,
-  buildMenuTree,
   buildMoreBranch,
   displayMenuBranch,
   memeThumbUrl,
@@ -397,7 +397,13 @@ export function createCardEntry(rt: CardEntryRuntime) {
       ];
       const tree: MenuNode[] = [
         ...tools,
-        ...buildMenuTree(cfgRef.current.animations),
+        // 动作树随渲染方式不同：webm 用动画池，layered 用皮肤清单的 interaction.menu，
+        // live2d 用模型声明的 Motions / Expressions（没有声明就不出现「动作」，只留渲染方式与模型）。
+        ...actionMenuTree(
+          cfgRef.current.renderer,
+          cfgRef.current.animations,
+          live.current.ownAnim?.listActionGroups?.() ?? [],
+        ),
         ...tail,
         ...(more ? [more] : []),
       ];

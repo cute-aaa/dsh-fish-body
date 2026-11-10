@@ -202,6 +202,8 @@ export function createCardRuntime(rt: PetRuntime) {
         actions.setAnim(anim);
         actions.setCuePlayback(playbackId);
       },
+      // 渲染器自带动作（layered 手势 / live2d motion、expression）：不走卡片状态机，直接播一次。
+      playRendererAction: (name) => ownAnim.playAction(name, { once: true }),
       report: reportPlayback,
       resetPosition: () => actions.setCustomPos(null),
       // 睡觉：菜单在点击那一刻就要能拒绝（对话弹窗、待办面板、动作点播都是纯前端行为，宿主拦不到）

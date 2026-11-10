@@ -7,6 +7,7 @@
  */
 export type { ContextMenuMount, MenuBranch, MenuLeaf, MenuMoreItem, MenuNode } from './menu/types.ts';
 export type { MemeGroups, MemeGroupSource } from './menu/memes.ts';
+export type { RendererAction, RendererActionGroup } from './menu/renderer-actions.ts';
 export {
   MORE_MENU_LABEL,
   buildMenuTree,
@@ -18,6 +19,7 @@ export {
   readMenuItems,
   rendererMenuBranch,
 } from './menu/tree.ts';
+export { actionMenuTree, model3ActionGroups, rendererActionTree, skinMenuGroups } from './menu/renderer-actions.ts';
 export { buildMemeBranch, groupMemes, memeThumbUrl } from './menu/memes.ts';
 export { MENU_CSS } from './menu/css.ts';
 export { mountContextMenu } from './menu/mount.ts';

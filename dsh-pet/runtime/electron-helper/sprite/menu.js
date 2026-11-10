@@ -13,6 +13,25 @@ const OPEN_LABEL = { desktop: '打开软件', standalone: '打开 AI 设置', we
 /** 睡觉拒绝台词的气泡时长（ms）：比默认 10s 略短，它只是「被打扰了」的一句回绝。 */
 const SLEEP_REFUSE_BUBBLE_MS = 8000;
 
+/**
+ * 当前渲染方式声明的动作组：layered 读皮肤清单的 interaction.menu，live2d 读 model3 的 Motions/Expressions。
+ *
+ * 后端还在挂载时读不到，返回空数组——菜单少一组「动作」，其它项不受影响。
+ *
+ * @param {PetSprite} sprite - 宠物实例。
+ * @returns {Array<object>} 共享层的 RendererActionGroup 数组。
+ */
+function rendererActionGroups(sprite) {
+  const api = sprite.backend;
+  if (!api) return [];
+  if (sprite.renderer === 'layered') {
+    const menu = api.skin && api.skin.interaction ? api.skin.interaction.menu : null;
+    return S.skinMenuGroups(Array.isArray(menu) ? menu : []);
+  }
+  if (sprite.renderer === 'live2d') return Array.isArray(api.actionGroups) ? api.actionGroups : [];
+  return [];
+}
+
 Object.assign(PetSprite.prototype, {
   onContextMenu(e) {
     const d = this.dragState;
@@ -62,7 +81,10 @@ Object.assign(PetSprite.prototype, {
     // 第三方菜单项统一收在「更多」下：label 唯一的直接平铺，label 重名的按 owner 分子菜单。
     // 放在最后——「更多」不插在工具项与动作之间。
     const more = S.buildMoreBranch(this.menuItems);
-    const tree = tools.concat(S.buildMenuTree(this.animations), tail, more ? [more] : []);
+    // 动作树随渲染方式不同：webm 用动画池，layered 用皮肤清单的 interaction.menu，
+    // live2d 用模型声明的 Motions / Expressions（两端同一份判据，见 shared/menu/renderer-actions）。
+    const actionTree = S.actionMenuTree(this.renderer, this.animations, rendererActionGroups(this));
+    const tree = tools.concat(actionTree, tail, more ? [more] : []);
     if (!tree.length) return;
     this.menuOpen = true;
     this.setInteractive(true); // 菜单是窗口内 DOM：悬停期间整窗保持可交互，关闭后恢复命中区穿透
@@ -145,6 +167,11 @@ Object.assign(PetSprite.prototype, {
     }
     if (leaf.action === 'reload') {
       this.reloadDesktop(); // 请宿主重启桌面 Helper：全部桌面宠物窗口按最新配置重建
+      return;
+    }
+    if (leaf.action === 'renderer-action') {
+      // 渲染器自带动作（layered 装配手势 / live2d motion、expression）：后端直接播一次，不进动画链。
+      if (this.backend && typeof this.backend.playAction === 'function') this.backend.playAction(leaf.rendererAction);
       return;
     }
     if (!leaf.anim) return;

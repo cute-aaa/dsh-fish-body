@@ -69,6 +69,18 @@ describe('createMenuActions —— 内置动作', () => {
     actions.run({ label: '显示位置', action: 'set-display' } as MenuLeaf);
     assert.deepEqual(calls, []);
   });
+
+  test('渲染器动作：直接交给渲染实例，不进动画链（layered 手势 / live2d motion）', () => {
+    const { actions, calls } = harness({ playRendererAction: (name) => calls.push('rendererAction:' + name) });
+    actions.run({ label: '摸摸头', action: 'renderer-action', rendererAction: 'pat' } as MenuLeaf);
+    assert.deepEqual(calls, ['rendererAction:pat']);
+  });
+
+  test('渲染器动作：没有动作名就什么都不做', () => {
+    const { actions, calls } = harness({ playRendererAction: (name) => calls.push('rendererAction:' + name) });
+    actions.run({ label: '摸摸头', action: 'renderer-action' } as MenuLeaf);
+    assert.deepEqual(calls, []);
+  });
 });
 
 describe('createMenuActions —— 点播动画', () => {
@@ -191,6 +203,17 @@ describe('createMenuActions —— 睡觉闸门（渲染端拒绝）', () => {
     });
     actions.run({ label: '回到初始位置', action: 'home' } as MenuLeaf);
     assert.deepEqual(calls, ['stopThrow', 'stopMove', 'resetPosition']);
+  });
+
+  test('睡着时点渲染器动作也被拒（打扰类，与动作点播同口径）', () => {
+    const { actions, calls } = harness({
+      sleeping: () => true,
+      say: (text) => calls.push('say:' + text),
+      sleepRefuseTexts: () => ['别吵'],
+      playRendererAction: (name) => calls.push('rendererAction:' + name),
+    });
+    actions.run({ label: '摇尾巴', action: 'renderer-action', rendererAction: 'wag' } as MenuLeaf);
+    assert.deepEqual(calls, ['say:别吵'], '睡着时不该真的摇尾巴');
   });
 
   test('醒着时拒绝逻辑完全不动（对话照旧走 openChat）', () => {

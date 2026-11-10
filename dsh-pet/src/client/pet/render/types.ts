@@ -7,6 +7,7 @@
  */
 import type { RendererKind } from '../../../shared/types.ts';
 import type { Animations } from '../../../shared/types.ts';
+import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { WorkStatusSnapshot } from '../../../shared/work-status.ts';
 import type { ReportableStatus } from '../../../shared/playback.ts';
 import type { EndedCue, FreezeCue } from '../animation/cues.ts';
@@ -101,6 +102,8 @@ export interface Renderer {
   hitTest?(x: number, y: number): string | undefined;
   /** 命中区手势（视口坐标 → 皮肤清单声明的 gesture）；不支持或没命中返回 undefined。 */
   gestureAt?(x: number, y: number): string | undefined;
+  /** 渲染器自带的动作清单（右键「动作」树按渲染方式差异化读它）；webm 不实现，走动画池。 */
+  listActionGroups?(): readonly RendererActionGroup[];
   /** 是否已就绪（首帧/首张图层已挂上）。 */
   readonly ready: boolean;
 }

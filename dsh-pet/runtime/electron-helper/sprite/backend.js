@@ -279,6 +279,18 @@ async function mountLive2d(sprite, host, api) {
   if (chosen === undefined) throw new Error('皮肤目录没有 .model3.json：' + root);
   if (api.destroyed) return;
 
+  // 菜单用：模型声明的动作组（Motions / Expressions）。取不到就当没有声明，菜单里不出现「动作」。
+  api.actionGroups = [];
+  try {
+    const settingsRes = await fetch(skinUrlOf(root, chosen));
+    if (settingsRes.ok) {
+      api.actionGroups = window.PetShared.model3ActionGroups(await settingsRes.json());
+    }
+  } catch {
+    // 读不到模型清单只影响动作菜单，画面照常；下一行起不再提这事。
+  }
+  if (api.destroyed) return;
+
   const pixi = window.PIXI;
   const app = new pixi.Application({
     width: sprite.size,
@@ -316,7 +328,20 @@ async function mountLive2d(sprite, host, api) {
   api.app = app;
   api.model = model;
   api.playAction = (name) => {
-    if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: String(name), kind: 'tap', at: Date.now() };
+    // 菜单动作名与浏览器端同格式（见 shared/menu/renderer-actions）：motion:<组>:<序号> / expression:<名>。
+    const motion = /^motion:(.+):(\d+)$/.exec(String(name));
+    if (window.__dshPetDebug) {
+      const kind = motion ? 'motion' : String(name).startsWith('expression:') ? 'expression' : 'tap';
+      window.__dshPetDebug.lastGesture = { name: String(name), kind, at: Date.now() };
+    }
+    if (motion) {
+      void model.motion(motion[1], Number(motion[2]), cubism.MotionPriority.NORMAL);
+      return;
+    }
+    if (String(name).startsWith('expression:')) {
+      void model.expression(String(name).slice('expression:'.length));
+      return;
+    }
     if (/tap|click|点击|摸|戳/i.test(name)) {
       model.tap(sprite.size / 2, sprite.size / 2);
       return;

@@ -14,8 +14,8 @@ export interface MenuLeaf {
   anim?: string;
   /** 自定义动作：打开网站 / 查看余额 / 立即碎碎念 / 打开对话弹窗 / 打开待办面板 / 回到初始位置 /
    *  重载配置（桌面端专属，重启桌面 Helper 并按最新配置重建窗口）/ 改显示位置（目标值见 display，
-   *  两端都注入）/ 第三方菜单项（只把 owner 与 label 上报给注册方，具体做什么由它决定）。
-   *  手动触发均不受 whisperEnabled 影响——那个字段只关自动轮询。 */
+   *  两端都注入）/ 渲染器自带动作（目标值见 rendererAction）/ 第三方菜单项（只把 owner 与 label
+   *  上报给注册方，具体做什么由它决定）。手动触发均不受 whisperEnabled 影响——那个字段只关自动轮询。 */
   action?:
     | 'open-site'
     | 'show-balance'
@@ -27,6 +27,7 @@ export interface MenuLeaf {
     | 'set-display'
     | 'set-renderer'
     | 'set-model'
+    | 'renderer-action'
     | 'sleep'
     | 'wake'
     | 'third-party';
@@ -36,6 +37,8 @@ export interface MenuLeaf {
   renderer?: RendererKind;
   /** set-model 的目标模型（layered 皮肤 id / live2d .model3.json 相对路径） */
   model?: string;
+  /** renderer-action 的动作名：layered 的装配手势 id / live2d 的 `motion:<组>:<序号>` 或 `expression:<名>` */
+  rendererAction?: string;
   /** third-party：注册它的 owner（身份键，只用于回传，不显示）；同一个 owner 的项收在同一分组下，
    *  只有一项时跳过这层直接平铺。 */
   owner?: string;

@@ -29,6 +29,8 @@ export interface MenuActionDeps {
   stopThrow: () => void;
   /** 提交一次自播切换（once 语义）。 */
   playOnce: (anim: string, playbackId: string | null) => void;
+  /** 渲染器自带动作（layered 装配手势 / live2d motion、expression）：直接交给渲染实例，不进动画链。 */
+  playRendererAction?: (name: string) => void;
   /** 清掉会话位置，回到配置角落。 */
   resetPosition: () => void;
   /** 打开对话弹窗。 */
@@ -215,6 +217,14 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       if (model === undefined) return;
       console.info('[dsh-pet] 菜单切换模型 pet=' + petId + ' model=' + model);
       void switchModel(deps, model);
+      return;
+    }
+    if (leaf.action === 'renderer-action') {
+      const action = leaf.rendererAction;
+      if (action === undefined) return;
+      console.info('[dsh-pet] 菜单渲染器动作 pet=' + petId + ' action=' + action);
+      // 直接交给渲染器：这类动作没有 webm 段，不进卡片动画链，也就没有播完回调可言。
+      deps.playRendererAction?.(action);
       return;
     }
     if (leaf.action === 'home') {
