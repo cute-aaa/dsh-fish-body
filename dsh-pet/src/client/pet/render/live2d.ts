@@ -4,10 +4,12 @@
  * 口型 / 视线走标准参数（ParamMouthOpenY / ParamEyeBallX/Y）；动作（motion）/表情（expression）
  * 依赖 model3.json 声明（本机 DeepSeek 公皮未声明，故静默降级为自然运动）。
  * 皮肤目录 `pet/<素材根>-skin/` 下可放多个 `.model3.json`，按 pets[].model 选择，缺省取第一个。
+ * pixi 与 cubism4 一律**动态 import**：cubism4 在被求值时就要求 `window.Live2DCubismCore` 已存在，
+ * 静态 import 会让整份客户端 bundle 一加载就抛错，桌宠与设置页一起挂掉。
  * @module dsh-pet/src/client/pet/render/live2d
  */
-import * as PIXI from 'pixi.js';
-import { Live2DModel, MotionPriority } from 'pixi-live2d-display/cubism4';
+import type * as PIXI from 'pixi.js';
+import type { Live2DModel } from 'pixi-live2d-display/cubism4';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
 
@@ -55,6 +57,8 @@ export function createLive2dRenderer(): Renderer {
   let stage: HTMLElement | null = null;
   let app: PIXI.Application | null = null;
   let model: Live2DModel | null = null;
+  /** cubism4 模块（mount 时动态 import）：模型工厂与动作优先级都从这里取。 */
+  let cubism: typeof import('pixi-live2d-display/cubism4') | null = null;
   let ready = false;
   let destroyed = false;
   let size = 0;
@@ -67,6 +71,10 @@ export function createLive2dRenderer(): Renderer {
     await ensureCubismCore();
     if (destroyed) return;
 
+    const [pixi, cubismModule] = await Promise.all([import('pixi.js'), import('pixi-live2d-display/cubism4')]);
+    if (destroyed) return;
+    cubism = cubismModule;
+
     // 列出可用模型，选中配置指定的那份，缺省第一个。
     const models = await listModels(root);
     const configured = opts.source.cfg().model;
@@ -74,7 +82,7 @@ export function createLive2dRenderer(): Renderer {
     if (chosen === undefined) throw new Error('皮肤目录没有 .model3.json：' + root);
     if (destroyed) return;
 
-    app = new PIXI.Application({
+    app = new pixi.Application({
       width: size,
       height: size,
       transparent: true,
@@ -83,11 +91,11 @@ export function createLive2dRenderer(): Renderer {
       autoDensity: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
     });
-    Live2DModel.registerTicker(PIXI.Ticker);
+    cubismModule.Live2DModel.registerTicker(pixi.Ticker);
     app.view.style.cssText = 'position:absolute;left:50%;bottom:0;transform:translateX(-50%);pointer-events:none;';
     el.appendChild(app.view);
 
-    model = await Live2DModel.from(skinUrl(root, chosen), { autoInteract: false });
+    model = await cubismModule.Live2DModel.from(skinUrl(root, chosen), { autoInteract: false });
     if (destroyed) {
       model.destroy();
       model = null;
@@ -132,15 +140,15 @@ export function createLive2dRenderer(): Renderer {
     destroy,
     playAction: (name) => {
       // 动作名来自 webm 池，live2d 用不上；有「Idle」组时尝试播一段，其余静默。
-      if (model === null) return;
+      if (model === null || cubism === null) return;
       if (/tap|click|摸|戳/i.test(name)) {
         model.tap(size / 2, size / 2);
         return;
       }
-      void model.motion('Idle', undefined, MotionPriority.IDLE);
+      void model.motion('Idle', undefined, cubism.MotionPriority.IDLE);
     },
     setIdle: () => {
-      void model?.motion('Idle', undefined, MotionPriority.IDLE);
+      void model?.motion('Idle', undefined, cubism?.MotionPriority.IDLE);
     },
     setEndedHandler: () => {},
     stopLooping: () => {},
