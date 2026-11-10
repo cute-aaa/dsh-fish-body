@@ -9,8 +9,9 @@
  * @module dsh-pet/scripts/prepare
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -44,6 +45,29 @@ if (buildTypes.status !== 0) {
   process.exit(1);
 }
 
+// live2d 的两个浏览器依赖以 UMD 形式随包发布（/vendor 路由），运行期由页面 <script> 加载。
+// 必须从依赖的实际安装位置取，不能写死 node_modules 层级：pnpm 的硬链接布局会变。
+console.log('[prepare] staging live2d vendor bundles...');
+const vendorDir = join(ROOT, 'assets', 'vendor');
+mkdirSync(vendorDir, { recursive: true });
+const require_ = createRequire(PKG);
+/** 由模块入口反推包根：两个包的 exports 都不暴露 package.json，只能从解析出的文件向上找。 */
+const packageRootOf = (specifier) => {
+  let dir = dirname(require_.resolve(specifier));
+  while (!existsSync(join(dir, 'package.json'))) {
+    const up = dirname(dir);
+    if (up === dir) throw new Error(`[prepare] 找不到包根：${specifier}`);
+    dir = up;
+  }
+  return dir;
+};
+const vendorFiles = [
+  [join(packageRootOf('pixi.js'), 'dist', 'browser', 'pixi.min.js'), 'pixi.min.js'],
+  [join(packageRootOf('pixi-live2d-display'), 'dist', 'cubism4.min.js'), 'live2d-cubism4.min.js'],
+];
+for (const [from, name] of vendorFiles) copyFileSync(from, join(vendorDir, name));
+console.log(`[prepare] ✓ assets/vendor: ${vendorFiles.map(([, name]) => name).join(', ')}`);
+
 // files 收敛为发布清单：这是本脚本唯一的写操作，幂等，不备份旧值。
 const pkg = JSON.parse(readFileSync(PKG, 'utf8'));
 const keep = [
@@ -60,6 +84,8 @@ const keep = [
   'assets/sound',
   // Live2D Cubism Core：/cubism 路由只读包内这一份（live2dcubismcore.min.js，wasm 内嵌单文件），漏掉 live2d 无法加载。
   'assets/cubism',
+  // live2d 的两个浏览器依赖（pixi / pixi-live2d-display UMD）：由本脚本从依赖里拷出，/vendor 路由只读包内这一份。
+  'assets/vendor',
   'assets/config.jsonc',
   // 插件图标：package.json 顶层 icon 指向这张图；缺图时读取方 dsh-app-boot 的 iconOf 会抛错、退回默认插画。
   'assets/logo.png',

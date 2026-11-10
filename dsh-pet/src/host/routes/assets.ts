@@ -122,6 +122,16 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     return { kind: 'file', file: cubismFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
 
+  // live2d 运行时依赖：/vendor/<file> → 包内 assets/vendor（pixi / pixi-live2d-display 的浏览器 UMD）。
+  // 不做进 client bundle：那两个包按 ESM 打进来会带出 node 的 url/punycode 垫片与裸 import，
+  // 经典脚本下必然加载失败；UMD 形态由页面 <script> 直接加载，pixi-live2d-display 再挂到 PIXI.live2d。
+  if (scope === 'vendor') {
+    const vendorFile = resolveExisting(join(PACKAGE_ROOT, 'assets', 'vendor'), restParts.join('/'));
+    if (vendorFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: vendor asset not found' };
+    const ext = vendorFile.slice(vendorFile.lastIndexOf('.')).toLowerCase();
+    return { kind: 'file', file: vendorFile, contentType: MIME[ext] ?? 'application/octet-stream' };
+  }
+
   // 分层 / live2d 皮肤：/skin/<素材根>/<file> → pet/<素材根>-skin/（manifest.json + art/*.png / .moc3 / 纹理）。
   // 与 /thumb 同一套归属语义：skin 目录只查自己的目录，绝不回落主素材池；素材根含分隔符/保留字符即 400。
   if (scope === 'skin') {

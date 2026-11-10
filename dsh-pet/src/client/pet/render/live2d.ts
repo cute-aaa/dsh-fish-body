@@ -4,8 +4,8 @@
  * 口型 / 视线走标准参数（ParamMouthOpenY / ParamEyeBallX/Y）；动作（motion）/表情（expression）
  * 依赖 model3.json 声明（本机 DeepSeek 公皮未声明，故静默降级为自然运动）。
  * 皮肤目录 `pet/<素材根>-skin/` 下可放多个 `.model3.json`，按 pets[].model 选择，缺省取第一个。
- * pixi 与 cubism4 一律**动态 import**：cubism4 在被求值时就要求 `window.Live2DCubismCore` 已存在，
- * 静态 import 会让整份客户端 bundle 一加载就抛错，桌宠与设置页一起挂掉。
+ * 两个依赖一律走 `/vendor` 的 UMD 脚本 + 全局 PIXI：按 ESM 打进 client bundle 会带出 node 的
+ * url/punycode 垫片与顶层 import，经典脚本下必然加载失败（详见 docs/交接-P3.md 踩坑 11）。
  * @module dsh-pet/src/client/pet/render/live2d
  */
 import type * as PIXI from 'pixi.js';
@@ -13,8 +13,15 @@ import type { Live2DModel } from 'pixi-live2d-display/cubism4';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
 
-/** Cubism Core 全局（由 live2dcubismcore.min.js 注入）。 */
-interface CubismCoreWindow {
+/** cubism4 UMD 注册到 `PIXI.live2d` 上的面（只取用到的两项）。 */
+interface Live2dNamespace {
+  Live2DModel: typeof Live2DModel;
+  MotionPriority: { IDLE: number };
+}
+
+/** 浏览器全局：pixi UMD 的导出面（pixi-live2d-display UMD 再挂一个 live2d 命名空间）。 */
+interface Live2dWindow {
+  PIXI?: typeof PIXI & { live2d?: Live2dNamespace };
   Live2DCubismCore?: unknown;
 }
 
@@ -23,17 +30,49 @@ function skinUrl(root: string, rel: string): string {
   return ROUTE_PATH + '/skin/' + encodeURIComponent(root) + '/' + rel;
 }
 
-/** 注入 Cubism Core 脚本并等待全局就绪（幂等）。 */
-async function ensureCubismCore(): Promise<void> {
-  const win = window as unknown as CubismCoreWindow;
-  if (win.Live2DCubismCore !== undefined) return;
+/**
+ * 注入一个经典脚本并等它把全局挂好（幂等：已就绪直接返回）。
+ *
+ * @param src - 脚本地址。
+ * @param ready - 全局就绪判定；onload 后仍不就绪按失败处理，不留下一个空等。
+ * @param label - 失败文案里的名字。
+ */
+async function ensureScript(src: string, ready: () => boolean, label: string): Promise<void> {
+  if (ready()) return;
   await new Promise<void>((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = ROUTE_PATH + '/cubism/live2dcubismcore.min.js';
-    script.onload = () => (win.Live2DCubismCore !== undefined ? resolve() : reject(new Error('Cubism Core 未就绪')));
-    script.onerror = () => reject(new Error('Cubism Core 脚本加载失败'));
+    script.src = src;
+    script.onload = () => (ready() ? resolve() : reject(new Error(label + ' 未就绪')));
+    script.onerror = () => reject(new Error(label + ' 脚本加载失败'));
     document.head.appendChild(script);
   });
+}
+
+/** 依次加载 Cubism Core、pixi、pixi-live2d-display 的 UMD（顺序即依赖：后两者读前者挂的全局）。 */
+async function ensureLive2dRuntime(): Promise<Live2dNamespace> {
+  const win = window as unknown as Live2dWindow;
+  await ensureScript(
+    ROUTE_PATH + '/cubism/live2dcubismcore.min.js',
+    () => win.Live2DCubismCore !== undefined,
+    'Cubism Core',
+  );
+  await ensureScript(ROUTE_PATH + '/vendor/pixi.min.js', () => win.PIXI !== undefined, 'pixi');
+  await ensureScript(
+    ROUTE_PATH + '/vendor/live2d-cubism4.min.js',
+    () => win.PIXI?.live2d !== undefined,
+    'pixi-live2d-display',
+  );
+  // 上一行已经保证 live2d 命名空间存在；这里只为收窄类型。
+  const namespace = win.PIXI?.live2d;
+  if (namespace === undefined) throw new Error('pixi-live2d-display 未注册 PIXI.live2d');
+  return namespace;
+}
+
+/** 拿 pixi 全局（ensureLive2dRuntime 之后一定存在）。 */
+function pixiGlobal(): typeof PIXI {
+  const pixi = (window as unknown as Live2dWindow).PIXI;
+  if (pixi === undefined) throw new Error('pixi 未加载');
+  return pixi;
 }
 
 /** 拉取皮肤目录下全部 `.model3.json` 相对路径。 */
@@ -57,8 +96,8 @@ export function createLive2dRenderer(): Renderer {
   let stage: HTMLElement | null = null;
   let app: PIXI.Application | null = null;
   let model: Live2DModel | null = null;
-  /** cubism4 模块（mount 时动态 import）：模型工厂与动作优先级都从这里取。 */
-  let cubism: typeof import('pixi-live2d-display/cubism4') | null = null;
+  /** cubism4 命名空间（mount 时加载）：模型工厂与动作优先级都从这里取。 */
+  let cubism: Live2dNamespace | null = null;
   let ready = false;
   let destroyed = false;
   let size = 0;
@@ -68,12 +107,9 @@ export function createLive2dRenderer(): Renderer {
     stage = el;
     size = opts.size;
     const root = opts.assetRoot;
-    await ensureCubismCore();
+    cubism = await ensureLive2dRuntime();
     if (destroyed) return;
-
-    const [pixi, cubismModule] = await Promise.all([import('pixi.js'), import('pixi-live2d-display/cubism4')]);
-    if (destroyed) return;
-    cubism = cubismModule;
+    const pixi = pixiGlobal();
 
     // 列出可用模型，选中配置指定的那份，缺省第一个。
     const models = await listModels(root);
@@ -91,11 +127,11 @@ export function createLive2dRenderer(): Renderer {
       autoDensity: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
     });
-    cubismModule.Live2DModel.registerTicker(pixi.Ticker);
+    cubism.Live2DModel.registerTicker(pixi.Ticker);
     app.view.style.cssText = 'position:absolute;left:50%;bottom:0;transform:translateX(-50%);pointer-events:none;';
     el.appendChild(app.view);
 
-    model = await cubismModule.Live2DModel.from(skinUrl(root, chosen), { autoInteract: false });
+    model = await cubism.Live2DModel.from(skinUrl(root, chosen), { autoInteract: false });
     if (destroyed) {
       model.destroy();
       model = null;

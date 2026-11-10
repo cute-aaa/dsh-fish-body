@@ -39,23 +39,19 @@ export default defineConfig([
     entry: {
       client: 'src/client/index.ts',
     },
-    // 浏览器半侧按 browser 口径解析：按 node 解析会把 pixi 拉成 node 构建，
-    // 顺带带出 url/events 一类 Node 内置依赖，产物顶层留下裸 import → 经典脚本直接 SyntaxError。
+    // 浏览器半侧按 browser 口径解析（按 node 解析会带出 url/events 一类 Node 内置）。
+    // pixi 与 pixi-live2d-display 不进 bundle：它们是 UMD 形态由页面 <script> 从 /vendor 加载
+    // （ESM 打进来会留裸 import + node 垫片，经典脚本必然加载失败，见 render/live2d.ts 文件头）。
     platform: 'browser',
     external: [/^@deepseek-ai\//, /^@electron\//, /^node:/],
-    // tsdown 默认把 dependencies 外部化，而浏览器半侧取不到 node_modules：live2d 用到的
-    // pixi 两包若留成裸 import，会被提到 IIFE 外面的经典脚本顶层 → SyntaxError，
-    // 整个插件（overlay / 设置页 / 菜单）都加载失败。必须打进产物。
-    noExternal: [/^pixi\.js$/, /^pixi-live2d-display(\/|$)/],
     // 浏览器半侧必须能被**重复执行**：DSH 把 lib/client.js 当经典脚本加载，而 bundle
     // 重建后（HMR 换 rev）或 combo 请求重试时，同一个文件会在同一页面里再执行一次。
     // 经典脚本的顶层 const/let/function 落在页面的全局词法作用域，第二次解析直接
     // SyntaxError（Identifier 'PET_DISPLAYS' has already been declared），entry 激活
     // 失败 → 桌宠 overlay 与设置页插槽都不注册，只能刷新才恢复。因此整份产物包一层
     // IIFE，让所有模块体声明留在函数作用域内；前导 ';' 抵消 combo 拼接（多个插件
-    // bundle 连成一个脚本）时的 ASI 歧义。inlineDynamicImports：live2d 的 pixi/cubism4
-    // 走动态 import（见 render/live2d.ts），必须并回同一份产物，否则浏览器会去请求一个并不存在的分片。
-    outputOptions: { banner: ';(()=>{', footer: '})();', inlineDynamicImports: true },
+    // bundle 连成一个脚本）时的 ASI 歧义。
+    outputOptions: { banner: ';(()=>{', footer: '})();' },
   },
   {
     ...shared,
