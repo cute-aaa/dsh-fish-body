@@ -72,6 +72,8 @@ export function createCardDrag(rt: CardDragRuntime) {
         // 睡着时不给拖拽动画：可以拖、位置跟手，但保持睡姿（空池 = 驱动退化为只拖不换源）
         dragAnims: (live.current.flow?.sleeping() ?? false) ? [] : cfgRef.current.animations.drag,
         clickAnims: cfgRef.current.animations.clicks,
+        // 分区手势：渲染实例自己知道画布与 manifest（webm / live2d 没实现，返回 undefined 即回落点击池）。
+        gestureAt: (x: number, y: number) => live.current.ownAnim?.gestureAt?.(x, y),
         // 松手同理：睡着时不给回 idle 的动画，否则拖一下就把睡姿换掉了
         idleAnims: (live.current.flow?.sleeping() ?? false) ? [] : cfgRef.current.animations.idle,
         currentAnim: card.animRef.current,

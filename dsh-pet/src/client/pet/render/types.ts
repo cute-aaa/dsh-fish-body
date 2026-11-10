@@ -99,6 +99,8 @@ export interface Renderer {
   setMood?(mood: string): void;
   /** 命中检测（画布内坐标 → 命中区 id）；不支持返回 undefined。 */
   hitTest?(x: number, y: number): string | undefined;
+  /** 命中区手势（视口坐标 → 皮肤清单声明的 gesture）；不支持或没命中返回 undefined。 */
+  gestureAt?(x: number, y: number): string | undefined;
   /** 是否已就绪（首帧/首张图层已挂上）。 */
   readonly ready: boolean;
 }

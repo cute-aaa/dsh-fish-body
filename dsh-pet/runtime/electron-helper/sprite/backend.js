@@ -40,53 +40,18 @@ async function loadSkinImage(url) {
     img.src = URL.createObjectURL(blob);
   });
 }
-
-/** 皮肤 manifest 声明的交互手势 → 装配动作：pat=摸头、poke=戳身、tailpet=摸尾。 */
-const GESTURE_KINDS = {
-  pat: 'jelly',
-  poke: 'hop',
-  tailpet: 'wag',
-  wag: 'wag',
-  tail: 'wag',
-  hop: 'hop',
-  jump: 'hop',
-  blink: 'blink',
-  talk: 'talk',
-  speak: 'talk',
-  mouth: 'mouth',
-  jelly: 'jelly',
-};
-
-/** webm 动画池的动作名 → 装配动作（按顺序匹配，先中先得）。 */
-const NAME_RULES = [
-  [/blink|眨/, 'blink'],
-  [/wag|tail|摇尾|甩尾/, 'wag'],
-  [/hop|jump|跳|跃/, 'hop'],
-  [/talk|say|speak|说|碎碎念|对话|聊/, 'talk'],
-  [/mouth|张嘴|嘴|吃/, 'mouth'],
-  [/pat|poke|摸|戳|点击|回应|click|tap/, 'jelly'],
-  [/余额|钱/, 'jelly'],
-  [/工作状态|busy|work/, 'blink'],
-];
-
 /**
  * 动作名 → 装配动作。
  *
- * 先认皮肤清单里的手势 id（regions/menu 用的那套词汇），再回落到 webm 池的动作名关键词：
- * layered 没有逐帧素材，动画池里的名字只有「说 / 摸 / 跳 / 余额」这几类语义值得翻译。
+ * 词表只有一份：`layered-core.js` 的 `PetLayered.assemblyActionOf`（源 src/client/pet/render/layered/gestures.ts），
+ * 与浏览器端共用——两端各写一套的话，点同一只宠物会一端有反应、另一端没有。
  *
  * @param {string} name - 动画名或手势 id。
- * @returns {'blink'|'wag'|'hop'|'talk'|'mouth'|'jelly'|null} 装配动作；无对应时为 null（保持待机循环）。
+ * @returns {string|null} 装配动作；无对应语义时为 null（保持待机循环）。
  */
 function actionKind(name) {
-  const key = String(name || '')
-    .trim()
-    .toLowerCase();
-  if (GESTURE_KINDS[key] !== undefined) return GESTURE_KINDS[key];
-  for (const [re, kind] of NAME_RULES) {
-    if (re.test(key)) return kind;
-  }
-  return null;
+  const pick = window.PetLayered && window.PetLayered.assemblyActionOf;
+  return typeof pick === 'function' ? pick(String(name || '')) : null;
 }
 
 /**

@@ -65,6 +65,8 @@ export interface DragCard {
   dragAnims: string[];
   /** 点击动画池。 */
   clickAnims: string[];
+  /** 命中区手势（视口坐标）；没有分区命中时返回 undefined，调用方回落 clickAnims。 */
+  gestureAt?: (x: number, y: number) => string | undefined;
   /** 待机动画池。 */
   idleAnims: string[];
   /** 当前动画名，抽待机时用来避开自己。 */
@@ -117,8 +119,8 @@ export interface Drag {
   onPointerMove(e: ReactNS.PointerEvent<HTMLDivElement>): void;
   /** 松开与取消：结算拖拽或抛掷，并复位悬浮提示。 */
   onPointerUp(e: ReactNS.PointerEvent<HTMLDivElement>): void;
-  /** 点击：播放点击动画并触发 Q 弹。 */
-  onClick(): void;
+  /** 点击：优先按命中区手势，其次播放点击动画并触发 Q 弹；point 是视口坐标。 */
+  onClick(point?: { x: number; y: number }): void;
   /** 停弹簧跟随，不碰指针捕获状态。 */
   stopFollow(): void;
   /** 摘掉鼠标松开兜底监听；卸载时调用，之后这个驱动不可再用。 */
@@ -426,7 +428,7 @@ export function createDrag(card: () => DragCard): Drag {
     endPress(card(), { x: e.clientX, y: e.clientY, hit: e.currentTarget });
   };
 
-  const onClick = (): void => {
+  const onClick = (point?: { x: number; y: number }): void => {
     const c = card();
     if (press.active || press.dragging || performance.now() < justDraggedUntil) return;
     // 本次按下已触发过积分：只收手停住，不再播普通点击动画。
@@ -441,6 +443,16 @@ export function createDrag(card: () => DragCard): Drag {
     // 点击音效放在所有「不播点击动画」的早退分支之后。
     c.playClickSound();
     c.setOnce(true);
+    // 分区手势优先（layered 的皮肤清单声明了 regions）：头/尾/身各自一种装配动作，
+    // 与桌面 Helper 同一条规则；没命中才回落 webm 点击池。
+    const gesture = point === undefined ? undefined : c.gestureAt?.(point.x, point.y);
+    if (gesture !== undefined) {
+      log(c.petId, '-> [CLICK] ' + gesture);
+      c.markSquash();
+      c.bumpSeq();
+      c.playAnim(gesture);
+      return;
+    }
     if (!c.clickAnims.length) return;
     const name = pick(c.clickAnims);
     log(c.petId, '-> [CLICK] ' + name);

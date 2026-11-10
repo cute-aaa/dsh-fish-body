@@ -293,7 +293,7 @@ export function createCardRuntime(rt: PetRuntime) {
       marginX: margin.x,
       marginY: margin.y,
       name: cfg.name,
-      onClick: () => {
+      onClick: (e) => {
         // 拖拽守卫必须在睡觉分支之前：指针捕获后浏览器一定会在松手时补发一次 click，
         // 它不是点击（拖了多久都一样）。醒着时这条由 drag.onClick 内部判，睡觉分支绕过了那里。
         if (drag.justDragged() || drag.isActive()) return;
@@ -309,7 +309,8 @@ export function createCardRuntime(rt: PetRuntime) {
         }
         // 入睡过渡里被点：这次入睡作废，按普通点击处理（挤压 + 音效 + 点击回应），不再播「起来」
         if (phase === 'start') void postAction(ROUTE_PATH + '/wake?pet=' + encodeURIComponent(cfg.id));
-        drag.onClick();
+        // 坐标要给分区手势（layered 按头/尾/身播不同装配），所以不能只传空参。
+        drag.onClick({ x: e.clientX, y: e.clientY });
       },
       onContextMenu: entry.handleContextMenu,
       onPointerDown: drag.onPointerDown,

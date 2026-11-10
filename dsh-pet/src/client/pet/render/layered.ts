@@ -7,6 +7,8 @@
  */
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
+import { assemblyActionOf, type AssemblyAction } from './layered/gestures.ts';
+import { gestureAtPoint } from './layered/hit.ts';
 import { parseSkinManifest, type SkinManifest } from './layered/types.ts';
 import { computePoses, drawPoses, hitTest as skinHitTest, type LoadedLayer, type RigState } from './layered/rig.ts';
 
@@ -45,16 +47,7 @@ async function loadImage(url: string): Promise<CanvasImageSource> {
   });
 }
 
-/** 装配动作名 → 触发哪种装配。 */
-function actionKind(name: string): 'blink' | 'wag' | 'hop' | 'talk' | 'mouth' | 'jelly' | null {
-  if (/blink|眨/.test(name)) return 'blink';
-  if (/wag|摇尾|tail/.test(name)) return 'wag';
-  if (/hop|跳/.test(name)) return 'hop';
-  if (/talk|说|speak/.test(name)) return 'talk';
-  if (/mouth|张嘴|嘴/.test(name)) return 'mouth';
-  if (/pat|poke|摸|戳|tailpet/.test(name)) return 'jelly';
-  return null;
-}
+/** 装配动作名 → 触发哪种装配：词表在 layered/gestures.ts，与桌面 Helper 共用同一份。 */
 
 /**
  * 造 layered 渲染实例（工厂语义：每张宠物卡一个，互不共享画布与装配状态）。
@@ -202,7 +195,7 @@ export function createLayeredRenderer(): Renderer {
     mount,
     destroy,
     playAction: (name) => {
-      const kind = actionKind(name);
+      const kind: AssemblyAction | null = assemblyActionOf(name);
       if (kind === null) return;
       if (kind === 'blink') blinkT = 1;
       else if (kind === 'wag') tail = 1;
@@ -244,6 +237,11 @@ export function createLayeredRenderer(): Renderer {
       gazeY = Math.max(-1, Math.min(1, y));
     },
     hitTest: (x, y) => (skin === null ? undefined : skinHitTest(skin, x, y)),
+    /** 视口坐标 → 皮肤清单声明的命中手势；画布未挂载或没命中返回 undefined。 */
+    gestureAt: (clientX, clientY) =>
+      skin === null || canvas === null
+        ? undefined
+        : gestureAtPoint(skin, canvas.getBoundingClientRect(), clientX, clientY),
     get ready() {
       return ready;
     },

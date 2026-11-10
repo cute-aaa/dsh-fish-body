@@ -177,7 +177,7 @@ export function createLive2dRenderer(): Renderer {
     playAction: (name) => {
       // 动作名来自 webm 池，live2d 用不上；有「Idle」组时尝试播一段，其余静默。
       if (model === null || cubism === null) return;
-      if (/tap|click|摸|戳/i.test(name)) {
+      if (/tap|click|点击|回应|摸|戳/i.test(name)) {
         model.tap(size / 2, size / 2);
         return;
       }
