@@ -13,6 +13,7 @@ import { listBalanceProviders, registerBalanceProvider } from '../balance/index.
 import { listVoiceProviders, registerVoiceProvider } from '../voice/registry.ts';
 import { listSpeechProviders, registerSpeechProvider } from '../voice/speech-registry.ts';
 import { listChatMemoryProviders, registerChatMemoryProvider } from '../chat-memory-provider.ts';
+import { listPersonaSources, registerPersonaSource } from '../persona-source/registry.ts';
 import { migrateUserConfig, type ConfigPaths } from '../config.ts';
 import { createFileLogger, isFileLogger, setDefaultLogger, type FileLogger, type LoggerLike } from '../log-file.ts';
 import { MenuRegistry } from '../menu.ts';
@@ -211,6 +212,11 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     memory: {
       register: registerChatMemoryProvider,
       list: listChatMemoryProviders,
+    },
+    // 人格来源：第三方注册自己的 dsh 人格项目人设卡读取实现（多来源并存，按 id 查）。
+    persona: {
+      register: registerPersonaSource,
+      list: listPersonaSources,
     },
   });
 
