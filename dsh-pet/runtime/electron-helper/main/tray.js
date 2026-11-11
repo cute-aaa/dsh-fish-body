@@ -13,6 +13,33 @@ const path = require('node:path');
 const DISPLAY_ORDER = ['web', 'desktop', 'both', 'none'];
 const DISPLAY_LABELS = { web: '仅网页', desktop: '仅桌面', both: '两者', none: '都不' };
 
+/**
+ * 大小档位：必须与 shared/menu/tree.ts 的 `SIZE_PRESETS` 同值（主进程拿不到 shared-core，只能各存一份）。
+ * 契约测试会比对这两张表，改一处漏改另一处即红。
+ */
+const SIZE_PRESETS = [
+  { label: '小', scale: 0.7 },
+  { label: '中', scale: 1 },
+  { label: '大', scale: 1.35 },
+  { label: '特大', scale: 1.8 },
+];
+
+/** 档位对应的画框宽度：与右键「大小」同一算法（基准倍率取整到 10px，基准本身原样）。 */
+function presetSizeOf(base, scale) {
+  return scale === 1 ? base : Math.round((base * scale) / 10) * 10;
+}
+
+/**
+ * 画框宽度的区间与步进（托盘「更小 / 更大」用）。
+ *
+ * 必须与 shared/pet-size.ts 的 `SIZE_MIN` / `SIZE_MAX` 一致——主进程拿不到 shared-core；
+ * 契约测试会解析那份源码逐项比对。托盘是 Electron **原生**菜单，塞不了滑块，
+ * 所以这里用「±40px 步进 + 快捷档位」逼近连续调节。
+ */
+const SIZE_MIN = 120;
+const SIZE_MAX = 2048;
+const SIZE_STEP_PX = 40;
+
 /** 音量档位：托盘只给这几档，精确值仍可在设置页的滑块上调。 */
 const VOLUME_STEPS = [0, 0.25, 0.5, 0.75, 1];
 
@@ -65,6 +92,39 @@ function createTray({
     hostRequest('POST', petRoute + '/pet-display', JSON.stringify({ id, display })).catch((e) => {
       console.error('[dsh-pet-desktop-helper] tray pet-display failed:', String(e && e.message ? e.message : e));
     });
+  }
+
+  /**
+   * 写回某只宠物当前渲染方式的画框宽度（`size === undefined` = 删掉覆盖，回落 `pets[].size`）。
+   *
+   * 与右键「大小」同一端点；宿主写盘后会重启 Helper，所以同样不 await、不刷新菜单——
+   * 本进程随即被换掉，重画没有意义。
+   */
+  function traySetPetSize(id, size) {
+    const body = size === undefined ? { id } : { id, size };
+    hostRequest('POST', petRoute + '/pet-size', JSON.stringify(body)).catch((e) => {
+      console.error('[dsh-pet-desktop-helper] tray pet-size failed:', String(e && e.message ? e.message : e));
+    });
+  }
+
+  /**
+   * 切某只宠物的「鼠标穿透」。
+   *
+   * 托盘与宠物窗口在同一个进程里：先就地翻窗（`setClickThrough` 会强制整窗穿透并把最终值回推渲染端），
+   * 再把目标值写进配置（`/pet-click-through` 不重启 Helper，下一次启动按配置落位）。
+   * 写完刷新一次菜单，勾选跟着走。
+   */
+  function traySetClickThrough(id, value) {
+    const win = petWindows && petWindows.state && petWindows.state.windows ? petWindows.state.windows.get(id) : null;
+    if (win && typeof petWindows.setClickThrough === 'function') petWindows.setClickThrough(win, value);
+    hostRequest('POST', petRoute + '/pet-click-through', JSON.stringify({ id, value }))
+      .then(() => refreshTray())
+      .catch((e) => {
+        console.error(
+          '[dsh-pet-desktop-helper] tray pet-click-through failed:',
+          String(e && e.message ? e.message : e),
+        );
+      });
   }
 
   /**
@@ -138,14 +198,25 @@ function createTray({
     // 免得一份老配置或一个错值让托盘无声消失。与下面的 pets 取自同一份成品配置。
     if (merged && merged.main && merged.main.trayEnabled === false) return null;
     // 成品聚合的形状是 { <条目>: <整份配置文档> }：顶层键不是宠物，宠物在各条目的 pets 数组里
-    // （与渲染端同一契约）。托盘只要 id/name/display，所以不吹条目级字段。
+    // （与渲染端同一契约）。托盘要 id/name/display（可见性）、size/sizes/renderer（当前生效宽度）
+    // 与 clickThrough（鼠标穿透）——这三组各自对应一个子菜单，不吹条目级字段。
     const pets = Object.values(merged)
       .flatMap((conf) => (conf && Array.isArray(conf.pets) ? conf.pets : []))
-      .map((pet) => ({
-        id: String((pet && pet.id) || ''),
-        name: String((pet && pet.name) || '').trim(), // host 已保证 name 缺失时回落 id
-        display: String((pet && pet.display) || ''),
-      }))
+      .map((pet) => {
+        const sizes = pet && pet.sizes && typeof pet.sizes === 'object' && !Array.isArray(pet.sizes) ? pet.sizes : {};
+        const renderer = String((pet && pet.renderer) || 'webm');
+        const ownSize = Number(sizes[renderer]);
+        return {
+          id: String((pet && pet.id) || ''),
+          name: String((pet && pet.name) || '').trim(), // host 已保证 name 缺失时回落 id
+          display: String((pet && pet.display) || ''),
+          baseSize: Number(pet && pet.size) || 0,
+          renderer,
+          // 当前渲染方式的覆盖值；缺键 = 跟随 baseSize（与 shared/pet-size 的 renderSizeOf 同口径）。
+          overrideSize: Number.isFinite(ownSize) && ownSize > 0 ? ownSize : undefined,
+          clickThrough: pet && pet.clickThrough === true,
+        };
+      })
       .filter((pet) => pet.id);
     if (!pets.length) return null; // 配置里没有任何宠物：没有可切换的对象，不建托盘
     const canQuit = await canQuitSelf();
@@ -184,6 +255,78 @@ function createTray({
             submenu: displayItems(pet),
           }));
 
+    /**
+     * 每只宠物的鼠标穿透开关（checkbox：勾 = 该窗整窗忽略鼠标）。
+     *
+     * 单宠物时直接摊成一项「鼠标穿透」；多宠物时每只一层（勾选态各自独立，不能做成 radio）。
+     * 托盘是窗内右键菜单在「宠物点不到」时唯一还能开关它的地方，所以这一项必须在托盘里有。
+     */
+    const clickThroughItems = () =>
+      pets.length === 1
+        ? [
+            {
+              label: '鼠标穿透',
+              type: 'checkbox',
+              checked: pets[0].clickThrough,
+              click: () => traySetClickThrough(pets[0].id, !pets[0].clickThrough),
+            },
+          ]
+        : [
+            {
+              label: '鼠标穿透',
+              submenu: pets.map((pet) => ({
+                label: pet.name || pet.id,
+                type: 'checkbox',
+                checked: pet.clickThrough,
+                click: () => traySetClickThrough(pet.id, !pet.clickThrough),
+              })),
+            },
+          ];
+
+    /** 每只宠物当前渲染方式的大小档位（与右键「大小」同一套算法与勾选语义）。 */
+    const sizeItems = (pet) => {
+      const current = pet.overrideSize === undefined ? pet.baseSize : pet.overrideSize;
+      const shown = (text, size) => text + '（' + size + 'px）';
+      // 原生菜单没有滑块：这两项是替身，点一次挪 40px，到区间边界置灰。
+      const items = [
+        {
+          label: '更小（−' + SIZE_STEP_PX + 'px）',
+          enabled: current > SIZE_MIN,
+          click: () => traySetPetSize(pet.id, Math.max(SIZE_MIN, current - SIZE_STEP_PX)),
+        },
+        {
+          label: '更大（+' + SIZE_STEP_PX + 'px）',
+          enabled: current < SIZE_MAX,
+          click: () => traySetPetSize(pet.id, Math.min(SIZE_MAX, current + SIZE_STEP_PX)),
+        },
+        { type: 'separator' },
+      ];
+      for (const preset of SIZE_PRESETS) {
+        const size = presetSizeOf(pet.baseSize, preset.scale);
+        const checked = current === size;
+        items.push({
+          label: checked ? shown(preset.label, size) + '✓' : shown(preset.label, size),
+          type: 'radio',
+          checked,
+          click: () => traySetPetSize(pet.id, size),
+        });
+      }
+      // 恢复默认 = 删掉当前渲染方式的覆盖，回落 pets[].size。与右键菜单同形：普通项、不打勾
+      // （当前值由上面哪个档位带 ✓ 表达——基准值本身就是「中」，两个勾并存只会让人犯迷糊）。
+      items.push({
+        label: '恢复默认大小',
+        click: () => traySetPetSize(pet.id, undefined),
+      });
+      return items;
+    };
+    const sizeMenu =
+      pets.length === 1
+        ? sizeItems(pets[0])
+        : pets.map((pet) => ({
+            label: pet.name || pet.id,
+            submenu: sizeItems(pet),
+          }));
+
     return Menu.buildFromTemplate([
       ...pets.map((pet) => ({
         label: pet.name || pet.id,
@@ -194,6 +337,10 @@ function createTray({
       { type: 'separator' },
       // 显示位置：右键菜单那一项的四选一，这里对全部宠物（或逐只）生效。
       { label: '显示位置', submenu: displayMenu },
+      // 鼠标穿透：右键菜单同名项的托盘版本——宠物开了穿透就点不到它自己，这里是唯一出口。
+      ...clickThroughItems(),
+      // 大小：写 pets[].sizes[当前渲染方式]，宿主写盘后重启 Helper 生效（同「显示位置」）。
+      { label: '大小', submenu: sizeMenu },
       // 音量：写 voiceVolume，不重启进程；当前档位打勾（不在档位上的精确值四项都不勾）。
       {
         label: '音量',
@@ -269,4 +416,7 @@ function createTray({
   };
 }
 
-module.exports = { createTray };
+/** 画框宽度的区间与步进（导出给契约测试比对 shared/pet-size.ts）。 */
+const SIZE_RANGE = { min: SIZE_MIN, max: SIZE_MAX, step: SIZE_STEP_PX };
+
+module.exports = { createTray, SIZE_PRESETS, SIZE_RANGE };

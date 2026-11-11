@@ -73,7 +73,28 @@ export interface MenuBranch {
   children: MenuNode[];
 }
 
-export type MenuNode = MenuLeaf | MenuBranch;
+/**
+ * 滑块行：数值型菜单项（目前只有「大小」）。
+ *
+ * 为什么菜单里能有滑块：右键菜单是自绘 DOM（不是系统菜单），能塞原生控件；拖动只更新读数，
+ * **松手（change）才派发** `action`，避免拖动过程中反复写盘/重建窗口。派发沿用 `set-size` 的路径，
+ * 两端（网页 / 桌面）的既有分发不用分叉。
+ */
+export interface MenuSlider {
+  /** 判别键与语义：`'size'` = 画框宽度（px）。 */
+  readonly slider: 'size';
+  /** 无障碍名称与派发时的动作名（屏幕上不显示，读数在右侧）。 */
+  readonly label: string;
+  /** 打开菜单时的生效值。 */
+  readonly value: number;
+  readonly min: number;
+  readonly max: number;
+  readonly step: number;
+  /** 松手后派发的动作（沿用 set-size，值放在 MenuLeaf.size）。 */
+  readonly action: 'set-size';
+}
+
+export type MenuNode = MenuLeaf | MenuBranch | MenuSlider;
 
 /** 第三方菜单项（宿主经 /state 的 sections.menu 下发的快照，一条 = 一个可点项）。 */
 export interface MenuMoreItem {

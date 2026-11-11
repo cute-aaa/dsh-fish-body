@@ -7,6 +7,7 @@
  */
 import { DISPLAY_HOTKEY_HINTS, DISPLAY_ORDER } from '../display-hotkey.ts';
 import { RENDERERS } from '../config.ts';
+import { SIZE_MAX, SIZE_MIN, SIZE_STEP } from '../pet-size.ts';
 import { type Animations, type Category, type PetDisplay, type RendererKind } from '../types.ts';
 import { switchableProviders, type VoiceProviderView } from '../voice-providers.ts';
 import type { MenuBranch, MenuLeaf, MenuMoreItem, MenuNode } from './types.ts';
@@ -112,10 +113,11 @@ export const EXPRESSION_RESET = 'expression-reset';
 export const MOTION_RESET = 'motion-reset';
 
 /**
- * 「大小」子菜单的档位：相对 `pets[].size` 的倍率。
+ * 大小的「快捷档位」：相对 `pets[].size` 的倍率。
  *
- * 三档 + 一个特大就够日常用；精确到像素走设置页的输入框。写回的是**当前渲染方式**的
- * `pets[].sizes[renderer]`，所以同一只宠物切到另一种素材可以各用一套大小。
+ * 右键菜单已经改用滑块（见 {@link sizeMenuBranch}），这里只剩**系统托盘**在用——
+ * 托盘是 Electron 原生菜单，塞不了滑块，只能给固定档位 + ±40px 步进。
+ * 主进程拿不到 shared-core，托盘里另存了一份同值表，契约测试逐项比对两边。
  */
 export const SIZE_PRESETS: readonly { readonly label: string; readonly scale: number }[] = [
   { label: '小', scale: 0.7 },
@@ -127,19 +129,31 @@ export const SIZE_PRESETS: readonly { readonly label: string; readonly scale: nu
 /**
  * 「大小」子菜单：按当前渲染方式调画框宽度。
  *
- * @param current - 当前渲染方式生效的宽度（px），用来打勾。
- * @param base - `pets[].size`（档位倍率的基准）。
- * @returns 子菜单；末尾一条「恢复默认」= 删掉覆盖。
+ * 一级是滑块：菜单是自绘 DOM，能放原生 `<input type=range>`——比四个固定档位精细得多，
+ * 拖动只更新右侧读数，**松手才落盘**（拖一次写一次配置等于反复重建桌面窗口）。
+ * 末尾一条「恢复默认大小」= 删掉当前渲染方式的覆盖。
+ *
+ * @param current - 当前渲染方式生效的宽度（px），滑块的初始值。
+ * @param base - `pets[].size`（「恢复默认」回落到的基准值）。
+ * @returns 子菜单。
  */
 export const sizeMenuBranch = (current: number, base: number): MenuBranch => {
-  const children: MenuLeaf[] = SIZE_PRESETS.map(({ label, scale }) => {
-    // 「中」就是基准值本身；其余档取整到 10px——档位是给人看的，462×0.7=323.4 这种小数没有意义。
-    const size = scale === 1 ? base : Math.round((base * scale) / 10) * 10;
-    const shown = current === size ? `${label}（${size}px）✓` : `${label}（${size}px）`;
-    return { label: shown, action: 'set-size', size };
-  });
-  children.push({ label: '恢复默认大小', action: 'set-size' });
-  return { label: '大小', children };
+  const value = Number.isFinite(current) && current > 0 ? Math.round(current) : base;
+  return {
+    label: '大小',
+    children: [
+      {
+        slider: 'size',
+        label: '大小（px）',
+        value: Math.min(SIZE_MAX, Math.max(SIZE_MIN, value)),
+        min: SIZE_MIN,
+        max: SIZE_MAX,
+        step: SIZE_STEP,
+        action: 'set-size',
+      },
+      { label: '恢复默认大小（' + String(Math.round(base)) + 'px）', action: 'set-size' },
+    ],
+  };
 };
 
 /**

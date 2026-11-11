@@ -19,7 +19,8 @@ import {
   sizeMenuBranch,
   skinMenuBranch,
 } from './tree.ts';
-import type { MenuLeaf } from './types.ts';
+import type { MenuLeaf, MenuSlider } from './types.ts';
+import { SIZE_MAX, SIZE_MIN, SIZE_STEP } from '../pet-size.ts';
 
 describe('isSleepAllowedAction —— 睡着时仍然放行的动作', () => {
   test('睡觉 / 起来 / 维护类 / 第三方菜单项放行', () => {
@@ -223,24 +224,30 @@ describe('skinMenuBranch / accessoryMenuBranch —— 皮肤与外观（按渲�
   });
 });
 
-describe('sizeMenuBranch —— 「大小」子菜单（按当前渲染方式）', () => {
-  test('四档按 size 缩放：「中」就是基准值，其余取整到 10px', () => {
-    const branch = sizeMenuBranch(462, 462);
+describe('sizeMenuBranch —— 「大小」子菜单（滑块 + 恢复默认）', () => {
+  test('一级是滑块：初值 = 当前生效值，区间与步进取自 shared/pet-size', () => {
+    const branch = sizeMenuBranch(555, 462);
     assert.equal(branch.label, '大小');
-    assert.deepEqual(
-      branch.children.map((leaf) => leaf.label),
-      ['小（320px）', '中（462px）✓', '大（620px）', '特大（830px）', '恢复默认大小'],
-    );
-    assert.deepEqual(
-      branch.children.map((leaf) => (leaf as MenuLeaf).size),
-      [320, 462, 620, 830, undefined],
-      '最后一条是「恢复默认」：不带 size = 删掉覆盖',
-    );
+    const slider = branch.children[0] as MenuSlider;
+    assert.equal(slider.slider, 'size');
+    assert.equal(slider.value, 555, '滑块初值是当前生效值，不是基准值');
+    assert.equal(slider.min, SIZE_MIN);
+    assert.equal(slider.max, SIZE_MAX);
+    assert.equal(slider.step, SIZE_STEP);
+    assert.equal(slider.action, 'set-size');
   });
 
-  test('当前值是配置里的任意覆盖值时，没有档位打勾', () => {
-    const branch = sizeMenuBranch(555, 462);
-    assert.equal(branch.children.filter((leaf) => leaf.label.endsWith('✓')).length, 0);
+  test('越界/异常值夹回区间；非法当前值回落基准值', () => {
+    assert.equal((sizeMenuBranch(99999, 462).children[0] as MenuSlider).value, SIZE_MAX);
+    assert.equal((sizeMenuBranch(1, 462).children[0] as MenuSlider).value, SIZE_MIN);
+    assert.equal((sizeMenuBranch(Number.NaN, 462).children[0] as MenuSlider).value, 462);
+  });
+
+  test('末尾一条是「恢复默认」：不带 size = 删掉当前渲染方式的覆盖', () => {
+    const reset = sizeMenuBranch(462, 462).children[1] as MenuLeaf;
+    assert.equal(reset.action, 'set-size');
+    assert.equal(reset.size, undefined);
+    assert.ok(reset.label.includes('462'), '文案带上基准值，让人知道会回到多大');
   });
 
   test('睡着时放行：改大小不改宠物状态，属于维护类', () => {

@@ -5,11 +5,15 @@
  * 必须始终成立：卸载时必须摘掉全部监听，不留悬挂元素。
  * @module dsh-pet/src/shared/menu/mount
  */
-import type { ContextMenuMount, MenuBranch, MenuLeaf, MenuNode } from './types.ts';
+import type { ContextMenuMount, MenuBranch, MenuLeaf, MenuNode, MenuSlider } from './types.ts';
 import { pickPanelPosition } from './position.ts';
 
 function isBranchNode(n: MenuNode): n is MenuBranch {
   return 'children' in n && Array.isArray((n as MenuBranch).children);
+}
+
+function isSliderNode(n: MenuNode): n is MenuSlider {
+  return 'slider' in n;
 }
 
 /** 挂载一个系统风格右键菜单（级联子菜单）到 document.body，位置为视口坐标。
@@ -94,6 +98,41 @@ export function mountContextMenu(opts: {
     for (const node of nodes) {
       const item = document.createElement('div');
       item.className = 'dsh-pet-menu-item';
+      if (isSliderNode(node)) {
+        // 滑块行：拖动只改右侧读数，松手（change）才派发——拖一次写一次配置等于反复重建窗口。
+        item.classList.add('dsh-pet-menu-slider');
+        const clampValue = (raw: number): number =>
+          Number.isFinite(raw) ? Math.min(node.max, Math.max(node.min, Math.round(raw))) : node.min;
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.className = 'dsh-pet-menu-range';
+        range.min = String(node.min);
+        range.max = String(node.max);
+        range.step = String(node.step);
+        range.value = String(clampValue(node.value));
+        range.setAttribute('aria-label', node.label);
+        const readout = document.createElement('span');
+        readout.className = 'dsh-pet-menu-value';
+        readout.textContent = range.value + 'px';
+        const initial = range.value;
+        range.addEventListener('input', () => {
+          readout.textContent = range.value + 'px';
+        });
+        range.addEventListener('change', () => {
+          const next = clampValue(Number(range.value));
+          readout.textContent = next + 'px';
+          if (String(next) === initial) return; // 拖回原值不算一次改动
+          close();
+          onAction({ label: node.label, action: node.action, size: next });
+        });
+        // 行内的按下/抬起不再冒泡：面板级没有点击处理，但避免被外层「点空白收起」之类的逻辑误判。
+        item.addEventListener('mousedown', (e) => e.stopPropagation());
+        item.addEventListener('click', (e) => e.stopPropagation());
+        item.appendChild(range);
+        item.appendChild(readout);
+        panel.appendChild(item);
+        continue;
+      }
       if (isBranchNode(node)) {
         item.classList.add('dsh-pet-menu-branch');
         const label = document.createElement('span');

@@ -7,7 +7,9 @@
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 /** 托盘模块是给 Helper 用的 CJS，没有类型声明：这里按用到的形状窄化。 */
 interface TrayModule {
@@ -17,6 +19,10 @@ interface TrayModule {
     exists(): boolean;
     destroy(): void;
   };
+  /** 大小档位（托盘侧的一手来源；测试用它比对 shared/menu/tree.ts 的同一张表）。 */
+  SIZE_PRESETS: ReadonlyArray<{ readonly label: string; readonly scale: number }>;
+  /** 画框宽度的区间与步进（比对 shared/pet-size.ts 的 SIZE_MIN / SIZE_MAX）。 */
+  SIZE_RANGE: { readonly min: number; readonly max: number; readonly step: number };
 }
 
 /** 一条菜单项：只断言用到的字段。 */
@@ -24,11 +30,15 @@ interface MenuItem {
   label: string;
   type?: string;
   checked?: boolean;
+  /** 置灰不可点（步进到区间边界时用）。 */
+  enabled?: boolean;
   click?: () => void;
   submenu?: MenuItem[];
 }
 
-const { createTray } = createRequire(import.meta.url)('../../runtime/electron-helper/main/tray.js') as TrayModule;
+const { createTray, SIZE_PRESETS, SIZE_RANGE } = createRequire(import.meta.url)(
+  '../../runtime/electron-helper/main/tray.js',
+) as TrayModule;
 
 /** 造一套假依赖：记录宿主请求、菜单模板、退出调用与窗口命令。 */
 function harness(options: {
@@ -86,6 +96,10 @@ function harness(options: {
     petWindows: {
       setHidden: (hidden: boolean) => windowCalls.push('hidden=' + String(hidden)),
       broadcastCommand: (name: string) => windowCalls.push('cmd=' + name),
+      // 鼠标穿透的就地翻窗：托盘与宠物窗口同进程，点了先改窗口再写配置。
+      state: { windows: new Map(options.pets?.map((pet) => [String(pet.id), { id: pet.id }]) ?? []) },
+      setClickThrough: (win: { id?: unknown }, value: boolean) =>
+        windowCalls.push('clickThrough=' + String(win?.id) + ':' + String(value)),
     },
   };
 
@@ -282,6 +296,158 @@ describe('createTray —— 显示位置 / 音量 / 隐藏 / 维护项', () => {
     item(menus, '重启插件')?.click?.();
     assert.ok(requests.includes('POST /dsh-pet-7340/reload'));
     assert.ok(requests.includes('POST /dsh-pet-7340/plugin-restart'));
+  });
+});
+
+describe('createTray —— 鼠标穿透 / 大小', () => {
+  /** 取一级菜单里的某一项。 */
+  const item = (menus: MenuItem[][], label: string): MenuItem | undefined =>
+    lastMenu(menus).find((entry) => entry.label === label);
+
+  test('鼠标穿透：单宠物摊成一项，勾选来自配置，点了先翻窗再写配置', async () => {
+    const { tray, menus, requests, bodies, windowCalls } = harness({
+      pets: [{ id: 'main', name: '鱼生', display: 'desktop', clickThrough: true }],
+    });
+    await tray.start();
+    const toggle = item(menus, '鼠标穿透');
+    assert.ok(toggle, '托盘要有「鼠标穿透」');
+    assert.equal(toggle.type, 'checkbox');
+    assert.equal(toggle.checked, true, '配置里开着就该打勾');
+    toggle.click?.();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(windowCalls, ['clickThrough=main:false'], '托盘与宠物窗口同进程：先就地翻窗');
+    assert.ok(requests.includes('POST /dsh-pet-7340/pet-click-through'), '再把目标值写进配置');
+    assert.deepEqual(JSON.parse(bodies[0] ?? '{}'), { id: 'main', value: false });
+  });
+
+  test('鼠标穿透：多宠物时每只一项，勾选各自独立（不能做成互斥的 radio）', async () => {
+    const { tray, menus } = harness({
+      pets: [
+        { id: 'a', name: '甲', display: 'desktop', clickThrough: false },
+        { id: 'b', name: '乙', display: 'web', clickThrough: true },
+      ],
+    });
+    await tray.start();
+    const branch = item(menus, '鼠标穿透');
+    assert.ok(branch?.submenu, '多宠物时每只一层');
+    assert.deepEqual(
+      branch.submenu.map((entry) => entry.label),
+      ['甲', '乙'],
+    );
+    assert.deepEqual(
+      branch.submenu.map((entry) => entry.checked),
+      [false, true],
+    );
+    assert.deepEqual(
+      branch.submenu.map((entry) => entry.type),
+      ['checkbox', 'checkbox'],
+    );
+  });
+
+  test('大小：原生菜单没有滑块 → 步进项 + 快捷档位 + 恢复默认', async () => {
+    const { tray, menus, requests, bodies } = harness({
+      pets: [{ id: 'main', name: '鱼生', display: 'desktop', size: 462, renderer: 'layered', sizes: { layered: 620 } }],
+    });
+    await tray.start();
+    const branch = item(menus, '大小');
+    assert.ok(branch?.submenu, '托盘要有「大小」');
+    // 462×0.7=323.4→320，462×1.35=623.7→620，462×1.8=831.6→830（档位取整到 10px，与右键菜单同一算法）
+    assert.deepEqual(
+      branch.submenu.filter((entry) => entry.label).map((entry) => entry.label),
+      ['更小（−40px）', '更大（+40px）', '小（320px）', '中（462px）', '大（620px）✓', '特大（830px）', '恢复默认大小'],
+    );
+    assert.ok(
+      branch.submenu.some((entry) => entry.type === 'separator'),
+      '步进与档位之间要有分隔线',
+    );
+    branch.submenu[0]?.click?.();
+    assert.ok(requests.includes('POST /dsh-pet-7340/pet-size'));
+    assert.deepEqual(JSON.parse(bodies[0] ?? '{}'), { id: 'main', size: 580 }, '更小 = 当前值 −40');
+    branch.submenu[1]?.click?.();
+    assert.deepEqual(JSON.parse(bodies[1] ?? '{}'), { id: 'main', size: 660 }, '更大 = 当前值 +40');
+  });
+
+  test('大小：步进夹在区间内，到边置灰', async () => {
+    const low = harness({ pets: [{ id: 'a', display: 'desktop', size: SIZE_RANGE.min }] });
+    await low.tray.start();
+    const lowItems = item(low.menus, '大小')?.submenu ?? [];
+    assert.equal(lowItems[0]?.enabled, false, '已在下限：更小置灰');
+    lowItems[1]?.click?.();
+    assert.deepEqual(JSON.parse(low.bodies[0] ?? '{}'), { id: 'a', size: SIZE_RANGE.min + 40 });
+
+    const high = harness({ pets: [{ id: 'b', display: 'desktop', size: SIZE_RANGE.max }] });
+    await high.tray.start();
+    const highItems = item(high.menus, '大小')?.submenu ?? [];
+    assert.equal(highItems[1]?.enabled, false, '已在上限：更大置灰');
+    highItems[0]?.click?.();
+    assert.deepEqual(JSON.parse(high.bodies[0] ?? '{}'), { id: 'b', size: SIZE_RANGE.max - 40 });
+  });
+
+  test('大小：没写覆盖时按 pets[].size 打勾', async () => {
+    const { tray, menus } = harness({ pets: [{ id: 'main', display: 'desktop', size: 462 }] });
+    await tray.start();
+    const branch = item(menus, '大小');
+    assert.deepEqual(
+      branch?.submenu?.map((entry) => entry.checked),
+      [undefined, undefined, undefined, false, true, false, false, undefined],
+      '缺省回落 size：462 命中「中」；步进、分隔线与恢复默认不打勾',
+    );
+  });
+
+  test('大小：恢复默认 = 不传 size（删掉该渲染方式的覆盖）', async () => {
+    const { tray, menus, requests, bodies } = harness({
+      pets: [{ id: 'main', display: 'desktop', size: 462, renderer: 'webm', sizes: { webm: 520 } }],
+    });
+    await tray.start();
+    const reset = item(menus, '大小')?.submenu?.find((entry) => entry.label === '恢复默认大小');
+    assert.ok(reset?.click);
+    reset.click();
+    assert.ok(requests.includes('POST /dsh-pet-7340/pet-size'));
+    assert.deepEqual(JSON.parse(bodies[0] ?? '{}'), { id: 'main' }, '没有 size 键 = 删掉覆盖');
+  });
+
+  test('大小：多宠物时每只一层子菜单', async () => {
+    const { tray, menus } = harness({
+      pets: [
+        { id: 'a', name: '甲', display: 'desktop', size: 300 },
+        { id: 'b', name: '乙', display: 'web', size: 420 },
+      ],
+    });
+    await tray.start();
+    const branch = item(menus, '大小');
+    assert.deepEqual(
+      branch?.submenu?.map((entry) => entry.label),
+      ['甲', '乙'],
+    );
+    assert.equal(branch?.submenu?.[1]?.submenu?.[4]?.label, '中（420px）✓', '没写覆盖时按 pets[].size 命中「中」');
+  });
+});
+
+describe('createTray —— 档位表与 shared 菜单同步', () => {
+  test('托盘 SIZE_PRESETS 与 shared/menu/tree.ts 的同一张表逐项相等', () => {
+    const source = readFileSync(fileURLToPath(new URL('../shared/menu/tree.ts', import.meta.url)), 'utf8');
+    const block = /export const SIZE_PRESETS[^=]*=\s*\[([\s\S]*?)\];/.exec(source);
+    assert.ok(block, 'shared/menu/tree.ts 里应有 SIZE_PRESETS');
+    const parsed = [...block[1].matchAll(/label:\s*'([^']+)',\s*scale:\s*([\d.]+)/g)].map((m) => ({
+      label: m[1],
+      scale: Number(m[2]),
+    }));
+    assert.ok(parsed.length > 0, '应解析出档位');
+    assert.deepEqual(
+      parsed,
+      SIZE_PRESETS.map(({ label, scale }) => ({ label, scale })),
+      '主进程拿不到 shared-core，只能各存一份：两张表必须一致',
+    );
+  });
+
+  test('托盘 SIZE_RANGE 与 shared/pet-size.ts 的 SIZE_MIN / SIZE_MAX 一致', () => {
+    const source = readFileSync(fileURLToPath(new URL('../shared/pet-size.ts', import.meta.url)), 'utf8');
+    const min = Number(/export const SIZE_MIN = (\d+);/.exec(source)?.[1]);
+    const max = Number(/export const SIZE_MAX = (\d+);/.exec(source)?.[1]);
+    assert.ok(Number.isFinite(min) && Number.isFinite(max), '应解析出 SIZE_MIN / SIZE_MAX');
+    assert.equal(SIZE_RANGE.min, min, '托盘步进的下限必须与宿主校验一致');
+    assert.equal(SIZE_RANGE.max, max, '托盘步进的上限必须与宿主校验一致');
+    assert.ok(SIZE_RANGE.step > 0 && SIZE_RANGE.step <= 100, '步进要能细调（40px）');
   });
 });
 

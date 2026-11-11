@@ -44,4 +44,10 @@ export const MENU_CSS = [
   // 右侧快捷键提示（菜单项 hint）：与 label 同一 flex 行，space-between 自动贴右
   '.dsh-pet-menu-hint{color:#9aa0a6;font-size:12px;flex:none;white-space:nowrap}',
   '.dsh-pet-menu-arrow{color:#9aa0a6;font-size:12px;flex:none}',
+  // 滑块行（「大小」）：滑块吃满剩余宽度，右侧读数定宽右对齐、等宽数字——拖动时才不会左右抖。
+  '.dsh-pet-menu-slider{gap:8px;cursor:default}',
+  '.dsh-pet-menu-slider:hover{background:transparent}',
+  '.dsh-pet-menu-range{flex:1 1 auto;min-width:120px;height:20px;accent-color:#2b63ff;cursor:pointer}',
+  '.dsh-pet-menu-value{flex:none;min-width:54px;text-align:right;color:#5f6368;font-size:12px;',
+  'font-variant-numeric:tabular-nums}',
 ].join('');
