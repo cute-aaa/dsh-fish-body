@@ -407,6 +407,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
       const tail: MenuNode[] = [
         // 显示位置子菜单与桌面端同一份；改成不含 web 的值后本宠物会从页面消失。
         displayMenuBranch(),
+        // 重启插件：宿主重新组合本插件（有 HMR 时连新构建的宿主代码一起换上），页面随后自动刷新。
+        { label: '重启插件', action: 'reload-plugin' },
         { label: '回到初始位置', action: 'home' },
       ];
       const tree: MenuNode[] = [

@@ -19,6 +19,7 @@ import { handleInteractionRoutes } from './interaction.ts';
 import { handleMenuRoutes } from './menu.ts';
 import { handleMotionRoutes } from './motion.ts';
 import { handlePlaybackRoutes } from './playback.ts';
+import { handlePluginRestart } from './plugin-restart.ts';
 import { handleSessionRoutes } from './session.ts';
 import { handleStateRoutes } from './state.ts';
 import { handleSleepRoutes } from './sleep.ts';
@@ -44,6 +45,7 @@ const HANDLERS: readonly RouteHandler[] = [
   handleVoiceRoutes,
   handleAvatarRoutes,
   handleCharacterRoutes,
+  handlePluginRestart,
   handleAssetsRoutes,
 ];
 

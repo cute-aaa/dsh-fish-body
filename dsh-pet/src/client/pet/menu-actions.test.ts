@@ -259,3 +259,44 @@ describe('createMenuActions —— 宿主指令不按「用户点击」判睡觉
     assert.deepEqual(calls, ['stopMove', 'playOnce:idle1:null']);
   });
 });
+
+describe('createMenuActions —— 重启插件', () => {
+  /** 临时接管全局 fetch，返回固定应答，收集请求 URL。 */
+  function stubFetch(body: unknown): { urls: string[]; restore: () => void } {
+    const urls: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: unknown) => {
+      urls.push(String(input));
+      return new Response(JSON.stringify(body), { status: 200 });
+    }) as typeof globalThis.fetch;
+    return { urls, restore: () => (globalThis.fetch = original) };
+  }
+
+  test('点一次只发一次 POST /plugin-restart', async () => {
+    const stub = stubFetch({ ok: true, mode: 'helper' });
+    const { actions } = harness();
+    try {
+      actions.run({ label: '重启插件', action: 'reload-plugin' } as MenuLeaf);
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      stub.restore();
+    }
+    assert.equal(stub.urls.length, 1);
+    assert.ok((stub.urls[0] ?? '').endsWith('/plugin-restart'), '应打到插件重启端点：' + stub.urls[0]);
+  });
+
+  test('宿主没有 HMR：如实提示需要重启 profile，不静默当成功', async () => {
+    const stub = stubFetch({ ok: true, mode: 'helper' });
+    const { actions, calls } = harness();
+    try {
+      actions.run({ label: '重启插件', action: 'reload-plugin' } as MenuLeaf);
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      stub.restore();
+    }
+    assert.ok(
+      calls.some((call) => call.startsWith('warn:') && call.includes('HMR')),
+      '应留一条 warn：' + JSON.stringify(calls),
+    );
+  });
+});

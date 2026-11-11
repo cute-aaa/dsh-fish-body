@@ -13,7 +13,7 @@ import type { MenuLeaf } from './types.ts';
 
 describe('isSleepAllowedAction —— 睡着时仍然放行的动作', () => {
   test('睡觉 / 起来 / 维护类 / 第三方菜单项放行', () => {
-    for (const action of ['sleep', 'wake', 'home', 'set-display', 'reload', 'third-party']) {
+    for (const action of ['sleep', 'wake', 'home', 'set-display', 'reload', 'reload-plugin', 'third-party']) {
       assert.equal(isSleepAllowedAction(action), true, action + ' 应放行');
     }
   });

@@ -105,8 +105,10 @@ async function switchRenderer(deps: MenuActionDeps, renderer: string): Promise<v
   }
 }
 
-/** 皮肤/模型：写配置后宿主回成品聚合，交给容器重渲染（live2d/layered 换模型）。 */
-async function switchModel(deps: MenuActionDeps, model: string): Promise<void> {
+/** 皮肤/模型：写配置后宿主回成品聚合，交给容器重渲染（live2d/layered 换模型）。 */ async function switchModel(
+  deps: MenuActionDeps,
+  model: string,
+): Promise<void> {
   try {
     const response = await fetch(ROUTE_PATH + '/pet-model', {
       method: 'POST',
@@ -119,6 +121,29 @@ async function switchModel(deps: MenuActionDeps, model: string): Promise<void> {
     deps.applyMerged(body as Record<string, Record<string, unknown>>);
   } catch (error) {
     deps.warn('[dsh-pet] 模型切换失败 ' + (error instanceof Error ? error.message : String(error)));
+  }
+}
+
+/**
+ * 重启插件：POST 一次让宿主重新组合本插件。
+ *
+ * 有 HMR 时宿主换掉「文件已变」的插件（含 link 进来的包），浏览器再刷新一次拿新的 client.js；
+ * 没有 HMR 时进程内换不掉已加载的 ESM，只有桌面窗口会重建——如实提示，不假装成功。
+ */
+async function restartPlugin(deps: MenuActionDeps): Promise<void> {
+  try {
+    const response = await fetch(ROUTE_PATH + '/plugin-restart', { method: 'POST' });
+    const body = (await response.json()) as { ok?: unknown; mode?: unknown };
+    if (!response.ok || body.ok === false) throw new Error('plugin-restart HTTP ' + response.status);
+    const mode = body.mode === 'hmr' ? 'hmr' : 'helper';
+    console.info('[dsh-pet] 插件重启已触发 pet=' + deps.petId + ' mode=' + mode);
+    if (mode === 'hmr') {
+      if (typeof window !== 'undefined') window.setTimeout(() => window.location.reload(), 1200);
+      return;
+    }
+    deps.warn('[dsh-pet] 宿主未启用 HMR：宿主代码改动仍需重启 profile，桌面窗口已重建');
+  } catch (error) {
+    deps.warn('[dsh-pet] 插件重启失败 ' + (error instanceof Error ? error.message : String(error)));
   }
 }
 
@@ -225,6 +250,11 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       console.info('[dsh-pet] 菜单渲染器动作 pet=' + petId + ' action=' + action);
       // 直接交给渲染器：这类动作没有 webm 段，不进卡片动画链，也就没有播完回调可言。
       deps.playRendererAction?.(action);
+      return;
+    }
+    if (leaf.action === 'reload-plugin') {
+      console.info('[dsh-pet] 菜单重启插件 pet=' + petId);
+      void restartPlugin(deps);
       return;
     }
     if (leaf.action === 'home') {

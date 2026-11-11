@@ -110,7 +110,12 @@ export interface PetRouteDeps {
   /** 插件日志出口（文件 + 终端）。 */
   readonly log: FileLogger;
   /** 宿主上下文的最小结构：路由只用到 logger 与 llm 服务。 */
-  readonly ctx: { logger?: { warn?(message: string): void }; llm?: unknown };
+  readonly ctx: {
+    logger?: { warn?(message: string): void };
+    llm?: unknown;
+    /** Cordis 服务查找：取 `hmr` 等可选服务（缺失时返回 undefined）。 */
+    get?: (name: string) => unknown;
+  };
   /** 文件宠物目录（`pet/`）。 */
   readonly petConfigDir: string;
   /** 把最新工作状态写进轮询快照。 */

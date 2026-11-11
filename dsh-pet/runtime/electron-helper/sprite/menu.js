@@ -83,6 +83,8 @@ Object.assign(PetSprite.prototype, {
       S.displayMenuBranch(),
       // 重载配置：请宿主重启桌面 Helper，全部窗口按最新配置重建。维护动作，排在回到初始位置之前。
       { label: '重载配置', action: 'reload' },
+      // 重启插件：宿主重新组合本插件（有 HMR 时连新构建的宿主代码一起换上），本窗口由新的 Helper 重建。
+      { label: '重启插件', action: 'reload-plugin' },
       { label: '回到初始位置', action: 'home' },
     ];
     // 第三方菜单项统一收在「更多」下：label 唯一的直接平铺，label 重名的按 owner 分子菜单。
@@ -174,6 +176,10 @@ Object.assign(PetSprite.prototype, {
     }
     if (leaf.action === 'reload') {
       this.reloadDesktop(); // 请宿主重启桌面 Helper：全部桌面宠物窗口按最新配置重建
+      return;
+    }
+    if (leaf.action === 'reload-plugin') {
+      this.reloadPlugin(); // 请宿主重新组合本插件：改完宿主代码不必重启整个 dsh profile
       return;
     }
     if (leaf.action === 'set-renderer') {
@@ -415,6 +421,14 @@ Object.assign(PetSprite.prototype, {
   reloadDesktop() {
     fetch(BASE + '/reload', { method: 'POST' }).catch((e) => {
       console.warn('[dsh-pet] 重载配置请求失败（宿主不可达？）', e);
+    });
+  },
+
+  // 「重启插件」菜单：POST /plugin-restart，宿主重新组合本插件——有 HMR 时连新构建的宿主代码与
+  // 本窗口一起换掉；没有 HMR 时只有本窗口重建。与 reloadDesktop 同一处境：本进程会被换掉，故不 await。
+  reloadPlugin() {
+    fetch(BASE + '/plugin-restart', { method: 'POST' }).catch((e) => {
+      console.warn('[dsh-pet] 重启插件请求失败（宿主不可达？）', e);
     });
   },
 

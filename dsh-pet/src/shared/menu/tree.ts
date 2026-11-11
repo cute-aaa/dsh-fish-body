@@ -21,6 +21,7 @@ const SLEEP_ALLOWED_ACTIONS: readonly string[] = [
   'set-renderer',
   'set-model',
   'reload',
+  'reload-plugin',
   'third-party',
 ];
 
