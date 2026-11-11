@@ -7,7 +7,7 @@ import { mkdtemp, readdir, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { cacheKey, cachePath, ensureCacheDir, pruneCache } from './cache.ts';
+import { cacheKey, cachePath, ensureCacheDir, findCachedClip, pruneCache } from './cache.ts';
 
 /** 在一个独立临时目录里跑用例，结束后清理。 */
 async function withDir(run: (dir: string) => Promise<void>): Promise<void> {
@@ -28,9 +28,20 @@ test('cacheKey：同输入稳定，来源/音色/语速/文本任一不同即不
   assert.notEqual(base, cacheKey('edge', 'zh-CN-XiaoxiaoNeural', '+0%', '你好 '), '空格不归一化');
 });
 
-test('cachePath：固定落在 userRoot/voice-cache 下并用 .mp3 结尾', () => {
-  assert.equal(cachePath(join('root'), 'abc'), join('root', 'voice-cache', 'abc.mp3'));
+test('cachePath：固定落在 userRoot/voice-cache 下，扩展名由格式决定', () => {
+  assert.equal(cachePath(join('root'), 'abc', 'mp3'), join('root', 'voice-cache', 'abc.mp3'));
+  assert.equal(cachePath(join('root'), 'abc', 'wav'), join('root', 'voice-cache', 'abc.wav'));
 });
+
+test('findCachedClip：任一已知扩展名命中即返回文件与 mime，空文件不算命中', () =>
+  withDir(async (dir) => {
+    assert.equal(await findCachedClip(dir, 'k'), undefined, '什么都没有时未命中');
+    const cacheDir = await ensureCacheDir(dir);
+    await writeFile(join(cacheDir, 'k.mp3'), Buffer.alloc(0));
+    assert.equal(await findCachedClip(dir, 'k'), undefined, '0 字节文件不算命中');
+    await writeFile(join(cacheDir, 'k.wav'), Buffer.alloc(4));
+    assert.deepEqual(await findCachedClip(dir, 'k'), { file: join(cacheDir, 'k.wav'), mime: 'audio/wav' });
+  }));
 
 test('ensureCacheDir：目录不存在时创建，重复调用不报错', () =>
   withDir(async (dir) => {

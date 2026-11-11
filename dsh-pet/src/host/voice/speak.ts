@@ -1,16 +1,19 @@
 /**
- * 语音服务：校验输入、串行排队、查缓存、调合成，把结果收敛成「文件路径或失败原因」。
+ * 语音服务：校验输入、串行排队、查缓存、调合成，把结果收敛成「缓存文件 + 格式或失败原因」。
  *
  * 队列放在这里而不是路由里：并发上限是资源约束，与 HTTP 无关。串行保证同一时刻只有
  * 一条上游连接，也保证先点先响——并发合成会让顺序不可预测。
- * 不负责把 mp3 交给客户端：那是路由与 bridge 的事。
+ * 落盘也在这里：合成实现只回 `{ data, mime }`（见 voice/audio.ts），扩展名与
+ * `/voice/speak` 的 Content-Type 都由这一份 mime 推出来。
  * @module dsh-pet/src/host/voice/speak
  */
-import { stat, writeFile } from 'node:fs/promises';
-import { cacheKey, cachePath, ensureCacheDir, pruneCache } from './cache.ts';
+import { rename, rm, writeFile } from 'node:fs/promises';
+import { audioExtOf, normalizeAudioMime } from './audio.ts';
+import { cacheKey, cachePath, ensureCacheDir, findCachedClip, pruneCache } from './cache.ts';
 import { VoiceSynthError, synthesize, type SynthInput } from './edge.ts';
 import { BUILTIN_VOICE_ID, activeVoiceProvider, type VoiceProvider } from './registry.ts';
 import { DEFAULT_VOICE, VOICES, isKnownVoice, type VoiceInfo } from './voices.ts';
+import type { AudioClip } from './audio.ts';
 
 /** 单次请求允许的最大文本长度（字符，按 UTF-16 计）。 */
 export const MAX_TEXT_CHARS = 500;
@@ -40,8 +43,9 @@ interface SpeakInput {
 /** 失败原因；路由层原样映射成 `result.ts` 的 reason。 */
 export type SpeakFailure = 'bad-request' | 'voice-busy' | 'generate-error';
 
-/** 合成结果：成功时给出最终 mp3 的绝对路径。 */
-export type SpeakResult = { ok: true; file: string } | { ok: false; reason: SpeakFailure; message: string };
+/** 合成结果：成功时给出缓存文件绝对路径与它的 MIME（路由据此回 Content-Type）。 */
+export type SpeakResult =
+  { ok: true; file: string; mime: string } | { ok: false; reason: SpeakFailure; message: string };
 
 /** 语音服务：路由层只依赖这两个方法。 */
 export interface VoiceService {
@@ -103,7 +107,7 @@ export function createVoiceService(options: {
   /** 留痕用；不传则静默。只记字数与结果，不记正文（用户内容不进日志）。 */
   log?: { info?(message: string): void; warn?(message: string): void };
   /** 合成实现；测试注入替身，缺省走 edge 的真实实现。 */
-  synthesize?: (input: SynthInput) => Promise<void>;
+  synthesize?: (input: SynthInput) => Promise<AudioClip>;
   /** 容许的最长排队时间（ms）；缺省 {@link STALE_WAIT_MS}，测试用它把丢弃分支逼出来。 */
   staleWaitMs?: number;
 }): VoiceService {
@@ -129,16 +133,6 @@ export function createVoiceService(options: {
     });
   }
 
-  /** 缓存命中返回文件路径；不存在或空文件返回 undefined。 */
-  async function findCached(target: string): Promise<string | undefined> {
-    try {
-      const info = await stat(target);
-      return info.isFile() && info.size > 0 ? target : undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
   async function speak(raw: unknown): Promise<SpeakResult> {
     const parsed = parseSpeakInput(raw);
     if (!parsed.ok) return { ok: false, reason: 'bad-request', message: parsed.message };
@@ -147,18 +141,22 @@ export function createVoiceService(options: {
     const provider = activeVoiceProvider();
     const source = provider ? provider.id : BUILTIN_VOICE_ID;
     // 第三方没有音色概念，缓存键里把 voice 置空；来源进键，换实现不会命中旧音频
-    const target = cachePath(userRoot, cacheKey(source, provider ? '' : voice, rate, text));
+    const key = cacheKey(source, provider ? '' : voice, rate, text);
     const startedMs = Date.now();
-    const cached = await findCached(target);
+    const cached = await findCachedClip(userRoot, key);
     if (cached) {
-      log?.info?.(`[dsh-pet] voice speak: cache=hit chars=${text.length} voice=${source}`);
-      return { ok: true, file: cached };
+      log?.info?.(`[dsh-pet] voice speak: cache=hit chars=${text.length} voice=${source} mime=${cached.mime}`);
+      return { ok: true, file: cached.file, mime: cached.mime };
     }
     if (queueUsed >= MAX_QUEUE) {
       log?.warn?.(`[dsh-pet] voice speak: queue full (max ${MAX_QUEUE}) chars=${text.length} voice=${source}`);
       return { ok: false, reason: 'voice-busy', message: 'voice queue is full, retry later' };
     }
-    const queue = { dropped: false };
+    const queue: { dropped: boolean; clip: AudioClip | null; file: string } = {
+      dropped: false,
+      clip: null,
+      file: '',
+    };
     const queuedMs = Date.now();
     try {
       await enqueue(async () => {
@@ -167,8 +165,11 @@ export function createVoiceService(options: {
           return;
         }
         const dir = await ensureCacheDir(userRoot);
-        if (provider) await synthesizeWithProvider(provider, { text, voice, rate, target });
-        else await synthesizeImpl({ signal: AbortSignal.timeout(BUILTIN_TIMEOUT_MS), target, text, voice, rate });
+        const clip = provider
+          ? await synthesizeWithProvider(provider, { text, rate })
+          : await synthesizeImpl({ signal: AbortSignal.timeout(BUILTIN_TIMEOUT_MS), text, voice, rate });
+        queue.clip = clip;
+        queue.file = await writeClip(userRoot, key, clip);
         // 淘汰放在成功之后：失败时不该为腾地方而删掉还能用的缓存
         await pruneCache(dir);
       });
@@ -186,11 +187,46 @@ export function createVoiceService(options: {
       );
       return dropped();
     }
-    log?.info?.(`[dsh-pet] voice speak: cache=miss chars=${text.length} voice=${source} ms=${Date.now() - startedMs}`);
-    return { ok: true, file: target };
+    // 合成成功却没拿到片段：说明实现自己吞了错误，按失败报，别回一个空文件路径
+    if (queue.clip === null) {
+      log?.warn?.(`[dsh-pet] voice speak: empty clip chars=${text.length} voice=${source}`);
+      return { ok: false, reason: 'generate-error', message: 'voice synthesis failed' };
+    }
+    log?.info?.(
+      `[dsh-pet] voice speak: cache=miss chars=${text.length} voice=${source} ` +
+        `mime=${queue.clip.mime} ms=${Date.now() - startedMs}`,
+    );
+    return { ok: true, file: queue.file, mime: normalizeAudioMime(queue.clip.mime) };
   }
 
   return { listVoices: () => VOICES, speak };
+}
+
+/**
+ * 把一次合成的产出落进缓存：先写 `<target>.part` 再改名。
+ *
+ * `target` 一旦出现就是完整文件，中途失败不会留下半截音频被缓存命中逻辑当成有效文件。
+ *
+ * @param userRoot - 用户数据根。
+ * @param key - 缓存键。
+ * @param clip - 音频字节与 MIME。
+ * @returns 最终文件路径。
+ * @throws {VoiceSynthError} MIME 不受支持、字节为空或写盘失败时。
+ */
+async function writeClip(userRoot: string, key: string, clip: AudioClip): Promise<string> {
+  const ext = audioExtOf(clip.mime);
+  if (ext === undefined) throw new VoiceSynthError('unsupported audio mime: ' + clip.mime);
+  if (clip.data.length === 0) throw new VoiceSynthError('empty audio returned');
+  const target = cachePath(userRoot, key, ext);
+  const staging = `${target}.part`;
+  try {
+    await writeFile(staging, clip.data);
+    await rename(staging, target);
+  } catch (error) {
+    await rm(staging, { force: true }).catch(() => undefined);
+    throw new VoiceSynthError(error instanceof Error ? error.message : String(error));
+  }
+  return target;
 }
 
 /** 给一个 Promise 套超时；超时 reject，原 Promise 不被取消（provider 自己该处理放弃）。 */
@@ -212,18 +248,23 @@ function withTimeout<T>(task: Promise<T>, timeoutMs: number): Promise<T> {
 }
 
 /**
- * 用第三方实现合成并落盘。
+ * 用第三方实现合成（超时归一到 {@link VoiceSynthError}）。
  *
- * 空字节按失败处理：0 字节文件会被 {@link findCached} 的 `size > 0` 跳过，
- * 于是每次请求都重新合成、每次又得到空文件，白烧上游。
+ * 空字节与不认识的 MIME 由 {@link writeClip} 判失败：0 字节音频放不出声，
+ * 命中它等于每次都白播一次静音。
+ *
+ * @param provider - 已注册的第三方实现。
+ * @param input - 文本与语速（音色是内置实现的白名单，第三方自定义）。
+ * @returns 音频字节与 MIME。
+ * @throws {VoiceSynthError} 超时或实现自己抛错时。
  */
-async function synthesizeWithProvider(provider: VoiceProvider, input: SynthInput): Promise<void> {
-  let bytes: Uint8Array;
+async function synthesizeWithProvider(
+  provider: VoiceProvider,
+  input: { readonly text: string; readonly rate: string },
+): Promise<AudioClip> {
   try {
-    bytes = await withTimeout(provider.synthesize({ text: input.text, rate: input.rate }), PROVIDER_TIMEOUT_MS);
+    return await withTimeout(provider.synthesize({ text: input.text, rate: input.rate }), PROVIDER_TIMEOUT_MS);
   } catch (error) {
     throw new VoiceSynthError(error instanceof Error ? error.message : String(error));
   }
-  if (bytes.length === 0) throw new VoiceSynthError('voice provider returned empty audio');
-  await writeFile(input.target, bytes);
 }

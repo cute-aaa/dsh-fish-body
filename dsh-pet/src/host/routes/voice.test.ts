@@ -33,12 +33,12 @@ test('GET /voice/voices：返回音色列表', async () => {
   assert.deepEqual((result.obj as { voices: unknown }).voices, VOICES);
 });
 
-test('POST /voice/speak 成功：交回 mp3 文件', async () => {
+test('POST /voice/speak 成功：交回音频文件，Content-Type 跟着 mime', async () => {
   const result = await handleVoiceRoutes(
-    makeDeps(async () => ({ ok: true, file: '/cache/a.mp3' })),
+    makeDeps(async () => ({ ok: true, file: '/cache/a.wav', mime: 'audio/wav' })),
     input('voice/speak', 'POST', '{"text":"hi"}'),
   );
-  assert.deepEqual(result, { kind: 'file', file: '/cache/a.mp3', contentType: 'audio/mpeg' });
+  assert.deepEqual(result, { kind: 'file', file: '/cache/a.wav', contentType: 'audio/wav' });
 });
 
 test('POST /voice/speak 业务失败：200 + 失败实体（不做成 4xx）', async () => {

@@ -7,10 +7,11 @@
  * 打包器只跟踪静态可见的 import；放在 try 里，缺包时照样只失败这一次。
  * SSML 拼装、XML 转义、WebSocket 与 DRM 令牌都由依赖负责——它**已经做了转义**，本模块传
  * 原文即可，再转一次会把 `&` 念成「amp」。协议变动时只需升级依赖，这里不改代码。
- * 不负责缓存与队列：本模块只保证「给定文本 → 一个 mp3 文件」这一件事。
+ * 不负责缓存、队列与落盘：本模块只保证「给定文本 → 一段 mp3 字节 + MIME」这一件事
+ * （落盘与扩展名归 speak.ts，见 voice/audio.ts 的契约）。
  * @module dsh-pet/src/host/voice/edge
  */
-import { rename, rm, writeFile } from 'node:fs/promises';
+import { DEFAULT_AUDIO_MIME, type AudioClip } from './audio.ts';
 
 /** 依赖的模块形状：运行时代码只出现在按需 import 处。 */
 type EdgeTtsModule = typeof import('@andresaya/edge-tts');
@@ -34,23 +35,18 @@ export interface SynthInput {
   readonly voice: string;
   /** prosody rate 表达式，如 `+0%`。 */
   readonly rate: string;
-  /** 目标 mp3 的最终路径；父目录必须已存在。 */
-  readonly target: string;
   /** 总时限：依赖自带的 timeout 只是「静默」超时（每帧重置），真正的总上限要靠这个信号。 */
   readonly signal?: AbortSignal;
 }
 
 /**
- * 把一段文本合成到目标 mp3。
+ * 把一段文本合成为 mp3 字节。
  *
- * 先写 `<target>.part` 再改名：`target` 一旦出现就是完整文件，中途失败不会留下半截 mp3
- * 被缓存命中逻辑当成有效音频。
- *
- * @param input - 文本、音色、语速与目标路径。
- * @throws {VoiceSynthError} 上游失败、超时或写盘失败时。
+ * @param input - 文本、音色、语速与总时限。
+ * @returns 音频字节与 MIME（内置实现恒为 `audio/mpeg`）。
+ * @throws {VoiceSynthError} 上游失败、超时或返回空音频时。
  */
-export async function synthesize({ signal, text, voice, rate, target }: SynthInput): Promise<void> {
-  const staging = `${target}.part`;
+export async function synthesize({ signal, text, voice, rate }: SynthInput): Promise<AudioClip> {
   try {
     // 按需加载：包缺失时这里抛 MODULE_NOT_FOUND，由下面统一归成 VoiceSynthError。
     // CJS 包经 dynamic import 后可能只露 default，两种形状都认。
@@ -59,10 +55,10 @@ export async function synthesize({ signal, text, voice, rate, target }: SynthInp
     if (!EdgeTTS) throw new VoiceSynthError('依赖未导出 EdgeTTS');
     const tts = new EdgeTTS();
     const result = await tts.generate(text, voice, { rate, signal, timeout: SYNTHESIS_TIMEOUT_MS });
-    await writeFile(staging, result.audio);
-    await rename(staging, target);
+    const data = new Uint8Array(result.audio);
+    if (data.length === 0) throw new VoiceSynthError('edge 返回空音频');
+    return { data, mime: DEFAULT_AUDIO_MIME };
   } catch (error) {
-    await rm(staging, { force: true }).catch(() => undefined);
     throw new VoiceSynthError(error instanceof Error ? error.message : String(error));
   }
 }

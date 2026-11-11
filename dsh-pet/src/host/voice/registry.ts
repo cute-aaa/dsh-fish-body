@@ -7,23 +7,26 @@
  * 只登记与查找，不合成、不缓存、不读配置。
  * @module dsh-pet/src/host/voice/registry
  */
+import type { AudioClip } from './audio.ts';
 
 /** 内置实现的名字；缓存键与排障都用它，第三方不能占用。 */
 export const BUILTIN_VOICE_ID = 'edge';
 
-/** 第三方语音实现：给一段文本，返回 mp3 字节。 */
+/** 第三方语音实现：给一段文本，返回音频字节与格式。 */
 export interface VoiceProvider {
   /** 唯一标识；参与缓存键，换实现不会命中旧音频。 */
   readonly id: string;
   /** 展示名，只用于排障。 */
   readonly name: string;
   /**
-   * 把一段文本合成为 mp3。
+   * 把一段文本合成为音频。
    *
    * 失败必须抛错——宿主会归一成 `generate-error` 并记日志；自己吞掉会让上层以为成功。
    * 不接收音色：`voiceName` 是内置实现的白名单，第三方的嗓子由它自己决定。
+   * MIME 决定缓存扩展名与 `/voice/speak` 的 Content-Type；不认识的格式按失败处理
+   * （见 voice/audio.ts 的 `audioExtOf`）。
    */
-  synthesize(input: { readonly text: string; readonly rate: string }): Promise<Uint8Array>;
+  synthesize(input: { readonly text: string; readonly rate: string }): Promise<AudioClip>;
 }
 
 /** 当前生效的第三方实现；`null` = 没注册，合成走内置实现。 */

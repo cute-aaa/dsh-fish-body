@@ -95,7 +95,7 @@ tags:
   - name: Assets
     description: 字体、通知图标、表情包、动画素材
   - name: Voice
-    description: 语音合成——参数校验、排队与缓存都在宿主，成功时直接返回 mp3 文件
+    description: 语音合成——参数校验、排队与缓存都在宿主，成功时直接返回音频文件（格式由合成实现决定）
 
 paths:
   /dsh-pet-7340/state:
@@ -2419,14 +2419,16 @@ paths:
       operationId: synthesizeVoice
       summary: 合成一段语音
       description: |
-        把一段中文文本合成为 mp3，成功时直接返回文件本体。
+        把一段中文文本合成为音频，成功时直接返回文件本体。
 
         - **合成源可被第三方覆盖**：宿主插件可经 Cordis 服务 `petApi7340.voice.register`
-          注册自己的实现；注册后本端点改走该实现，未注册时走内置实现。两边返回的都是 mp3，
-          调用方无需区分。
+          注册自己的实现；注册后本端点改走该实现，未注册时走内置实现。
+        - **格式由合成实现决定**：内置实现回 `audio/mpeg`（mp3），第三方可以直接回
+          `audio/wav`（本地 TTS 免转码）等；回什么格式，这一端的 `Content-Type` 与缓存扩展名
+          就跟着是什么（支持 mpeg/mp3/wav/x-wav/ogg/webm，表外格式按 `generate-error` 处理）。
         - 覆盖期间 `voice` 参数不生效（音色由第三方实现自己决定），但校验口径不变：
           非法值仍按 `bad-request` 拒绝。
-        - 第三方实现必须返回 mp3 字节；返回其它格式浏览器播不出来，空字节按 `generate-error` 处理。
+        - 空字节按 `generate-error` 处理：0 字节音频放不出声，缓存也不会命中它。
         - 同一「来源 + 音色 + 语速 + 文本」只会合成一次，命中缓存时不再联网；来源即内置实现
           或第三方 id，因此切换实现后不会命中旧音频。
         - 合成串行执行，同时最多排队 3 个；超出返回 `voice-busy`，调用方可稍后重试。
@@ -2455,10 +2457,19 @@ paths:
       responses:
         "200":
           description: |
-            成功时是 mp3 音频；失败时是 JSON `{ ok: false, reason, message }`，
+            成功时是音频文件本体（`Content-Type` 跟着合成实现的格式走，见上）；
+            失败时是 JSON `{ ok: false, reason, message }`，
             reason 取值 `bad-request`（参数非法）/ `voice-busy`（队列已满）/ `generate-error`（上游失败或超时）。
           content:
             audio/mpeg:
+              schema:
+                type: string
+                format: binary
+            audio/wav:
+              schema:
+                type: string
+                format: binary
+            audio/ogg:
               schema:
                 type: string
                 format: binary
@@ -3148,6 +3159,208 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TodoRemovedResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  # ---- 渲染素材与渲染方式/模型切换（T2.3 / T2.4 / P2-T2.5 之后补录） ----
+  /dsh-pet-7340/cubism/{file}:
+    get:
+      tags: [Assets]
+      operationId: getCubismCore
+      summary: 取 Live2D Cubism Core（包内 `assets/cubism/`）
+      description: |
+        只放行包内这一份 `live2dcubismcore.min.js`（wasm 内嵌单文件，无独立 `.wasm`）。
+        客户端的 live2d 渲染器按 Core → pixi → cubism4 的顺序注入 `<script>`，本端点是第一步；
+        脚本自身幂等，取不到时渲染器报「Cubism Core 未就绪」而不是整页崩掉。
+      parameters:
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 文件名（目前只有 `live2dcubismcore.min.js`）
+      responses:
+        "200":
+          description: 脚本本体（`text/javascript`）
+          content:
+            text/javascript:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: 路径形式不对（`text/plain`）。
+        "404":
+          description: 包内没有这个文件（`text/plain`）。
+
+  /dsh-pet-7340/vendor/{file}:
+    get:
+      tags: [Assets]
+      operationId: getVendorBundle
+      summary: 取 live2d 运行时 UMD（pixi / pixi-live2d-display）
+      description: |
+        这两个包**不进客户端 bundle**：按 ESM 打进来会带出 node 的 url/punycode 垫片与裸 import，
+        DSH 把 `lib/client.js` 当经典脚本加载，裸 import 会直接语法错误。由 `prepare.js` 从依赖里
+        拷出 UMD 到 `assets/vendor/`，本端点供给，客户端注入后读 `window.PIXI.live2d`。
+      parameters:
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "`pixi.min.js` 或 `live2d-cubism4.min.js`"
+      responses:
+        "200":
+          description: 脚本本体（`text/javascript`）
+          content:
+            text/javascript:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: 路径形式不对（`text/plain`）。
+        "404":
+          description: 包内没有这个文件（`text/plain`）。
+
+  /dsh-pet-7340/skin/{root}/{file}:
+    get:
+      tags: [Assets]
+      operationId: getSkinFile
+      summary: 取分层皮肤或 live2d 模型的素材文件
+      description: |
+        `/skin/<素材根>/<file>` → `$DSH_HOME/dsh-pet/pet/<素材根>-skin/`。素材根只查自己的目录，
+        绝不回落主素材池；含分隔符或保留字符即 400。
+
+        同一素材根可以同时装分层皮肤与 live2d 模型（`live2d/` 子目录放 `.model3.json`，
+        `layered/` 子目录放 `manifest.json`），所以 `<file>` 允许再带子目录。
+        **模型清单会被补全后下发**：同目录 `Animation/*.motion3.json` 与 `Exp3/*.exp3.json`
+        会作为 `Motions` / `Expressions` 注入（文件名带 idle 的单独成 `Idle` 组），
+        磁盘上的用户文件不动；用户自己写了这两段就整段让位。
+      parameters:
+        - name: root
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 素材根（= 配置里的宠物 id 前缀），须是不含分隔符的标识符
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 相对素材根的文件路径（可带子目录，如 `live2d/大肥鱼.model3.json`）
+      responses:
+        "200":
+          description: |
+            素材本体：`.png` 图片 / `.json` 清单（模型清单按上面的规则补全后下发）/ `.moc3` 等二进制。
+        "400":
+          description: 缺素材根、素材根非法或路径形式不对（`text/plain`）。
+        "404":
+          description: 该素材根下没有这个文件（`text/plain`）。
+
+  /dsh-pet-7340/skin/{root}/models:
+    get:
+      tags: [Assets]
+      operationId: listSkinModels
+      summary: 列出皮肤目录下的 live2d 模型
+      description: |
+        递归列出 `pet/<素材根>-skin/` 下全部 `.model3.json`（相对路径、posix 分隔符、排序稳定）。
+        右键「模型」子菜单与 `pets[].model` 的取值都以它为准；空数组表示这个素材根没有模型，
+        菜单里 live2d 一项因此置灰（而不是点下去黑屏）。
+      parameters:
+        - name: root
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 素材根
+      responses:
+        "200":
+          description: 模型相对路径列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [models]
+                properties:
+                  models:
+                    type: array
+                    items:
+                      type: string
+                    example: ["live2d/大肥鱼.model3.json"]
+        "400":
+          description: 素材根缺失或不合法（`text/plain`）。
+
+  /dsh-pet-7340/pet-renderer:
+    post:
+      tags: [Config]
+      operationId: setPetRenderer
+      summary: 改单只宠物的渲染方式
+      description: |
+        按宠物 id 改 `renderer`（`webm` / `layered` / `live2d`），返回改动后的成品聚合
+        （与 `GET /config` 同一份）。写盘语义与 `PUT /config` 一致：白名单重建 + 磁盘原值透传。
+
+        写盘后异步重启桌面 Helper（不阻塞响应）：没有素材的后端会被渲染器自己报挂载失败，
+        菜单侧靠 `/skin/<根>/models` 与皮肤清单把不可用的项置灰，不靠这里挡。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, renderer]
+              properties:
+                id:
+                  type: string
+                  description: 宠物实例 id（合并后全局唯一）
+                renderer:
+                  type: string
+                  enum: [webm, layered, live2d]
+                  description: 渲染方式
+      responses:
+        "200":
+          description: 改动后的成品聚合；失败时是 JSON 失败实体（ok 为 false）
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: 请求体不是 JSON 对象（`invalid-json`）。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/pet-model:
+    post:
+      tags: [Config]
+      operationId: setPetModel
+      summary: 改单只宠物选用的模型 / 皮肤
+      description: |
+        按宠物 id 改 `model`（live2d 是 `.model3.json` 相对路径，layered 是皮肤 id），返回改动后的
+        成品聚合。`model` 为空串表示清掉该字段（回到「取皮肤目录里第一个」）。
+
+        写盘后异步重启桌面 Helper，与 `POST /pet-renderer` 同一条链路。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  description: 宠物实例 id（合并后全局唯一）
+                model:
+                  type: string
+                  description: 模型清单相对路径或皮肤 id；空串 = 清掉该字段
+      responses:
+        "200":
+          description: 改动后的成品聚合；失败时是 JSON 失败实体（ok 为 false）
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: 请求体不是 JSON 对象（`invalid-json`）。
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
@@ -4567,5 +4780,7 @@ components:
         removed:
           type: integer
           description: 删掉的条数；0 = 本来就没有（幂等）
+
+
 
 

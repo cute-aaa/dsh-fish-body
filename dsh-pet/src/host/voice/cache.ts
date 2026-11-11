@@ -1,22 +1,65 @@
 /**
- * 语音缓存：按「音色 + 语速 + 文本」算键，落盘为 mp3，并按总量与条数淘汰最旧的。
+ * 语音缓存：按「来源 + 音色 + 语速 + 文本」算键，落盘为音频文件，并按总量与条数淘汰最旧的。
  *
  * 命中即免合成——同一句话不管是自动播报还是用户点历史，都只合成一次。缓存只是加速，
  * 删掉任意文件都不影响正确性：下一次请求会重新合成。不负责合成与队列。
+ * 扩展名跟着合成产出的 MIME 走（见 voice/audio.ts）：键里不含格式，所以查找要把
+ * 已知扩展名都探一遍——GSV 那种 wav 与 edge 那种 mp3 因此能共用一个缓存目录。
  * @module dsh-pet/src/host/voice/cache
  */
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { AUDIO_EXTENSIONS, audioMimeOfExt } from './audio.ts';
 
 /** 缓存总量上限（字节）：超过后从最旧的开始删。 */
 export const CACHE_MAX_BYTES = 20 * 1024 * 1024;
 /** 缓存文件条数上限。 */
 export const CACHE_MAX_FILES = 200;
 
-/** 缓存文件的完整路径：`<userRoot>/voice-cache/<key>.mp3`。 */
-export function cachePath(userRoot: string, key: string): string {
-  return join(userRoot, 'voice-cache', `${key}.mp3`);
+/** 命中缓存的结论：文件路径与它该回的 Content-Type。 */
+export interface CachedClip {
+  readonly file: string;
+  readonly mime: string;
+}
+
+/** 缓存文件的完整路径：`<userRoot>/voice-cache/<key>.<ext>`。 */
+export function cachePath(userRoot: string, key: string, ext: string): string {
+  return join(userRoot, 'voice-cache', `${key}.${ext}`);
+}
+
+/**
+ * 一个键可能落成的全部路径（按已知扩展名）。
+ *
+ * @param userRoot - 用户数据根。
+ * @param key - 缓存键。
+ * @returns 路径列表；查找命中缓存时逐个试。
+ */
+export function cacheCandidates(userRoot: string, key: string): string[] {
+  return AUDIO_EXTENSIONS.map((ext) => cachePath(userRoot, key, ext));
+}
+
+/**
+ * 查缓存：任一扩展名存在且非空就算命中。
+ *
+ * 空文件按未命中处理：0 字节音频放不出声，命中它等于每次都白播一次静音。
+ * @param userRoot - 用户数据根。
+ * @param key - 缓存键。
+ * @returns 命中的文件与 MIME；没有可用文件时 undefined。
+ */
+export async function findCachedClip(userRoot: string, key: string): Promise<CachedClip | undefined> {
+  for (const ext of AUDIO_EXTENSIONS) {
+    const file = cachePath(userRoot, key, ext);
+    try {
+      const info = await stat(file);
+      if (!info.isFile() || info.size <= 0) continue;
+      const mime = audioMimeOfExt(ext);
+      if (mime !== undefined) return { file, mime };
+    } catch {
+      /* 这个扩展名没有：试下一个 */
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -63,7 +106,9 @@ export async function pruneCache(dir: string, limits: { maxBytes?: number; maxFi
   }
   const entries: { file: string; size: number; mtimeMs: number }[] = [];
   for (const name of names) {
-    if (!name.endsWith('.mp3')) continue;
+    const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
+    // 只统计已知音频扩展名：`.part` 这类半成品不参与淘汰（它要么马上改名，要么被清掉）。
+    if (!AUDIO_EXTENSIONS.includes(ext)) continue;
     const file = join(dir, name);
     try {
       const info = await stat(file);

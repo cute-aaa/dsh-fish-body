@@ -17,7 +17,7 @@ import {
 const provider = (id: string) => ({
   id,
   name: id,
-  synthesize: async () => new Uint8Array([1]),
+  synthesize: async () => ({ data: new Uint8Array([1]), mime: 'audio/mpeg' }),
 });
 
 afterEach(() => {
@@ -59,12 +59,22 @@ test('注销当前生效的那份：回到内置', () => {
 test('非法定义一律抛 TypeError', () => {
   assert.throws(() => registerVoiceProvider(null as never), TypeError, '非对象');
   assert.throws(
-    () => registerVoiceProvider({ id: '', name: 'x', synthesize: async () => new Uint8Array() }),
+    () =>
+      registerVoiceProvider({
+        id: '',
+        name: 'x',
+        synthesize: async () => ({ data: new Uint8Array(), mime: 'audio/mpeg' }),
+      }),
     TypeError,
     '空 id',
   );
   assert.throws(
-    () => registerVoiceProvider({ id: BUILTIN_VOICE_ID, name: 'x', synthesize: async () => new Uint8Array() }),
+    () =>
+      registerVoiceProvider({
+        id: BUILTIN_VOICE_ID,
+        name: 'x',
+        synthesize: async () => ({ data: new Uint8Array(), mime: 'audio/mpeg' }),
+      }),
     TypeError,
     '与内置同名',
   );

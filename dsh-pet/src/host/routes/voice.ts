@@ -28,7 +28,8 @@ export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): 
     }
     const result = await deps.voice.speak(parsed);
     if (!result.ok) return failResult(result.reason, result.message);
-    return { kind: 'file', file: result.file, contentType: 'audio/mpeg' };
+    // Content-Type 跟着合成产出的 mime 走（edge → audio/mpeg，GSV 这类本地实现 → audio/wav）
+    return { kind: 'file', file: result.file, contentType: result.mime };
   }
 
   // 与 /voice/speak 反向：音频进、文字出。格式由宿主 provider 校验，这里只转发结论。
