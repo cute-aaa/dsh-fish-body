@@ -18,14 +18,28 @@ const FEET_Y = 330;
 /**
  * 窗口矩形 → 宠物身体命中区的屏幕矩形（DIP）。
  *
- * 窗口 = 宠物包围盒 + 四周余量，而余量不再四边相等（上边距按气泡最大高度加高），所以不能按
- * 「窗口宽/4」反推，否则命中区整体偏移。左/上偏移由渲染端随 setBounds 上报，右侧由主进程按
- * 「窗口宽 − 本体宽 − 左偏移」算出——窗口被系统钳回工作区后本体在窗口内会向右偏，左右不再是同一个数。
+ * 首选渲染端上报的命中框（`margins.hit`，窗口局部坐标）：命中框的比例随渲染方式变
+ * ——webm 只占画面中间 37.5% 宽，方形画布几乎铺满整块、头顶还伸到舞台顶以上，主进程没有渲染器
+ * 知识，按 HIT_BOX 反推必然把画布后端的头算到命中区外。
+ *
+ * 上报缺失（老渲染端）时才退回旧推导：窗口 = 宠物包围盒 + 四周余量，而余量不再四边相等
+ * （上边距按气泡最大高度加高），所以不能按「窗口宽/4」反推，否则命中区整体偏移。左/上偏移由
+ * 渲染端随 setBounds 上报，右侧由主进程按「窗口宽 − 本体宽 − 左偏移」算出——窗口被系统钳回
+ * 工作区后本体在窗口内会向右偏，左右不再是同一个数。
  *
  * @param bounds - 窗口矩形（DIP）。
- * @param margins - 渲染端上报的左/上偏移（DIP），右侧可在 margins.r 给出。
+ * @param margins - 渲染端上报的左/上偏移与命中框（DIP）。
  */
 function spriteHitRect(bounds, margins) {
+  const reported = margins?.hit;
+  if (reported && [reported.x, reported.y, reported.width, reported.height].every(Number.isFinite)) {
+    return {
+      left: bounds.x + reported.x,
+      top: bounds.y + reported.y,
+      right: bounds.x + reported.x + reported.width,
+      bottom: bounds.y + reported.y + reported.height,
+    };
+  }
   const legacy = Math.round(bounds.width / 4);
   const ml = Number.isFinite(margins?.l) ? margins.l : legacy;
   const mt = Number.isFinite(margins?.t) ? margins.t : legacy;

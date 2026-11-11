@@ -333,6 +333,9 @@ async function mountLayered(sprite, host, api) {
 /**
  * 挂载 live2d：pixi Application + Cubism 模型，按 manifest 列表选模型（pets[].model 优先）。
  *
+ * 动作与外观走叠加层（sprite/overlay.js）：运行库的 motion 队列一次只能一条，点第二个动作会把
+ * 待机一起掐掉；热键动作要能叠着播、外观要能同时挂多个。待机仍交给运行库（它自己循环 Idle、带眨眼）。
+ *
  * @param {PetSprite} sprite - 宠物实例（读 assetRoot / size / model）。
  * @param {HTMLElement} host - 画面包装层。
  * @param {object} api - 后端句柄。
@@ -348,19 +351,21 @@ async function mountLive2d(sprite, host, api) {
   if (chosen === undefined) throw new Error('皮肤目录没有 .model3.json：' + root);
   if (api.destroyed) return;
 
-  // 菜单用：动作组（Motions）、外观（Expressions）与各 motion 的时长。
-  // 取不到就当没有声明，菜单里不出现「动作 / 外观」、动作按兜底时长收尾。
+  // 菜单与叠加层共用同一份清单：动作组给菜单分组，动作表给「点哪个文件」，
+  // 外观表给「挂哪个 exp3」。分成两套遍历必然漂移（序号对不上就点 A 播 B）。
   api.actionGroups = [];
   api.expressions = [];
-  api.activeExpression = null;
-  api.motionDurations = {};
+  api.motions = new Map();
+  api.expressionFiles = new Map();
+  let settings = null;
   try {
     const settingsRes = await fetch(skinUrlOf(root, chosen));
     if (settingsRes.ok) {
-      const settings = await settingsRes.json();
+      settings = await settingsRes.json();
       api.actionGroups = window.PetShared.model3ActionGroups(settings);
-      api.expressions = window.PetShared.model3Expressions(settings);
-      api.motionDurations = window.PetShared.motionDurationsOf(settings);
+      for (const motion of window.PetShared.model3Motions(settings)) api.motions.set(motion.action, motion);
+      for (const item of window.PetShared.model3ExpressionRefs(settings)) api.expressionFiles.set(item.name, item.file);
+      api.expressions = [...api.expressionFiles.keys()];
     }
   } catch {
     // 读不到模型清单只影响动作菜单，画面照常；下一行起不再提这事。
@@ -407,13 +412,18 @@ async function mountLive2d(sprite, host, api) {
   api.model = model;
   // 逐模型修正：把「纯黑遮罩源」从可见绘制里去掉（与浏览器端同一张表）。
   // 只压 getDrawableOpacity：遮罩绘制忽略不透明度，裁切不受影响。
+  const core = model.internalModel.coreModel;
   const hiddenDrawables = S.hiddenDrawableIndexesOf(chosen);
   if (hiddenDrawables.length > 0) {
-    const core = model.internalModel.coreModel;
     const originalOpacity = core.getDrawableOpacity?.bind(core);
     const skip = new Set(hiddenDrawables);
     if (originalOpacity) core.getDrawableOpacity = (index) => (skip.has(index) ? 0 : originalOpacity(index));
   }
+  // 叠加层：每条动作/外观一对独立队列，挂在 model.update() 之前写入参数。
+  const overlay = createOverlay(cubism, () => model.internalModel.coreModel);
+  const ticker = () => overlay.tick();
+  model.internalModel.on('beforeModelUpdate', ticker);
+  api.activeExpressions = () => overlay.active('expression');
   // 量一次内容顶：方形画布的头顶在舞台顶以上，气泡贴着它才不会盖脸（见 shared/bubble-anchor）。
   app.renderer.render(app.stage);
   applyBubbleAnchor(
@@ -421,60 +431,68 @@ async function mountLive2d(sprite, host, api) {
     measureVisualTop((probe, w, h) => probe.drawImage(app.view, 0, 0, w, h)),
   );
 
-  /** 复位计时器：换动作先清旧的，否则旧计时器会把新动作掐掉。 */
-  let holdTimer = 0;
-
-  /** 起一段动作并按时收尾：举手 / 竖手指这类循环片段不停会自动钉住姿态。 */
-  function playTimedMotion(group, index) {
-    if (holdTimer !== 0) clearTimeout(holdTimer);
-    void model.motion(group, index, cubism.MotionPriority.NORMAL);
-    holdTimer = setTimeout(
-      () => {
-        holdTimer = 0;
-        model.internalModel.motionManager.stopAllMotions();
-        // 模型带常驻待机就接回去，否则一次动作之后宠物会定在静息姿态上不动。
-        if (window.PetShared.hasIdleMotion(api.motionDurations)) {
-          void model.motion('Idle', undefined, cubism.MotionPriority.IDLE);
-        }
-      },
-      window.PetShared.motionHoldMs(api.motionDurations, String(group), Number(index)),
-    );
+  /** 动作/外观文件缓存：同一条点第二次不必再发请求。 */
+  const files = new Map();
+  /** 取一份动作/外观 JSON（带缓存；失败返回 null，菜单点了没反应但不炸）。 */
+  async function fetchJson(rel) {
+    if (files.has(rel)) return files.get(rel);
+    try {
+      const res = await fetch(skinUrlOf(root, rel));
+      if (!res.ok) return null;
+      const json = await res.json();
+      files.set(rel, json);
+      return json;
+    } catch {
+      return null;
+    }
   }
 
   api.playAction = (name) => {
     // 菜单动作名与浏览器端同格式（见 shared/menu/renderer-actions）：motion:<组>:<序号> / expression:<名>。
-    const motion = /^motion:(.+):(\d+)$/.exec(String(name));
-    if (window.__dshPetDebug) {
-      const kind = motion ? 'motion' : String(name).startsWith('expression:') ? 'expression' : 'tap';
-      window.__dshPetDebug.lastGesture = { name: String(name), kind, at: Date.now() };
-    }
+    const key = String(name);
+    const motion = api.motions.get(key);
     if (motion) {
-      playTimedMotion(motion[1], Number(motion[2]));
+      if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: key, kind: 'motion', at: Date.now() };
+      void fetchJson(motion.file).then((json) => {
+        if (json === null || api.destroyed) return;
+        overlay.play(key, 'motion', json, {
+          hold: motion.hold,
+          fadeSeconds: motion.fadeSeconds,
+          raw: json,
+        });
+      });
       return;
     }
-    if (name === window.PetShared.EXPRESSION_RESET) {
-      // 复位：运行库把表情清回 defaultExpression（模型原始外观）
-      const manager = model.internalModel.motionManager.expressionManager;
-      if (manager) manager.resetExpression();
-      api.activeExpression = null;
+    if (key === window.PetShared.MOTION_RESET) {
+      overlay.stopKind('motion');
       return;
     }
-    if (String(name).startsWith('expression:')) {
-      const expression = String(name).slice('expression:'.length);
-      // 同一时刻只挂一个表情（expressionManager 单槽），所以外观是单选而不是叠挂
-      void model.expression(expression);
-      api.activeExpression = expression;
+    if (key === window.PetShared.EXPRESSION_RESET) {
+      overlay.stopKind('expression');
       return;
     }
-    if (/tap|click|点击|摸|戳/i.test(name)) {
+    if (key.startsWith('expression:')) {
+      const expression = key.slice('expression:'.length);
+      const file = api.expressionFiles.get(expression);
+      if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: key, kind: 'expression', at: Date.now() };
+      if (file === undefined) return;
+      void fetchJson(file).then((json) => {
+        if (json === null || api.destroyed) return;
+        // 外观是开关：挂着就摘、没挂就挂——所以「外观」菜单可以同时勾好几个。
+        overlay.toggle(expression, 'expression', json);
+      });
+      return;
+    }
+    if (/tap|click|点击|摸|戳/i.test(key)) {
       model.tap(sprite.size / 2, sprite.size / 2);
       return;
     }
     void model.motion('Idle', undefined, cubism.MotionPriority.IDLE);
   };
   api.destroy = () => {
-    if (holdTimer !== 0) clearTimeout(holdTimer);
-    holdTimer = 0;
+    model.internalModel.off('beforeModelUpdate', ticker);
+    overlay.destroy();
+    files.clear();
     model.destroy();
     app.destroy(true, { children: true, texture: true, baseTexture: true });
   };

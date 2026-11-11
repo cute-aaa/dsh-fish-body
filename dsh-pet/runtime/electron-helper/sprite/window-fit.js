@@ -70,6 +70,9 @@ Object.assign(PetSprite.prototype, {
    */
   reportWindow(fit) {
     if (!window.petBridge) return;
+    // 命中区一并上报（窗口局部 CSS 坐标）：比例随渲染方式变，主进程算不出正确结果，
+    // 只能由渲染端给。窗口被系统钳回工作区后本体偏移也会变，所以每次随 setBounds 一起报。
+    const hit = this.hitRect;
     // 完整状态一次捎带：size/bottomPad 让静止宠物从首帧起就登记进碰撞站场；
     // vx/vy 带当前速度（飞行中实时值、静止/拖拽 = 0），避免落地后残留旧速度干扰碰撞动量。
     const fly = this.throwState;
@@ -88,6 +91,13 @@ Object.assign(PetSprite.prototype, {
       // 偏移变大，只能按上报值算，不能按「窗口宽/4」反推（见 spriteHitRect）。
       toScreen(fit.offsetX),
       toScreen(fit.offsetY),
+      // 命中区（窗口局部 CSS 坐标）：本体原点 + 命中框偏移。主进程只用它判「该不该可交互」。
+      {
+        x: toScreen(fit.offsetX + hit.x),
+        y: toScreen(fit.offsetY + hit.y),
+        width: toScreen(hit.w),
+        height: toScreen(hit.h),
+      },
     );
   },
 });

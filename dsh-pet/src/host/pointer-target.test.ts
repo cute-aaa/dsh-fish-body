@@ -56,6 +56,17 @@ describe('decideWindowIgnore —— 兜底通道的判定规则（issue #55 报�
     assert.equal(decideWindowIgnore(bounds, center, false), false);
   });
 
+  test('渲染端上报了命中框 → 直接用它（方形画布的头顶也算身体）', () => {
+    // 窗口内命中框：横向内缩、纵向从舞台顶以上开始（画布后端的样子）
+    const margins = { l: 231, t: 300, r: 231, hit: { x: 240, y: 20, width: 380, height: 520 } };
+    const r = spriteHitRect(bounds, margins);
+    assert.deepEqual(r, { left: 1240, top: 520, right: 1620, bottom: 1040 }, '上报矩形按窗口原点偏移');
+    // 头顶那一点在旧推导里落在命中区外，上报之后必须判成身体
+    const head = { x: 1240 + 190, y: 520 + 4 };
+    assert.equal(pointerZone(bounds, head, margins), 'body');
+    assert.equal(pointerZone(bounds, head), 'margin', '没有上报时按 webm 推导，同样的点落在身体外');
+  });
+
   test('窗口余量区保持当前状态：当前可交互则维持（自绘菜单/弹窗点得到）、当前穿透则维持穿透', () => {
     const margin = { x: bounds.x + 20, y: bounds.y + 20 }; // 窗口左上角余量区（宠物外）
     assert.equal(decideWindowIgnore(bounds, margin, false), false, '菜单打开时鼠标移到余量区不得翻回穿透');
@@ -313,7 +324,10 @@ describe('守卫：主进程镜像的命中盒常量不得与 src/shared/constan
     assert.deepEqual(HIT_BOX, { x0: Number(hit[1]), y0: Number(hit[2]), x1: Number(hit[3]), y1: Number(hit[4]) });
     // 画布宽 shared 没有导出（各处都用字面量 640）：这里断言渲染端也是同一约定，避免我们把宽写成别的值
     assert.equal(STAGE_W, 640);
-    assert.ok(/S\.HIT_BOX\.x0 \/ 640/.test(spriteSource()), 'sprite.js 的命中判定用 640 作画布宽——两边必须同一约定');
+    // 命中框比例现在统一在 shared/body-box（渲染方式不同、比例不同）。渲染端必须读它，
+    // 不能再把 HIT_BOX 的比例写死在 sprite.js 里——那就是「切到画布后端点头不中」的成因。
+    assert.ok(/S\.bodyBoxPx\(/.test(spriteSource()), 'sprite.js 的命中框要经 shared 的 bodyBoxPx 求');
+    assert.ok(/S\.bodyUnitBox\(/.test(spriteSource()), 'sprite.js 的左右余量要经 shared 的 bodyUnitBox 求');
   });
 });
 

@@ -121,11 +121,13 @@ describe('sprite/window-fit.js —— 窗口落位接线', () => {
     assert.ok(fit.y + fit.height <= AREA.height, '窗口不得越出工作区下缘');
   });
 
-  test('上报主进程：一次捎带窗口矩形 + 本体盒 + 命中区偏移 → 参数次序即协议', () => {
+  test('上报主进程：一次捎带窗口矩形 + 本体盒 + 命中区偏移 + 命中框 → 参数次序即协议', () => {
     setWindowClampedToWorkArea(true);
-    const sent: number[][] = [];
-    const win = globals.window as { petBridge?: { setBounds: (...args: number[]) => void } };
-    win.petBridge = { setBounds: (...args: number[]) => sent.push(args) };
+    const sent: unknown[][] = [];
+    const win = globals.window as {
+      petBridge?: { setBounds: (...args: unknown[]) => void };
+    };
+    win.petBridge = { setBounds: (...args: unknown[]) => sent.push(args) };
     const sprite = makeSprite();
     const fit = sprite.fitWindow();
     // 与 sendBounds 同一步：先把 pos 落到实际可达位，再上报
@@ -147,6 +149,8 @@ describe('sprite/window-fit.js —— 窗口落位接线', () => {
           0, // vy
           416, // 命中区判定的左偏移
           524.5, // 命中区判定的上偏移
+          // 命中框（窗口局部坐标）：比例随渲染方式变，主进程算不出来，只能由渲染端给
+          { x: 553.5, y: 579.5, width: 165, height: 196 },
         ],
       ],
       '命中区与碰撞站场都读这一份，次序错了只会表现成点不中/撞不上',

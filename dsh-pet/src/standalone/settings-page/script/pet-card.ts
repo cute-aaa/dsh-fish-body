@@ -100,6 +100,16 @@ function petCard() {
         else pet.sizePercent = Number(value);
       }, { hint: '留空表示按 px 显示。' }),
     ]),
+    // 按渲染方式的大小（可选）：三种素材的人物占框比例不同，各自一套；填 0 = 跟随上面的画框大小。
+    make('div', { class: 'grid2' }, RENDERERS.map((renderer) =>
+      numberField('pet-size-' + renderer, '画框大小 · ' + renderer + '（px）', pet.sizes?.[renderer] ?? 0, (value) => {
+        const sizes = Object.assign({}, pet.sizes);
+        if (value > 0) sizes[renderer] = value;
+        else delete sizes[renderer];
+        if (Object.keys(sizes).length > 0) pet.sizes = sizes;
+        else delete pet.sizes;
+      }, { min: 0, step: 10, hint: '0 = 跟随上面的画框大小。' }),
+    )),
     selectField('pet-display', '显示位置', pet.display, DISPLAYS.map((value) => ({ value: value, label: displayLabel(value) })), (value) => { pet.display = value; }, 'web=仅浏览器 / desktop=仅桌面 / both=两者都显示 / none=都不显示'),
     make('div', { class: 'grid2' }, [
       selectField('pet-corner', '停靠角落', pet.position.corner, CORNERS.map((value) => ({ value: value, label: cornerLabel(value) })), (value) => { pet.position.corner = value; }),

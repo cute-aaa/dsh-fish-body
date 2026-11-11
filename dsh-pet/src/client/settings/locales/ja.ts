@@ -59,6 +59,7 @@ export const ja: Record<Key, string> = {
   emptyPets: 'ペットがありません。「ペットを追加」をクリックして作成してください。',
   sizeLabel: 'サイズ（幅 px）',
   sizeHint: '高さは自動 = 幅 × 9/16。',
+  sizesOf: 'サイズ（{renderer}）',
   sizePercentLabel: '画面幅の上限（%）',
   sizePercentHint:
     'ペットが画面幅のどれだけを占めるかの上限です。100 = 画面幅を超えない（広いウィンドウでは px と完全に同じ）；30–40 にすると PC はそのままにスマホで明確に小さくなります。読み込み時に一度だけ計算されるので、ウィンドウサイズを変えたら再読み込みしてください。',

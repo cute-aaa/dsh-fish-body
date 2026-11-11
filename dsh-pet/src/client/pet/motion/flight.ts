@@ -9,7 +9,7 @@ import { throwBounds, type GravityVector, type PetCollisionSlot, type ThrowState
 import { integrateFlight } from './flight-integrate.ts';
 import { createPetCollision, type PetCollisionResolver } from './pet-collision.ts';
 import type { BoxPoint, Center, Viewport } from './geometry.ts';
-import type { PhysicsParams } from '../../../shared/types.ts';
+import type { PhysicsParams, RendererKind } from '../../../shared/types.ts';
 
 /** 飞行需要的当帧几何（px）。 */
 export interface FlightMetrics {
@@ -23,6 +23,8 @@ export interface FlightMetrics {
   sideAllow: number;
   /** 舞台脚底垫高：互撞用的身体框按它上移。 */
   bottomPad: number;
+  /** 渲染方式：互撞用的身体框比例随它变（方形画布铺满整块，见 shared/body-box）。 */
+  renderer?: RendererKind | undefined;
 }
 
 /** 本帧撞击：撞的是哪条边（或宠物）与撞前速度。 */

@@ -105,10 +105,8 @@ async function switchRenderer(deps: MenuActionDeps, renderer: string): Promise<v
   }
 }
 
-/** 皮肤/模型：写配置后宿主回成品聚合，交给容器重渲染（live2d/layered 换模型）。 */ async function switchModel(
-  deps: MenuActionDeps,
-  model: string,
-): Promise<void> {
+/** 皮肤/模型：写配置后宿主回成品聚合，交给容器重渲染（live2d/layered 换模型）。 */
+async function switchModel(deps: MenuActionDeps, model: string): Promise<void> {
   try {
     const response = await fetch(ROUTE_PATH + '/pet-model', {
       method: 'POST',
@@ -121,6 +119,31 @@ async function switchRenderer(deps: MenuActionDeps, renderer: string): Promise<v
     deps.applyMerged(body as Record<string, Record<string, unknown>>);
   } catch (error) {
     deps.warn('[dsh-pet] 模型切换失败 ' + (error instanceof Error ? error.message : String(error)));
+  }
+}
+
+/**
+ * 大小：写当前渲染方式的画框宽度，宿主回成品聚合。
+ *
+ * 不传 renderer——由宿主按该宠物现有渲染方式落键，菜单这里少一个可能与配置不同步的参数。
+ *
+ * @param deps - 派发依赖（宠物 id 与聚合回填）。
+ * @param size - 目标宽度 px；undefined = 删掉该渲染方式的覆盖。
+ */
+async function switchSize(deps: MenuActionDeps, size: number | undefined): Promise<void> {
+  try {
+    const payload = size === undefined ? { id: deps.petId, size: null } : { id: deps.petId, size };
+    const response = await fetch(ROUTE_PATH + '/pet-size', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error('pet-size HTTP ' + response.status);
+    const body = (await response.json()) as Record<string, unknown>;
+    if (body.ok === false) throw new Error('pet-size 被拒：' + String(body.reason ?? ''));
+    deps.applyMerged(body as Record<string, Record<string, unknown>>);
+  } catch (error) {
+    deps.warn('[dsh-pet] 改大小失败 ' + (error instanceof Error ? error.message : String(error)));
   }
 }
 
@@ -242,6 +265,12 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       if (model === undefined) return;
       console.info('[dsh-pet] 菜单切换模型 pet=' + petId + ' model=' + model);
       void switchModel(deps, model);
+      return;
+    }
+    if (leaf.action === 'set-size') {
+      // size 缺省 = 删掉当前渲染方式的覆盖，回落 pets[].size；宿主按该宠物现有 renderer 落键。
+      console.info('[dsh-pet] 菜单改大小 pet=' + petId + ' size=' + String(leaf.size ?? '默认'));
+      void switchSize(deps, leaf.size);
       return;
     }
     if (leaf.action === 'renderer-action') {

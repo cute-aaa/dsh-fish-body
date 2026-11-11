@@ -9,7 +9,7 @@ import { registerPose } from '../../pose.ts';
 import { registerProgress } from '../../progress.ts';
 import { boxToRatio, centerToBox, clampReachableBox, derivePetMetrics } from '../motion/geometry.ts';
 import { createRenderer } from '../render/registry.ts';
-import { resolvePetSizePx } from '../../../shared/pet-size.ts';
+import { renderSizeOf, resolvePetSizePx } from '../../../shared/pet-size.ts';
 import type { Renderer } from '../render/types.ts';
 import type { CardLive } from './live.ts';
 import type { CardStateApi } from './state.ts';
@@ -93,7 +93,12 @@ export function createCardAnimation(rt: CardAnimationRuntime) {
       slots.frontVideo = () => renderer.frontElement() as HTMLVideoElement | null;
       const mounted = Promise.resolve(
         renderer.mount(stageEl, {
-          size: resolvePetSizePx(cfgRef.current.size, cfgRef.current.sizePercent, window.innerWidth),
+          size: resolvePetSizePx(
+            renderSizeOf(cfgRef.current),
+            cfgRef.current.sizePercent,
+            window.innerWidth,
+            cfgRef.current.renderer,
+          ),
           assetRoot: cfgRef.current.assetRoot ?? '',
           source: {
             cfg: () => cfgRef.current,
@@ -149,13 +154,16 @@ export function createCardAnimation(rt: CardAnimationRuntime) {
         card.actions.setCustomPos((prev) => {
           if (!prev) return prev;
           // 读 cfgRef 而不是闭包里的 card.state：本效果只注册一次，渲染期快照是初始尺寸。
-          const { size } = cfgRef.current;
-          const { halfW, halfH, bottomPad } = derivePetMetrics(size);
+          // 尺寸与装配根用同一条解析（按渲染方式取画框宽，再套占屏上限），否则缩放后的位置会跳。
+          const cfg = cfgRef.current;
+          const size = resolvePetSizePx(renderSizeOf(cfg), cfg.sizePercent, window.innerWidth, cfg.renderer);
+          const { renderer } = cfg;
+          const { halfW, halfH, bottomPad } = derivePetMetrics(size, renderer);
           const viewport = { width: window.innerWidth, height: window.innerHeight };
           const half = { w: halfW, h: halfH };
           const box = centerToBox(prev, viewport, half);
           // 必须返回新对象：视口变了就得重渲染，返回同一引用 React 会跳过，位置不会重算。
-          return { ...boxToRatio(clampReachableBox(box, viewport, { size, bottomPad }), viewport, half) };
+          return { ...boxToRatio(clampReachableBox(box, viewport, { size, bottomPad, renderer }), viewport, half) };
         });
       window.addEventListener('resize', onResize);
       // 把本页这只宠物的实时位置与朝向注册给只读服务 petApi7340（见 ../pose）；

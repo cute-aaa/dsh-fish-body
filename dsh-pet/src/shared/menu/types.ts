@@ -29,6 +29,7 @@ export interface MenuLeaf {
     | 'set-display'
     | 'set-renderer'
     | 'set-model'
+    | 'set-size'
     | 'renderer-action'
     | 'sleep'
     | 'wake'
@@ -39,6 +40,8 @@ export interface MenuLeaf {
   renderer?: RendererKind;
   /** set-model 的目标模型（layered 皮肤 id / live2d .model3.json 相对路径） */
   model?: string;
+  /** set-size 的目标画框宽度（px，当前渲染方式）；缺省 = 删掉该渲染方式的覆盖，回落 pets[].size */
+  size?: number;
   /** renderer-action 的动作名：layered 的装配手势 id / live2d 的 `motion:<组>:<序号>` 或 `expression:<名>` */
   rendererAction?: string;
   /** third-party：注册它的 owner（身份键，只用于回传，不显示）；同一个 owner 的项收在同一分组下，

@@ -7,10 +7,12 @@
  */
 export type { ContextMenuMount, MenuBranch, MenuLeaf, MenuMoreItem, MenuNode } from './menu/types.ts';
 export type { MemeGroups, MemeGroupSource } from './menu/memes.ts';
-export type { RendererAction, RendererActionGroup } from './menu/renderer-actions.ts';
+export type { Model3Expression, Model3Motion, RendererAction, RendererActionGroup } from './menu/renderer-actions.ts';
 export {
   EXPRESSION_RESET,
   MORE_MENU_LABEL,
+  MOTION_RESET,
+  SIZE_PRESETS,
   accessoryMenuBranch,
   buildMenuTree,
   buildMoreBranch,
@@ -20,12 +22,16 @@ export {
   modelMenuBranch,
   readMenuItems,
   rendererMenuBranch,
+  sizeMenuBranch,
   skinMenuBranch,
 } from './menu/tree.ts';
 export {
+  IDLE_MOTION_GROUP,
   actionMenuTree,
   model3ActionGroups,
+  model3ExpressionRefs,
   model3Expressions,
+  model3Motions,
   rendererActionTree,
   skinMenuGroups,
 } from './menu/renderer-actions.ts';

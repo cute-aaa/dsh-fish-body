@@ -29,11 +29,13 @@ import {
   modelMenuBranch,
   mountContextMenu,
   rendererMenuBranch,
+  sizeMenuBranch,
   skinMenuBranch,
   type MenuNode,
 } from '../../../shared/menu.ts';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import { LAYERED_MANIFEST_PATHS } from '../../../shared/layered-paths.ts';
+import { renderSizeOf } from '../../../shared/pet-size.ts';
 import { TOOLTIP_GAP_RATIO, tooltipPlacement } from '../../../shared/tooltip.ts';
 import type { MenuMoreItem } from '../../../shared/menu.ts';
 import type { CardLive } from './live.ts';
@@ -412,11 +414,13 @@ export function createCardEntry(rt: CardEntryRuntime) {
           : rendererNow === 'live2d'
             ? modelMenuBranch(modelsRef.current, cfgRef.current.model)
             : null;
-      // 外观：live2d 的 Expressions（单片眼镜、尾巴开关…），打勾表示当前挂着它
+      // 外观：live2d 的 Expressions（单片眼镜、尾巴开关…），可同时挂多个，打勾表示当前挂着它
       const accessory = accessoryMenuBranch(
         live.current.ownAnim?.listExpressions?.() ?? [],
-        live.current.ownAnim?.activeExpression?.() ?? null,
+        live.current.ownAnim?.activeExpressions?.() ?? [],
       );
+      // 大小：改当前渲染方式的画框宽度（写 pets[].sizes[renderer]），另一套素材的尺寸不受影响。
+      const sizeBranch = sizeMenuBranch(renderSizeOf(cfgRef.current), cfgRef.current.size);
       // 顺序与桌面端同一排法：余额 / 待办 / 碎碎念 / 对话 / 配图 / 睡觉 → 动作树 → 显示位置 / 回到初始位置。
       // 桌面专属的两项（打开软件、重载配置）在网页端没有对应动作，不出现。
       const tools: MenuNode[] = [
@@ -431,6 +435,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
         rendererMenuBranch(cfgRef.current.renderer, availableRef.current),
         // 模型（live2d）/ 皮肤（layered）：切完同样回成品聚合重建。
         ...(picker !== null ? [picker] : []),
+        // 大小：三种渲染方式各自一套，切完由宿主回成品聚合 → 卡片按新尺寸重排/重绘。
+        sizeBranch,
         // 外观（live2d）：表情是挂着的状态，切换后一直生效，另给「恢复默认外观」。
         ...(accessory !== null && rendererNow === 'live2d' ? [accessory] : []),
       ];

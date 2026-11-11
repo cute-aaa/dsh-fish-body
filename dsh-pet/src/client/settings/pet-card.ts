@@ -9,7 +9,13 @@ import type { ChangeEvent, FunctionComponent } from 'react';
 import type { Pet } from '../../shared/types.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit } from './ui.ts';
-import { makePetAvatarCell, makePetIdentityFields, makePetPositionFields, type PetPatch } from './pet-card-parts.ts';
+import {
+  makePetAvatarCell,
+  makePetIdentityFields,
+  makePetPositionFields,
+  makePetSizeFields,
+  type PetPatch,
+} from './pet-card-parts.ts';
 
 /** 宠物卡的全部输入。 */
 export interface PetCardProps {
@@ -48,6 +54,7 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
   const AvatarCell = makePetAvatarCell(rt);
   const IdentityFields = makePetIdentityFields(rt);
   const PositionFields = makePetPositionFields(rt);
+  const SizeFields = makePetSizeFields(rt);
 
   return function PetCard(props: PetCardProps) {
     const { pet, busy, msg } = props;
@@ -109,6 +116,9 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
             h(IdentityFields, { pet, busy, onChange: props.onChange }),
           ],
         }),
+
+        // 按渲染方式的大小：三种素材各一套，留空/填成基准值即跟随上面的 size。
+        h(SizeFields, { pet, busy, onChange: props.onChange }),
 
         h(PositionFields, { pet, busy, onChange: props.onChange }),
 

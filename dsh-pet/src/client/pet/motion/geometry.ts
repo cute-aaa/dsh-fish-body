@@ -5,8 +5,10 @@
  * 换算本身不夹取；越界摆放的可见下限由 {@link clampReachableBox} 在提交位置时保证。
  * @module dsh-pet/src/client/pet/motion/geometry
  */
-import { CANVAS_H, FEET_Y, HIT_BOX, MIN_REACHABLE_PX } from '../../../shared/constants.ts';
+import { CANVAS_H, FEET_Y, MIN_REACHABLE_PX } from '../../../shared/constants.ts';
+import { bodyBoxPercent, bodyUnitBox } from '../../../shared/body-box.ts';
 import { bodyPixelBox } from '../../../shared/physics.ts';
+import type { RendererKind } from '../../../shared/types.ts';
 import type { CSSProperties } from 'react';
 
 /** 视口尺寸。 */
@@ -49,14 +51,15 @@ export interface PetMetrics {
  * 按宠物宽度算出盒子度量。
  *
  * @param size - 宠物宽度 px。
+ * @param renderer - 当前渲染方式：左右透明边随它变（方形画布没有左右留白，见 shared/body-box）。
  * @returns 四个派生量，随宽度线性缩放。
  */
-export function derivePetMetrics(size: number): PetMetrics {
+export function derivePetMetrics(size: number, renderer?: RendererKind): PetMetrics {
   return {
     halfW: size / 2,
     halfH: (size * 9) / 16 / 2,
     bottomPad: (size * (9 / 16) * (CANVAS_H - FEET_Y)) / CANVAS_H,
-    sideAllow: (HIT_BOX.x0 / 640) * size,
+    sideAllow: bodyUnitBox(renderer).x0 * size,
   };
 }
 
@@ -91,16 +94,16 @@ export function boxToRatio(box: BoxPoint, viewport: Viewport, half: HalfSize): C
  *
  * @param box - 待提交的盒左上角（px）。
  * @param viewport - 视口尺寸。
- * @param body - 命中区的两个输入：宠物宽度与舞台脚垫。
+ * @param body - 命中区的三个输入：宠物宽度、舞台脚垫与渲染方式。
  * @returns 夹取后的盒左上角；本来就在范围内时原值返回。
  */
 export function clampReachableBox(
   box: BoxPoint,
   viewport: Viewport,
-  body: { size: number; bottomPad: number },
+  body: { size: number; bottomPad: number; renderer?: RendererKind | undefined },
 ): BoxPoint {
-  // 命中区相对盒原点的偏移直接问 bodyPixelBox：本文件不重复 HIT_BOX 的比例换算。
-  const inset = bodyPixelBox({ x: 0, y: 0, size: body.size, bottomPad: body.bottomPad });
+  // 命中区相对盒原点的偏移直接问 bodyPixelBox：本文件不重复命中框的比例换算。
+  const inset = bodyPixelBox({ x: 0, y: 0, size: body.size, bottomPad: body.bottomPad, renderer: body.renderer });
   const minX = MIN_REACHABLE_PX - inset.right;
   const maxX = viewport.width - inset.left - MIN_REACHABLE_PX;
   const minY = MIN_REACHABLE_PX - inset.bottom;
@@ -157,10 +160,21 @@ export function petRootStyle(customPos: Center | null, viewport: Viewport, half:
   };
 }
 
-/** 命中区样式：把 640×360 画布上的命中框换算成相对宠物盒的百分比。 */
-export const PET_HIT_STYLE: CSSProperties = {
-  left: (HIT_BOX.x0 / 640) * 100 + '%',
-  top: (HIT_BOX.y0 / 360) * 100 + '%',
-  width: ((HIT_BOX.x1 - HIT_BOX.x0) / 640) * 100 + '%',
-  height: ((HIT_BOX.y1 - HIT_BOX.y0) / 360) * 100 + '%',
-};
+/**
+ * 命中区样式：命中框比例换算成相对舞台盒的百分比。
+ *
+ * 三种渲染方式的比例不同（方形画布的命中框跑到舞台顶以上，所以 `top` 为负、`height` 大于 100%），
+ * 唯一来源是 shared/body-box；这里只负责拼成 CSS 能吃的字符串。
+ *
+ * @param renderer - 当前渲染方式；缺省按 webm。
+ * @returns 可直接给命中层 `style` 的四个百分比字段。
+ */
+export function petHitStyle(renderer?: RendererKind): CSSProperties {
+  const box = bodyBoxPercent(renderer);
+  return {
+    left: box.left * 100 + '%',
+    top: box.top * 100 + '%',
+    width: box.width * 100 + '%',
+    height: box.height * 100 + '%',
+  };
+}

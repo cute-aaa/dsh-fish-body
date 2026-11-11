@@ -111,8 +111,10 @@ export interface Renderer {
   listActionGroups?(): readonly RendererActionGroup[];
   /** 可切换的外观/配件清单（live2d 的 Expressions）；不支持返回空数组或不实现。 */
   listExpressions?(): readonly string[];
-  /** 当前挂着的外观/配件名；没有则为 null（右键「外观」据此打勾）。 */
-  activeExpression?(): string | null;
+  /** 当前挂着的外观/配件名（可同时挂多个，见 shared/menu/tree 的 accessoryMenuBranch）。 */
+  activeExpressions?(): readonly string[];
+  /** 改画框尺寸（配置里改了大小但后端不重挂）：webm 由 CSS 驱动可不管，画布后端要重设画布与缩放。 */
+  resize?(size: number): void;
   /** 是否已就绪（首帧/首张图层已挂上）。 */
   readonly ready: boolean;
 }

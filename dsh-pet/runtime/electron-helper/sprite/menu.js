@@ -81,12 +81,14 @@ Object.assign(PetSprite.prototype, {
           ? S.modelMenuBranch(this.modelOptions, this.pet.model)
           : null;
     if (picker) tools.push(picker);
-    // 外观（live2d）：表情是挂着的状态，勾表示当前挂着它；末尾另有「恢复默认外观」
+    // 大小：只作用于当前渲染方式（写 pets[].sizes[renderer]），另一套素材的尺寸不受影响
+    tools.push(S.sizeMenuBranch(S.renderSizeOf(this.pet), Number(this.pet.size) || this.size));
+    // 外观（live2d）：外观是挂着的状态，可同时挂多个；勾表示当前挂着它，末尾另有「恢复默认外观」
     if (this.renderer === 'live2d') {
       const api = this.backend;
       const accessory = S.accessoryMenuBranch(
         api && api.expressions ? api.expressions : [],
-        api && api.activeExpression ? api.activeExpression : null,
+        api && api.activeExpressions ? api.activeExpressions() : [],
       );
       if (accessory) tools.push(accessory);
     }
@@ -203,6 +205,11 @@ Object.assign(PetSprite.prototype, {
     }
     if (leaf.action === 'set-model') {
       this.setPetModel(leaf.model); // 换皮肤/模型：写 model 配置，同样由宿主重载生效
+      return;
+    }
+    if (leaf.action === 'set-size') {
+      // 改当前渲染方式的画框宽度：宿主写盘后重启 Helper 重建窗口；size 缺省 = 删掉覆盖
+      this.setPetSize(leaf.size);
       return;
     }
     if (leaf.action === 'renderer-action') {
@@ -471,6 +478,19 @@ Object.assign(PetSprite.prototype, {
       body: JSON.stringify({ id: this.pet.id, renderer }),
     }).catch((e) => {
       console.warn('[dsh-pet] 渲染方式请求失败（宿主不可达？）', e);
+    });
+  },
+
+  // 「大小」菜单：只改当前渲染方式的尺寸（宿主按 pet.renderer 落键）。size 缺省 = 删掉该覆盖，
+  // 回落 pets[].size；窗口重建后新尺寸才生效，所以同样不 await、不重试。
+  setPetSize(size) {
+    if (size !== undefined && !Number.isFinite(size)) return;
+    fetch(BASE + '/pet-size', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: this.pet.id, size: size === undefined ? null : size }),
+    }).catch((e) => {
+      console.warn('[dsh-pet] 改大小请求失败（宿主不可达？）', e);
     });
   },
 

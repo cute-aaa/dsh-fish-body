@@ -9,13 +9,13 @@ import { pick } from '../../../shared/pickers.ts';
 import { postAction } from '../../../shared/state.ts';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import { resolveFontPx } from '../../../shared/fonts.ts';
-import { resolvePetSizePx } from '../../../shared/pet-size.ts';
+import { renderSizeOf, resolvePetSizePx } from '../../../shared/pet-size.ts';
 import { makeBalanceBubble, makeWhisperBubble } from '../../bubble.ts';
 import { makeTodoBubble } from '../../todo-bubble.ts';
 import { petBridge } from '../../settings.ts';
 import { playClickSound } from '../click-sound.ts';
 import { createMenuActions, type MenuActions } from '../menu-actions.ts';
-import { derivePetMetrics, petRootStyle, petStageStyle } from '../motion/geometry.ts';
+import { derivePetMetrics, petHitStyle, petRootStyle, petStageStyle } from '../motion/geometry.ts';
 import { makePlaybackReporter } from '../playback-report.ts';
 import { createAnimationFlow } from './animation-flow.ts';
 import { createBubbleSlots } from './bubble-slots.ts';
@@ -66,8 +66,10 @@ export function createCardRuntime(rt: PetRuntime) {
     const { onFocusSession } = props;
 
     // 实际渲染宽度：百分比只在挂载与配置变更时按当次视口宽解析一次，拖窗口不跟随。
+    // 先按渲染方式取画框宽度（sizes[renderer] 优先），再套「人物占屏宽」上限——
+    // 两种素材的人物占框比例不同，同一只宠物切过去本来就该是两个尺寸。
     // 物理、字号与 CSS 变量都吃这一个值——两处各算一次会让命中框与视觉错位。
-    const effectiveSizePx = resolvePetSizePx(cfg.size, cfg.sizePercent, window.innerWidth);
+    const effectiveSizePx = resolvePetSizePx(renderSizeOf(cfg), cfg.sizePercent, window.innerWidth, cfg.renderer);
 
     // 卡片状态容器：动画、朝向、拖拽态、提示与自定义位置；写入口在 card-state。
     const card = useCardState({
@@ -103,16 +105,11 @@ export function createCardRuntime(rt: PetRuntime) {
     const reportPlayback = makePlaybackReporter({ petId: cfg.id });
 
     // 尺寸与派生几何；度量系数在 motion/geometry.ts，这里只解构使用。
-    const { halfW, halfH, bottomPad, sideAllow } = derivePetMetrics(size);
+    // renderer 要传进去：方形画布没有左右透明边，漫游与碰撞的贴边量完全不同（见 shared/body-box）。
+    const { halfW, halfH, bottomPad, sideAllow } = derivePetMetrics(size, cfg.renderer);
     // 字号按本宠物尺寸算好注入 root，气泡与悬浮提示读它。
     const fontPx = resolveFontPx(cfg.font, size);
     const petAnims = cfg.animations;
-
-    // 配置变化即时跟随，容器重新合并或设置页保存后触发。
-    useEffect(() => {
-      actions.setSize(resolvePetSizePx(cfg.size, cfg.sizePercent, window.innerWidth));
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- setter 稳定，变化原因只有配置的两个尺寸字段
-    }, [cfg.size, cfg.sizePercent]);
 
     useEffect(() => {
       actions.setCorner(cfg.position.corner);
@@ -149,12 +146,21 @@ export function createCardRuntime(rt: PetRuntime) {
       workStatusRef,
     });
 
+    // 配置变化即时跟随，容器重新合并或设置页保存后触发。
+    // 改大小不重挂后端（模型/贴图重载代价大），而是让渲染实例自己 resize：
+    // webm 由 CSS 变量驱动、天然跟随，layered / live2d 要改画布尺寸并重量气泡锚点。
+    useEffect(() => {
+      actions.setSize(effectiveSizePx);
+      ownAnim.resize?.(effectiveSizePx);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- setter 稳定；尺寸已折算成一个数，ownAnim 只在换后端时换身份
+    }, [effectiveSizePx]);
+
     const motion = useCardMotion({
       arena,
       card,
       cfgRef,
       live: liveRef,
-      metrics: { bottomPad, halfH, halfW, sideAllow, size },
+      metrics: { bottomPad, halfH, halfW, sideAllow, size, renderer: cfg.renderer },
       moves: petAnims.moves,
       petId: cfg.id,
       root: () => rootRef.current,
@@ -297,6 +303,8 @@ export function createCardRuntime(rt: PetRuntime) {
       facing,
       fontBubblePx: fontPx.bubble,
       fontTipPx: fontPx.tip,
+      // 命中层几何随渲染方式变：webm 只覆盖画面中间那条，方形画布要连头顶一起覆盖。
+      hitStyle: petHitStyle(cfg.renderer),
       marginX: margin.x,
       marginY: margin.y,
       name: cfg.name,

@@ -10,7 +10,9 @@ import assert from 'node:assert/strict';
 import {
   actionMenuTree,
   model3ActionGroups,
+  model3ExpressionRefs,
   model3Expressions,
+  model3Motions,
   rendererActionTree,
   skinMenuGroups,
 } from './renderer-actions.ts';
@@ -56,7 +58,7 @@ describe('skinMenuGroups —— 皮肤清单 interaction.menu', () => {
 });
 
 describe('model3ActionGroups —— model3 的 Motions / Expressions', () => {
-  test('motion 组逐组展开，多条目用「组名 序号」区分', () => {
+  test('motion 组逐组展开，多条目用「组名 序号」区分；Idle 组不进菜单', () => {
     const groups = model3ActionGroups({
       FileReferences: {
         Motions: {
@@ -66,24 +68,41 @@ describe('model3ActionGroups —— model3 的 Motions / Expressions', () => {
         },
       },
     });
-    assert.equal(groups.length, 2, '非数组的组要被跳过');
-    assert.deepEqual(groups[0], { label: 'Idle', actions: [{ label: 'Idle', name: 'motion:Idle:0' }] });
-    assert.deepEqual(groups[1].actions, [
+    assert.equal(groups.length, 1, '待机组与坏形状都不出现');
+    assert.equal(groups[0]?.label, 'TapBody');
+    assert.deepEqual(groups[0]?.actions, [
       { label: 'TapBody 1', name: 'motion:TapBody:0' },
       { label: 'TapBody 2', name: 'motion:TapBody:1' },
     ]);
   });
 
-  test('Expressions 不进「动作」：表情是挂着的状态，归「外观」子菜单', () => {
+  test('声明的 Name 是菜单文案（VTube 热键名就补在这里）', () => {
+    const groups = model3ActionGroups({
+      FileReferences: {
+        Motions: {
+          Animation: [
+            { File: 'a.json', Name: '抚胸手打开' },
+            { File: 'b.json', Name: '竖手指打开' },
+          ],
+        },
+      },
+    });
+    assert.deepEqual(
+      groups[0]?.actions.map((action) => action.label),
+      ['抚胸手打开', '竖手指打开'],
+    );
+  });
+
+  test('Expressions 不进「动作」：外观是挂着的状态，归「外观」子菜单', () => {
     const raw = {
       FileReferences: {
-        Motions: { Idle: [{ File: 'Animation/IDLE.motion3.json' }] },
+        Motions: { Animation: [{ File: 'a.json' }] },
         Expressions: [{ Name: '脸红', File: 'a.exp3.json' }, { File: 'b.exp3.json' }],
       },
     };
     assert.deepEqual(
       model3ActionGroups(raw).map((group) => group.label),
-      ['Idle'],
+      ['Animation'],
       '动作树里只留 motion 组',
     );
     assert.deepEqual(model3Expressions(raw), ['脸红'], '缺 Name 的表情跳过，其余留给外观菜单');
@@ -94,6 +113,39 @@ describe('model3ActionGroups —— model3 的 Motions / Expressions', () => {
     assert.deepEqual(model3ActionGroups({ FileReferences: { Motions: {} } }), []);
     assert.deepEqual(model3ActionGroups(null), []);
     assert.deepEqual(model3Expressions({ FileReferences: {} }), []);
+  });
+});
+
+describe('model3Motions / model3ExpressionRefs —— 点哪个文件、定格与淡入', () => {
+  test('动作表带 File / hold / fadeSeconds，序号与原声明一致', () => {
+    const motions = model3Motions({
+      FileReferences: {
+        Motions: {
+          Animation: [
+            { File: 'Animation/a.motion3.json', Name: '举手', FadeInTime: 0.2, StopsOnLastFrame: true },
+            { File: 'Animation/b.motion3.json', Name: '放下' },
+            { Name: '缺 File' },
+          ],
+        },
+      },
+    });
+    assert.deepEqual(
+      motions.map((motion) => [motion.action, motion.label, motion.file, motion.hold, motion.fadeSeconds]),
+      [
+        ['motion:Animation:0', '举手', 'Animation/a.motion3.json', true, 0.2],
+        ['motion:Animation:1', '放下', 'Animation/b.motion3.json', false, undefined],
+      ],
+      '缺 File 的条目不可播，整条丢掉（序号仍是声明里的位置）',
+    );
+  });
+
+  test('外观表带文件；缺 Name / File 的跳过', () => {
+    assert.deepEqual(
+      model3ExpressionRefs({
+        FileReferences: { Expressions: [{ Name: '单片眼镜', File: 'Exp3/a.exp3.json' }, { Name: '' }] },
+      }),
+      [{ name: '单片眼镜', file: 'Exp3/a.exp3.json' }],
+    );
   });
 });
 
@@ -111,13 +163,14 @@ describe('rendererActionTree —— 动作树形状', () => {
     ]);
   });
 
-  test('多组：每组一个子菜单（live2d 的多组 motion）', () => {
+  test('多组：每组一个子菜单（live2d 的多组 motion；待机组不出现）', () => {
     const tree = rendererActionTree(
       model3ActionGroups({
         FileReferences: {
           Motions: {
             TapBody: [{ File: 'a.json' }],
-            Idle: [{ File: 'b.json' }, { File: 'c.json' }],
+            TapHead: [{ File: 'b.json' }],
+            Idle: [{ File: 'c.json' }],
           },
         },
       }),
@@ -131,12 +184,22 @@ describe('rendererActionTree —— 动作树形状', () => {
             children: [{ label: 'TapBody', action: 'renderer-action', rendererAction: 'motion:TapBody:0' }],
           },
           {
-            label: 'Idle',
-            children: [
-              { label: 'Idle 1', action: 'renderer-action', rendererAction: 'motion:Idle:0' },
-              { label: 'Idle 2', action: 'renderer-action', rendererAction: 'motion:Idle:1' },
-            ],
+            label: 'TapHead',
+            children: [{ label: 'TapHead', action: 'renderer-action', rendererAction: 'motion:TapHead:0' }],
           },
+        ],
+      },
+    ]);
+  });
+
+  test('给 resetAction 时末尾补一条「恢复默认动作」（叠加上去的姿态要有出口）', () => {
+    const tree = rendererActionTree(skinMenuGroups(['blink']), 'motion-reset');
+    assert.deepEqual(tree, [
+      {
+        label: '动作',
+        children: [
+          { label: '眨个眼', action: 'renderer-action', rendererAction: 'blink' },
+          { label: '恢复默认动作', action: 'renderer-action', rendererAction: 'motion-reset' },
         ],
       },
     ]);

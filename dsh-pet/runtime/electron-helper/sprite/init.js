@@ -205,10 +205,13 @@ Object.assign(PetSprite.prototype, {
     }
     this.hit = document.createElement('div');
     this.hit.className = 'pet-hit';
-    this.hit.style.left = (S.HIT_BOX.x0 / 640) * 100 + '%';
-    this.hit.style.top = (S.HIT_BOX.y0 / 360) * 100 + '%';
-    this.hit.style.width = ((S.HIT_BOX.x1 - S.HIT_BOX.x0) / 640) * 100 + '%';
-    this.hit.style.height = ((S.HIT_BOX.y1 - S.HIT_BOX.y0) / 360) * 100 + '%';
+    // 命中层比例随渲染方式变：方形画布的命中框要顶到舞台顶以上（top 为负、height 大于 100%），
+    // 唯一来源是 shared/body-box，与浏览器端同一份。
+    const hitBox = S.bodyBoxPercent(this.renderer);
+    this.hit.style.left = hitBox.left * 100 + '%';
+    this.hit.style.top = hitBox.top * 100 + '%';
+    this.hit.style.width = hitBox.width * 100 + '%';
+    this.hit.style.height = hitBox.height * 100 + '%';
     // 命中层挂 aria-label：原生 title 已换成自绘浮层，但无障碍名称不能跟着丢
     this.hit.setAttribute('aria-label', this.pet.name);
     this.bubble = document.createElement('div');

@@ -1,0 +1,100 @@
+/**
+ * 命中框比例的单元测试：钉住「webm 与今天逐位一致」和「画布后端覆盖到舞台顶以上」。
+ *
+ * 这是两端共用的几何唯一来源（网页端命中层 CSS、拖拽夹取、碰撞框、桌面 `hitRect` 与穿透判定），
+ * 任何一处回退成写死的 HIT_BOX 都会让「看得见、点不到」复发。
+ * 跑法：node --experimental-strip-types --test src/shared/body-box.test.ts
+ */
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { bodyBoxPercent, bodyBoxPx, bodyUnitBox, bodyWidthRatio } from './body-box.ts';
+import { STAGE_ASPECT } from './bubble-anchor.ts';
+import { CANVAS_H, HIT_BOX } from './constants.ts';
+import type { RendererKind } from './types.ts';
+
+describe('bodyUnitBox —— webm 与 640×360 命中框一致', () => {
+  test('四边等于 HIT_BOX 换算值（缺省 / 未知渲染方式都走 webm）', () => {
+    const expected = {
+      x0: HIT_BOX.x0 / 640,
+      y0: (HIT_BOX.y0 / CANVAS_H) * STAGE_ASPECT,
+      x1: HIT_BOX.x1 / 640,
+      y1: (HIT_BOX.y1 / CANVAS_H) * STAGE_ASPECT,
+    };
+    // 配置里可能写着白名单外的值（旧版本 / 手改）：运行时按 webm 处理。
+    const unknownKind = 'something-else' as RendererKind;
+    for (const renderer of ['webm', undefined, unknownKind] as const) {
+      assert.deepEqual(bodyUnitBox(renderer), expected);
+    }
+  });
+});
+
+describe('bodyUnitBox —— 画布后端覆盖方形画布', () => {
+  test('横向内缩 8%，纵向从舞台顶以上一直到舞台底', () => {
+    const box = bodyUnitBox('live2d');
+    assert.ok(Math.abs(box.x0 - 0.08) < 1e-12);
+    assert.ok(Math.abs(box.x1 - 0.92) < 1e-12);
+    // 方形画布高 = 宠物宽度，舞台高只有 9/16，所以 y0 必然是负的
+    assert.ok(Math.abs(box.y0 - (-(1 - STAGE_ASPECT) + 0.08)) < 1e-12, 'y0 应落在舞台顶以上');
+    assert.ok(Math.abs(box.y1 - STAGE_ASPECT) < 1e-12, '底边应与舞台底对齐');
+  });
+
+  test('layered 与 live2d 共用同一套（两种画布实现口径一致）', () => {
+    assert.deepEqual(bodyUnitBox('layered'), bodyUnitBox('live2d'));
+  });
+});
+
+describe('bodyBoxPx —— 换算到像素', () => {
+  test('webm：命中框就是今天那几个像素值', () => {
+    const size = 462;
+    const box = bodyBoxPx('webm', size);
+    assert.equal(box.x, (HIT_BOX.x0 / 640) * size);
+    assert.equal(box.w, ((HIT_BOX.x1 - HIT_BOX.x0) / 640) * size);
+    assert.equal(box.h, ((HIT_BOX.y1 - HIT_BOX.y0) / 360) * (size * (9 / 16)));
+  });
+
+  test('画布：宽 = 84% × size、高 = 92% × size，且 y 为负', () => {
+    const size = 500;
+    const box = bodyBoxPx('live2d', size);
+    assert.ok(Math.abs(box.w - size * 0.84) < 1e-9);
+    assert.ok(Math.abs(box.h - size * 0.92) < 1e-9);
+    assert.ok(box.y < 0, '头顶在舞台顶以上');
+  });
+});
+
+describe('bodyBoxPercent —— CSS 百分比（两轴分别归一）', () => {
+  test('webm：与旧 `PET_HIT_STYLE` 的四个百分比一致', () => {
+    const box = bodyBoxPercent('webm');
+    assert.ok(Math.abs(box.left - HIT_BOX.x0 / 640) < 1e-12);
+    assert.ok(Math.abs(box.top - HIT_BOX.y0 / 360) < 1e-12);
+    assert.ok(Math.abs(box.width - (HIT_BOX.x1 - HIT_BOX.x0) / 640) < 1e-12);
+    assert.ok(Math.abs(box.height - (HIT_BOX.y1 - HIT_BOX.y0) / 360) < 1e-12);
+  });
+
+  test('画布：top 为负、height 大于 1，底边正好等于 100%', () => {
+    const box = bodyBoxPercent('live2d');
+    assert.ok(box.top < 0);
+    assert.ok(box.height > 1);
+    assert.ok(Math.abs(box.top + box.height - 1) < 1e-12, '底边落在舞台底边');
+  });
+
+  test('百分比与像素自洽：乘回舞台尺寸得到同一矩形', () => {
+    const size = 400;
+    const stageH = size * STAGE_ASPECT;
+    for (const renderer of ['webm', 'layered', 'live2d'] as const) {
+      const px = bodyBoxPx(renderer, size);
+      const pct = bodyBoxPercent(renderer);
+      assert.ok(Math.abs(pct.left * size - px.x) < 1e-9, renderer);
+      assert.ok(Math.abs(pct.top * stageH - px.y) < 1e-9, renderer);
+      assert.ok(Math.abs(pct.width * size - px.w) < 1e-9, renderer);
+      assert.ok(Math.abs(pct.height * stageH - px.h) < 1e-9, renderer);
+    }
+  });
+});
+
+describe('bodyWidthRatio —— 人物占框宽度', () => {
+  test('webm 37.5%，画布 84%', () => {
+    assert.ok(Math.abs(bodyWidthRatio('webm') - 0.375) < 1e-12);
+    assert.ok(Math.abs(bodyWidthRatio('live2d') - 0.84) < 1e-12);
+  });
+});

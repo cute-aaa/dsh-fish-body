@@ -23,6 +23,7 @@ import { createRequestSecurity } from '../standalone/request-security.ts';
 import { installDesktopAuth, type DesktopSession } from './desktop-auth.ts';
 import { startRouter } from './router.ts';
 import { ROUTE_SEGMENT } from '../shared/constants.ts';
+import { renderSizeOf } from '../shared/pet-size.ts';
 
 /**
  * `electron` 由 Electron 运行时提供，不是本包依赖；只声明实际用到的成员。
@@ -179,7 +180,7 @@ function desktopPets(): Array<{ id: string; size: number }> {
     const pets = flattenPetList(readAllConfig(configPathsFor(packageRoot, dshHomeDir())));
     const desktop = pets
       .filter((pet) => pet.display === 'desktop' || pet.display === 'both')
-      .map((pet) => ({ id: String(pet.id), size: Number(pet.size) }));
+      .map((pet) => ({ id: String(pet.id), size: renderSizeOf(pet) }));
     log(`桌面宠物 ${JSON.stringify(desktop)}`);
     return desktop;
   } catch (error) {

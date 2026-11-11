@@ -14,6 +14,7 @@ import {
   type PetCollisionSlot,
   type ThrowState,
 } from '../../../shared/physics.ts';
+import type { RendererKind } from '../../../shared/types.ts';
 
 /** 结算需要的当帧几何。 */
 export interface CollisionMetrics {
@@ -21,6 +22,8 @@ export interface CollisionMetrics {
   size: number;
   /** 舞台脚底垫高：身体框按它上移。 */
   bottomPad: number;
+  /** 渲染方式：身体框比例随它变（缺省按 webm）。 */
+  renderer?: RendererKind | undefined;
 }
 
 /** 结算依赖。 */
@@ -56,13 +59,25 @@ const separate = (state: ThrowState, push: { dx: number; dy: number } | null): T
 export function createPetCollision(deps: PetCollisionDeps): PetCollisionResolver {
   return (state, metrics) => {
     const slots = deps.arena().slots;
-    const myBody = bodyPixelBox({ x: state.x, y: state.y, size: metrics.size, bottomPad: metrics.bottomPad });
+    const myBody = bodyPixelBox({
+      x: state.x,
+      y: state.y,
+      size: metrics.size,
+      bottomPad: metrics.bottomPad,
+      renderer: metrics.renderer,
+    });
     for (const slotId of Object.keys(slots)) {
       if (slotId === deps.petId) continue;
       const slot = slots[slotId];
       const otherBox = slot.getBox();
       if (!otherBox) continue;
-      const otherBody = bodyPixelBox({ x: otherBox.x, y: otherBox.y, size: slot.size, bottomPad: slot.bottomPad });
+      const otherBody = bodyPixelBox({
+        x: otherBox.x,
+        y: otherBox.y,
+        size: slot.size,
+        bottomPad: slot.bottomPad,
+        renderer: slot.renderer,
+      });
       if (!rectsOverlap(myBody, otherBody)) continue;
       const separated = separate(state, overlapPush(myBody, otherBody));
       const vel = slot.getVel();

@@ -16,6 +16,7 @@ import {
   modelMenuBranch,
   readMenuItems,
   rendererMenuBranch,
+  sizeMenuBranch,
   skinMenuBranch,
 } from './tree.ts';
 import type { MenuLeaf } from './types.ts';
@@ -201,7 +202,7 @@ describe('skinMenuBranch / accessoryMenuBranch —— 皮肤与外观（按渲�
   });
 
   test('外观：勾表示当前挂着它，末尾恒有「恢复默认外观」', () => {
-    const branch = accessoryMenuBranch(['单片眼镜', '尾巴开关'], '尾巴开关');
+    const branch = accessoryMenuBranch(['单片眼镜', '尾巴开关'], ['尾巴开关']);
     assert.ok(branch !== null);
     assert.equal(branch.label, '外观');
     assert.deepEqual(
@@ -210,6 +211,37 @@ describe('skinMenuBranch / accessoryMenuBranch —— 皮肤与外观（按渲�
     );
     const reset = branch.children[2] as MenuLeaf;
     assert.equal(reset.rendererAction, EXPRESSION_RESET);
-    assert.equal(accessoryMenuBranch([], null), null);
+    assert.equal(accessoryMenuBranch([], []), null);
+  });
+
+  test('外观可同时挂多个：勾不只一个（眼镜 + 脸红 + 兔牙一起开）', () => {
+    const branch = accessoryMenuBranch(['黑框眼镜', '脸红', '兔牙'], ['黑框眼镜', '兔牙']);
+    const shown = branch?.children.map((leaf) => leaf.label) ?? [];
+    assert.deepEqual(shown, ['黑框眼镜 ✓', '脸红', '兔牙 ✓', '恢复默认外观']);
+  });
+});
+
+describe('sizeMenuBranch —— 「大小」子菜单（按当前渲染方式）', () => {
+  test('四档按 size 缩放：「中」就是基准值，其余取整到 10px', () => {
+    const branch = sizeMenuBranch(462, 462);
+    assert.equal(branch.label, '大小');
+    assert.deepEqual(
+      branch.children.map((leaf) => leaf.label),
+      ['小（320px）', '中（462px）✓', '大（620px）', '特大（830px）', '恢复默认大小'],
+    );
+    assert.deepEqual(
+      branch.children.map((leaf) => (leaf as MenuLeaf).size),
+      [320, 462, 620, 830, undefined],
+      '最后一条是「恢复默认」：不带 size = 删掉覆盖',
+    );
+  });
+
+  test('当前值是配置里的任意覆盖值时，没有档位打勾', () => {
+    const branch = sizeMenuBranch(555, 462);
+    assert.equal(branch.children.filter((leaf) => leaf.label.endsWith('✓')).length, 0);
+  });
+
+  test('睡着时放行：改大小不改宠物状态，属于维护类', () => {
+    assert.equal(isSleepAllowedAction('set-size'), true);
   });
 });

@@ -59,6 +59,7 @@ export const en: Record<Key, string> = {
   emptyPets: 'No pets yet — click "Add pet" to create one.',
   sizeLabel: 'Size (width px)',
   sizeHint: 'Height is automatic = width × 9/16.',
+  sizesOf: 'Size for {renderer}',
   sizePercentLabel: 'Max screen width (%)',
   sizePercentHint:
     'How much of the screen width the pet may take: 100 = never wider than one screen (identical to px on wide windows); try 30–40 to make it clearly smaller on a phone without changing the desktop. Computed once on page load; refresh after resizing.',

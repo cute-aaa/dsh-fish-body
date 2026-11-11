@@ -9,6 +9,22 @@ const { decideWindowIgnore } = require('../pointer-target.js');
  */
 
 /**
+ * 容错读一个矩形（渲染端上报的身体命中区）。
+ *
+ * @param value - IPC 载荷里的未知值。
+ * @returns 四个分量都是有限数且宽高为正时返回矩形；否则 undefined（调用方按「没给」处理）。
+ */
+function rectOf(value) {
+  if (!value || typeof value !== 'object') return undefined;
+  const x = Number(value.x);
+  const y = Number(value.y);
+  const width = Number(value.width);
+  const height = Number(value.height);
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return undefined;
+  return { x, y, width, height };
+}
+
+/**
  * 注册全部 ipc 处理器。
  *
  * @param deps.ipcMain - Electron ipcMain。
@@ -40,8 +56,16 @@ function registerIpc({ ipcMain, petWindows, shell, openTarget, petRoute }) {
     const ml = Number(bounds?.marginL);
     const mt = Number(bounds?.marginT);
     const bodyWidth = Number(bounds?.size);
+    // 渲染端上报的身体命中区（窗口局部 DIP）：比例随渲染方式变，主进程算不出来。
+    // 老渲染端不发这个字段 → hit 为 undefined，pointer-target 会退回旧的 HIT_BOX 推导。
+    const hit = rectOf(bounds?.hit);
     if (Number.isFinite(ml) && Number.isFinite(mt) && Number.isFinite(bodyWidth)) {
-      petWindows.state.winMargins.set(win.id, { l: ml, t: mt, r: rect.width - ml - bodyWidth });
+      petWindows.state.winMargins.set(win.id, {
+        l: ml,
+        t: mt,
+        r: rect.width - ml - bodyWidth,
+        ...(hit === undefined ? {} : { hit }),
+      });
     }
     // 碰撞站场的位置必须用包围盒左上角（渲染端显式上报 boxX/boxY）：窗口坐标 = 包围盒 − margin，
     // 直接拿窗口坐标会让跨窗检测整体错位。

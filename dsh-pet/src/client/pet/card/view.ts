@@ -2,11 +2,10 @@
  * 宠物卡的 DOM 结构：根节点、舞台（渲染后端挂载点）与命中区、气泡槽、悬浮提示。
  * 舞台本身不再持有视频元素：渲染后端（webm / layered / live2d）挂载后自行注入视觉元素。
  * 不持有状态、不做判定：尺寸变量、定位样式与事件回调都由 PetCard 当帧传入，这里只按顺序拼装。
- * 依赖注入的 h、pet/motion/geometry 的命中区样式与 shared/tooltip 的类名。
+ * 依赖注入的 h、命中区样式（装配根按渲染方式算好）与 shared/tooltip 的类名。
  * 不变量：命中区在 stage 内，气泡与提示是根节点的直接子节点——三者的定位都相对根节点。
  * @module dsh-pet/src/client/pet/card/view
  */
-import { PET_HIT_STYLE } from '../motion/geometry.ts';
 import { TOOLTIP_CLASS } from '../../../shared/tooltip.ts';
 import type { CSSProperties, ReactNode } from 'react';
 import type * as ReactNS from 'react';
@@ -39,6 +38,8 @@ export interface CardViewProps {
   rootStyle: CSSProperties;
   /** 舞台位移样式；拖拽中取消脚垫位移。 */
   stageStyle: CSSProperties;
+  /** 命中区样式：命中框比例随渲染方式变（见 shared/body-box），由装配根算好传入。 */
+  hitStyle: CSSProperties;
   /** 当前该挂的气泡；null 表示无气泡。 */
   bubble: ReactNode;
   /** 悬浮提示是否点亮。 */
@@ -96,7 +97,7 @@ export function makeCardView(rt: { h: typeof jsx }) {
           children: [
             h('div', {
               className: 'dsh-pet-hit',
-              style: PET_HIT_STYLE,
+              style: props.hitStyle,
               onClick: props.onClick,
               onPointerDown: props.onPointerDown,
               onPointerMove: props.onPointerMove,

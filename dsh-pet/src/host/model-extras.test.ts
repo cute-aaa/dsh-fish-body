@@ -99,6 +99,106 @@ describe('mergeModelExtras —— 目录里的动作与表情补进清单', () =
   });
 });
 
+describe('mergeModelExtras —— VTube Studio 工程优先', () => {
+  /** 给模型目录补一份 `.vtube.json`（热键表）。 */
+  const writeVtube = (file: string, hotkeys: readonly Record<string, unknown>[]): void => {
+    writeFileSync(join(file, '..', '大肥鱼.vtube.json'), JSON.stringify({ Hotkeys: hotkeys }));
+  };
+
+  test('热键名当菜单文案，StopsOnLastFrame 带出来，顺序按热键表', () => {
+    const file = makeModel(['Animation'], ['Exp3']);
+    writeFileSync(
+      join(file, '..', 'Animation', '默认手切举手.motion3.json'),
+      JSON.stringify({ Version: 3, Meta: { Duration: 1.133 }, Curves: [] }),
+    );
+    writeVtube(file, [
+      {
+        Name: '抚胸手打开',
+        Action: 'TriggerAnimation',
+        File: '默认手切举手.motion3.json',
+        FadeSecondsAmount: 0.2,
+        StopsOnLastFrame: true,
+      },
+      {
+        Name: '抚胸手关闭',
+        Action: 'TriggerAnimation',
+        File: '举手切默认手.motion3.json',
+        FadeSecondsAmount: 0.2,
+        StopsOnLastFrame: false,
+      },
+      { Name: '单片眼镜', Action: 'ToggleExpression', File: '单片眼镜.exp3.json' },
+      { Name: '清空表情', Action: 'RemoveAllExpressions', File: '' },
+    ]);
+    const merged = mergeModelExtras(file, { FileReferences: {} }) as {
+      FileReferences: { Motions: Record<string, Array<Record<string, unknown>>>; Expressions: unknown[] };
+    };
+    const motions = merged.FileReferences.Motions.Animation;
+    assert.deepEqual(
+      motions.map((motion) => motion.Name),
+      ['抚胸手打开', '抚胸手关闭'],
+      '文案取热键名而不是文件名，顺序取热键表',
+    );
+    assert.equal(motions[0]?.File, 'Animation/默认手切举手.motion3.json');
+    assert.equal(motions[0]?.StopsOnLastFrame, true, '定格标记要传给叠加层');
+    assert.equal(motions[0]?.Duration, 1.133);
+    assert.equal(motions[1]?.StopsOnLastFrame, undefined, '不定格就不写这个字段');
+    assert.deepEqual(merged.FileReferences.Expressions, [{ Name: '单片眼镜', File: 'Exp3/单片眼镜.exp3.json' }]);
+  });
+
+  test('热键表没给出素材时回落到目录扫描（Cubism 导出流程删掉 .vtube.json 也照常可用）', () => {
+    const file = makeModel(['Animation'], ['Exp3']);
+    writeVtube(file, [{ Name: '移除所有按键', Action: 'RemoveAllExpressions', File: '' }]);
+    const merged = mergeModelExtras(file, { FileReferences: {} }) as {
+      FileReferences: { Motions: Record<string, Array<Record<string, unknown>>>; Expressions: unknown[] };
+    };
+    assert.equal(merged.FileReferences.Motions.Animation?.length, 2, '按文件名补出来');
+    assert.equal(merged.FileReferences.Expressions.length, 1);
+  });
+
+  test('热键没覆盖的文件也要补进来：待机 IDLE 成组、没绑热键的动作与表情接在后面', () => {
+    const file = makeModel(['Animation'], ['Exp3']);
+    // 目录里再加三份：待机循环、一个没绑热键的动作、一个没绑热键的表情
+    writeFileSync(
+      join(file, '..', 'Animation', 'IDLE.motion3.json'),
+      JSON.stringify({ Version: 3, Meta: { Duration: 5.983, Loop: true }, Curves: [] }),
+    );
+    writeFileSync(
+      join(file, '..', 'Animation', '脱捕.motion3.json'),
+      JSON.stringify({ Version: 3, Meta: {}, Curves: [] }),
+    );
+    writeFileSync(join(file, '..', 'Exp3', '竖食指开.exp3.json'), JSON.stringify({ Type: 'Live2D Expression' }));
+    writeVtube(file, [
+      { Name: '抚胸手打开', Action: 'TriggerAnimation', File: '默认手切举手.motion3.json', StopsOnLastFrame: true },
+      { Name: '单片眼镜', Action: 'ToggleExpression', File: '单片眼镜.exp3.json' },
+    ]);
+    const merged = mergeModelExtras(file, { FileReferences: {} }) as {
+      FileReferences: {
+        Motions: Record<string, Array<Record<string, unknown>>>;
+        Expressions: Array<Record<string, unknown>>;
+      };
+    };
+    // 热键在前、扫描在后（扫描按文件名码位排序）：菜单第一项就是用户在 VTube 里点的那个
+    assert.deepEqual(
+      merged.FileReferences.Motions.Animation?.map((motion) => motion.Name),
+      ['抚胸手打开', '举手切默认手', '脱捕'],
+      '热键动作 + 没绑热键的动作（跳过已被热键占用的那份）',
+    );
+    assert.equal(merged.FileReferences.Motions.Idle?.[0]?.Name, 'IDLE', '待机必须有 Idle 组，否则模型不会自己动');
+    assert.deepEqual(
+      merged.FileReferences.Expressions.map((expression) => expression.Name),
+      ['单片眼镜', '竖食指开'],
+      '热键外观在前，没绑热键的按文件名接在后面',
+    );
+  });
+
+  test('用户自己声明了 Motions → 热键表整段让位', () => {
+    const file = makeModel(['Animation'], []);
+    writeVtube(file, [{ Name: '抚胸手打开', Action: 'TriggerAnimation', File: '默认手切举手.motion3.json' }]);
+    const raw = { FileReferences: { Motions: { Idle: [{ File: 'idle.motion3.json' }] } } };
+    assert.deepEqual(mergeModelExtras(file, raw), raw);
+  });
+});
+
 describe('isModelSettingsFile', () => {
   test('按扩展名判定，大小写不敏感，带路径也算', () => {
     assert.equal(isModelSettingsFile('大肥鱼.model3.json'), true);

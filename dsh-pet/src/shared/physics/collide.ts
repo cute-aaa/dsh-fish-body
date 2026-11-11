@@ -5,7 +5,8 @@
  * 必须始终成立：只算一次分离，不迭代求解。
  * @module dsh-pet/src/shared/physics/collide
  */
-import { HIT_BOX } from '../constants.ts';
+import { bodyBoxPx } from '../body-box.ts';
+import type { RendererKind } from '../types.ts';
 import { PET_BOUNCE_E } from './constants.ts';
 
 /** 一只参与碰撞的宠物：位置（包围盒左上角，px）+ 速度（px/s）+ 宽（px，质量 ∝ size²）。 */
@@ -17,21 +18,24 @@ export interface PetCollider {
   size: number;
 }
 
-/** 身体包围盒（HIT_BOX 命中框比例换算到视口像素）：碰撞相交检测的几何。
+/** 身体包围盒（命中框比例换算到视口像素）：碰撞相交检测的几何。
  *  box = 宠物包围盒左上角（浏览器 root 的 left/top、桌面窗口位置）；
- *  bottomPad = 舞台脚底垫高（stage 被 translateY 下移的量）。 */
+ *  bottomPad = 舞台脚底垫高（stage 被 translateY 下移的量）。
+ *  renderer 缺省按 webm：方形画布后端的人物几乎铺满整块、头顶还在舞台顶以上，比例完全不同
+ *  （见 shared/body-box）。 */
 export const bodyPixelBox = (o: {
   x: number;
   y: number;
   size: number;
   bottomPad: number;
+  renderer?: RendererKind | undefined;
 }): { left: number; top: number; right: number; bottom: number } => {
-  const h = (o.size * 9) / 16;
+  const box = bodyBoxPx(o.renderer, o.size);
   return {
-    left: o.x + (HIT_BOX.x0 / 640) * o.size,
-    top: o.y + o.bottomPad + (HIT_BOX.y0 / 360) * h,
-    right: o.x + (HIT_BOX.x1 / 640) * o.size,
-    bottom: o.y + o.bottomPad + (HIT_BOX.y1 / 360) * h,
+    left: o.x + box.x,
+    top: o.y + o.bottomPad + box.y,
+    right: o.x + box.x + box.w,
+    bottom: o.y + o.bottomPad + box.y + box.h,
   };
 };
 
@@ -111,6 +115,8 @@ export interface PetCollisionSlot {
   size: number;
   /** 舞台脚底垫高（bodyPixelBox 需要） */
   bottomPad: number;
+  /** 渲染方式（身体框比例随之变；缺省按 webm，老调用方可只给前两项） */
+  renderer?: RendererKind | undefined;
   /** 当前包围盒左上角（px）；null = 未挂载或无位置 */
   getBox: () => { x: number; y: number } | null;
   /** 当前速度（px/s）；没在运动时为 0 */

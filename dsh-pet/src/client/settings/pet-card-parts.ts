@@ -8,7 +8,7 @@
 import type { ChangeEvent } from 'react';
 import type { Corner, Pet, PetDisplay, RendererKind } from '../../shared/types.ts';
 import { PET_DISPLAYS, RENDERERS } from '../../shared/config.ts';
-import { SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
+import { SIZE_MAX, SIZE_MIN, SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit, numberInputProps } from './ui.ts';
 import { makeSelect } from './panel/select.ts';
@@ -163,6 +163,50 @@ export function makePetIdentityFields(rt: SettingsRuntime) {
 
   return function PetIdentityFields(props: PetFieldsProps) {
     return h('div', { className: 'dsh-pet-cfg__grid2', children: cells(props) });
+  };
+}
+
+/**
+ * 造「按渲染方式的大小」三格：每种素材一套画框宽度，留空 = 跟随上面的 `size`。
+ *
+ * 三种素材的人物占框比例不同（webm 只占中间 37.5%，方形画布几乎铺满），
+ * 一个数字跨不过来——所以这里允许分开填，右键「大小」菜单写的是同一份字段。
+ *
+ * @param rt - 注入的 react 能力与翻译。
+ * @returns 三格组件。
+ */
+export function makePetSizeFields(rt: Pick<SettingsRuntime, 'h' | 't'>) {
+  const { h, t } = rt;
+  const { field } = makeUiKit({ h, t });
+
+  /**
+   * 单格：显示该渲染方式当前生效的宽度；填成与 `size` 相同（或 0）= 删掉覆盖，回落 `size`。
+   *
+   * 不另做「空值」状态：数字输入框的空串会被 numberInputProps 当成「放弃编辑」，
+   * 用「等于基准值即删除」既看得见当前生效值，也不会让配置文件里多一条同值覆盖。
+   */
+  const cell = (props: PetFieldsProps, renderer: RendererKind) => {
+    const base = props.pet.size;
+    return field(
+      t('sizesOf').replace('{renderer}', t('renderer.' + renderer)),
+      h('input', {
+        ...numberInputProps(
+          props.pet.sizes?.[renderer] ?? base,
+          (v) => {
+            const next = { ...(props.pet.sizes ?? {}) };
+            if (v === base || v <= 0) delete next[renderer];
+            else next[renderer] = v;
+            props.onChange({ sizes: next });
+          },
+          { step: '10', min: String(SIZE_MIN), max: String(SIZE_MAX), disabled: props.busy },
+        ),
+        'aria-label': t('sizesOf').replace('{renderer}', t('renderer.' + renderer)),
+      }),
+    );
+  };
+
+  return function PetSizeFields(props: PetFieldsProps) {
+    return h('div', { className: 'dsh-pet-cfg__grid3', children: RENDERERS.map((r) => cell(props, r)) });
   };
 }
 

@@ -6,7 +6,15 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isValidSizePercent, resolvePetSizePx, SIZE_PERCENT_MIN } from './pet-size.ts';
+import {
+  isValidSize,
+  isValidSizePercent,
+  renderSizeOf,
+  resolvePetSizePx,
+  SIZE_MAX,
+  SIZE_MIN,
+  SIZE_PERCENT_MIN,
+} from './pet-size.ts';
 
 describe('isValidSizePercent —— 不小于 1 的有限数（不设上限）', () => {
   test('合法：包含超过 100 的值', () => {
@@ -55,5 +63,52 @@ describe('resolvePetSizePx —— 百分比按人物本体换算成画框宽度'
 
   test('平板竖屏：15% 人物 → 画框 307.2（本体 115.2 = 768 的 15%）', () => {
     assert.equal(resolvePetSizePx(462, 15, 768), 307.2);
+  });
+
+  test('方形画布：人物占框 84%，同一百分比算出的画框更小', () => {
+    // webm 0.375 → 375×20% / 0.375 = 200；画布 0.84 → 375×20% / 0.84 ≈ 89.3
+    assert.equal(resolvePetSizePx(462, 20, 375, 'webm'), 200);
+    const canvas = resolvePetSizePx(462, 20, 375, 'live2d');
+    assert.ok(Math.abs(canvas - (375 * 0.2) / 0.84) < 1e-9, `画布应收得更紧，实际 ${canvas}`);
+    assert.ok(canvas < 200);
+  });
+});
+
+describe('renderSizeOf —— 按渲染方式取画框宽度', () => {
+  test('没写 sizes → 回落 size', () => {
+    assert.equal(renderSizeOf({ size: 462 }), 462);
+    assert.equal(renderSizeOf({ size: 462, renderer: 'live2d' }), 462);
+  });
+
+  test('写了当前渲染方式就取它，其它渲染方式仍看 size', () => {
+    const pet = { size: 462, renderer: 'layered', sizes: { layered: 520 } };
+    assert.equal(renderSizeOf(pet), 520);
+    assert.equal(renderSizeOf({ ...pet, renderer: 'live2d' }), 462);
+  });
+
+  test('非法覆盖值被忽略（NaN / 越界 / 非数字）', () => {
+    for (const bad of [Number.NaN, SIZE_MAX + 1, 10, '520', null]) {
+      const pet = { size: 462, renderer: 'webm', sizes: { webm: bad } };
+      assert.equal(renderSizeOf(pet), 462, `${String(bad)} 应被忽略`);
+    }
+  });
+
+  test('入参是配置原始对象（Record<string, unknown>）也不炸', () => {
+    assert.equal(renderSizeOf({ size: '480' }), 480);
+    assert.equal(renderSizeOf({}), SIZE_MIN);
+    assert.equal(renderSizeOf(null), SIZE_MIN);
+    assert.equal(renderSizeOf({ size: 462, renderer: 'webm', sizes: '坏值' }), 462);
+  });
+});
+
+describe('isValidSize —— 画框宽度的区间', () => {
+  test('闭区间内合法，边界也算合法', () => {
+    for (const value of [SIZE_MIN, 462, SIZE_MAX]) assert.equal(isValidSize(value), true);
+  });
+
+  test('越界与非数字非法', () => {
+    for (const value of [0, SIZE_MIN - 1, SIZE_MAX + 1, Number.NaN, '462', null, {}]) {
+      assert.equal(isValidSize(value), false, `${String(value)} 应非法`);
+    }
   });
 });

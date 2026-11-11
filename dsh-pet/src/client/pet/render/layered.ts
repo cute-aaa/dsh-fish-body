@@ -96,6 +96,10 @@ export function createLayeredRenderer(): Renderer {
   let raf = 0;
   let ready = false;
   let destroyed = false;
+  /** 上次量到的内容顶比例（0~1）：改尺寸时按它重算气泡锚点，不必重新量像素。 */
+  let visualTopRatio: number | null = null;
+  /** 气泡锚点回写通道（mount 时注入）：resize 之后要按新尺寸再报一次。 */
+  let anchorSink: ((y: number) => void) | null = null;
 
   // 运行时姿态。
   let tMs = 0;
@@ -149,6 +153,8 @@ export function createLayeredRenderer(): Renderer {
     const topRatio = measureVisualTopRatio((probe, w, h) => {
       for (const layer of layers) probe.drawImage(layer.image as CanvasImageSource, 0, 0, w, h);
     });
+    visualTopRatio = topRatio;
+    anchorSink = opts.source.onVisualAnchor ?? null;
     if (topRatio !== null) opts.source.onVisualAnchor?.(bubbleAnchorY(topRatio, opts.size));
     lastMs = performance.now();
     nextBlinkAt = lastMs + BLINK_GAP_MIN_MS;
@@ -166,6 +172,8 @@ export function createLayeredRenderer(): Renderer {
     layers = [];
     openMouth = null;
     actionGroups = [];
+    visualTopRatio = null;
+    anchorSink = null;
     stage = null;
     ready = false;
   };
@@ -273,6 +281,18 @@ export function createLayeredRenderer(): Renderer {
       gazeY = Math.max(-1, Math.min(1, y));
     },
     hitTest: (x, y) => (skin === null ? undefined : skinHitTest(skin, x, y)),
+    /**
+     * 改画框尺寸：只改 CSS，画布后备分辨率仍是皮肤清单的逻辑尺寸（绘制坐标全按它算），
+     * 再按缓存的内容顶重报气泡锚点——锚点是「相对舞台顶的 px」，尺寸变了旧值就错位。
+     */
+    resize: (size) => {
+      if (size <= 0) return;
+      if (canvas !== null) {
+        canvas.style.width = size + 'px';
+        canvas.style.height = size + 'px';
+      }
+      if (visualTopRatio !== null) anchorSink?.(bubbleAnchorY(visualTopRatio, size));
+    },
     listActionGroups: () => actionGroups,
     /** 视口坐标 → 皮肤清单声明的命中手势；画布未挂载或没命中返回 undefined。 */
     gestureAt: (clientX, clientY) =>

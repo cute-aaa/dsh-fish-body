@@ -18,6 +18,8 @@ export interface ScriptConsts {
   readonly displays: readonly string[];
   /** 停靠角落（来自 host/config/constants.ts）。 */
   readonly corners: readonly string[];
+  /** 渲染方式（来自 shared/config.ts）：设置页「按渲染方式的大小」三格读它。 */
+  readonly renderers: readonly string[];
   /** 物理默认值（来自 shared/physics）。 */
   readonly physics: unknown;
   /** 字体默认值（来自 shared/fonts.ts）。 */
@@ -42,6 +44,7 @@ const VOICES = ${JSON.stringify(consts.voices)};
 const FONT_IDS = ${JSON.stringify(consts.fonts)};
 const DISPLAYS = ${JSON.stringify(consts.displays)};
 const CORNERS = ${JSON.stringify(consts.corners)};
+const RENDERERS = ${JSON.stringify(consts.renderers)};
 const FALLBACK_PHYSICS = ${JSON.stringify(consts.physics)};
 const FALLBACK_FONT = ${JSON.stringify(consts.font)};
 const FALLBACK_WEIGHTS = ${JSON.stringify(consts.weights)};

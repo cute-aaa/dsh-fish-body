@@ -20,6 +20,7 @@ const SLEEP_ALLOWED_ACTIONS: readonly string[] = [
   'set-display',
   'set-renderer',
   'set-model',
+  'set-size',
   'reload',
   'reload-plugin',
   'third-party',
@@ -105,21 +106,56 @@ export const skinMenuBranch = (skins: readonly string[], current?: string): Menu
 /** 取消「当前表情/配件」的动作名：渲染器把表情清回模型默认外观。 */
 export const EXPRESSION_RESET = 'expression-reset';
 
+/** 取消「叠加中的动作/定格姿态」的动作名：渲染器把动作层全部摘掉，回到纯待机。 */
+export const MOTION_RESET = 'motion-reset';
+
+/**
+ * 「大小」子菜单的档位：相对 `pets[].size` 的倍率。
+ *
+ * 三档 + 一个特大就够日常用；精确到像素走设置页的输入框。写回的是**当前渲染方式**的
+ * `pets[].sizes[renderer]`，所以同一只宠物切到另一种素材可以各用一套大小。
+ */
+export const SIZE_PRESETS: readonly { readonly label: string; readonly scale: number }[] = [
+  { label: '小', scale: 0.7 },
+  { label: '中', scale: 1 },
+  { label: '大', scale: 1.35 },
+  { label: '特大', scale: 1.8 },
+];
+
+/**
+ * 「大小」子菜单：按当前渲染方式调画框宽度。
+ *
+ * @param current - 当前渲染方式生效的宽度（px），用来打勾。
+ * @param base - `pets[].size`（档位倍率的基准）。
+ * @returns 子菜单；末尾一条「恢复默认」= 删掉覆盖。
+ */
+export const sizeMenuBranch = (current: number, base: number): MenuBranch => {
+  const children: MenuLeaf[] = SIZE_PRESETS.map(({ label, scale }) => {
+    // 「中」就是基准值本身；其余档取整到 10px——档位是给人看的，462×0.7=323.4 这种小数没有意义。
+    const size = scale === 1 ? base : Math.round((base * scale) / 10) * 10;
+    const shown = current === size ? `${label}（${size}px）✓` : `${label}（${size}px）`;
+    return { label: shown, action: 'set-size', size };
+  });
+  children.push({ label: '恢复默认大小', action: 'set-size' });
+  return { label: '大小', children };
+};
+
 /**
  * 「外观」子菜单：live2d 的 Expressions（单片眼镜、兔牙、尾巴开关…）。
  *
- * 与「动作」分开：动作是播一次就完的 motion，表情是**挂在身上的状态**，切换后一直生效，
- * 所以这里打勾表示「当前挂着它」，另给一条「恢复默认外观」把状态清掉。
- * Cubism 运行库同一时刻只挂一个表情（expressionManager 单槽），所以这里做单选而不是多选叠挂。
+ * 与「动作」分开：动作是往身上叠一段 motion，外观是**挂着的状态**（眼镜 + 脸红 + 兔牙可以同时开），
+ * 所以这里打勾表示「当前挂着它」，且**可同时勾多个**；末尾一条「恢复默认外观」把状态全清。
+ * 叠挂是自己实现的（渲染端每条外观一对独立参数层），不依赖 Cubism 的 expressionManager 单槽。
  *
- * @param names - 表情名（来自模型清单的 `Expressions[].Name`）。
- * @param active - 当前挂着的表情名；没有则为 null。
- * @returns 子菜单；没有表情时返回 null（菜单里不出现空的外观）。
+ * @param names - 外观名（模型清单的 `Expressions[].Name`）。
+ * @param active - 当前挂着的外观名；空数组表示一个都没挂。
+ * @returns 子菜单；没有外观时返回 null（菜单里不出现空的外观）。
  */
-export const accessoryMenuBranch = (names: readonly string[], active?: string | null): MenuBranch | null => {
+export const accessoryMenuBranch = (names: readonly string[], active?: readonly string[]): MenuBranch | null => {
   if (names.length === 0) return null;
+  const on = new Set(active ?? []);
   const children: MenuLeaf[] = names.map((name) => ({
-    label: active === name ? `${name} ✓` : name,
+    label: on.has(name) ? `${name} ✓` : name,
     action: 'renderer-action',
     rendererAction: 'expression:' + name,
   }));

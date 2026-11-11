@@ -181,7 +181,7 @@ describe('PetCard —— 宠物配置卡', () => {
     assert.ok(controls.length > 0);
     for (const node of controls) assert.equal(node.props.disabled, true, `${node.tag} 应被禁用`);
     const pickers = flatten(tree).filter((node) => Array.isArray(node.props.options));
-    assert.equal(pickers.length, 2, '显示位置与角落两个下拉都要渲染');
+    assert.equal(pickers.length, 3, '显示位置 / 渲染方式 / 角落三个下拉都要渲染');
     for (const node of pickers) assert.equal(node.props.disabled, true, '下拉应被禁用');
     assert.ok(
       flatten(tree).some(

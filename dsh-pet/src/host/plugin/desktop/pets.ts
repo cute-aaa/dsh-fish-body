@@ -6,6 +6,7 @@
  * @module dsh-pet/src/host/plugin/desktop/pets
  */
 import { flattenPetList, readAllConfig } from '../../config.ts';
+import { renderSizeOf } from '../../../shared/pet-size.ts';
 import type { ConfigPaths } from '../../config.ts';
 import type { DesktopHelperDeps } from './types.ts';
 
@@ -57,12 +58,14 @@ export function createDesktopPets(deps: DesktopPetsInput) {
     }
   };
 
-  /** 参与桌面窗的宠物（给 helper 的启动参数）；读失败返回空列表。 */
+  /** 参与桌面窗的宠物（给 helper 的启动参数）；读失败返回空列表。
+   *  尺寸按该宠物的渲染方式解析（`sizes[renderer]` 优先）：窗口首帧就按这套素材的大小建，
+   *  等渲染端上报再纠正会先闪一下错尺寸。 */
   const desktopPetList = (): Array<{ id: string; size: number }> => {
     try {
       return effectivePetList()
         .filter((pet) => isDesktopVisible(pet.display))
-        .map((pet) => ({ id: String(pet.id), size: Number(pet.size) }));
+        .map((pet) => ({ id: String(pet.id), size: renderSizeOf(pet) }));
     } catch {
       return [];
     }

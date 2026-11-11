@@ -59,6 +59,7 @@ export const de: Record<Key, string> = {
   emptyPets: 'Noch keine Pets – auf „Pet hinzufügen" klicken, um eines zu erstellen.',
   sizeLabel: 'Größe (Breite px)',
   sizeHint: 'Höhe automatisch = Breite × 9/16.',
+  sizesOf: 'Größe für {renderer}',
   sizePercentLabel: 'Max. Bildschirmbreite (%)',
   sizePercentHint:
     'Wie viel der Bildschirmbreite der Pet höchstens einnimmt: 100 = nie breiter als ein Bildschirm (bei breiten Fenstern identisch mit px); 30–40 macht ihn auf dem Handy deutlich kleiner, ohne den Desktop zu verändern. Wird beim Laden einmal berechnet; nach Größenänderung neu laden.',

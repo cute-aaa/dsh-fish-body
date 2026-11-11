@@ -862,6 +862,44 @@ describe('配置合并与保存 —— sizePercent（合法才落键，缺省按
   });
 });
 
+describe('配置合并与保存 —— sizes（按渲染方式的画框宽度）', () => {
+  const petAt = (merged: Record<string, Record<string, unknown>>): Record<string, unknown> =>
+    (merged.main.pets as Record<string, unknown>[])[0];
+
+  test('逐渲染方式放行合法值；不认识的键被丢掉', () => {
+    const pet = petAt(
+      readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], sizes: { layered: 520, live2d: 620, gif: 700 } }] })),
+    );
+    assert.deepEqual(pet.sizes, { layered: 520, live2d: 620 });
+  });
+
+  test('单个渲染方式写坏只丢那一项（不整段作废）', () => {
+    const pet = petAt(readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], sizes: { webm: 0, layered: 480 } }] })));
+    assert.deepEqual(pet.sizes, { layered: 480 });
+  });
+
+  test('没写 / 全是非法值 → 不落键', () => {
+    assert.equal('sizes' in petAt(readAllConfig(withBase({}))), false);
+    const pet = petAt(readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], sizes: { webm: -1 } }] })));
+    assert.equal('sizes' in pet, false);
+  });
+
+  test('saveUserConfig：落盘、未传不造字段、非法整包拒绝', () => {
+    const saved = saveOnce({ pets: [{ ...PETS[0], sizes: { live2d: 640 } }] });
+    assert.deepEqual((saved?.pets as Record<string, unknown>[])[0].sizes, { live2d: 640 });
+    assert.equal('sizes' in (saveOnce({ pets: PETS })?.pets as Record<string, unknown>[])[0], false);
+    for (const bad of [{ live2d: 10 }, { gif: 500 }, { live2d: '500' }, 'x']) {
+      assert.equal(saveOnce({ pets: [{ ...PETS[0], sizes: bad }] }), null, `${JSON.stringify(bad)} 应被拒绝`);
+    }
+  });
+
+  test('合并结果直接喂回 save：sizes 往返不丢', () => {
+    const merged = readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], sizes: { layered: 520 } }] }));
+    const layerPets = merged.main.pets as Record<string, unknown>[];
+    assert.deepEqual((saveOnce({ pets: layerPets })?.pets as Record<string, unknown>[])[0].sizes, { layered: 520 });
+  });
+});
+
 describe('saveUserConfig —— 物理参数 physics（白名单 + 透传保留）', () => {
   const PHYS: Record<string, unknown> = BASE.physics;
 

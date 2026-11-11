@@ -6,8 +6,9 @@
  * @module dsh-pet/src/host/config/validate
  */
 import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../../shared/fonts.ts';
+import { isValidSize } from '../../shared/pet-size.ts';
 import { isKnownVoice } from '../voice/voices.ts';
-import { FONT_FAMILY_SET } from './constants.ts';
+import { FONT_FAMILY_SET, RENDERER_SET } from './constants.ts';
 
 /** 内置玩法动画的槽位数：`animations.baifan` 必须恰好这么多个（顺序是玩法契约，见 shared/types 的 Animations）。 */
 const ACTIVITY_SLOTS = 5;
@@ -148,8 +149,25 @@ export function modelSelectionValid(value: unknown): boolean {
   return (m.provider.trim() === '') === (m.model.trim() === '');
 }
 
-/** workStatusTexts 段校验：二维数组——外层每项都是非空字符串数组（档位文案，每档可多句随机）；空数组不可用 */
-function workStatusTextsValid(value: unknown): boolean {
+/**
+ * `pets[].sizes` 段校验：对象，键只能是三种渲染方式，值是 {@link isValidSize} 认的像素。
+ *
+ * 缺键合法（= 跟随 `size`）；空对象也合法（= 没有覆盖）——设置页清空三项后提交的就是 `{}`。
+ * 与 `physics` / `font` 的「整段校验」不同：这里是**逐键**校验，一个渲染方式写错不该把另外两个也丢掉。
+ */
+export function petSizesValid(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  for (const [key, size] of Object.entries(value as Record<string, unknown>)) {
+    if (!RENDERER_SET.has(key)) return false;
+    if (size === undefined || size === null) continue;
+    if (!isValidSize(size)) return false;
+  }
+  return true;
+}
+
+/** workStatusTexts 段校验：二维数组——外层每项都是非空字符串数组（档位文案，每档可多句随机）；空数组不可用 */ function workStatusTextsValid(
+  value: unknown,
+): boolean {
   if (!Array.isArray(value) || value.length === 0) return false;
   for (const group of value) {
     if (!Array.isArray(group) || group.length === 0) return false;

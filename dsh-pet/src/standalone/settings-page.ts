@@ -9,7 +9,7 @@
 import { CORNER_SET } from '../host/config/constants.ts';
 import { VOICES } from '../host/voice/voices.ts';
 import { LOGO_URL } from '../shared/avatar.ts';
-import { PET_DISPLAYS } from '../shared/config.ts';
+import { PET_DISPLAYS, RENDERERS } from '../shared/config.ts';
 import { ROUTE_SEGMENT } from '../shared/constants.ts';
 import { DEFAULT_FONT, FONT_PRESETS } from '../shared/fonts.ts';
 import { DEFAULT_PHYSICS } from '../shared/physics.ts';
@@ -40,6 +40,7 @@ export const settingsScript = [
     fonts: FONT_PRESETS.map((preset) => preset.id),
     displays: PET_DISPLAYS,
     corners: [...CORNER_SET],
+    renderers: RENDERERS,
     physics: DEFAULT_PHYSICS,
     font: DEFAULT_FONT,
     weights: DEFAULT_WEIGHTS,

@@ -14,7 +14,9 @@ contextBridge.exposeInMainWorld('petBridge', {
   // size/bottomPad 让静止宠物也登记进碰撞站场，vx/vy 是当前速度（静止/拖拽为 0）。
   // marginL/marginT 是窗口原点到本体原点的距离：上边距按气泡最大高度加高后四边不相等，
   // 窗口被系统钳回工作区后还会变大，主进程不能按「窗口宽/4」反推命中区，所以必须上报。
-  setBounds(x, y, width, height, boxX, boxY, size, bottomPad, vx, vy, marginL, marginT) {
+  // hit 是身体命中区（窗口局部坐标）：它的比例随渲染方式变（方形画布覆盖到舞台顶以上），
+  // 主进程没有渲染器知识，只能按上报矩形判穿透。
+  setBounds(x, y, width, height, boxX, boxY, size, bottomPad, vx, vy, marginL, marginT, hit) {
     ipcRenderer.send('pet:set-bounds', {
       x,
       y,
@@ -28,6 +30,7 @@ contextBridge.exposeInMainWorld('petBridge', {
       vy,
       marginL,
       marginT,
+      hit,
     });
   },
   // 点击穿透翻转：窗口默认整窗穿透，渲染端在光标进出身体命中区时上报。

@@ -297,12 +297,13 @@ export function createCardMotion(rt: CardMotionRuntime) {
     };
 
     // 碰撞站场注册：getVel 取最新速度，applyVelocity 经 ref 转发，避免陈旧闭包。
-    const { size, bottomPad } = metrics;
+    const { size, bottomPad, renderer } = metrics;
     useEffect(() => {
       const arenaSlots = arena.current.slots;
       arenaSlots[petId] = {
         size,
         bottomPad,
+        renderer,
         getBox: () => {
           if (boxRef.current) return boxRef.current;
           const r = root()?.getBoundingClientRect();
@@ -315,7 +316,7 @@ export function createCardMotion(rt: CardMotionRuntime) {
         delete arenaSlots[petId];
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖由碰撞注册身份 petId/size/bottomPad/arena 决定：applyVelocity 只经 applyVelocityRef 转发、不捕获渲染期状态；补上它会让碰撞槽每渲染注销重注册
-    }, [petId, size, bottomPad, arena]);
+    }, [petId, size, bottomPad, renderer, arena]);
 
     const center = (): { x: number; y: number } => ({ x: currentCenterX(), y: currentCenterY() });
 

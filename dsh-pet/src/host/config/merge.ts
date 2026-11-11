@@ -6,7 +6,9 @@
  * @module dsh-pet/src/host/config/merge
  */
 import { CORNER_SET, GLOBAL_DEFAULT_KEYS, isValidPetId, PET_DISPLAY_SET, RENDERER_SET, warnOnce } from './constants.ts';
-import { isValidSizePercent, SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
+import { isValidSize, isValidSizePercent, SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
+import { RENDERERS } from '../../shared/config.ts';
+import type { RenderSizes } from '../../shared/types.ts';
 import { topFieldValid } from './validate.ts';
 
 /**
@@ -180,7 +182,32 @@ function mergePet(
     ...petPersonaField(p.whisperPrompt, label, id),
     // 皮肤/模型选择（可选）：layered 选皮肤 id、live2d 选 .model3.json 相对路径；缺省/空串 = 取第一个。
     ...petModelField(p.model, label, id),
+    // 按渲染方式覆盖的画框宽度（可选）：缺键/非法都不落键，渲染侧回落 pets[].size。
+    ...petSizesField(p.sizes, label, id),
   };
+}
+
+/**
+ * 实例级 sizes 的合并：逐渲染方式取白名单值，全非法/全缺省 → 返回空对象（该键不出现）。
+ *
+ * 不认识的键直接丢（拼错渲染方式名是最常见的手写错误），合法的不补默认——
+ * 没写就是「跟随 size」，补一个显式值会让 /pet-display 之类的单字段写回把它固化成覆盖。
+ */
+function petSizesField(own: unknown, label: string, id: string): { sizes?: RenderSizes } {
+  if (own === undefined || own === null) return {};
+  if (typeof own !== 'object' || Array.isArray(own)) {
+    warnOnce(`${label}:sizes:${id}`, `宠物「${id}」的 sizes 非法（应为按渲染方式的像素对象），已忽略`);
+    return {};
+  }
+  const raw = own as Record<string, unknown>;
+  const out: RenderSizes = {};
+  for (const renderer of RENDERERS) {
+    const value = raw[renderer];
+    if (value === undefined || value === null) continue;
+    if (isValidSize(value)) out[renderer] = value;
+    else warnOnce(`${label}:sizes.${renderer}:${id}`, `宠物「${id}」的 sizes.${renderer} 非法，已忽略`);
+  }
+  return Object.keys(out).length > 0 ? { sizes: out } : {};
 }
 
 /**

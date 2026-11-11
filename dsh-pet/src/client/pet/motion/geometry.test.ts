@@ -12,7 +12,7 @@ import {
   centerToBox,
   clampReachableBox,
   derivePetMetrics,
-  PET_HIT_STYLE,
+  petHitStyle,
   petRootStyle,
   petStageStyle,
 } from './geometry.ts';
@@ -113,9 +113,9 @@ describe('petRootStyle —— 根节点定位', () => {
   });
 });
 
-describe('PET_HIT_STYLE —— 命中区换算成百分比', () => {
-  test('四个百分比与命中框在 640×360 画布上一致', () => {
-    assert.deepEqual(PET_HIT_STYLE, {
+describe('petHitStyle —— 命中区换算成百分比', () => {
+  test('webm：四个百分比与命中框在 640×360 画布上一致', () => {
+    assert.deepEqual(petHitStyle('webm'), {
       left: (HIT_BOX.x0 / 640) * 100 + '%',
       top: (HIT_BOX.y0 / 360) * 100 + '%',
       width: ((HIT_BOX.x1 - HIT_BOX.x0) / 640) * 100 + '%',
@@ -123,13 +123,24 @@ describe('PET_HIT_STYLE —— 命中区换算成百分比', () => {
     });
   });
 
-  test('命中框不越出宠物盒', () => {
-    const left = parseFloat(PET_HIT_STYLE.left as string);
-    const top = parseFloat(PET_HIT_STYLE.top as string);
-    const width = parseFloat(PET_HIT_STYLE.width as string);
-    const height = parseFloat(PET_HIT_STYLE.height as string);
+  test('webm：命中框不越出宠物盒', () => {
+    const style = petHitStyle('webm');
+    const left = parseFloat(style.left as string);
+    const top = parseFloat(style.top as string);
+    const width = parseFloat(style.width as string);
+    const height = parseFloat(style.height as string);
     assert.ok(left >= 0 && top >= 0, '左上角应在盒内');
     assert.ok(left + width <= 100 + 1e-9 && top + height <= 100 + 1e-9, '右下角应不出盒');
+  });
+
+  test('画布后端：命中框覆盖整块方画布（top 为负 = 舞台顶以上）', () => {
+    const style = petHitStyle('live2d');
+    const top = parseFloat(style.top as string);
+    const height = parseFloat(style.height as string);
+    // 方形画布高 = 宠物宽度，舞台高只有它的 9/16，所以纵向必须溢出到舞台顶以上。
+    assert.ok(top < 0, 'top 应为负：头顶在舞台顶以上');
+    assert.ok(Math.abs(top + height - 100) < 1e-6, '底边应正好落在舞台底边');
+    assert.ok(Math.abs(parseFloat(style.width as string) - 84) < 1e-9, '左右各内缩 8%');
   });
 });
 

@@ -103,6 +103,8 @@ const scriptGlobals = {
   playClickSound: 'readonly',
   // events.js
   startLoops: 'readonly',
+  // sprite/overlay.js：live2d 叠加层工厂（每只宠物一个实例，类本身是全局）
+  createOverlay: 'readonly',
 };
 
 export default defineConfig([

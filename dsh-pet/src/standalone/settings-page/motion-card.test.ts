@@ -72,6 +72,7 @@ function probe(): Probe {
       fonts: [],
       displays: [],
       corners: [],
+      renderers: [],
       physics: {},
       font: {},
       weights: { idle: 10, turn: 5, move: 5 },

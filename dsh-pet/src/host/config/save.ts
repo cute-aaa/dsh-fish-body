@@ -10,8 +10,30 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { CORNER_SET, isValidPetId, PET_DISPLAY_SET, RENDERER_SET } from './constants.ts';
 import { isValidSizePercent } from '../../shared/pet-size.ts';
+import { RENDERERS } from '../../shared/config.ts';
+import type { RenderSizes } from '../../shared/types.ts';
 import type { ConfigPaths } from './constants.ts';
-import { fontValid, modelSelectionValid, physicsValid, topFieldValid } from './validate.ts';
+import { fontValid, modelSelectionValid, petSizesValid, physicsValid, topFieldValid } from './validate.ts';
+
+/**
+ * `sizes` 落盘前的收敛：只留三种渲染方式里合法的像素值。
+ *
+ * 校验已在调用方做过（非法整包 400），这里只负责「空值/空对象不落键」与键顺序稳定，
+ * 让配置文件读起来和人写的一样。
+ *
+ * @param value - 请求体里的 sizes（可能不是对象、可能为空）。
+ * @returns 至少一个合法键时返回新对象，否则 `undefined`（不写该键）。
+ */
+function cleanSizes(value: unknown): RenderSizes | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const out: RenderSizes = {};
+  for (const renderer of RENDERERS) {
+    const size = raw[renderer];
+    if (typeof size === 'number' && Number.isFinite(size)) out[renderer] = size;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 /**
  * 保存用户层（PUT /config）：接受 pets + 全局开关 + physics / font / 两个模型 / 对话参数。
@@ -81,6 +103,11 @@ export function saveUserConfig(
     const rawModel = pp.model;
     if (rawModel !== undefined && rawModel !== null && typeof rawModel !== 'string') return null;
     const model = typeof rawModel === 'string' ? rawModel.trim() : '';
+    // 按渲染方式的画框宽度（可选）：传了就必须整体合法（键 ⊆ 渲染方式、值在区间内），否则整包 400；
+    // 空对象 = 没有覆盖，不落盘——设置页把三格清空后提交的就是 {}，写成空对象只会让配置凭空长一段。
+    const rawSizes = pp.sizes;
+    if (rawSizes !== undefined && rawSizes !== null && !petSizesValid(rawSizes)) return null;
+    const sizes = cleanSizes(rawSizes);
     const pet: Record<string, unknown> = {
       id,
       name,
@@ -95,6 +122,7 @@ export function saveUserConfig(
     };
     if (persona) pet.whisperPrompt = persona;
     if (model) pet.model = model;
+    if (sizes) pet.sizes = sizes;
     if (sizePercent !== undefined && sizePercent !== null) pet.sizePercent = sizePercent;
     out.push(pet);
   }

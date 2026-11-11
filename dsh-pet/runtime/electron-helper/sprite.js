@@ -44,25 +44,22 @@ class PetSprite {
     this.pet = pet; // 这只宠物的配置段（拍平后的成品实例，条目级字段已吹入）
     // 页面级缩放（主进程对窗口 setZoomFactor）统一放大整窗：pet.size 即 CSS 像素基准，
     // 不再手工乘 CONFIG.scale；跨进程交换由 constants.js 的 toScreen/toLocal 收口。
-    this.size = pet.size;
+    // 尺寸按渲染方式解析（sizes[renderer] 优先，缺键回落 size）：方形画布与视频盒要的宽度不同。
+    this.size = S.renderSizeOf(pet);
     this.height = (this.size * 9) / 16;
     this.halfW = this.size / 2;
     this.halfH = this.height / 2;
     this.bottomPad = (this.size * (9 / 16) * (S.CANVAS_H - S.FEET_Y)) / S.CANVAS_H;
     // 窗口高 = 舞台高 + 脚底垫高（stage 被 translateY(bottomPad) 下移的余量，防底部被窗口裁剪）
     this.winH = this.height + this.bottomPad;
-    // 可交互区域 = 身体命中区（像素，窗口坐标）。浏览器只有 .dsh-pet-hit 可交互，桌面严格对齐：
-    // 命中区外（含透明像素）一律穿透到下层应用。HIT_BOX 是 640×360 舞台坐标：x 按窗口宽缩放，
-    // y 除舞台高外还要加 bottomPad（舞台被下移）。
-    this.hitRect = {
-      x: (S.HIT_BOX.x0 / 640) * this.size,
-      y: this.bottomPad + (S.HIT_BOX.y0 / 360) * this.height,
-      w: ((S.HIT_BOX.x1 - S.HIT_BOX.x0) / 640) * this.size,
-      h: ((S.HIT_BOX.y1 - S.HIT_BOX.y0) / 360) * this.height,
-    };
+    // 可交互区域 = 身体命中区（像素，舞台坐标 + 脚底垫高）。浏览器只有 .dsh-pet-hit 可交互，桌面严格对齐：
+    // 命中区外（含透明像素）一律穿透到下层应用。比例随渲染方式变（见 shared/body-box）：
+    // webm 只占画面中间 37.5% 宽，方形画布几乎铺满整块、头顶还跑到舞台顶以上。
+    const body = S.bodyBoxPx(pet.renderer, this.size);
+    this.hitRect = { x: body.x, y: this.bottomPad + body.y, w: body.w, h: body.h };
     window.__dshPetDebug.hitRect = this.hitRect;
     // 左右透明边余量（视频盒内宠物身体居中）：让边界按身体贴边——宠物能走到屏幕边缘，但身体永不越界。
-    this.sideAllow = (S.HIT_BOX.x0 / 640) * this.size;
+    this.sideAllow = S.bodyUnitBox(pet.renderer).x0 * this.size;
     window.__dshPetDebug.sideAllow = this.sideAllow;
     // 窗口四周外扩：左右下 = WINDOW_MARGIN_RATIO×宠物尺寸；上边距按气泡与待办面板的最大高度算——
     // 两者都锚字号、窗口余量锚宠物，宠物变小或字号固定时半只宠物的余量装不下，顶端会被窗口上沿切掉。
