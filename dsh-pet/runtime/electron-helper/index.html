@@ -91,7 +91,9 @@
         position: absolute;
         left: 50%;
         transform: translateX(-50%);
-        bottom: calc(100% - var(--pet-size, 462px) * 0.108);
+        /* 锚点由渲染后端给（方形画布的头顶在舞台顶以上，见 shared/bubble-anchor）；
+           变量缺席时退回 webm 的 10.8%。 */
+        bottom: calc(100% - var(--pet-bubble-y, calc(var(--pet-size, 462px) * 0.108)));
         width: max-content;
         /* 钉死 content-box：本文件全局设了 border-box，那会让 min/max-width 把内边距也算进去，
            内容可用宽度被悄悄缩掉一圈（表现为「明明还有空位却折行」）。与浏览器 bubble.ts 同一口径 */

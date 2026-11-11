@@ -70,16 +70,17 @@ export function skinMenuGroups(menu: readonly string[]): RendererActionGroup[] {
   return actions.length === 0 ? [] : [{ label: '皮肤手势', actions }];
 }
 
-/** model3 的一个 motion 组 → 动作组；条目数 >1 时用 `组名 序号` 区分。 */
+/** model3 的一个 motion 组 → 动作组；有 `Name`（宿主补全的目录动作）就用它，否则「组名 序号」区分。 */
 function motionGroupOf(group: string, list: readonly unknown[]): RendererActionGroup | null {
   const actions: RendererAction[] = [];
   list.forEach((item, index) => {
     // 声明项必须是对象（File 可能缺省，但条目本身要在）；不是对象的按坏数据跳过。
-    if (obj(item) === undefined) return;
-    actions.push({
-      label: list.length === 1 ? group : group + ' ' + String(index + 1),
-      name: `motion:${group}:${index}`,
-    });
+    const entry = obj(item);
+    if (entry === undefined) return;
+    const declared = entry.Name;
+    const fallback = list.length === 1 ? group : group + ' ' + String(index + 1);
+    const label = typeof declared === 'string' && declared !== '' ? declared : fallback;
+    actions.push({ label, name: `motion:${group}:${index}` });
   });
   return actions.length === 0 ? null : { label: group, actions };
 }

@@ -31,6 +31,7 @@ import type { CardLive } from './live.ts';
 import type { CardViewProps } from './view.ts';
 import type { PetCardProps } from './props.ts';
 import type { PetRuntime } from '../types.ts';
+import type { CSSProperties } from 'react';
 
 /**
  * 造卡片装配根的工厂：组件级单例（气泡、状态、指令、动画流）都在这里建一次。
@@ -83,6 +84,9 @@ export function createCardRuntime(rt: PetRuntime) {
     const menuActionsRef = useRef<MenuActions | null>(null);
     const entryRef = useRef<CardEntry | null>(null);
     const pendingSquashRef = useRef(false);
+    // 气泡锚点（相对舞台顶 px，负值 = 舞台顶以上）：方形画布的后端量出内容顶后回写；
+    // null 表示本后端没量到（webm 不需要），CSS 用 10.8% 的兜底值。
+    const [bubbleAnchor, setBubbleAnchor] = useState<number | null>(null);
 
     // 成品配置与工作状态的最新值：回调晚于状态更新，只能读 ref。
     const cfgRef = useRef(cfg);
@@ -136,6 +140,7 @@ export function createCardRuntime(rt: PetRuntime) {
       cfgRef,
       live: liveRef,
       lock,
+      onBubbleAnchor: setBubbleAnchor,
       pendingSquash: pendingSquashRef,
       petId: cfg.id,
       report: reportPlayback,
@@ -279,11 +284,11 @@ export function createCardRuntime(rt: PetRuntime) {
     }, [sleepTick]);
 
     const stageStyle = petStageStyle(bottomPad);
-    const rootStyle = petRootStyle(
-      customPos,
-      { width: window.innerWidth, height: window.innerHeight },
-      { h: halfH, w: halfW },
-    );
+    // 气泡锚点走 CSS 变量：气泡是根节点的直接子节点，变量得写在根上才继承得到。
+    const rootStyle = {
+      ...petRootStyle(customPos, { width: window.innerWidth, height: window.innerHeight }, { h: halfH, w: halfW }),
+      ...(bubbleAnchor === null ? {} : { '--dsh-pet-bubble-y': bubbleAnchor + 'px' }),
+    } as CSSProperties;
 
     return {
       // 气泡单槽：四种气泡共用同一套定位，按优先级只挂一个。

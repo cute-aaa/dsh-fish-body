@@ -48,6 +48,8 @@ export interface CardAnimationInput {
   setCuePlayback: (id: string | null) => void;
   /** 本宠物 id：挂载期注册只读服务用它。 */
   petId: string;
+  /** 画面量出内容顶后回写气泡锚点；null = 本后端没量到，卡片退回 webm 口径。 */
+  onBubbleAnchor: (y: number | null) => void;
 }
 
 /**
@@ -82,6 +84,8 @@ export function createCardAnimation(rt: CardAnimationRuntime) {
     useEffect(() => {
       const stageEl = input.stage();
       if (stageEl === null) return;
+      // 换后端先清掉上一个后端的锚点：webm 没量内容顶，留着旧值气泡会飘在半空。
+      input.onBubbleAnchor(null);
       // 槽对象身份稳定（useRef 一次）：捕获一份给清理用，避免读 .current。
       const slots = live.current;
       // 挂载前重新填槽：kind 切换时旧实例的清理会先把它置 null，这里恢复成本次实例。
@@ -108,6 +112,7 @@ export function createCardAnimation(rt: CardAnimationRuntime) {
             },
             isDragging: () => slots.drag.isActive(),
             initiallyFrozen: initiallyFrozenRef.current,
+            onVisualAnchor: (y) => input.onBubbleAnchor(y),
           },
         }),
       );

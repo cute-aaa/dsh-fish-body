@@ -115,7 +115,7 @@ describe('createDesktopPets —— 判定必须现读配置', () => {
     }
   });
 
-  test('logDesktopDecision 打一行判定日志，含宠物数与结论', () => {
+  test('logDesktopDecision 打判定日志，含宠物数与结论', () => {
     const f = fixture({ display: 'desktop', trayEnabled: false });
     try {
       const lines: string[] = [];
@@ -123,10 +123,12 @@ describe('createDesktopPets —— 判定必须现读配置', () => {
         typeof createDesktopPets
       >[0]['log'];
       const pets = createDesktopPets({ configPaths: f.paths, effectivePetList: () => [], log });
-      assert.equal(lines.length, 1, '装配时先打一行');
+      // 装配时先打两行：判定结论 + 各宠物的渲染方式（渲染方式那行是 T2.4/T2.5 之后补的）。
+      assert.equal(lines.length, 2, '装配时先打「判定 + 渲染方式」两行');
+      assert.ok(lines[1]?.includes('桌面渲染方式'), lines[1]);
       pets.logDesktopDecision();
-      assert.equal(lines.length, 2);
-      const line = lines[1];
+      assert.equal(lines.length, 4);
+      const line = lines[2];
       assert.ok(line.includes('桌面可见=1（main）'), line);
       assert.ok(line.includes('hasDesktopPet=true'), line);
       assert.ok(line.includes('tray=false'), line);

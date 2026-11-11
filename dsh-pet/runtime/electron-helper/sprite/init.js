@@ -39,14 +39,19 @@ Object.assign(PetSprite.prototype, {
   /**
    * 探测这只宠物实际可用的后端与模型清单（右键「渲染方式 / 模型」读它）。
    *
-   * layered 看皮肤清单能否取到，live2d 看 `/models` 是否非空（200 + 空数组也算没有）；
-   * webm 恒可用——动画池来自配置。探测失败按「没有」处理：宁可置灰一项，也不给点下去黑屏的选项。
+   * layered 看皮肤清单能否取到（根布局或 `layered/` 子目录布局），live2d 看 `/models` 是否非空
+   * （200 + 空数组也算没有）；webm 恒可用——动画池来自配置。探测失败按「没有」处理：
+   * 宁可置灰一项，也不给点下去黑屏的选项。
    */
   probeRenderOptions() {
     const dir = BASE + '/skin/' + encodeURIComponent(this.assetRoot) + '/';
-    const hasSkin = fetch(dir + 'manifest.json')
-      .then((res) => res.ok)
-      .catch(() => false);
+    const hasSkin = Promise.all(
+      S.LAYERED_MANIFEST_PATHS.map((path) =>
+        fetch(dir + path)
+          .then((res) => res.ok)
+          .catch(() => false),
+      ),
+    ).then((hits) => hits.some(Boolean));
     const models = fetch(dir + 'models')
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => (body && Array.isArray(body.models) ? body.models.filter((m) => typeof m === 'string') : []))

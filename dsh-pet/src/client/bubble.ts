@@ -34,7 +34,8 @@ const bubbleCss = [
   // 本地字体：由 host 从 assets/fonts 提供；font-display:swap 先回退后切换。
   `@font-face{font-family:"ShangshouSoftCandy";src:url("${ROUTE_PATH}/font/上首软糖体.ttf") format("truetype");font-display:swap;font-weight:400}`,
   '.dsh-pet-bubble{position:absolute;left:50%;transform:translateX(-50%);' +
-    'bottom:calc(100% - var(--dsh-pet-size)*0.108);' +
+    // 锚点由渲染器给（方形画布的头顶在舞台顶以上，见 shared/bubble-anchor）；变量缺席时退回 webm 的 10.8%。
+    'bottom:calc(100% - var(--dsh-pet-bubble-y,calc(var(--dsh-pet-size)*0.108)));' +
     'width:max-content;min-width:calc(var(--f)*5.7143);max-width:min(calc(var(--f)*16),100%);' +
     // 钉死 content-box：宿主可能全局设了 border-box，让 min/max-width 把内边距算进去，
     // 表现为「明明还有空位却折行」；桌面端同样钉死，两端一致。

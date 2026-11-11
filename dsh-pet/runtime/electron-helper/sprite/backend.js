@@ -27,6 +27,69 @@ const DECAY = 3;
 /** 拼一个皮肤资源地址（与宿主 /skin 路由同形）。 */
 const skinUrlOf = (root, rel) => BASE + '/skin/' + encodeURIComponent(root) + '/' + rel;
 
+/** 探测画布边长（px）与透明阈值：与浏览器 render/visual-top 同口径。 */
+const PROBE_PX = 64;
+const PROBE_ALPHA_MIN = 24;
+
+/**
+ * 量内容顶比例：把画面缩到 64×64 读一次像素，找最上方的不透明行。
+ *
+ * @param {(ctx: CanvasRenderingContext2D, w: number, h: number) => void} draw - 在探测画布上铺图的回调。
+ * @returns {number|null} 内容顶比例（0~1）；整幅全透明或读不到像素时为 null。
+ */
+function measureVisualTop(draw) {
+  const canvas = document.createElement('canvas');
+  canvas.width = PROBE_PX;
+  canvas.height = PROBE_PX;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  try {
+    draw(ctx, PROBE_PX, PROBE_PX);
+    const data = ctx.getImageData(0, 0, PROBE_PX, PROBE_PX).data;
+    for (let y = 0; y < PROBE_PX; y++) {
+      for (let x = 0; x < PROBE_PX; x++) {
+        if (data[(y * PROBE_PX + x) * 4 + 3] >= PROBE_ALPHA_MIN) return (y + 0.5) / PROBE_PX;
+      }
+    }
+  } catch {
+    // 画布被污染 / getImageData 不可用：交给调用方保持默认锚点。
+    return null;
+  }
+  return null;
+}
+
+/**
+ * 把量到的内容顶写成气泡锚点变量（.pet-bubble 的 bottom 读它）。
+ *
+ * @param {PetSprite} sprite - 宠物实例（变量写在它的根节点上，气泡是根节点的子节点）。
+ * @param {number|null} ratio - 内容顶比例；null 时保持 webm 的默认锚点。
+ */
+function applyBubbleAnchor(sprite, ratio) {
+  if (ratio === null || !Number.isFinite(ratio)) return;
+  sprite.el.style.setProperty('--pet-bubble-y', Math.round(S.bubbleAnchorY(ratio, sprite.size)) + 'px');
+}
+
+/**
+ * 找分层皮肤清单：先根布局后子目录布局（见 shared/layered-paths）。
+ *
+ * @param {string} root - 素材根。
+ * @returns {Promise<{skin: object, base: string}>} 解析好的清单与地址前缀。
+ */
+async function loadLayeredManifest(root) {
+  let status = 0;
+  for (const path of S.LAYERED_MANIFEST_PATHS) {
+    const res = await fetch(skinUrlOf(root, path));
+    if (!res.ok) {
+      status = res.status;
+      continue;
+    }
+    const skin = window.PetLayered.parseSkinManifest(await res.json());
+    if (skin === null) throw new Error('皮肤 manifest 解析失败：' + root + '/' + path);
+    return { skin, base: S.layeredBaseOf(path) };
+  }
+  throw new Error('皮肤 manifest HTTP ' + status + '（' + root + '）');
+}
+
 /** 取图：优先 createImageBitmap（零拷贝），退回 Image。 */
 async function loadSkinImage(url) {
   const res = await fetch(url);
@@ -116,20 +179,17 @@ function createCanvasHost(sprite, host) {
  */
 async function mountLayered(sprite, host, api) {
   const root = sprite.assetRoot;
-  const res = await fetch(skinUrlOf(root, 'manifest.json'));
-  if (!res.ok) throw new Error('皮肤 manifest HTTP ' + res.status + '（' + root + '）');
-  const skin = window.PetLayered.parseSkinManifest(await res.json());
-  if (skin === null) throw new Error('皮肤 manifest 解析失败：' + root);
+  const { skin, base } = await loadLayeredManifest(root);
   api.skin = skin;
   const layers = await Promise.all(
     skin.layers.map(async (layer) => ({
       role: layer.role,
       group: layer.group,
-      image: await loadSkinImage(skinUrlOf(root, layer.file)),
+      image: await loadSkinImage(skinUrlOf(root, base + layer.file)),
     })),
   );
   const openMouth =
-    skin.rig.mouth && skin.rig.mouth.open ? await loadSkinImage(skinUrlOf(root, skin.rig.mouth.open)) : null;
+    skin.rig.mouth && skin.rig.mouth.open ? await loadSkinImage(skinUrlOf(root, base + skin.rig.mouth.open)) : null;
   if (api.destroyed) return;
 
   const canvas = createCanvasHost(sprite, host);
@@ -137,6 +197,13 @@ async function mountLayered(sprite, host, api) {
   canvas.height = skin.canvas.h;
   const ctx = canvas.getContext('2d');
   if (ctx === null) throw new Error('canvas 2d 上下文不可用');
+  // 量一次内容顶：方形皮肤的头顶在舞台顶以上，气泡贴着它才不会盖脸（见 shared/bubble-anchor）。
+  applyBubbleAnchor(
+    sprite,
+    measureVisualTop((probe, w, h) => {
+      for (const layer of layers) probe.drawImage(layer.image, 0, 0, w, h);
+    }),
+  );
 
   let tMs = 0;
   let lastMs = performance.now();
@@ -279,12 +346,16 @@ async function mountLive2d(sprite, host, api) {
   if (chosen === undefined) throw new Error('皮肤目录没有 .model3.json：' + root);
   if (api.destroyed) return;
 
-  // 菜单用：模型声明的动作组（Motions / Expressions）。取不到就当没有声明，菜单里不出现「动作」。
+  // 菜单用：模型声明的动作组（Motions / Expressions）与各 motion 的时长。
+  // 取不到就当没有声明，菜单里不出现「动作」、动作按兜底时长收尾。
   api.actionGroups = [];
+  api.motionDurations = {};
   try {
     const settingsRes = await fetch(skinUrlOf(root, chosen));
     if (settingsRes.ok) {
-      api.actionGroups = window.PetShared.model3ActionGroups(await settingsRes.json());
+      const settings = await settingsRes.json();
+      api.actionGroups = window.PetShared.model3ActionGroups(settings);
+      api.motionDurations = window.PetShared.motionDurationsOf(settings);
     }
   } catch {
     // 读不到模型清单只影响动作菜单，画面照常；下一行起不再提这事。
@@ -300,6 +371,8 @@ async function mountLive2d(sprite, host, api) {
     antialias: true,
     autoDensity: true,
     resolution: Math.min(window.devicePixelRatio || 1, 2),
+    // 内容顶探测要在画完一帧后读回像素（见 measureVisualTop）：不保帧缓冲读到的会是空画面。
+    preserveDrawingBuffer: true,
   });
   cubism.Live2DModel.registerTicker(pixi.Ticker);
   const canvasHost = document.createElement('div');
@@ -336,6 +409,33 @@ async function mountLive2d(sprite, host, api) {
     const skip = new Set(hiddenDrawables);
     if (originalOpacity) core.getDrawableOpacity = (index) => (skip.has(index) ? 0 : originalOpacity(index));
   }
+  // 量一次内容顶：方形画布的头顶在舞台顶以上，气泡贴着它才不会盖脸（见 shared/bubble-anchor）。
+  app.renderer.render(app.stage);
+  applyBubbleAnchor(
+    sprite,
+    measureVisualTop((probe, w, h) => probe.drawImage(app.view, 0, 0, w, h)),
+  );
+
+  /** 复位计时器：换动作先清旧的，否则旧计时器会把新动作掐掉。 */
+  let holdTimer = 0;
+
+  /** 起一段动作并按时收尾：举手 / 竖手指这类循环片段不停会自动钉住姿态。 */
+  function playTimedMotion(group, index) {
+    if (holdTimer !== 0) clearTimeout(holdTimer);
+    void model.motion(group, index, cubism.MotionPriority.NORMAL);
+    holdTimer = setTimeout(
+      () => {
+        holdTimer = 0;
+        model.internalModel.motionManager.stopAllMotions();
+        // 模型带常驻待机就接回去，否则一次动作之后宠物会定在静息姿态上不动。
+        if (window.PetShared.hasIdleMotion(api.motionDurations)) {
+          void model.motion('Idle', undefined, cubism.MotionPriority.IDLE);
+        }
+      },
+      window.PetShared.motionHoldMs(api.motionDurations, String(group), Number(index)),
+    );
+  }
+
   api.playAction = (name) => {
     // 菜单动作名与浏览器端同格式（见 shared/menu/renderer-actions）：motion:<组>:<序号> / expression:<名>。
     const motion = /^motion:(.+):(\d+)$/.exec(String(name));
@@ -344,7 +444,7 @@ async function mountLive2d(sprite, host, api) {
       window.__dshPetDebug.lastGesture = { name: String(name), kind, at: Date.now() };
     }
     if (motion) {
-      void model.motion(motion[1], Number(motion[2]), cubism.MotionPriority.NORMAL);
+      playTimedMotion(motion[1], Number(motion[2]));
       return;
     }
     if (String(name).startsWith('expression:')) {
@@ -358,6 +458,8 @@ async function mountLive2d(sprite, host, api) {
     void model.motion('Idle', undefined, cubism.MotionPriority.IDLE);
   };
   api.destroy = () => {
+    if (holdTimer !== 0) clearTimeout(holdTimer);
+    holdTimer = 0;
     model.destroy();
     app.destroy(true, { children: true, texture: true, baseTexture: true });
   };

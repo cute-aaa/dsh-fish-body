@@ -69,8 +69,16 @@ class PetSprite {
     // 余量透明且点击穿透，加高没有副作用；但它自此不再四边相等，所以命中区要由主进程按上报值算。
     const m = this.size * WINDOW_MARGIN_RATIO;
     const fontConf = pet.font || config.font || S.DEFAULT_FONT;
+    // 方形画布（layered / live2d）的宠物头顶在舞台顶以上：气泡贴着它，上边距得把这段探出量算进去，
+    // 否则宠物贴顶时气泡顶端被窗口上沿切掉。webm 视频盒自带留白，仍按原口径（气泡底边在盒顶下方 10.8%）。
+    // 判定读 pet.renderer 而不是 this.renderer：后者由 init.js 的 initRender 才赋值，构造期还没有。
+    const canvasBackend = pet.renderer === 'layered' || pet.renderer === 'live2d';
+    const canvasLift = canvasBackend ? Math.max(0, -S.bubbleAnchorY(0, this.size)) : 0;
+    const bubbleTop = canvasBackend
+      ? S.bubbleMaxHeightPx(fontConf, this.size) + canvasLift
+      : S.bubbleTopMarginPx(fontConf, this.size);
     this.margin = {
-      t: Math.max(m, S.bubbleTopMarginPx(fontConf, this.size), S.todoPanelTopMarginPx(fontConf, this.size)),
+      t: Math.max(m, bubbleTop, S.todoPanelTopMarginPx(fontConf, this.size)),
       r: m,
       b: m,
       l: m,

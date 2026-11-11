@@ -9,8 +9,9 @@ import { join } from 'node:path';
 import { PACKAGE_ROOT } from '../paths.ts';
 import { MIME, resolveAsset, resolveExisting } from '../http.ts';
 import { isValidPetId } from '../config.ts';
+import { isModelSettingsFile, mergeModelExtras } from '../model-extras.ts';
 import { petAvatarFile } from '../pet-avatar.ts';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import type { RouteResult } from '../http.ts';
 
@@ -151,6 +152,16 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     }
     const skinFile = skinDir === undefined ? undefined : resolveExisting(skinDir, rel);
     if (skinFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: skin file not found' };
+    // 模型清单：补上目录里现成的 Animation 动作与 Exp3 表情（见 host/model-extras）。
+    // 只改下发的这一份，磁盘上的用户文件保持原样；解析失败就按原文件走，不额外编个错误页。
+    if (isModelSettingsFile(rel)) {
+      try {
+        const raw: unknown = JSON.parse(readFileSync(skinFile, 'utf8'));
+        return { kind: 'json', status: 200, obj: mergeModelExtras(skinFile, raw) };
+      } catch {
+        // 坏清单：原样下发，前端挂载时会自己报错。
+      }
+    }
     const ext = skinFile.slice(skinFile.lastIndexOf('.')).toLowerCase();
     return { kind: 'file', file: skinFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }

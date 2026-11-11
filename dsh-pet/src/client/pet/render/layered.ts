@@ -6,9 +6,12 @@
  * @module dsh-pet/src/client/pet/render/layered
  */
 import { ROUTE_PATH } from '../../../shared/constants.ts';
+import { bubbleAnchorY } from '../../../shared/bubble-anchor.ts';
+import { LAYERED_MANIFEST_PATHS, layeredBaseOf } from '../../../shared/layered-paths.ts';
 import { skinMenuGroups } from '../../../shared/menu/renderer-actions.ts';
 import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
+import { measureVisualTopRatio } from './visual-top.ts';
 import { assemblyActionOf, type AssemblyAction } from './layered/gestures.ts';
 import { gestureAtPoint } from './layered/hit.ts';
 import { parseSkinManifest, type SkinManifest } from './layered/types.ts';
@@ -52,6 +55,27 @@ async function loadImage(url: string): Promise<CanvasImageSource> {
 /** 装配动作名 → 触发哪种装配：词表在 layered/gestures.ts，与桌面 Helper 共用同一份。 */
 
 /**
+ * 找皮肤清单：先根布局后子目录布局（见 shared/layered-paths）。
+ *
+ * @param root - 素材根。
+ * @returns 清单本体与它在素材根下的地址前缀；两种布局都没有时抛错。
+ */
+async function loadManifest(root: string): Promise<{ parsed: SkinManifest; base: string }> {
+  let lastStatus = 0;
+  for (const path of LAYERED_MANIFEST_PATHS) {
+    const res = await fetch(skinUrl(root, path));
+    if (!res.ok) {
+      lastStatus = res.status;
+      continue;
+    }
+    const parsed = parseSkinManifest((await res.json()) as unknown);
+    if (parsed === null) throw new Error('皮肤 manifest 解析失败：' + root + '/' + path);
+    return { parsed, base: layeredBaseOf(path) };
+  }
+  throw new Error('skin manifest HTTP ' + String(lastStatus) + ' ' + root);
+}
+
+/**
  * 造 layered 渲染实例（工厂语义：每张宠物卡一个，互不共享画布与装配状态）。
  *
  * @returns 实现 {@link Renderer} 的 layered 渲染实例。
@@ -90,10 +114,7 @@ export function createLayeredRenderer(): Renderer {
     if (stage !== null) destroy();
     stage = el;
     const root = opts.assetRoot;
-    const manifestRes = await fetch(skinUrl(root, 'manifest.json'));
-    if (!manifestRes.ok) throw new Error('skin manifest HTTP ' + manifestRes.status + ' ' + root);
-    const parsed = parseSkinManifest((await manifestRes.json()) as unknown);
-    if (parsed === null) throw new Error('皮肤 manifest 解析失败：' + root);
+    const { parsed, base } = await loadManifest(root);
     if (destroyed) return; // 加载期间被卸载：丢弃。
 
     skin = parsed;
@@ -102,10 +123,10 @@ export function createLayeredRenderer(): Renderer {
       parsed.layers.map(async (layer): Promise<LoadedLayer> => ({
         role: layer.role,
         group: layer.group,
-        image: await loadImage(skinUrl(root, layer.file)),
+        image: await loadImage(skinUrl(root, base + layer.file)),
       })),
     );
-    openMouth = parsed.rig.mouth?.open ? await loadImage(skinUrl(root, parsed.rig.mouth.open)) : null;
+    openMouth = parsed.rig.mouth?.open ? await loadImage(skinUrl(root, base + parsed.rig.mouth.open)) : null;
     if (destroyed) return;
 
     canvas = document.createElement('canvas');
@@ -120,6 +141,11 @@ export function createLayeredRenderer(): Renderer {
     ctx = canvas.getContext('2d');
     if (ctx === null) throw new Error('canvas 2d context 不可用');
     ready = true;
+    // 量一次内容顶：方形画布的头顶在舞台顶以上，卡片按它挪气泡（见 shared/bubble-anchor）。
+    const topRatio = measureVisualTopRatio((probe, w, h) => {
+      for (const layer of layers) probe.drawImage(layer.image as CanvasImageSource, 0, 0, w, h);
+    });
+    if (topRatio !== null) opts.source.onVisualAnchor?.(bubbleAnchorY(topRatio, opts.size));
     lastMs = performance.now();
     nextBlinkAt = lastMs + BLINK_GAP_MIN_MS;
     loop();

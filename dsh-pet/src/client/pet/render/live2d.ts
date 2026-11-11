@@ -12,10 +12,13 @@
 import type * as PIXI from 'pixi.js';
 import type { Live2DModel } from 'pixi-live2d-display/cubism4';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
+import { bubbleAnchorY } from '../../../shared/bubble-anchor.ts';
 import { hiddenDrawableIndexesOf } from '../../../shared/live2d-fixes.ts';
+import { hasIdleMotion, motionDurationsOf, motionHoldMs } from '../../../shared/live2d-motions.ts';
 import { model3ActionGroups } from '../../../shared/menu/renderer-actions.ts';
 import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
+import { measureVisualTopRatio } from './visual-top.ts';
 
 /** cubism4 UMD 注册到 `PIXI.live2d` 上的面（只取用到的两项）。 */
 interface Live2dNamespace {
@@ -98,19 +101,23 @@ async function listModels(root: string): Promise<string[]> {
 }
 
 /**
- * 读模型清单声明的动作组（Motions / Expressions）供右键「动作」树用。
+ * 读模型清单：声明的动作组（右键「动作」树）与各 motion 的时长（点完多久复位）。
  *
  * @param root - 素材根。
  * @param rel - 选定的 `.model3.json` 相对路径。
- * @returns 动作组；取不到或解析不出时返回空数组（菜单少一组，画面照常）。
+ * @returns 动作组与时长表；取不到或解析不出时都是空（菜单少一组、动作用兜底时长，画面照常）。
  */
-async function loadActionGroups(root: string, rel: string): Promise<RendererActionGroup[]> {
+async function loadSettings(
+  root: string,
+  rel: string,
+): Promise<{ groups: RendererActionGroup[]; durations: Readonly<Record<string, number>> }> {
   try {
     const res = await fetch(skinUrl(root, rel));
-    if (!res.ok) return [];
-    return model3ActionGroups((await res.json()) as unknown);
+    if (!res.ok) return { groups: [], durations: {} };
+    const raw = (await res.json()) as unknown;
+    return { groups: model3ActionGroups(raw), durations: motionDurationsOf(raw) };
   } catch {
-    return [];
+    return { groups: [], durations: {} };
   }
 }
 
@@ -127,6 +134,10 @@ export function createLive2dRenderer(): Renderer {
   let cubism: Live2dNamespace | null = null;
   /** 模型声明的动作组：右键「动作」树读它（网页端不把 webm 动画池混进来）。 */
   let actionGroups: readonly RendererActionGroup[] = [];
+  /** motion 组:序号 → 时长（秒）：点完按它复位，循环片段才不会把宠物钉在某个姿态上。 */
+  let motionDurations: Readonly<Record<string, number>> = {};
+  /** 复位计时器：换动作/卸载都要先清，否则旧计时器会把新动作掐掉。 */
+  let holdTimer = 0;
   let ready = false;
   let destroyed = false;
   let size = 0;
@@ -146,10 +157,12 @@ export function createLive2dRenderer(): Renderer {
     const chosen = configured !== undefined && models.includes(configured) ? configured : models[0];
     if (chosen === undefined) throw new Error('皮肤目录没有 .model3.json：' + root);
     if (destroyed) return;
-    actionGroups = await loadActionGroups(root, chosen);
+    const settings = await loadSettings(root, chosen);
+    actionGroups = settings.groups;
+    motionDurations = settings.durations;
     if (destroyed) return;
 
-    app = new pixi.Application({
+    const created = new pixi.Application({
       width: size,
       height: size,
       transparent: true,
@@ -157,10 +170,14 @@ export function createLive2dRenderer(): Renderer {
       antialias: true,
       autoDensity: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
+      // 内容顶探测要在一帧画完之后读回像素（见 render/visual-top）：不保帧缓冲读到的会是空画面。
+      // 画布只有宠物尺寸那么大，代价是这一块区域的合成多留一帧。
+      preserveDrawingBuffer: true,
     });
+    app = created;
     cubism.Live2DModel.registerTicker(pixi.Ticker);
-    app.view.style.cssText = 'position:absolute;left:50%;bottom:0;transform:translateX(-50%);pointer-events:none;';
-    el.appendChild(app.view);
+    created.view.style.cssText = 'position:absolute;left:50%;bottom:0;transform:translateX(-50%);pointer-events:none;';
+    el.appendChild(created.view);
 
     model = await cubism.Live2DModel.from(skinUrl(root, chosen), { autoInteract: false });
     if (destroyed) {
@@ -168,7 +185,7 @@ export function createLive2dRenderer(): Renderer {
       model = null;
       return;
     }
-    app.stage.addChild(model);
+    created.stage.addChild(model);
     // 逐模型修正：把「纯黑遮罩源」从可见绘制里去掉（见 shared/live2d-fixes）。
     // 只压 getDrawableOpacity：遮罩绘制走的是同一次 drawMesh，但那条路径忽略不透明度，裁切不受影响。
     const hidden = hiddenDrawableIndexesOf(chosen);
@@ -186,14 +203,21 @@ export function createLive2dRenderer(): Renderer {
     model.scale.set(scale);
     model.x = size / 2;
     model.y = size / 2;
+    // 量一次内容顶（头顶在方形画布的哪一行）：气泡要贴着它，不能按 webm 的 10.8% 死锚。
+    created.renderer.render(created.stage);
+    const topRatio = measureVisualTopRatio((probe, w, h) => probe.drawImage(created.view, 0, 0, w, h));
+    if (topRatio !== null) opts.source.onVisualAnchor?.(bubbleAnchorY(topRatio, size));
     ready = true;
   };
 
   const destroy = (): void => {
     destroyed = true;
+    if (holdTimer !== 0) window.clearTimeout(holdTimer);
+    holdTimer = 0;
     model?.destroy();
     model = null;
     actionGroups = [];
+    motionDurations = {};
     if (app !== null) {
       app.destroy(true, { children: true, texture: true, baseTexture: true });
       app = null;
@@ -211,6 +235,24 @@ export function createLive2dRenderer(): Renderer {
     core.setParameterValueById?.(id, value);
   };
 
+  /** 起一段动作并在它播完后收掉：循环片段（举手 / 竖手指这类）不停会自动钉住姿态。 */
+  const playTimed = (group: string, index: number): void => {
+    if (model === null || cubism === null) return;
+    if (holdTimer !== 0) window.clearTimeout(holdTimer);
+    void model.motion(group, index, cubism.MotionPriority.NORMAL);
+    const target = model;
+    const priority = cubism.MotionPriority.IDLE;
+    holdTimer = window.setTimeout(
+      () => {
+        holdTimer = 0;
+        target.internalModel.motionManager.stopAllMotions();
+        // 模型带常驻待机就接回去，否则一次动作之后宠物会定在静息姿态上不动。
+        if (hasIdleMotion(motionDurations)) void target.motion('Idle', undefined, priority);
+      },
+      motionHoldMs(motionDurations, group, index),
+    );
+  };
+
   return {
     kind: 'live2d',
     mount,
@@ -220,7 +262,7 @@ export function createLive2dRenderer(): Renderer {
       // 菜单来自模型声明：motion / expression 的标识由 shared/menu/renderer-actions 生成，这里只拆解。
       const motion = MOTION_ID.exec(name);
       if (motion !== null) {
-        void model.motion(motion[1], Number(motion[2]), cubism.MotionPriority.NORMAL);
+        playTimed(motion[1], Number(motion[2]));
         return;
       }
       if (name.startsWith(EXPRESSION_PREFIX)) {

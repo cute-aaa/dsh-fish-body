@@ -31,6 +31,7 @@ import {
   type MenuNode,
 } from '../../../shared/menu.ts';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
+import { LAYERED_MANIFEST_PATHS } from '../../../shared/layered-paths.ts';
 import { TOOLTIP_GAP_RATIO, tooltipPlacement } from '../../../shared/tooltip.ts';
 import type { MenuMoreItem } from '../../../shared/menu.ts';
 import type { CardLive } from './live.ts';
@@ -111,16 +112,20 @@ export function createCardEntry(rt: CardEntryRuntime) {
     // 这只宠物实际有素材的后端：右键「渲染方式」子菜单拿它把缺素材的项置灰，挂载时探一次。
     const availableRef = useRef<readonly RendererKind[]>(['webm']);
 
-    // 素材探测：layered 看皮肤清单能否取到，live2d 看模型清单是否非空（`/models` 空数组也算没有）；
-    // webm 恒可用——动画池来自配置，缺素材是配置问题而不是后端问题。
+    // 素材探测：layered 看皮肤清单能否取到（根布局或 `layered/` 子目录布局），live2d 看模型清单是否非空
+    // （`/models` 空数组也算没有）；webm 恒可用——动画池来自配置，缺素材是配置问题而不是后端问题。
     // 探测失败按「没有」处理：给一个点下去黑屏的选项，比少一个灰项更糟。
     useEffect(() => {
       const cfg = cfgRef.current;
       const dir = ROUTE_PATH + '/skin/' + encodeURIComponent(cfg.assetRoot ?? cfg.id);
       let alive = true;
-      const probeSkin = fetch(dir + '/manifest.json')
-        .then((r) => r.ok)
-        .catch(() => false);
+      const probeSkin = Promise.all(
+        LAYERED_MANIFEST_PATHS.map((path) =>
+          fetch(dir + '/' + path)
+            .then((r) => r.ok)
+            .catch(() => false),
+        ),
+      ).then((hits) => hits.some(Boolean));
       const probeModels = fetch(dir + '/models')
         .then((r) => (r.ok ? r.json() : null))
         .then((b: { models?: unknown } | null) =>

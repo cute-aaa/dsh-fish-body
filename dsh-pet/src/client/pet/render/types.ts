@@ -48,6 +48,11 @@ export interface AnimationSource {
   isDragging(): boolean;
   /** 挂载那一刻是否已被锁冻住（只读一次）。 */
   readonly initiallyFrozen: boolean;
+  /**
+   * 画面量出了内容顶：报一个气泡底边偏移（相对舞台顶 px，负值 = 舞台顶以上）。
+   * 方形画布的宠物头顶在舞台顶以上，卡片据此挪气泡；不调它就用 CSS 的 webm 兜底值。
+   */
+  onVisualAnchor?(y: number): void;
 }
 
 /** 挂载参数：渲染器据此确定元素/画布尺寸、素材根与动画源。 */
