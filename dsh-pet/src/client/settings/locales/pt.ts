@@ -58,8 +58,10 @@ export const pt: Record<Key, string> = {
   atLeastOne: 'Mantenha pelo menos um pet.',
   emptyPets: 'Nenhum pet ainda — clique em "Adicionar pet" para criar.',
   sizeLabel: 'Tamanho (largura px)',
-  sizeHint: 'A altura é automática = largura × 9/16.',
+  sizeHint:
+    'O controle deslizante e a caixa numérica gravam o mesmo valor, 120–2048. A altura é automática = largura × 9/16.',
   sizesOf: 'Tamanho para {renderer}',
+  sizeFollowDefault: 'Seguir o padrão',
   sizePercentLabel: 'Largura máx. da tela (%)',
   sizePercentHint:
     'Quanto da largura da tela o pet pode ocupar: 100 = nunca mais largo que uma tela (igual ao px em janelas largas); 30–40 deixa bem menor no celular sem mudar o desktop. Calculado uma vez ao carregar; recarregue após redimensionar.',
@@ -81,6 +83,9 @@ export const pt: Record<Key, string> = {
   fixedEnabled: 'Fixar no lugar',
   fixedEnabledHint:
     'Quando ativado, a cadeia aleatória não gira nem afasta mais este pet — só tocam as ações de espera no lugar. Escolhas pelo menu de contexto, gatilhos da API e animações de saldo / sussurro / status de trabalho não são afetadas.',
+  clickThrough: 'Clique atravessado',
+  clickThroughHint:
+    'Quando ativado, a janela de desktop deste pet ignora o mouse: os cliques passam para o aplicativo abaixo e o pet só pode ser visto. Vale apenas para o desktop — a camada web continua arrastável. O menu de clique direito também fica inacessível, então desmarque esta caixa para desativar.',
   displayLabel: 'Exibição',
   displayHint: 'web = só no navegador / desktop = só no desktop / both = nos dois / none = em nenhum',
   'display.web': 'Só no navegador',

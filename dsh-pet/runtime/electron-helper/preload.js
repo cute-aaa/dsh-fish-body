@@ -47,6 +47,15 @@ contextBridge.exposeInMainWorld('petBridge', {
   setInputRegions(input) {
     ipcRenderer.send('pet:input-regions', input);
   },
+  // 鼠标穿透开关（pets[].clickThrough）：渲染端在菜单切换与启动落位时上报目标值。
+  // 打开后本窗恒穿透，右键菜单随之不可达——出口是设置页的同一勾选框。
+  setClickThrough(value) {
+    ipcRenderer.send('pet:click-through', !!value);
+  },
+  // 主进程裁定后的穿透值（托盘/设置页改动时回推）：渲染端据此同步悬停/提示判定。
+  onClickThrough(cb) {
+    ipcRenderer.on('pet:click-through', (e, value) => cb(!!value));
+  },
   // 文本输入拿到 DOM 焦点时向主进程要一次系统键盘焦点：X11 上 DOM 焦点不等于 X 键盘焦点，
   // 窗口又是 showInactive 显示的，不要就一直打不了字（处理在 main/ipc.js）。
   requestKeyboardFocus() {

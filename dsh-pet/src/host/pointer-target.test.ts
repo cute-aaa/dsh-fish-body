@@ -31,6 +31,7 @@ const {
   spriteHitRect,
   pointerZone,
   decideWindowIgnore,
+  forcedIgnore,
 } = require(helper + 'pointer-target.js');
 
 /** 包内文件源码（守卫用；相对 src/host/ 解析） */
@@ -246,6 +247,23 @@ describe('菜单/聊天框只占控件矩形，不吞掉其它应用点击', () 
     const cascade = { dragging: false, rects: [...input.rects, { x: 180, y: 10, width: 150, height: 300 }] };
     assert.equal(decideWindowIgnore(bounds, { x: 1190, y: 520 }, true, true, 0, cascade), false);
     assert.equal(decideWindowIgnore(bounds, { x: 1170, y: 520 }, false, true, 0, cascade), true);
+  });
+});
+
+describe('forcedIgnore —— 用户的「鼠标穿透」压过一切判定', () => {
+  test('开关打开：无论常规通道算出什么，最终都是穿透', () => {
+    assert.equal(forcedIgnore(true, false), true, '宠物身上也不得翻回可交互');
+    assert.equal(forcedIgnore(true, true), true);
+  });
+
+  test('开关关闭：等同常规通道的结果', () => {
+    assert.equal(forcedIgnore(false, true), true);
+    assert.equal(forcedIgnore(false, false), false);
+  });
+
+  test('缺省/非法值按关闭处理，不是「一律穿透」', () => {
+    assert.equal(forcedIgnore(undefined, false), false);
+    assert.equal(forcedIgnore('true', false), false);
   });
 });
 

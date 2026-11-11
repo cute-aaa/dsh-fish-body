@@ -131,6 +131,9 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
               props.onChange({ workStatusEnabled: v }),
             ),
             toggleCell('fixedEnabled', !!pet.fixedEnabled, busy, (v) => props.onChange({ fixedEnabled: v })),
+            // 鼠标穿透（桌面端）：开了以后该宠物的透明窗整窗忽略鼠标、点击落到下层应用。
+            // 出口就在这里——窗内的右键菜单在开启后点不到，这是有意的（与配置字段同一份语义）。
+            toggleCell('clickThrough', pet.clickThrough === true, busy, (v) => props.onChange({ clickThrough: v })),
           ],
         }),
 

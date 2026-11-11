@@ -216,6 +216,17 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       void applyPetConfig(deps, { kind: 'size', size: leaf.size }, '改大小');
       return;
     }
+    if (leaf.action === 'set-click-through') {
+      // 目标值必填：当前值只有渲染端知道，所以切换由建叶子的一方取反后写进来。
+      const value = leaf.clickThrough;
+      if (typeof value !== 'boolean') {
+        deps.warn('[dsh-pet] 鼠标穿透缺少目标值 pet=' + petId);
+        return;
+      }
+      console.info('[dsh-pet] 菜单切换鼠标穿透 pet=' + petId + ' value=' + String(value));
+      void applyPetConfig(deps, { kind: 'click-through', value }, '鼠标穿透');
+      return;
+    }
     if (leaf.action === 'set-provider-voice') {
       const provider = leaf.voiceProvider;
       const voice = leaf.providerVoice;

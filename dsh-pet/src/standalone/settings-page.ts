@@ -13,6 +13,7 @@ import { PET_DISPLAYS, RENDERERS } from '../shared/config.ts';
 import { ROUTE_SEGMENT } from '../shared/constants.ts';
 import { DEFAULT_FONT, FONT_PRESETS } from '../shared/fonts.ts';
 import { DEFAULT_PHYSICS } from '../shared/physics.ts';
+import { SIZE_MAX, SIZE_MIN } from '../shared/pet-size.ts';
 import { DEFAULT_WEIGHTS } from '../shared/weights.ts';
 import { aiScript } from './settings-page/script/ai.ts';
 import { avatarScript } from './settings-page/script/avatar.ts';
@@ -41,6 +42,7 @@ export const settingsScript = [
     displays: PET_DISPLAYS,
     corners: [...CORNER_SET],
     renderers: RENDERERS,
+    sizeRange: { min: SIZE_MIN, max: SIZE_MAX },
     physics: DEFAULT_PHYSICS,
     font: DEFAULT_FONT,
     weights: DEFAULT_WEIGHTS,

@@ -22,6 +22,7 @@ const SLEEP_ALLOWED_ACTIONS: readonly string[] = [
   'set-renderer',
   'set-model',
   'set-size',
+  'set-click-through',
   'set-provider-voice',
   'reload',
   'reload-plugin',

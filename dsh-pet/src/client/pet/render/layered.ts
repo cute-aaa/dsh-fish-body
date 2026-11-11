@@ -7,15 +7,23 @@
  */
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import { bubbleAnchorY } from '../../../shared/bubble-anchor.ts';
+import { renderPixelSide } from '../../../shared/pet-size.ts';
 import { LAYERED_MANIFEST_PATHS, layeredBaseOf } from '../../../shared/layered-paths.ts';
 import { skinMenuGroups } from '../../../shared/menu/renderer-actions.ts';
 import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
-import { measureVisualTopRatio } from './visual-top.ts';
+import { measureLayerBox, measureVisualTopRatio } from './layered/probe.ts';
 import { assemblyActionOf, type AssemblyAction } from './layered/gestures.ts';
 import { gestureAtPoint } from './layered/hit.ts';
 import { parseSkinManifest, type SkinManifest } from './layered/types.ts';
-import { computePoses, drawPoses, hitTest as skinHitTest, type LoadedLayer, type RigState } from './layered/rig.ts';
+import {
+  computePoses,
+  drawPoses,
+  hitTest as skinHitTest,
+  type LoadedLayer,
+  type MouthLayer,
+  type RigState,
+} from './layered/rig.ts';
 
 /** 呼吸周期（ms）。 */
 const BREATH_MS = 3200;
@@ -90,7 +98,12 @@ export function createLayeredRenderer(): Renderer {
   let ctx: CanvasRenderingContext2D | null = null;
   let skin: SkinManifest | null = null;
   let layers: LoadedLayer[] = [];
-  let openMouth: CanvasImageSource | null = null;
+  let openMouth: MouthLayer | null = null;
+  /** 当前后备画布的像素边（0 = 还没定）：改尺寸时按它判断要不要重建画布。 */
+  let pixelSide = 0;
+  /** 当前画框宽度（CSS px）与上次用过的 DPR：跨屏/缩放会改 DPR，发现变化就重建后备。 */
+  let cssSize = 0;
+  let lastDpr = 0;
   /** 清单声明的可播手势：右键「动作」树读它（layered 不用 webm 动画池）。 */
   let actionGroups: readonly RendererActionGroup[] = [];
   let raf = 0;
@@ -118,6 +131,31 @@ export function createLayeredRenderer(): Renderer {
   let mouthActionT = 0;
   let talk = false;
 
+  /**
+   * 按显示尺寸重设画布的后备分辨率与绘制变换。
+   *
+   * 画布内容坐标一律是**清单的逻辑尺寸**（命中区、装配参数都按它写），所以绘制前给 ctx 设一个
+   * `后备边 / 原生边` 的缩放：业务代码不用关心像素密度，绘制量只由显示尺寸决定。
+   * 后备边用 {@link renderPixelSide} 夹在「显示尺寸 × DPR」与「素材原生边」之间——
+   * 缩小时省掉整幅采样的浪费，放大时也不会超过素材本身的细节。
+   *
+   * @param size - 画框宽度（CSS px）。
+   */
+  const applyCanvasPixels = (size: number): void => {
+    if (canvas === null || ctx === null || skin === null) return;
+    cssSize = size;
+    const dpr = window.devicePixelRatio || 1;
+    lastDpr = dpr;
+    const side = renderPixelSide(size, skin.canvas.w, dpr);
+    if (side !== pixelSide) {
+      canvas.width = side;
+      canvas.height = Math.max(1, Math.round((side * skin.canvas.h) / skin.canvas.w));
+      pixelSide = side;
+    }
+    const k = canvas.width / skin.canvas.w;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+  };
+
   const mount = async (el: HTMLElement, opts: RendererMountOptions): Promise<void> => {
     if (stage !== null) destroy();
     stage = el;
@@ -128,18 +166,23 @@ export function createLayeredRenderer(): Renderer {
     skin = parsed;
     actionGroups = skinMenuGroups(parsed.interaction.menu ?? []);
     layers = await Promise.all(
-      parsed.layers.map(async (layer): Promise<LoadedLayer> => ({
-        role: layer.role,
-        group: layer.group,
-        image: await loadImage(skinUrl(root, base + layer.file)),
-      })),
+      parsed.layers.map(async (layer): Promise<LoadedLayer> => {
+        const image = await loadImage(skinUrl(root, base + layer.file));
+        // 一次性量出这一层的不透明包围盒：之后每帧只采样这一块（见 layered/probe 的头注释）。
+        const box = measureLayerBox(image, parsed.canvas.w, parsed.canvas.h);
+        return { role: layer.role, group: layer.group, image, ...(box === null ? {} : { box }) };
+      }),
     );
-    openMouth = parsed.rig.mouth?.open ? await loadImage(skinUrl(root, base + parsed.rig.mouth.open)) : null;
+    if (parsed.rig.mouth?.open) {
+      const image = await loadImage(skinUrl(root, base + parsed.rig.mouth.open));
+      const box = measureLayerBox(image, parsed.canvas.w, parsed.canvas.h);
+      openMouth = { image, ...(box === null ? {} : { box }) };
+    } else {
+      openMouth = null;
+    }
     if (destroyed) return;
 
     canvas = document.createElement('canvas');
-    canvas.width = parsed.canvas.w;
-    canvas.height = parsed.canvas.h;
     // 方形皮肤按 size 等宽高渲染，底部对齐 stage（脚底垫高由 stage 位移兜住）。
     canvas.style.cssText =
       'position:absolute;left:50%;bottom:0;transform:translateX(-50%);' +
@@ -148,6 +191,9 @@ export function createLayeredRenderer(): Renderer {
     el.appendChild(canvas);
     ctx = canvas.getContext('2d');
     if (ctx === null) throw new Error('canvas 2d context 不可用');
+    // 后备分辨率通常小于素材原生边（462 vs 1024）：这里要求高质量重采样，缩小时不糊边、不发锯齿。
+    ctx.imageSmoothingQuality = 'high';
+    applyCanvasPixels(opts.size);
     ready = true;
     // 量一次内容顶：方形画布的头顶在舞台顶以上，卡片按它挪气泡（见 shared/bubble-anchor）。
     const topRatio = measureVisualTopRatio((probe, w, h) => {
@@ -171,6 +217,9 @@ export function createLayeredRenderer(): Renderer {
     skin = null;
     layers = [];
     openMouth = null;
+    pixelSide = 0;
+    cssSize = 0;
+    lastDpr = 0;
     actionGroups = [];
     visualTopRatio = null;
     anchorSink = null;
@@ -185,6 +234,13 @@ export function createLayeredRenderer(): Renderer {
     const dt = Math.min(0.1, Math.max(0, (now - lastMs) / 1000));
     lastMs = now;
     tMs += dt * 1000;
+    // 页面被切走/最小化：只推进时钟不画（rAF 本身会被节流，这里再省掉一次无用的全帧合成）。
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      raf = requestAnimationFrame(loop);
+      return;
+    }
+    // DPR 变了（拖到另一块屏 / 浏览器缩放）：按新密度重建后备画布，否则画面会糊或白烧像素。
+    if (cssSize > 0 && (window.devicePixelRatio || 1) !== lastDpr) applyCanvasPixels(cssSize);
 
     // 自动眨眼：到点闭合，按闭合时长衰减回睁。
     if (now >= nextBlinkAt) {
@@ -291,6 +347,8 @@ export function createLayeredRenderer(): Renderer {
         canvas.style.width = size + 'px';
         canvas.style.height = size + 'px';
       }
+      // 后备分辨率跟随显示尺寸（±DPR）：只在像素边真的变了时才重建画布（重建会清空内容并重置变换）。
+      applyCanvasPixels(size);
       if (visualTopRatio !== null) anchorSink?.(bubbleAnchorY(visualTopRatio, size));
     },
     listActionGroups: () => actionGroups,

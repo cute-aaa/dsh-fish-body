@@ -94,21 +94,22 @@ function petCard() {
     textField('pet-name', '显示名', pet.name || '', (value) => { pet.name = value; }),
     textField('pet-id', '标识（id）', pet.id, (value) => { pet.id = value.trim(); }, { disabled: true, hint: '标识决定素材目录与记忆文件，建好之后不能在这里改。' }),
     make('div', { class: 'grid2' }, [
-      numberField('pet-size', '画框大小（px）', pet.size, (value) => { pet.size = value; }, { min: 1, step: 1 }),
+      rangeField('pet-size', '画框大小（px）', pet.size, (value) => { pet.size = value; }, { min: SIZE_RANGE.min, max: SIZE_RANGE.max, step: 1, hint: '高度自动 = 宽度 × 9/16；滑块与数字框写的是同一个值。' }),
       textField('pet-size-percent', '占屏宽度（%）', sizePercent, (value) => {
         if (value.trim() === '') delete pet.sizePercent;
         else pet.sizePercent = Number(value);
       }, { hint: '留空表示按 px 显示。' }),
     ]),
-    // 按渲染方式的大小（可选）：三种素材的人物占框比例不同，各自一套；填 0 = 跟随上面的画框大小。
+    // 按渲染方式的大小（可选）：三种素材的人物占框比例不同，各自一套；留空 / 0 = 跟随上面的画框大小。
     make('div', { class: 'grid2' }, RENDERERS.map((renderer) =>
-      numberField('pet-size-' + renderer, '画框大小 · ' + renderer + '（px）', pet.sizes?.[renderer] ?? 0, (value) => {
+      rangeField('pet-size-' + renderer, '画框大小 · ' + renderer + '（px）', pet.sizes?.[renderer] ?? pet.size, (value) => {
         const sizes = Object.assign({}, pet.sizes);
-        if (value > 0) sizes[renderer] = value;
+        // 等于基准值 = 删掉覆盖（与设置页「跟随默认」同一口径），否则配置里会多一条同值覆盖。
+        if (value > 0 && value !== pet.size) sizes[renderer] = value;
         else delete sizes[renderer];
         if (Object.keys(sizes).length > 0) pet.sizes = sizes;
         else delete pet.sizes;
-      }, { min: 0, step: 10, hint: '0 = 跟随上面的画框大小。' }),
+      }, { min: SIZE_RANGE.min, max: SIZE_RANGE.max, step: 1, hint: '拖到与上面的画框大小相同 = 删掉这一项覆盖（跟随默认）。' }),
     )),
     selectField('pet-display', '显示位置', pet.display, DISPLAYS.map((value) => ({ value: value, label: displayLabel(value) })), (value) => { pet.display = value; }, 'web=仅浏览器 / desktop=仅桌面 / both=两者都显示 / none=都不显示'),
     make('div', { class: 'grid2' }, [
@@ -120,6 +121,10 @@ function petCard() {
     toggleRow('pet-whisper', '碎碎念', '按周期让模型生成一句话并播放；不需要就关掉，省调用额度。', pet.whisperEnabled !== false, (value) => { pet.whisperEnabled = value; }),
     toggleRow('pet-work', '工作状态联动', '跟随会话状态切换动画与气泡，不调用模型。', pet.workStatusEnabled !== false, (value) => { pet.workStatusEnabled = value; }),
     toggleRow('pet-fixed', '固定不动', '开启后随机链不再抽转向与移动；手动点播与拖拽照常。', pet.fixedEnabled === true, (value) => { pet.fixedEnabled = value; }),
+    toggleRow('pet-click-through', '鼠标穿透', '开启后这只宠物的桌面窗整窗忽略鼠标，点击落到下层应用；仅影响桌面端。开启后窗内右键菜单点不到，出口就是这里。', pet.clickThrough === true, (value) => {
+      if (value) pet.clickThrough = true;
+      else delete pet.clickThrough;
+    }),
     make('div', { class: 'field' }, [
       make('label', { for: 'pet-persona', text: '这只的人设（可选）' }),
       personaWrap(pet),

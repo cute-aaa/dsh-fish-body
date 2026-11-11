@@ -9,11 +9,13 @@ import assert from 'node:assert/strict';
 import {
   isValidSize,
   isValidSizePercent,
+  renderPixelSide,
   renderSizeOf,
   resolvePetSizePx,
   SIZE_MAX,
   SIZE_MIN,
   SIZE_PERCENT_MIN,
+  SIZE_STEP,
 } from './pet-size.ts';
 
 describe('isValidSizePercent —— 不小于 1 的有限数（不设上限）', () => {
@@ -110,5 +112,32 @@ describe('isValidSize —— 画框宽度的区间', () => {
     for (const value of [0, SIZE_MIN - 1, SIZE_MAX + 1, Number.NaN, '462', null, {}]) {
       assert.equal(isValidSize(value), false, `${String(value)} 应非法`);
     }
+  });
+
+  test('滑块的步长是 1：462 这类非整十数必须能精确落到区间里', () => {
+    assert.equal(SIZE_STEP, 1);
+  });
+});
+
+describe('renderPixelSide —— 画布后备分辨率', () => {
+  test('跟随显示尺寸与 DPR：462@DPR1 = 462，462@DPR2 = 924', () => {
+    assert.equal(renderPixelSide(462, 1024, 1), 462);
+    assert.equal(renderPixelSide(462, 1024, 2), 924);
+  });
+
+  test('不超过素材原生边：2000@DPR1 与 2000@DPR2 都夹到 1024（放大没有新增细节）', () => {
+    assert.equal(renderPixelSide(2000, 1024, 1), 1024);
+    assert.equal(renderPixelSide(2000, 1024, 2), 1024);
+  });
+
+  test('DPR 上限 2：3 倍屏按 2 倍算，不白烧像素', () => {
+    assert.equal(renderPixelSide(400, 2048, 3), 800);
+  });
+
+  test('极小尺寸与非法 DPR：至少 1 像素，不产生 NaN/0', () => {
+    assert.equal(renderPixelSide(10, 1024, 1), 10);
+    assert.equal(renderPixelSide(SIZE_MIN, 1024, Number.NaN), SIZE_MIN);
+    assert.equal(renderPixelSide(0, 1024, 1), SIZE_MIN, '非法 css 尺寸回落到下限');
+    assert.equal(renderPixelSide(-5, 1024, 1), SIZE_MIN);
   });
 });

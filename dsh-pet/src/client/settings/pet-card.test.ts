@@ -143,11 +143,11 @@ describe('PetCard —— 宠物配置卡', () => {
     ]);
   });
 
-  test('四个功能开关各自回传自己的键', () => {
+  test('五个功能开关各自回传自己的键', () => {
     const patches: PetPatch[] = [];
     const tree = render((patch) => patches.push(patch));
     const checkboxes = flatten(tree).filter((node) => node.tag === 'input' && node.props.type === 'checkbox');
-    assert.equal(checkboxes.length, 4);
+    assert.equal(checkboxes.length, 5);
     for (const box of checkboxes) {
       (box.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } });
     }
@@ -156,6 +156,8 @@ describe('PetCard —— 宠物配置卡', () => {
       { whisperEnabled: true },
       { workStatusEnabled: true },
       { fixedEnabled: true },
+      // 鼠标穿透：桌面端整窗忽略鼠标；出口在本卡（开起来后窗内右键菜单点不到）。
+      { clickThrough: true },
     ]);
   });
 

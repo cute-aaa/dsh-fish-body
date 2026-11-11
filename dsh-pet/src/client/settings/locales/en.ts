@@ -58,8 +58,9 @@ export const en: Record<Key, string> = {
   atLeastOne: 'Keep at least one pet.',
   emptyPets: 'No pets yet — click "Add pet" to create one.',
   sizeLabel: 'Size (width px)',
-  sizeHint: 'Height is automatic = width × 9/16.',
+  sizeHint: 'Slider and number box write the same value, 120–2048. Height is automatic = width × 9/16.',
   sizesOf: 'Size for {renderer}',
+  sizeFollowDefault: 'Follow default',
   sizePercentLabel: 'Max screen width (%)',
   sizePercentHint:
     'How much of the screen width the pet may take: 100 = never wider than one screen (identical to px on wide windows); try 30–40 to make it clearly smaller on a phone without changing the desktop. Computed once on page load; refresh after resizing.',
@@ -81,6 +82,9 @@ export const en: Record<Key, string> = {
   fixedEnabled: 'Pin in place',
   fixedEnabledHint:
     'When enabled, the random chain no longer turns this pet or walks it away — only idle and in-place actions play. Right-click picks, API triggers and balance / whisper / work-status animations are unaffected.',
+  clickThrough: 'Click-through',
+  clickThroughHint:
+    'When enabled, the desktop window of this pet ignores the mouse entirely: clicks fall through to the app underneath, so the pet can only be watched. Desktop only — the web overlay stays draggable. Turning it on also makes the right-click menu unreachable, so untick this box here to switch it back off.',
   displayLabel: 'Display',
   displayHint: 'web = browser only / desktop = desktop only / both = both / none = neither',
   'display.web': 'Browser only',

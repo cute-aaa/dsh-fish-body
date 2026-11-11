@@ -30,6 +30,7 @@ export interface MenuLeaf {
     | 'set-renderer'
     | 'set-model'
     | 'set-size'
+    | 'set-click-through'
     | 'set-provider-voice'
     | 'renderer-action'
     | 'sleep'
@@ -43,6 +44,9 @@ export interface MenuLeaf {
   model?: string;
   /** set-size 的目标画框宽度（px，当前渲染方式）；缺省 = 删掉该渲染方式的覆盖，回落 pets[].size */
   size?: number;
+  /** set-click-through 的目标值：true = 该宠物桌面窗整窗忽略鼠标（只作用于桌面端）。
+   *  必填——当前值只有渲染端自己知道（菜单树是纯数据），所以「切换」由建叶子的一方取反后写进来。 */
+  clickThrough?: boolean;
   /** set-provider-voice 的目标语音实现 id（目前是 `gsv`） */
   voiceProvider?: string;
   /** set-provider-voice 的目标音色 id（该实现扫描到的音色目录名） */

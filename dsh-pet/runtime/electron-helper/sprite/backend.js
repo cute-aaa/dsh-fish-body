@@ -7,6 +7,9 @@
  *
  * layered 的装配数学来自 `layered-core.js`（window.PetLayered，源 src/client/pet/render/layered），
  * 与浏览器端同一份实现；live2d 的 pixi / pip 依赖走宿主 `/vendor` 的 UMD，按 Core → pixi → cubism4 加载。
+ * **两个 core（layered-core.js / shared-core.js）都是构建产物**：改完 src 必须重跑 `npm run build:desktop-core`
+ * 再重启 Helper；否则页面加载到的是旧核心。旧核心少了新导出时本文件会降级（见 optionalProbe / pixelSideOf），
+ * 绝不把「核心比本文件旧」变成「宠物窗口还在、画面全透明」。
  * 必须始终成立：任何挂载失败只告警并把舞台留空，绝不抛出到构造链——透明窗口一崩就只剩一个看不见的进程。
  * @module dsh-pet/runtime/electron-helper/sprite-backend
  */
@@ -27,35 +30,42 @@ const DECAY = 3;
 /** 拼一个皮肤资源地址（与宿主 /skin 路由同形）。 */
 const skinUrlOf = (root, rel) => BASE + '/skin/' + encodeURIComponent(root) + '/' + rel;
 
-/** 探测画布边长（px）与透明阈值：与浏览器 render/visual-top 同口径。 */
-const PROBE_PX = 64;
-const PROBE_ALPHA_MIN = 24;
+/**
+ * 取 core 里的可选探测函数；缺了就降级并告警一次。
+ *
+ * 为什么需要这道闸：`layered-core.js` 是构建产物（改 src 后要重跑 build:desktop-core），
+ * 页面可能加载到比本文件旧的核心。旧核心少一个函数时如果直接调用，挂载会抛错 → 舞台留空 →
+ * 用户看到的是「宠物窗口还在、画面全透明」。这里宁可少一层优化（整幅绘制 / 默认锚点），也要让画面出来。
+ *
+ * @param {string} name - 全局 PetLayered 上的函数名。
+ * @returns {Function|null} 拿到的函数；缺了返回 null。
+ */
+function optionalProbe(name) {
+  const core = window.PetLayered;
+  const fn = core ? core[name] : undefined;
+  if (typeof fn === 'function') return fn;
+  console.warn(
+    '[dsh-pet] layered-core.js 缺少 ' +
+      name +
+      '（核心比 sprite/backend.js 旧）：已降级为整幅绘制；' +
+      '改过 src/client/pet/render/layered 后请重跑 npm run build:desktop-core 再重启桌面 Helper',
+  );
+  return null;
+}
 
 /**
- * 量内容顶比例：把画面缩到 64×64 读一次像素，找最上方的不透明行。
+ * 取后备分辨率的计算函数（shared-core.js 的 renderPixelSide）；旧核心缺它时用等价的一行兜底。
  *
- * @param {(ctx: CanvasRenderingContext2D, w: number, h: number) => void} draw - 在探测画布上铺图的回调。
- * @returns {number|null} 内容顶比例（0~1）；整幅全透明或读不到像素时为 null。
+ * @returns {(css:number, native:number, dpr:number) => number} 计算函数。
  */
-function measureVisualTop(draw) {
-  const canvas = document.createElement('canvas');
-  canvas.width = PROBE_PX;
-  canvas.height = PROBE_PX;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return null;
-  try {
-    draw(ctx, PROBE_PX, PROBE_PX);
-    const data = ctx.getImageData(0, 0, PROBE_PX, PROBE_PX).data;
-    for (let y = 0; y < PROBE_PX; y++) {
-      for (let x = 0; x < PROBE_PX; x++) {
-        if (data[(y * PROBE_PX + x) * 4 + 3] >= PROBE_ALPHA_MIN) return (y + 0.5) / PROBE_PX;
-      }
-    }
-  } catch {
-    // 画布被污染 / getImageData 不可用：交给调用方保持默认锚点。
-    return null;
-  }
-  return null;
+function pixelSideOf() {
+  const fn = typeof S.renderPixelSide === 'function' ? S.renderPixelSide : null;
+  if (fn !== null) return fn;
+  console.warn('[dsh-pet] shared-core.js 缺少 renderPixelSide（核心比本文件旧）：按显示尺寸 × DPR 就地算');
+  return (css, native, dpr) => {
+    const scale = Number.isFinite(dpr) && dpr > 0 ? Math.min(dpr, 2) : 1;
+    return Math.max(1, Math.min(Math.round(native) || 1, Math.round(css * scale)));
+  };
 }
 
 /**
@@ -155,12 +165,14 @@ async function ensureLive2dRuntime() {
   return window.PIXI.live2d;
 }
 
-/** 画布舞台：宿主尺寸 = 宠物尺寸的正方形，底部对齐（与浏览器 layered/live2d 的画布口径一致）。 */
+/**
+ * 画布舞台：宿主尺寸 = 宠物尺寸的正方形，底部对齐（与浏览器 layered/live2d 的画布口径一致）。
+ *
+ * 只负责建节点与 CSS 尺寸；**后备分辨率**由 mountLayered 按显示尺寸与 DPR 设（见 setCanvasPixels）。
+ */
 function createCanvasHost(sprite, host) {
   const canvas = document.createElement('canvas');
   canvas.className = 'pet-visual-canvas';
-  canvas.width = sprite.size;
-  canvas.height = sprite.size;
   canvas.style.cssText =
     'position:absolute;left:50%;bottom:0;transform:translateX(-50%);' +
     'width:' +
@@ -170,6 +182,31 @@ function createCanvasHost(sprite, host) {
     'px;pointer-events:none;';
   host.appendChild(canvas);
   return canvas;
+}
+
+/**
+ * 设画布后备分辨率与绘制变换（与浏览器端 render/layered 的 applyCanvasPixels 同口径）。
+ *
+ * 内容坐标永远是清单的逻辑尺寸，所以绘制前给 ctx 设「后备边 / 原生边」的缩放；
+ * 后备边由 {@link pixelSideOf} 取到的计算函数夹在「显示尺寸 × DPR」与「素材原生边」之间。
+ * 只有像素边真的变了才重建画布（重建会清空内容并重置变换）。
+ *
+ * @param {HTMLCanvasElement} canvas - 画面画布。
+ * @param {CanvasRenderingContext2D} ctx - 它的 2d 上下文。
+ * @param {object} skin - 皮肤清单（读 canvas.w / canvas.h）。
+ * @param {number} size - 画框宽度（CSS px）。
+ * @param {(css:number, native:number, dpr:number) => number} sideOf - 后备边计算（见 pixelSideOf）。
+ * @returns {number} 本次的后备像素边。
+ */
+function setCanvasPixels(canvas, ctx, skin, size, sideOf) {
+  const side = sideOf(size, skin.canvas.w, window.devicePixelRatio || 1);
+  if (canvas.width !== side || canvas.height !== Math.max(1, Math.round((side * skin.canvas.h) / skin.canvas.w))) {
+    canvas.width = side;
+    canvas.height = Math.max(1, Math.round((side * skin.canvas.h) / skin.canvas.w));
+  }
+  const k = canvas.width / skin.canvas.w;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  return side;
 }
 
 /**
@@ -183,28 +220,44 @@ async function mountLayered(sprite, host, api) {
   const root = sprite.assetRoot;
   const { skin, base } = await loadLayeredManifest(root, sprite.pet.model);
   api.skin = skin;
+  // 探测能力可能缺（核心比本文件旧）：缺了就降级成整幅绘制 / 不量锚点，画面照常出来。
+  const measureBox = optionalProbe('measureLayerBox');
+  const measureTop = optionalProbe('measureVisualTopRatio');
+  const sideOf = pixelSideOf();
+  const boxOf = (image) => (measureBox === null ? null : measureBox(image, skin.canvas.w, skin.canvas.h));
+  // 每层领一次「不透明包围盒」（源像素）：之后每帧只采样这一块。实测一套 19 层 1024² 皮肤，
+  // 各层有效区域合计只有画布的 1.8 倍（平均 9.6%），整幅绘制等于白采样 20 个全幅位图。
   const layers = await Promise.all(
-    skin.layers.map(async (layer) => ({
-      role: layer.role,
-      group: layer.group,
-      image: await loadSkinImage(skinUrlOf(root, base + layer.file)),
-    })),
+    skin.layers.map(async (layer) => {
+      const image = await loadSkinImage(skinUrlOf(root, base + layer.file));
+      const box = boxOf(image);
+      return { role: layer.role, group: layer.group, image, ...(box === null ? {} : { box }) };
+    }),
   );
-  const openMouth =
-    skin.rig.mouth && skin.rig.mouth.open ? await loadSkinImage(skinUrlOf(root, base + skin.rig.mouth.open)) : null;
+  let openMouth = null;
+  if (skin.rig.mouth && skin.rig.mouth.open) {
+    const image = await loadSkinImage(skinUrlOf(root, base + skin.rig.mouth.open));
+    const box = boxOf(image);
+    openMouth = { image, ...(box === null ? {} : { box }) };
+  }
   if (api.destroyed) return;
 
   const canvas = createCanvasHost(sprite, host);
-  canvas.width = skin.canvas.w;
-  canvas.height = skin.canvas.h;
   const ctx = canvas.getContext('2d');
   if (ctx === null) throw new Error('canvas 2d 上下文不可用');
+  // 后备分辨率通常小于素材原生边（462 vs 1024）：要求高质量重采样，缩小时不糊边、不发锯齿。
+  ctx.imageSmoothingQuality = 'high';
+  // 后备分辨率跟随显示尺寸（尾随 DPR、上限素材原生边）：这是「拖动与动画都卡」的主因之一——
+  // 原先恒按 1024² 全幅绘制，显示在 462px 上等于多算 4.9 倍像素。
+  setCanvasPixels(canvas, ctx, skin, sprite.size, sideOf);
   // 量一次内容顶：方形皮肤的头顶在舞台顶以上，气泡贴着它才不会盖脸（见 shared/bubble-anchor）。
   applyBubbleAnchor(
     sprite,
-    measureVisualTop((probe, w, h) => {
-      for (const layer of layers) probe.drawImage(layer.image, 0, 0, w, h);
-    }),
+    measureTop === null
+      ? null
+      : measureTop((probe, w, h) => {
+          for (const layer of layers) probe.drawImage(layer.image, 0, 0, w, h);
+        }),
   );
 
   let tMs = 0;
@@ -222,11 +275,24 @@ async function mountLayered(sprite, host, api) {
   let mouthAction = false;
   let talk = false;
   let talkTimer = null;
+  /** 帧耗时统计（每 2s 写一次 window.__dshPetDebug.frameMs）：两次单调时钟读数的代价可以忽略，
+   *  而透明窗口没有 DevTools，「拖不动」只能靠日志里的这个数判断是绘制还是窗口移动的问题。 */
+  const debug = !!window.__dshPetDebug;
+  let frameSamples = 0;
+  let frameCostMs = 0;
+  let lastReportMs = lastMs;
+  /** 上次用的 DPR：跨屏移动会变，发现变化就重建后备画布（见 loop）。 */
+  let lastDpr = window.devicePixelRatio || 1;
   api.canvas = canvas;
 
   const loop = () => {
     if (api.destroyed) return;
     const now = performance.now();
+    // DPR 变了（拖到另一块屏 / 系统缩放变化）：按新密度重建后备画布，否则画面会糊或白烧像素。
+    if ((window.devicePixelRatio || 1) !== lastDpr) {
+      lastDpr = window.devicePixelRatio || 1;
+      setCanvasPixels(canvas, ctx, skin, sprite.size, sideOf);
+    }
     const dt = Math.min(0.1, Math.max(0, (now - lastMs) / 1000));
     lastMs = now;
     tMs += dt * 1000;
@@ -265,6 +331,17 @@ async function mountLayered(sprite, host, api) {
       jelly,
     };
     window.PetLayered.drawPoses(ctx, window.PetLayered.computePoses(skin, layers, openMouth, state));
+    if (debug) {
+      // 只统计「绘制本身」的耗时：它是这次优化唯一直接影响的量，窗口移动/合成不在里面。
+      frameCostMs += performance.now() - now;
+      frameSamples += 1;
+      if (now - lastReportMs >= 2000) {
+        window.__dshPetDebug.frameMs = Math.round((frameCostMs / Math.max(1, frameSamples)) * 100) / 100;
+        frameCostMs = 0;
+        frameSamples = 0;
+        lastReportMs = now;
+      }
+    }
     api.frame = requestAnimationFrame(loop);
   };
   loop();
@@ -381,7 +458,7 @@ async function mountLive2d(sprite, host, api) {
     antialias: true,
     autoDensity: true,
     resolution: Math.min(window.devicePixelRatio || 1, 2),
-    // 内容顶探测要在画完一帧后读回像素（见 measureVisualTop）：不保帧缓冲读到的会是空画面。
+    // 内容顶探测要在画完一帧后读回像素（见 measureVisualTopRatio）：不保帧缓冲读到的会是空画面。
     preserveDrawingBuffer: true,
   });
   cubism.Live2DModel.registerTicker(pixi.Ticker);
@@ -426,10 +503,13 @@ async function mountLive2d(sprite, host, api) {
   api.activeExpressions = () => overlay.active('expression');
   // 量一次内容顶：方形画布的头顶在舞台顶以上，气泡贴着它才不会盖脸（见 shared/bubble-anchor）。
   app.renderer.render(app.stage);
-  applyBubbleAnchor(
-    sprite,
-    measureVisualTop((probe, w, h) => probe.drawImage(app.view, 0, 0, w, h)),
-  );
+  {
+    const measureTop = optionalProbe('measureVisualTopRatio');
+    applyBubbleAnchor(
+      sprite,
+      measureTop === null ? null : measureTop((probe, w, h) => probe.drawImage(app.view, 0, 0, w, h)),
+    );
+  }
 
   /** 动作/外观文件缓存：同一条点第二次不必再发请求。 */
   const files = new Map();

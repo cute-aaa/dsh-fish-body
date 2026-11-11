@@ -7,6 +7,7 @@
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import type * as ReactNS from 'react';
 import type { jsx } from 'react/jsx-runtime';
+import { SIZE_MAX, SIZE_MIN, SIZE_STEP } from '../../shared/pet-size.ts';
 import type { SettingsRuntime } from './runtime.ts';
 
 /** 输入框与下拉框共用的类名。 */
@@ -89,6 +90,23 @@ export interface SettingsUiKit {
    * 高度过渡走 `grid-template-rows` 的 0fr→1fr，不猜 max-height——正文多长都能收干净。
    */
   foldCard: (options: FoldCardOptions) => ReturnType<typeof jsx>;
+  /**
+   * 画框宽度的滑块 + 数字框：范围是 {@link SIZE_MIN}~{@link SIZE_MAX}。
+   *
+   * 两个控件写同一个值——滑块给手感，数字框给精确输入（`size` 常常不是整十数，只有滑块够不着）。
+   * 越界值一律夹回区间：宿主 `/pet-size` 会拒收区间外的数字，不该让用户先存一次才发现。
+   *
+   * @param value - 当前生效宽度（px）。
+   * @param disabled - 保存中或配置未就绪。
+   * @param onChange - 提交新值（已夹取、已取整）。
+   * @param extra - 数字框自己的附加属性（如 aria-label）。
+   */
+  sizeControl: (
+    value: number,
+    disabled: boolean,
+    onChange: (value: number) => void,
+    extra?: ReactNS.JSX.IntrinsicElements['input'],
+  ) => ReturnType<typeof jsx>;
 }
 
 /**
@@ -195,5 +213,38 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>): SettingsUiKit {
           }),
         ],
       }),
+
+    sizeControl: (value, disabled, onChange, extra) => {
+      /** 夹回区间并取整：宿主只收区间内的整数像素。 */
+      const clamp = (raw: number): number =>
+        Number.isFinite(raw) ? Math.min(SIZE_MAX, Math.max(SIZE_MIN, Math.round(raw))) : SIZE_MIN;
+      return h('div', {
+        className: 'dsh-pet-cfg__sizeRow',
+        children: [
+          h('input', {
+            key: 'range',
+            type: 'range',
+            className: 'dsh-pet-cfg__range',
+            min: String(SIZE_MIN),
+            max: String(SIZE_MAX),
+            step: String(SIZE_STEP),
+            value: String(clamp(value)),
+            disabled,
+            'aria-label': String(extra?.['aria-label'] ?? ''),
+            onChange: (e: ChangeEvent<HTMLInputElement>) => onChange(clamp(Number(e.target.value))),
+          }),
+          h('input', {
+            key: 'num',
+            ...numberInputProps(clamp(value), (next) => onChange(clamp(next)), {
+              min: String(SIZE_MIN),
+              max: String(SIZE_MAX),
+              step: String(SIZE_STEP),
+              disabled,
+              ...extra,
+            }),
+          }),
+        ],
+      });
+    },
   };
 }

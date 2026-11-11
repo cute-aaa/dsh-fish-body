@@ -115,6 +115,10 @@ export interface Pet {
   /** 宠物固定：true = 随机链不抽转向与移动两档（权重按 0 算，份额并入原地小动作），只影响随机链——
    *  右键点播、/anim 接口、事件动画、点击回应与拖拽一律照常。缺失默认 false。 */
   fixedEnabled: boolean;
+  /** 鼠标穿透（可选，缺省 false）：true = 桌面端该宠物的透明窗整窗忽略鼠标，点击落到下层应用，
+   *  宠物只能看不能摸。**只作用于桌面端**——网页端 overlay 仍可拖拽。开启后该窗的右键菜单随之不可达，
+   *  出口是设置页的同一勾选框（或配置文件的这个字段）。 */
+  clickThrough?: boolean;
   /** 显示位置（必填）：缺失即配置错误，代码不做兜底 */
   display: PetDisplay;
   position: { corner: Corner; marginX: number; marginY: number };

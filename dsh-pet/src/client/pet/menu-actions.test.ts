@@ -81,6 +81,30 @@ describe('createMenuActions —— 内置动作', () => {
     actions.run({ label: '摸摸头', action: 'renderer-action' } as MenuLeaf);
     assert.deepEqual(calls, []);
   });
+
+  test('鼠标穿透：发给 /pet-click-through（目标值由叶子带下来）', async () => {
+    const urls: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: unknown) => {
+      urls.push(String(input));
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }) as typeof globalThis.fetch;
+    try {
+      harness().actions.run({ label: '鼠标穿透（开）', action: 'set-click-through', clickThrough: true } as MenuLeaf);
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      globalThis.fetch = original;
+    }
+    assert.equal(urls.length, 1, '一次点击只该发一次请求');
+    assert.ok((urls[0] ?? '').endsWith('/pet-click-through'), '应打到鼠标穿透端点：' + urls[0]);
+  });
+
+  test('鼠标穿透：缺目标值只告警，不发请求', () => {
+    const { actions, calls } = harness();
+    actions.run({ label: '鼠标穿透', action: 'set-click-through' } as MenuLeaf);
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0]?.startsWith('warn:'), '应留一条告警：' + JSON.stringify(calls));
+  });
 });
 
 describe('createMenuActions —— 点播动画', () => {

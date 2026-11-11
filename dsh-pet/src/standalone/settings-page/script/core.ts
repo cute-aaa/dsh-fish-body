@@ -20,6 +20,8 @@ export interface ScriptConsts {
   readonly corners: readonly string[];
   /** 渲染方式（来自 shared/config.ts）：设置页「按渲染方式的大小」三格读它。 */
   readonly renderers: readonly string[];
+  /** 画框宽度的滑块的上下限（来自 shared/pet-size 的 SIZE_MIN / SIZE_MAX）。 */
+  readonly sizeRange: { readonly min: number; readonly max: number };
   /** 物理默认值（来自 shared/physics）。 */
   readonly physics: unknown;
   /** 字体默认值（来自 shared/fonts.ts）。 */
@@ -45,6 +47,7 @@ const FONT_IDS = ${JSON.stringify(consts.fonts)};
 const DISPLAYS = ${JSON.stringify(consts.displays)};
 const CORNERS = ${JSON.stringify(consts.corners)};
 const RENDERERS = ${JSON.stringify(consts.renderers)};
+const SIZE_RANGE = ${JSON.stringify(consts.sizeRange)};
 const FALLBACK_PHYSICS = ${JSON.stringify(consts.physics)};
 const FALLBACK_FONT = ${JSON.stringify(consts.font)};
 const FALLBACK_WEIGHTS = ${JSON.stringify(consts.weights)};

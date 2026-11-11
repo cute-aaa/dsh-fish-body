@@ -88,6 +88,10 @@ input:hover,select:hover,textarea:hover{border-color:var(--dsw-static-neutral-bl
 input:disabled,select:disabled,textarea:disabled{background:var(--dsw-static-neutral-bluish-50);color:var(--dsw-alias-label-tertiary);cursor:not-allowed}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+/* 滑块行（画框大小等范围值）：滑块吃满剩余宽度，数字框定宽放右边做精确输入。 */
+.rangeRow{display:flex;align-items:center;gap:10px}
+.rangeRow input[type=range]{flex:1;min-width:0;height:28px;accent-color:var(--dsw-static-blue-500);cursor:pointer}
+.rangeRow input[type=number]{width:88px;flex:none}
 .rowCheck{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--dsw-alias-border-l1);cursor:pointer}
 .rowCheck:first-of-type{border-top:0}
 .rowCheck input{width:16px;height:16px;margin:3px 0 0;accent-color:var(--dsw-static-blue-500);flex:none}

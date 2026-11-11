@@ -60,8 +60,10 @@ export const es: Record<Key, string> = {
   atLeastOne: 'Debe quedar al menos una mascota.',
   emptyPets: 'Aún no hay mascotas; haz clic en "Agregar mascota" para crear una.',
   sizeLabel: 'Tamaño (ancho px)',
-  sizeHint: 'La altura es automática = ancho × 9/16.',
+  sizeHint:
+    'El control deslizante y la caja numérica escriben el mismo valor, 120–2048. La altura es automática = ancho × 9/16.',
   sizesOf: 'Tamaño para {renderer}',
+  sizeFollowDefault: 'Seguir el valor por defecto',
   sizePercentLabel: 'Ancho de pantalla máx. (%)',
   sizePercentHint:
     'Cuánto del ancho de pantalla puede ocupar la mascota: 100 = nunca más ancha que una pantalla (igual que px en ventanas anchas); 30–40 la hace claramente más pequeña en el móvil sin cambiar el escritorio. Se calcula una vez al cargar; recarga tras redimensionar.',
@@ -83,6 +85,9 @@ export const es: Record<Key, string> = {
   fixedEnabled: 'Fijar en el sitio',
   fixedEnabledHint:
     'Cuando está activado, la cadena aleatoria ya no gira ni aleja a esta mascota: solo se reproducen acciones de reposo y en el sitio. Las selecciones con clic derecho, los disparos por API y las animaciones de saldo / susurro / estado de trabajo no se ven afectados.',
+  clickThrough: 'Clic a través',
+  clickThroughHint:
+    'Cuando está activado, la ventana de escritorio de esta mascota ignora el ratón: los clics pasan a la aplicación de debajo y la mascota solo se puede mirar. Solo afecta al escritorio; la capa web sigue siendo arrastrable. Su menú de clic derecho deja de ser accesible, así que desmarca esta casilla para desactivarlo.',
   displayLabel: 'Visualización',
   displayHint: 'web = solo navegador / desktop = solo escritorio / both = ambos / none = ninguno',
   'display.web': 'Solo navegador',

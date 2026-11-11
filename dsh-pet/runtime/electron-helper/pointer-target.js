@@ -113,6 +113,21 @@ function decideWindowIgnore(bounds, point, ignoring, busy, offBodyMs = 0, input,
   return ignoring; // 余量区：保持（菜单/弹窗由 busy 覆盖）
 }
 
+/**
+ * 用户开了「鼠标穿透」时的最终裁定：穿透优先，任何通道都翻不回来。
+ *
+ * 常规判定（{@link decideWindowIgnore}）表达的是「宠物身上可交互」；穿透开关表达的是用户的明确意愿，
+ * 所以它压过判定结果。放在这里而不是散在主进程各通道里，是为了让两条通道（渲染端上报、兜底轮询）
+ * 与创建路径共用同一条规则，不出现「一条通道翻回来了」的半穿透状态。
+ *
+ * @param clickThrough - 该宠物的鼠标穿透开关（配置 pets[].clickThrough）。
+ * @param ignore - 常规通道算出的穿透状态。
+ * @returns 最终要写进窗口的穿透状态。
+ */
+function forcedIgnore(clickThrough, ignore) {
+  return clickThrough === true ? true : ignore === true;
+}
+
 module.exports = {
   HIT_BOX,
   CANVAS_H,
@@ -123,4 +138,5 @@ module.exports = {
   spriteHitRect,
   pointerZone,
   decideWindowIgnore,
+  forcedIgnore,
 };

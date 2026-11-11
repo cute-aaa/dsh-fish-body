@@ -5,9 +5,12 @@
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import { parseSkinManifest, type SkinManifest } from './types.ts';
-import { computePoses, hitTest, type LoadedLayer, type RigState } from './rig.ts';
+import { computePoses, drawPoses, hitTest, type LoadedLayer, type RigState } from './rig.ts';
+import type { LayerPose } from './rig.ts';
 
 /** 一张假图（只作占位，不进 drawPoses）。 */
 const IMG = {} as CanvasImageSource;
@@ -79,7 +82,7 @@ describe('computePoses —— 姿态折出', () => {
   test('姿态数与层数一致；张嘴素材在嘴层之后插入', () => {
     const s = skinOf();
     const layers = [layer('tail'), layer('mouth', 'head'), layer('hair.front', 'head')];
-    const poses = computePoses(s, layers, IMG, { ...REST, mouth: 1 });
+    const poses = computePoses(s, layers, { image: IMG }, { ...REST, mouth: 1 });
     // 3 层 + 1 张嘴 = 4；张嘴排在基础嘴之后、hair.front 之前。
     assert.equal(poses.length, 4);
     assert.ok(poses[1].alpha <= 0.003, '基础嘴在张嘴时应淡出');
@@ -108,6 +111,107 @@ describe('computePoses —— 姿态折出', () => {
     assert.equal(poses[0].pivotX, 720);
     assert.equal(poses[0].pivotY, 660);
   });
+});
+
+describe('drawPoses —— 只画有效子矩形，清屏在设备空间', () => {
+  /** 一次调用记录。 */
+  interface Call {
+    readonly op: string;
+    readonly args: readonly unknown[];
+  }
+
+  /** 假 ctx：只实现 drawPoses / drawPose 用到的接口，把每次调用记下来供断言。 */
+  function fakeCtx(): { ctx: CanvasRenderingContext2D; calls: Call[] } {
+    const calls: Call[] = [];
+    const record =
+      (op: string) =>
+      (...args: unknown[]): void => {
+        calls.push({ op, args });
+      };
+    const raw = {
+      canvas: { width: 462, height: 462 },
+      save: record('save'),
+      restore: record('restore'),
+      setTransform: record('setTransform'),
+      clearRect: record('clearRect'),
+      translate: record('translate'),
+      rotate: record('rotate'),
+      scale: record('scale'),
+      drawImage: record('drawImage'),
+      globalAlpha: 1,
+    };
+    return { ctx: raw as unknown as CanvasRenderingContext2D, calls };
+  }
+
+  /** 一层姿态：只有 box 与绘图相关的字段有意义。 */
+  const pose = (over: Partial<LayerPose> = {}): LayerPose => ({
+    image: IMG,
+    pivotX: 0,
+    pivotY: 0,
+    dx: 0,
+    dy: 0,
+    rot: 0,
+    sx: 1,
+    sy: 1,
+    alpha: 1,
+    ...over,
+  });
+
+  test('有包围盒：drawImage 走 9 参子矩形，源矩形与目标矩形同坐标', () => {
+    const { ctx, calls } = fakeCtx();
+    drawPoses(ctx, [pose({ pivotX: 512, pivotY: 1024, box: { x: 100, y: 200, w: 30, h: 40 } })]);
+    const draws = calls.filter((c) => c.op === 'drawImage');
+    assert.equal(draws.length, 1);
+    assert.deepEqual(draws[0]?.args, [IMG, 100, 200, 30, 40, 100, 200, 30, 40]);
+  });
+
+  test('没有包围盒：退回整幅（3 参 drawImage），视觉零回归', () => {
+    const { ctx, calls } = fakeCtx();
+    drawPoses(ctx, [pose()]);
+    const draws = calls.filter((c) => c.op === 'drawImage');
+    assert.deepEqual(draws[0]?.args, [IMG, 0, 0]);
+  });
+
+  test('清屏前把变换重置成单位矩阵：渲染侧的缩放变换不会把 clearRect 也放大', () => {
+    const { ctx, calls } = fakeCtx();
+    drawPoses(ctx, []);
+    assert.deepEqual(
+      calls.map((c) => c.op),
+      ['save', 'setTransform', 'clearRect', 'restore'],
+    );
+    assert.deepEqual(calls[1]?.args, [1, 0, 0, 1, 0, 0]);
+    assert.deepEqual(calls[2]?.args, [0, 0, 462, 462]);
+  });
+});
+
+describe('layered-core.js —— 产物与源码同步（桌面 Helper 的守卫）', () => {
+  /** 经典 script 产物：运行时由 index.html 加载成 window.PetLayered（.gitignore 内的构建产物）。 */
+  const corePath = fileURLToPath(new URL('../../../../../runtime/electron-helper/layered-core.js', import.meta.url));
+
+  test(
+    '构建产物必须导出桌面端用到的全部入口（改完 layered/ 记得重跑 build:desktop-core）',
+    { skip: existsSync(corePath) ? false : '尚未构建（npm run build:desktop-core）' },
+    () => {
+      const code = readFileSync(corePath, 'utf8');
+      // 桌面端 backend.js 直接读这些全局：产物比源码旧时少一个，运行期就是「宠物窗在、画面全透明」。
+      for (const name of [
+        'parseSkinManifest',
+        'computePoses',
+        'drawPoses',
+        'hitTest',
+        'assemblyActionOf',
+        'alphaBoxOf',
+        'boxToSource',
+        'measureLayerBox',
+        'measureVisualTopRatio',
+      ]) {
+        assert.ok(
+          code.includes('exports.' + name + ' ='),
+          '产物缺少导出 ' + name + '：请重跑 npm run build:desktop-core',
+        );
+      }
+    },
+  );
 });
 
 describe('hitTest —— 命中判定', () => {

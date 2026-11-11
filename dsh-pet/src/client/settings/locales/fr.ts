@@ -59,8 +59,10 @@ export const fr: Record<Key, string> = {
   atLeastOne: 'Gardez au moins un compagnon.',
   emptyPets: "Aucun compagnon pour l'instant — cliquez sur « Ajouter un compagnon » pour en créer un.",
   sizeLabel: 'Taille (largeur px)',
-  sizeHint: 'La hauteur est automatique = largeur × 9/16.',
+  sizeHint:
+    'Le curseur et le champ numérique écrivent la même valeur, 120–2048. La hauteur est automatique = largeur × 9/16.',
   sizesOf: 'Taille pour {renderer}',
+  sizeFollowDefault: 'Suivre la valeur par défaut',
   sizePercentLabel: 'Largeur d’écran max (%)',
   sizePercentHint:
     'Part de la largeur d’écran que le pet peut occuper : 100 = jamais plus large qu’un écran (identique au px sur une fenêtre large) ; 30–40 le rend nettement plus petit sur téléphone sans changer le bureau. Calculé une fois au chargement ; rechargez après redimensionnement.',
@@ -82,6 +84,9 @@ export const fr: Record<Key, string> = {
   fixedEnabled: 'Compagnon fixe',
   fixedEnabledHint:
     "Une fois activé, la chaîne aléatoire ne fait plus se retourner ni s'éloigner le compagnon — seules les actions sur place sont jouées. Les déclenchements par menu contextuel et par API, ainsi que les animations solde / murmure / état de travail, ne sont pas affectés.",
+  clickThrough: 'Clic traversant',
+  clickThroughHint:
+    "Une fois activé, la fenêtre de bureau de ce compagnon ignore entièrement la souris : les clics passent à l'application en dessous et le compagnon ne peut plus être manipulé. Uniquement sur le bureau — la superposition web reste déplaçable. Le menu contextuel devient alors inaccessible : décochez cette case pour le désactiver.",
   displayLabel: 'Affichage',
   displayHint: 'web = navigateur seul / desktop = bureau seul / both = les deux / none = aucun',
   'display.web': 'Navigateur seul',

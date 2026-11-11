@@ -272,6 +272,8 @@ Object.assign(PetSprite.prototype, {
    * 与 setInteractive 的分工：后者表达光标在不在身体上，本方法表达我有没有在用输入（优先级更高）。
    */
   syncInputBusy() {
+    // 鼠标穿透：本窗收不到鼠标输入，也就没有「正在用输入」可言；上报只会让主进程白算一遍。
+    if (this.clickThrough === true) return;
     this.syncInputRegions();
     const busy = this.inputBusy();
     if (busy === this._inputBusy) return;
@@ -311,11 +313,41 @@ Object.assign(PetSprite.prototype, {
   },
 
   setInteractive(flag) {
+    // 鼠标穿透：主进程已把整窗钉在穿透态，渲染端不再参与裁定（上报也会被 forcedIgnore 压回去）。
+    if (this.clickThrough === true) return;
     const next = !!flag;
     if (next === this._interactive) return; // 只在状态变化时发 IPC，避免逐帧刷屏
     this._interactive = next;
     window.__dshPetDebug.interactive = next;
     if (window.petBridge) window.petBridge.setInteractive(next);
+  },
+
+  /**
+   * 应用「鼠标穿透」开关（菜单切换、启动落位、主进程回推共用）。
+   *
+   * 开：先收掉窗内浮层（菜单/提示靠窗口级鼠标事件驱动，窗一穿就再也点不到），再把目标值上报主进程
+   * ——它会强制整窗穿透并回推最终值。关：只清掉本端标记并恢复常规上报，窗口交还兜底轮询判定，
+   * 不主动翻成可交互（否则启动落位那一次「关」会让透明大窗先挡一下鼠标）。
+   *
+   * @param {boolean} on - 是否穿透。
+   * @param {{persist?: boolean, notify?: boolean}} [options] - persist = 写回配置（菜单切换）；
+   *   notify = 是否上报主进程（主进程回推时为 false，避免回声）。
+   */
+  applyClickThrough(on, options) {
+    const value = on === true;
+    const opts = options || {};
+    this.clickThrough = value;
+    this._interactive = null; // 之后重新参与判定时，下一次上报必须真的发出去
+    if (value) {
+      this.setTip(false);
+      this.closeMenu();
+    }
+    if (opts.notify !== false && window.petBridge && window.petBridge.setClickThrough) {
+      window.petBridge.setClickThrough(value);
+    }
+    if (!value) this.syncInputBusy();
+    if (opts.persist === true) this.postConfig({ kind: 'click-through', value }, '鼠标穿透');
+    window.__dshPetDebug.clickThrough = value;
   },
 
   /**
@@ -325,6 +357,8 @@ Object.assign(PetSprite.prototype, {
    * 光标离开身体时 pointerleave 未必派发，提示会赖在屏幕上不走；几何判定与穿透翻转同源才只有一种口径。
    */
   onMouseMove(e) {
+    // 鼠标穿透：窗恒穿透，悬停/提示/可交互判定都没有意义（这里的 mousemove 只是 forward 转发）。
+    if (this.clickThrough === true) return;
     // 拖拽态下所有按键已松开：说明 pointerup/pointercancel/lostpointercapture 全丢了，
     // 就地按松手收尾，否则 dragState.active 与 inputBusy 永久为 true（穿透永不恢复）。
     if (this.dragState.active && e.buttons === 0) {

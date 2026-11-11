@@ -100,6 +100,9 @@ Object.assign(PetSprite.prototype, {
     this.lastPressAt = 0;
     this._interactive = null; // 已上报的可交互状态（setInteractive 去重用）
     this._inputBusy = null; // 已上报的"正在用输入"状态（syncInputBusy 去重用）
+    // 鼠标穿透（pets[].clickThrough）：true = 本窗恒穿透，点击落到下层应用。只在 B 端有意义，
+    // 所以是桌面专属字段；bindEvents 末尾按这个初值上报，并在主进程回推时就地同步。
+    this.clickThrough = this.pet.clickThrough === true;
     // 拖拽抛掷物理（纯计算在 shared）：弹簧跟随包围盒左上角，松手按指针轨迹估速 → 抛掷
     this.dragTrail = []; // 指针轨迹采样（screenX/Y + performance.now()，初速估算用）
     this.dragTarget = null;
@@ -329,6 +332,16 @@ Object.assign(PetSprite.prototype, {
     );
 
     this.subscribeCollision();
+
+    // 鼠标穿透：主进程是唯一裁定方（唯一出口 setWindowIgnore），渲染端只上报目标值并跟随回推。
+    // 托盘/设置页改动时主进程会把最终值发回来，这里就地同步（关了就重新参与命中判定）。
+    if (window.petBridge && window.petBridge.onClickThrough) {
+      window.petBridge.onClickThrough((on) => {
+        this.applyClickThrough(on === true, { persist: false, notify: false });
+      });
+    }
+    // 启动落位：配置说穿透就先把窗按住（建窗默认已是穿透，这一步只是把镜像对齐）。
+    this.applyClickThrough(this.clickThrough === true, { persist: false });
   },
 
   /**

@@ -900,6 +900,51 @@ describe('配置合并与保存 —— sizes（按渲染方式的画框宽度）
   });
 });
 
+describe('配置合并与保存 —— clickThrough（桌面端鼠标穿透）', () => {
+  const petAt = (merged: Record<string, Record<string, unknown>>): Record<string, unknown> =>
+    (merged.main.pets as Record<string, unknown>[])[0];
+
+  test('缺省不落键（消费端读 `=== true`）；写 true 才带出来', () => {
+    assert.equal('clickThrough' in petAt(readAllConfig(withBase({}))), false);
+    assert.equal(
+      'clickThrough' in petAt(readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], clickThrough: false }] }))),
+      false,
+      '显式 false 与缺省同义，不该在成品里凭空多一行',
+    );
+    assert.equal(
+      petAt(readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], clickThrough: true }] }))).clickThrough,
+      true,
+    );
+  });
+
+  test('非法值告警后忽略（按不穿透处理）', () => {
+    assert.equal(
+      'clickThrough' in petAt(readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], clickThrough: 'yes' }] }))),
+      false,
+    );
+  });
+
+  test('saveUserConfig：只在 true 时落键，false 等于删键（配置不长赘余字段）', () => {
+    const on = saveOnce({ pets: [{ ...PETS[0], clickThrough: true }] });
+    assert.equal((on?.pets as Record<string, unknown>[])[0].clickThrough, true);
+    const off = saveOnce({ pets: [{ ...PETS[0], clickThrough: false }] });
+    assert.equal('clickThrough' in (off?.pets as Record<string, unknown>[])[0], false);
+    assert.equal('clickThrough' in (saveOnce({ pets: PETS })?.pets as Record<string, unknown>[])[0], false);
+  });
+
+  test('非布尔整包拒绝（不静默丢掉用户输入）', () => {
+    for (const bad of ['true', 1, null]) {
+      assert.equal(saveOnce({ pets: [{ ...PETS[0], clickThrough: bad }] }), null, String(bad) + ' 应被拒');
+    }
+  });
+
+  test('合并结果直接喂回 save：clickThrough 往返不丢', () => {
+    const merged = readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], clickThrough: true }] }));
+    const layerPets = merged.main.pets as Record<string, unknown>[];
+    assert.equal((saveOnce({ pets: layerPets })?.pets as Record<string, unknown>[])[0].clickThrough, true);
+  });
+});
+
 describe('saveUserConfig —— 物理参数 physics（白名单 + 透传保留）', () => {
   const PHYS: Record<string, unknown> = BASE.physics;
 

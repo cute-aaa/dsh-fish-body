@@ -5,6 +5,7 @@
  * @module dsh-pet/src/client/pet/render/layered/rig
  */
 import type { SkinManifest } from './types.ts';
+import type { AlphaBox } from './probe.ts';
 
 /** 运行时姿态：呼吸 / 摇摆 / 眨眼 / 视线 / 嘴 / 尾巴 / 弹跳 / 挤压。 */
 export interface RigState {
@@ -32,6 +33,9 @@ export interface LoadedLayer {
   readonly role: string;
   readonly group: 'body' | 'head';
   readonly image: CanvasImageSource;
+  /** 该层不透明像素的包围盒（源像素，见 probe 的 `measureLayerBox`）：绘制时只采样这一块。
+   *  缺省 = 没有探测结果（读不到像素），按整幅绘制，画面等价、只是少了裁剪收益。 */
+  readonly box?: AlphaBox;
 }
 
 /** 一层的最终姿态。 */
@@ -45,6 +49,8 @@ export interface LayerPose {
   readonly sx: number;
   readonly sy: number;
   readonly alpha: number;
+  /** 只画这一块（源像素坐标）；缺省 = 整幅。 */
+  readonly box?: AlphaBox;
 }
 
 /** 该眼睛的眨眼位移（px）：数字两侧同，对象左右各自取 y。 */
@@ -56,19 +62,25 @@ function blinkOffset(skin: SkinManifest, role: string): number {
   return 0;
 }
 
+/** 一张独立的装配素材（张嘴层）：与普通图层同形，只是不参与清单顺序。 */
+export interface MouthLayer {
+  readonly image: CanvasImageSource;
+  readonly box?: AlphaBox;
+}
+
 /**
  * 折出全部层（含张嘴素材）的姿态。
  *
  * @param skin - 皮肤清单。
  * @param layers - 已解码图层（按 manifest 顺序）。
- * @param openMouth - 张嘴素材；`null` = 没有张嘴层。
+ * @param openMouth - 张嘴素材（带包围盒，与普通层同形）；`null` = 没有张嘴层。
  * @param s - 运行时姿态。
  * @returns 按绘制顺序的姿态列表。
  */
 export function computePoses(
   skin: SkinManifest,
   layers: readonly LoadedLayer[],
-  openMouth: CanvasImageSource | null,
+  openMouth: MouthLayer | null,
   s: RigState,
 ): LayerPose[] {
   const W = skin.canvas.w;
@@ -140,14 +152,25 @@ export function computePoses(
       }
     }
 
-    poses.push({ image: layer.image, pivotX, pivotY, dx, dy, rot, sx, sy, alpha });
+    poses.push({
+      image: layer.image,
+      pivotX,
+      pivotY,
+      dx,
+      dy,
+      rot,
+      sx,
+      sy,
+      alpha,
+      ...(layer.box ? { box: layer.box } : {}),
+    });
 
     // 张嘴素材：紧接基础嘴层之后画（rest=closed 且配了 open 时）。
     if (layer.role === 'mouth' && openMouth !== null && rig.mouth?.rest === 'closed' && s.mouth > 0) {
       const mp = rig.mouth.openPivot ?? [pivotX, pivotY];
       const off = rig.mouth.openOffset ?? [0, 0];
       poses.push({
-        image: openMouth,
+        image: openMouth.image,
         pivotX: mp[0],
         pivotY: mp[1],
         dx: dx + off[0],
@@ -156,13 +179,14 @@ export function computePoses(
         sx,
         sy,
         alpha: s.mouth,
+        ...(openMouth.box ? { box: openMouth.box } : {}),
       });
     }
   }
   return poses;
 }
 
-/** 应用一次变换并画一层。 */
+/** 应用一次变换并画一层（有包围盒时只采样那一块，坐标与整幅绘制完全等价）。 */
 function drawPose(ctx: CanvasRenderingContext2D, pose: LayerPose): void {
   if (pose.alpha <= 0.003) return;
   ctx.save();
@@ -171,13 +195,23 @@ function drawPose(ctx: CanvasRenderingContext2D, pose: LayerPose): void {
   if (pose.rot !== 0) ctx.rotate(pose.rot);
   if (pose.sx !== 1 || pose.sy !== 1) ctx.scale(pose.sx, pose.sy);
   ctx.translate(-pose.pivotX, -pose.pivotY);
-  ctx.drawImage(pose.image, 0, 0);
+  const box = pose.box;
+  if (box === undefined) ctx.drawImage(pose.image, 0, 0);
+  else ctx.drawImage(pose.image, box.x, box.y, box.w, box.h, box.x, box.y, box.w, box.h);
   ctx.restore();
 }
 
-/** 按姿态列表画整帧。 */
+/**
+ * 按姿态列表画整帧。
+ *
+ * 清屏必须在**设备空间**做：渲染侧会给 ctx 设一个「后备分辨率 / 素材原生边」的缩放变换
+ * （见 render/layered 的画布尺寸逻辑），带着那个变换 clearRect 会把清除范围也放大。
+ */
 export function drawPoses(ctx: CanvasRenderingContext2D, poses: readonly LayerPose[]): void {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.restore();
   for (const pose of poses) drawPose(ctx, pose);
 }
 

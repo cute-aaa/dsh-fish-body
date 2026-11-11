@@ -135,6 +135,14 @@ function registerIpc({ ipcMain, petWindows, shell, openTarget, petRoute }) {
     petWindows.state.inputBusy.set(win.id, !!busy);
   });
 
+  // 鼠标穿透开关：渲染端在菜单切换与启动落位时上报目标值。唯一出口仍是 windows.setClickThrough
+  // ——它写每窗口镜像、强制整窗穿透，并把最终值广播回渲染端（托盘/设置页改动时渲染端据此同步）。
+  ipcMain.on('pet:click-through', (event, on) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return;
+    petWindows.setClickThrough(win, on === true);
+  });
+
   ipcMain.on('pet:input-regions', (event, input) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed() || !input || !Array.isArray(input.rects)) return;

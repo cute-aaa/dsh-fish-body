@@ -21,6 +21,10 @@ export const SIZE_MIN = 120;
 /** 画框宽度上限（px）：4096 纹理的 live2d 再往上纯属浪费显存，桌面窗口也铺不满。 */
 export const SIZE_MAX = 2048;
 
+/** 尺寸滑块的步长（px）：取 1 而不是 10——`size` 常是 462 这类非整十数，
+ *  步长 10 会让「拖回基准值 = 删掉按渲染方式的覆盖」这条规则永远做不到。 */
+export const SIZE_STEP = 1;
+
 /**
  * 百分比是否可用：必须是有限数字，且不小于下限。
  *
@@ -74,6 +78,33 @@ function sizeOverrideOf(sizes: unknown, renderer: unknown): number | undefined {
   const perRenderer = sizes as RenderSizes | undefined;
   const own = perRenderer?.[renderer as RendererKind];
   return isValidSize(own) ? own : undefined;
+}
+
+/**
+ * 画布后备分辨率的像素上限倍数：与 live2d 的 `resolution` 同一口径（`min(dpr, 2)`）。
+ * 超过 2 倍没有肉眼收益，只是把每帧像素数再翻一倍。
+ */
+export const DPR_CAP = 2;
+
+/**
+ * 画布后端（layered，以及将来任何按素材原生画布绘制的后端）该用多大的后备像素边。
+ *
+ * 三条约束一次夹掉：
+ * 1. **跟随显示尺寸与 DPR**：CSS 宽 462 的宠物在 DPR 1 下画 462²，而不是素材的 1024²
+ *    （整幅绘制的像素量差 4.9 倍，实测就是「拖动和动画都卡」的主因之一）；
+ * 2. **不超过素材原生边**：原生 1024² 的图放大到 2000² 不会有更多细节，只是白烧一次全幅采样；
+ * 3. **至少 1 像素**：画布边为 0 会让 `getContext`/`drawImage` 直接失效。
+ *
+ * @param cssSize - 画框宽度（CSS px，已按渲染方式解析过）。
+ * @param nativeSide - 素材画布的原生边（清单 `canvas.w`，方形）。
+ * @param dpr - `window.devicePixelRatio`；非法值按 1 处理。
+ * @returns 后备画布的边长（px，整数）。
+ */
+export function renderPixelSide(cssSize: number, nativeSide: number, dpr: number): number {
+  const css = Number.isFinite(cssSize) && cssSize > 0 ? cssSize : SIZE_MIN;
+  const native = Number.isFinite(nativeSide) && nativeSide > 0 ? Math.round(nativeSide) : Math.round(css);
+  const scale = Number.isFinite(dpr) && dpr > 0 ? Math.min(dpr, DPR_CAP) : 1;
+  return Math.max(1, Math.min(native, Math.round(css * scale)));
 }
 
 /**

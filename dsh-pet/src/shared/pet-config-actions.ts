@@ -1,5 +1,5 @@
 /**
- * 「改这只宠物的配置」的五个写入口，两端共用一份：请求形状、失败判据与回执解析都只写一次。
+ * 「改这只宠物的配置」的几个写入口，两端共用一份：请求形状、失败判据与回执解析都只写一次。
  *
  * 为什么值得共用：网页端（`client/pet/menu-actions.ts`）与桌面端（`runtime/electron-helper/sprite/menu.js`）
  * 原先各写一遍同样的 `fetch(BASE + '/pet-xxx')`，只有「失败怎么提示」不同——那种重复最容易漂移
@@ -18,6 +18,7 @@ export type PetConfigIntent =
   | { readonly kind: 'renderer'; readonly renderer: RendererKind }
   | { readonly kind: 'model'; readonly model: string }
   | { readonly kind: 'size'; readonly size?: number }
+  | { readonly kind: 'click-through'; readonly value: boolean }
   | { readonly kind: 'provider-voice'; readonly provider: string; readonly voice: string };
 
 /** 写配置的结论：失败带一句人话，成功时按端点带上成品聚合或 provider 状态。 */
@@ -43,6 +44,9 @@ function requestOf(petId: string, intent: PetConfigIntent): { path: string; body
     case 'size':
       // undefined 是合法输入：语义是「删掉这个渲染方式的覆盖」，所以显式写 null。
       return { path: '/pet-size', body: { id: petId, size: intent.size === undefined ? null : intent.size } };
+    case 'click-through':
+      // 是否穿透是布尔，没有「缺省」语义：调用方每次都给出目标值（与 display/renderer 同形）。
+      return { path: '/pet-click-through', body: { id: petId, value: intent.value } };
     case 'provider-voice':
       return { path: '/voice/provider-voice', body: { provider: intent.provider, voice: intent.voice } };
   }

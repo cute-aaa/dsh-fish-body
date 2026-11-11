@@ -73,6 +73,7 @@ function probe(): Probe {
       displays: [],
       corners: [],
       renderers: [],
+      sizeRange: { min: 120, max: 2048 },
       physics: {},
       font: {},
       weights: { idle: 10, turn: 5, move: 5 },

@@ -167,6 +167,10 @@ function mergePet(
     whisperEnabled: petBool(p.whisperEnabled, base.whisperEnabled, label, 'whisperEnabled', id),
     workStatusEnabled: petBool(p.workStatusEnabled, base.workStatusEnabled, label, 'workStatusEnabled', id),
     fixedEnabled: petBool(p.fixedEnabled, base.fixedEnabled, label, 'fixedEnabled', id),
+    // 鼠标穿透（桌面端整窗忽略鼠标）：与 sizes / model 同口径——只在真的写了 true 时落键，
+    // 缺省（或 false）都不出现。消费端一律读 `=== true`，不回填这个键的理由见 petPersonaField：
+    // 补一个显式值会让「跟随缺省」固化成覆盖，也会让「同步后的成品 = 没有用户层」这条不变量破掉。
+    ...petClickThroughField(p.clickThrough, label, id),
     display: petEnum(p.display, PET_DISPLAY_SET, base.display, label, 'display', id),
     // 渲染后端（可选）：缺省 / 非法都取默认 webm（base.renderer 缺失时兜 webm，兼容旧配置）。
     renderer: petEnum(p.renderer, RENDERER_SET, base.renderer ?? 'webm', label, 'renderer', id),
@@ -185,6 +189,25 @@ function mergePet(
     // 按渲染方式覆盖的画框宽度（可选）：缺键/非法都不落键，渲染侧回落 pets[].size。
     ...petSizesField(p.sizes, label, id),
   };
+}
+
+/**
+ * 实例级鼠标穿透的合并：只有真的写了 `true` 才带出该键，`false`/缺省都不出现。
+ *
+ * 与 `sizes` / `model` 同口径（不是 `balanceEnabled` 那种「恒有」字段）：这个开关的缺省值就是
+ * 「不穿透」，补一个显式 false 只会让配置凭空多一行，并让「没有用户层」与「同步出用户层」
+ * 两份成品的 deepEqual 不成立。消费端一律读 `pet.clickThrough === true`。
+ *
+ * @param own - 磁盘上的原始值（可能未定义）。
+ * @param label - 告警里的条目名。
+ * @param id - 告警里的宠物 id。
+ * @returns 该键的片段（`{}` = 不落键）。
+ */
+function petClickThroughField(own: unknown, label: string, id: string): { clickThrough?: boolean } {
+  if (own === true) return { clickThrough: true };
+  if (own === false || own === undefined || own === null) return {};
+  warnOnce(`${label}:clickThrough:${id}`, `宠物「${id}」的 clickThrough 非法（应为布尔），已忽略（按不穿透处理）`);
+  return {};
 }
 
 /**

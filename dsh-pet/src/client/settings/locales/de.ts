@@ -58,8 +58,9 @@ export const de: Record<Key, string> = {
   atLeastOne: 'Mindestens ein Pet muss erhalten bleiben.',
   emptyPets: 'Noch keine Pets – auf „Pet hinzufügen" klicken, um eines zu erstellen.',
   sizeLabel: 'Größe (Breite px)',
-  sizeHint: 'Höhe automatisch = Breite × 9/16.',
+  sizeHint: 'Schieberegler und Zahlenfeld schreiben denselben Wert, 120–2048. Höhe automatisch = Breite × 9/16.',
   sizesOf: 'Größe für {renderer}',
+  sizeFollowDefault: 'Standard folgen',
   sizePercentLabel: 'Max. Bildschirmbreite (%)',
   sizePercentHint:
     'Wie viel der Bildschirmbreite der Pet höchstens einnimmt: 100 = nie breiter als ein Bildschirm (bei breiten Fenstern identisch mit px); 30–40 macht ihn auf dem Handy deutlich kleiner, ohne den Desktop zu verändern. Wird beim Laden einmal berechnet; nach Größenänderung neu laden.',
@@ -81,6 +82,9 @@ export const de: Record<Key, string> = {
   fixedEnabled: 'Pet fixieren',
   fixedEnabledHint:
     'Wenn aktiv, dreht sich das Pet bei Zufallsanimationen nicht mehr selbst um und läuft nicht weg – es spielt nur Leerlauf und kleine Aktionen am Platz. Rechtsklick-Auswahl, API-Auslöser sowie Guthaben-/Flüstern-/Arbeitsstatus-Animationen sind nicht betroffen.',
+  clickThrough: 'Mausdurchlässig',
+  clickThroughHint:
+    'Wenn aktiv, ignoriert das Desktop-Fenster dieses Pets die Maus vollständig: Klicks gehen an die Anwendung darunter, das Pet ist nur noch sichtbar. Gilt nur für den Desktop – die Web-Ebene bleibt ziehbar. Das Rechtsklick-Menü ist danach nicht mehr erreichbar; zum Ausschalten hier den Haken entfernen.',
   displayLabel: 'Anzeige',
   displayHint: 'web = nur Browser / desktop = nur Desktop / both = beides / none = nichts',
   'display.web': 'Nur Browser',

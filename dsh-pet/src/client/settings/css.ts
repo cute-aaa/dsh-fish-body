@@ -73,9 +73,16 @@ const SETTINGS_CSS = [
   '.dsh-pet-cfg__grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 16px;align-items:end}',
   '.dsh-pet-cfg__grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px;align-items:end}',
   '.dsh-pet-cfg__grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;align-items:end}',
-  // 音量滑块：原生 range 在各家 Chromium 里外观差很多，只统一轨道高度与强调色。
+  // 音量/尺寸滑块：原生 range 在各家 Chromium 里外观差很多，只统一轨道高度与强调色。
   '.dsh-pet-cfg__range{width:100%;height:28px;accent-color:var(--dsw-alias-button-info-fill);cursor:pointer}',
   '.dsh-pet-cfg__range:disabled{cursor:default;opacity:.5}',
+  // 画框大小：滑块吃满剩余宽度，数字框定宽放右边做精确输入（462 这类值滑块对不准）。
+  '.dsh-pet-cfg__sizeRow{display:flex;align-items:center;gap:10px;min-width:0}',
+  // range 自带宽 100%，在 flex 行里会和定宽数字框抢空间：这里让它吃剩余宽度且允许收缩。
+  '.dsh-pet-cfg__sizeRow>.dsh-pet-cfg__range{flex:1;min-width:0;width:auto}',
+  '.dsh-pet-cfg__sizeRow>input[type=number]{width:92px;flex:none}',
+  '.dsh-pet-cfg__sizeCell{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}',
+  '.dsh-pet-cfg__sizeCell>.dsh-pet-cfg__sizeRow{flex:1;min-width:0}',
 
   '@container (max-width:600px){.dsh-pet-cfg__grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}',
   '@container (max-width:400px){.dsh-pet-cfg__grid2,.dsh-pet-cfg__grid3,.dsh-pet-cfg__grid4{grid-template-columns:minmax(0,1fr)}}',

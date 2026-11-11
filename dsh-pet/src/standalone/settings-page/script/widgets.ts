@@ -50,6 +50,34 @@ function numberField(id, label, value, onChange, opts) {
   return fieldRow(id, label, input, opts && opts.hint);
 }
 
+/**
+ * 滑块 + 数字框：范围类数值（画框大小、音量档位）用它。
+ *
+ * 两个控件写同一个值：拖滑块给即时手感，数字框给精确输入；两侧互相同步后再回调，
+ * 所以外部只需要一个 onChange。clampNumber 在文件末尾，函数声明提升，这里可以先用。
+ */
+function rangeField(id, label, value, onChange, opts) {
+  const min = opts && opts.min !== undefined ? opts.min : 0;
+  const max = opts && opts.max !== undefined ? opts.max : 100;
+  const step = opts && opts.step !== undefined ? opts.step : 1;
+  const range = make('input', { type: 'range', id: id, min: String(min), max: String(max), step: String(step), value: String(value), class: 'range' });
+  const box = make('input', { type: 'number', min: String(min), max: String(max), step: String(step), value: String(value), class: 'rangeValue' });
+  const apply = (next, from) => {
+    const parsed = clampNumber(next, min, max, min);
+    if (from !== 'range') range.value = String(parsed);
+    if (from !== 'box') box.value = String(parsed);
+    onChange(parsed);
+    markDirty(true);
+  };
+  range.addEventListener('input', () => apply(range.value, 'range'));
+  box.addEventListener('input', () => { if (box.value === '') return; apply(box.value, 'box'); });
+  if (opts && opts.disabled) {
+    range.disabled = true;
+    box.disabled = true;
+  }
+  return fieldRow(id, label, make('div', { class: 'rangeRow' }, [range, box]), opts && opts.hint);
+}
+
 function selectField(id, label, value, options, onChange, hint) {
   const select = createSelect(options, value, (picked) => {
     onChange(picked);

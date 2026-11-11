@@ -80,6 +80,9 @@ export function saveUserConfig(
     // 传了必须是布尔，没传则走下面的读取侧默认值（内置默认 false = 不固定）。
     const fixedEnabled = pp.fixedEnabled;
     if (fixedEnabled !== undefined && typeof fixedEnabled !== 'boolean') return null;
+    // 鼠标穿透（可选，桌面端）：只认布尔；只在 true 时落键——关掉等于删键，配置里不凭空多一行 false。
+    const clickThrough = pp.clickThrough;
+    if (clickThrough !== undefined && typeof clickThrough !== 'boolean') return null;
     const display = String(pp.display ?? '');
     if (!PET_DISPLAY_SET.has(display)) return null;
     // 渲染后端（可选）：缺省按 webm；显式写了必须是白名单内的值，否则整包 400。
@@ -122,6 +125,7 @@ export function saveUserConfig(
     };
     if (persona) pet.whisperPrompt = persona;
     if (model) pet.model = model;
+    if (clickThrough === true) pet.clickThrough = true;
     if (sizes) pet.sizes = sizes;
     if (sizePercent !== undefined && sizePercent !== null) pet.sizePercent = sizePercent;
     out.push(pet);

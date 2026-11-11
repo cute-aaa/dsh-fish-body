@@ -56,8 +56,9 @@ export const zh = {
   atLeastOne: '至少保留一个宠物。',
   emptyPets: '暂无宠物，点击「添加宠物」创建。',
   sizeLabel: '大小（宽度 px）',
-  sizeHint: '高度自动 = 宽度 × 9/16。',
+  sizeHint: '滑块与数字框写的是同一个值，范围 120~2048；高度自动 = 宽度 × 9/16。',
   sizesOf: '大小（{renderer}）',
+  sizeFollowDefault: '跟随默认',
   sizePercentLabel: '屏幕宽度上限（%）',
   sizePercentHint:
     '桌宠最多占屏幕多宽：100 = 不超过一屏宽，窗口比宠物宽时与按 px 显示完全一致；填 30–40 可让手机竖屏明显变小，桌面观感不变。只在页面加载时计算一次，改窗口大小后刷新生效。',
@@ -77,6 +78,9 @@ export const zh = {
   fixedEnabled: '宠物固定',
   fixedEnabledHint:
     '启用后随机动画不再让宠物自己转向或走开，只播原地待机与随机小动作；右键菜单点播、接口触发、余额/碎碎念/工作状态动画不受影响。',
+  clickThrough: '鼠标穿透',
+  clickThroughHint:
+    '开启后这只宠物的桌面窗口整窗忽略鼠标：点击直接落到下层应用，宠物只能看不能摸。仅影响桌面端，网页端仍可拖拽。开启后窗内的右键菜单也点不到了（这正是它的用途），要关掉请回到本页取消勾选。',
   displayLabel: '显示位置',
   displayHint: 'web=仅浏览器 / desktop=仅桌面 / both=两者都显示 / none=都不显示',
   'display.web': '仅浏览器',

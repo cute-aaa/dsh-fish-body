@@ -8,7 +8,7 @@
 import type { ChangeEvent } from 'react';
 import type { Corner, Pet, PetDisplay, RendererKind } from '../../shared/types.ts';
 import { PET_DISPLAYS, RENDERERS } from '../../shared/config.ts';
-import { SIZE_MAX, SIZE_MIN, SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
+import { SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit, numberInputProps } from './ui.ts';
 import { makeSelect } from './panel/select.ts';
@@ -99,12 +99,12 @@ export function makePetAvatarCell(rt: Pick<SettingsRuntime, 'h' | 't'>) {
  */
 export function makePetIdentityFields(rt: SettingsRuntime) {
   const { h, t } = rt;
-  const { field } = makeUiKit({ h, t });
+  const { field, sizeControl } = makeUiKit({ h, t });
   const Select = makeSelect(rt);
 
-  /** 宠物数值输入（大小）；宽度交给栅格。 */
+  /** 宠物画框大小：滑块（SIZE_MIN~SIZE_MAX）+ 数字框，两处写同一个值。 */
   const sizeInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
-    h('input', numberInputProps(value, setter, { step: '10', min: '120', disabled }));
+    sizeControl(value, disabled, setter, { 'aria-label': t('sizeLabel') });
 
   /** 百分比输入：默认 20；不设上限（超过 100 只在 size 也够大时才生效）。 */
   const percentInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
@@ -177,30 +177,41 @@ export function makePetIdentityFields(rt: SettingsRuntime) {
  */
 export function makePetSizeFields(rt: Pick<SettingsRuntime, 'h' | 't'>) {
   const { h, t } = rt;
-  const { field } = makeUiKit({ h, t });
+  const { field, sizeControl } = makeUiKit({ h, t });
 
   /**
-   * 单格：显示该渲染方式当前生效的宽度；填成与 `size` 相同（或 0）= 删掉覆盖，回落 `size`。
+   * 单格：滑块显示该渲染方式当前生效的宽度；拖成与 `size` 相同、或点「跟随默认」= 删掉覆盖。
    *
-   * 不另做「空值」状态：数字输入框的空串会被 numberInputProps 当成「放弃编辑」，
-   * 用「等于基准值即删除」既看得见当前生效值，也不会让配置文件里多一条同值覆盖。
+   * 为什么要那个按钮：滑块能给手感，却很难精准落回基准值（462 这类数字不是整十数），
+   * 而「等于基准值即删除」的规则又不该逼用户去数字框里对齐——两个入口，一条规则。
    */
   const cell = (props: PetFieldsProps, renderer: RendererKind) => {
     const base = props.pet.size;
+    const own = props.pet.sizes?.[renderer];
+    const write = (v: number): void => {
+      const next = { ...(props.pet.sizes ?? {}) };
+      if (v === base || v <= 0) delete next[renderer];
+      else next[renderer] = v;
+      props.onChange({ sizes: next });
+    };
+    const label = t('sizesOf').replace('{renderer}', t('renderer.' + renderer));
     return field(
-      t('sizesOf').replace('{renderer}', t('renderer.' + renderer)),
-      h('input', {
-        ...numberInputProps(
-          props.pet.sizes?.[renderer] ?? base,
-          (v) => {
-            const next = { ...(props.pet.sizes ?? {}) };
-            if (v === base || v <= 0) delete next[renderer];
-            else next[renderer] = v;
-            props.onChange({ sizes: next });
-          },
-          { step: '10', min: String(SIZE_MIN), max: String(SIZE_MAX), disabled: props.busy },
-        ),
-        'aria-label': t('sizesOf').replace('{renderer}', t('renderer.' + renderer)),
+      label,
+      h('div', {
+        className: 'dsh-pet-cfg__sizeCell',
+        children: [
+          sizeControl(own ?? base, props.busy, write, { 'aria-label': label }),
+          own === undefined
+            ? null
+            : h('button', {
+                key: 'follow',
+                type: 'button',
+                className: 'dsh-pet-cfg__btn is-sm',
+                disabled: props.busy,
+                onClick: () => write(base),
+                children: t('sizeFollowDefault'),
+              }),
+        ],
       }),
     );
   };

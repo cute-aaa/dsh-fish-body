@@ -26,6 +26,8 @@ describe('isSleepAllowedAction —— 睡着时仍然放行的动作', () => {
     for (const action of ['sleep', 'wake', 'home', 'set-display', 'reload', 'reload-plugin', 'third-party']) {
       assert.equal(isSleepAllowedAction(action), true, action + ' 应放行');
     }
+    // 鼠标穿透是窗口属性、不改宠物状态：睡着时也要能开/关，否则「点了没反应」会被当成 bug。
+    assert.equal(isSleepAllowedAction('set-click-through'), true);
   });
 
   test('打扰类一律不放行（对话 / 碎碎念 / 余额 / 待办 / 动作点播）', () => {

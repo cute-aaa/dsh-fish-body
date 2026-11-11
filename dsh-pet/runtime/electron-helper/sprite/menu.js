@@ -97,8 +97,16 @@ Object.assign(PetSprite.prototype, {
       );
       if (accessory) tools.push(accessory);
     }
-    // 动作树之后是维护类：显示位置 → 重载配置 → 回到初始位置。
+    // 动作树之后是维护类：鼠标穿透 → 显示位置 → 重载配置 → 回到初始位置。
     const tail = [
+      // 鼠标穿透：切的是 pets[].clickThrough，点了立刻生效（不重建窗口）并写回配置。
+      // 开了以后本窗就点不到了（这正是它的用途），所以文案直接把状态写出来，并提示出口在设置页。
+      {
+        label: this.clickThrough ? '鼠标穿透（开）' : '鼠标穿透（关）',
+        action: 'set-click-through',
+        clickThrough: this.clickThrough !== true,
+        hint: '设置页可关',
+      },
       // 显示位置（仅网页/仅桌面/两者/都不）：改这只宠物的 display 配置，由宿主重载生效。
       // 与浏览器端注入同一份子菜单，两端文案与取值不会漂移。不就地开关窗：窗口是进程启动时按
       // DSH_PET_PETS 一次性建的，就地增删既改不了磁盘配置也改不了窗口数量。
@@ -215,6 +223,11 @@ Object.assign(PetSprite.prototype, {
     if (leaf.action === 'set-size') {
       // 改当前渲染方式的画框宽度：宿主写盘后重启 Helper 重建窗口；size 缺省 = 删掉覆盖
       this.setPetSize(leaf.size);
+      return;
+    }
+    if (leaf.action === 'set-click-through') {
+      // 鼠标穿透：目标值由叶子带下来（当前值只有渲染端知道）；立即生效 + 写回配置，不重建窗口。
+      this.applyClickThrough(leaf.clickThrough === true, { persist: true });
       return;
     }
     if (leaf.action === 'set-provider-voice') {

@@ -2042,6 +2042,49 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
+  /dsh-pet-7340/pet-click-through:
+    post:
+      tags: [Config]
+      operationId: setPetClickThrough
+      summary: 改单只宠物的鼠标穿透（桌面端整窗忽略鼠标）
+      description: |
+        按宠物 id 写 `pets[].clickThrough`（布尔；`false` = 删掉该键，回落缺省的可交互），
+        返回改动后的成品聚合。
+
+        语义与生效方式：
+
+        - **只作用于桌面端**：`true` = 该宠物的透明窗整窗 `setIgnoreMouseEvents(true)`，
+          点击落到下层应用，宠物只能看不能摸。网页端 overlay 仍可拖拽。
+        - **不重启桌面 Helper**：穿透是运行期可即时翻转的窗口属性，重启会把全部宠物窗口重建、
+          跳回配置角落。桌面端由渲染端经 bridge 立即生效；下一次启动按本字段落位。
+        - **出口在设置页**：开启后该窗的右键菜单随之不可达（这正是它的用途），关掉要走设置页的
+          同一勾选框，或手改配置文件。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, value]
+              properties:
+                id:
+                  type: string
+                  description: 宠物实例 id（合并后全局唯一）
+                value:
+                  type: boolean
+                  description: 目标值；`false` = 删掉该键（回到缺省的可交互）
+      responses:
+        "200":
+          description: 改动后的成品聚合；失败时是 JSON 失败实体（ok 为 false）
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: 请求体不是 JSON 对象（`invalid-json`）。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
   /dsh-pet-7340/pet-config:
     post:
       tags: [Config]
@@ -2059,8 +2102,8 @@ paths:
 
         - **整段替换**：`pets` 必须是该条目的**全部实例**，漏传一只等于把它删掉。
         - **白名单重建 + 透传保留**：实例只保留 `id`/`name`/`size`/`sizePercent`/`balanceEnabled`/
-          `whisperEnabled`/`workStatusEnabled`/`fixedEnabled`/`display`/`position`/`whisperPrompt`；
-          该文件顶层的 `animations`/`animationWeights`/`whisperPrompt`/`memes` 等原样保留。
+          `whisperEnabled`/`workStatusEnabled`/`fixedEnabled`/`clickThrough`/`display`/`position`/
+          `whisperPrompt`；该文件顶层的 `animations`/`animationWeights`/`whisperPrompt`/`memes` 等原样保留。
         - **不接受全局字段**：`notificationsEnabled`/`physics`/`font`/`whisperModel` 等即使传了
           也不写这一层——全局字段只归 `main`，经 `PUT /config` 写。
         - **`entry: "main"` 被拒绝**：main 层还要带全局字段，必须走 `PUT /config`。

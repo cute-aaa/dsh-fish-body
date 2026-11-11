@@ -31,7 +31,7 @@ DSH 设置 → 「桌宠配置」：
 ]
 ```
 
-- 每只宠物：`id`（标识）／`size`（宽度 px）／`sizePercent`（可选，屏幕宽度百分比 1–100；写了就按窗口宽收口、`size` 作上限）／`sizes`（可选，按渲染方式覆盖宽度：`{ "webm": 500, "layered": 620, "live2d": 620 }`，缺键回落 `size`；三种素材的人物占框比例不同，右键「大小」写的就是它）／`renderer`（可选，`webm`/`layered`/`live2d`）／`model`（可选，live2d 的 `.model3.json` 路径或 layered 的皮肤 id）／`balanceEnabled`（是否启用余额功能，必填布尔）／`display`（web/desktop/both/none，必填，见上）／`position`（corner 四角之一 + marginX/marginY 边距）
+- 每只宠物：`id`（标识）／`size`（宽度 px）／`sizePercent`（可选，屏幕宽度百分比 1–100；写了就按窗口宽收口、`size` 作上限）／`sizes`（可选，按渲染方式覆盖宽度：`{ "webm": 500, "layered": 620, "live2d": 620 }`，缺键回落 `size`；三种素材的人物占框比例不同，右键「大小」写的就是它）／`clickThrough`（可选，`true` = 桌面端这只宠物的窗口整窗忽略鼠标、点击落到下层应用；仅桌面端生效，开启后窗内右键菜单点不到，出口是设置页的同一勾选框）／`renderer`（可选，`webm`/`layered`/`live2d`）／`model`（可选，live2d 的 `.model3.json` 路径或 layered 的皮肤 id）／`balanceEnabled`（是否启用余额功能，必填布尔）／`display`（web/desktop/both/none，必填，见上）／`position`（corner 四角之一 + marginX/marginY 边距）
 - 余额刷新周期：`eventsRefreshSec.balance`（秒）——余额数据刷新与余额动画触发的间隔，启动时立即触发一次，之后按此周期循环（默认 1800）
 - 设置页的修改保存到用户层 `$DSH_HOME/dsh-pet/main-config.jsonc`（**完整宠物列表**，覆盖包内默认）；「同步」把包内 `config.jsonc` 原文整份写入该文件（等价于回落默认，但文件保留下来、可直接编辑）
 
