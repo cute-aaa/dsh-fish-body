@@ -76,6 +76,11 @@ contextBridge.exposeInMainWorld('petBridge', {
   onPetHit(cb) {
     ipcRenderer.on('pet:hit', (e, payload) => cb(payload));
   },
+  // 托盘下发的渲染端命令（目前只有 'home'：回到初始位置）。托盘在主进程，拿不到渲染端的
+  // 会话位置与拖拽状态，复位只能交给渲染端自己做。
+  onCommand(cb) {
+    ipcRenderer.on('pet:command', (e, name) => cb(name));
+  },
   // 显示器热更新：分辨率/缩放变化、插拔屏、旋转后主进程重算并推来桌面几何（屏幕坐标），
   // 渲染端就地重挂视口与边界。
   onDisplays(cb) {

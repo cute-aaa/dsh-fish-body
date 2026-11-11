@@ -49,5 +49,22 @@ export async function handleDesktopRoutes(deps: PetRouteDeps, input: RouteInput)
     return okResult({ ok: true });
   }
 
+  // 托盘「退出」（DSH 宿主内没有 shutdownApp）：停掉桌面 Helper 本身，宿主不再拉起——
+  // 直到下一次配置写入（保存设置 / 重载配置）或重启插件。与 /quit 的区别：不退出 DSH 应用。
+  if (rest === 'desktop/stop') {
+    if (method !== 'POST') return methodNotAllowed();
+    const stop = deps.stopHelper;
+    if (typeof stop !== 'function') return failResult('unsupported', '宿主未提供桌面助手管理能力');
+    // 不 await：本进程就是发起者，停掉自己后响应不保证送达（与 /reload 同一处境）。
+    setImmediate(() => {
+      try {
+        stop('tray-quit');
+      } catch (e: unknown) {
+        log.warn(`[dsh-pet] 托盘停止桌面助手失败：${e instanceof Error ? e.message : String(e)}`);
+      }
+    });
+    return okResult({ ok: true, stopping: true });
+  }
+
   return undefined;
 }

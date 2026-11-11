@@ -142,6 +142,18 @@ if (window.petBridge && window.petBridge.onDisplays) {
   });
 }
 
+// 托盘命令：目前只有「回到初始位置」。托盘在主进程，不知道会话位置与拖拽状态，所以复位由这里做
+// （与右键菜单「回到初始位置」同一条 goHome）。拖拽/飞行中不打断：那会把人手里的宠物直接拽走。
+if (window.petBridge && window.petBridge.onCommand) {
+  window.petBridge.onCommand((name) => {
+    if (name !== 'home') return;
+    for (const s of sprites) {
+      if (s.dragState.active || s.throwRef !== null) continue;
+      s.goHome();
+    }
+  });
+}
+
 // 窗口内容区尺寸异常时按当前位置重新规整。
 // 守卫：拖拽/飞行/漫游中绝不重设位置——这三种状态下位置由输入或物理驱动，而 position() 会把
 // 宠物拉回 customPos。跨屏时 Windows 会因 WM_DPICHANGED 主动改窗口尺寸，不设防就会看到宠物跳回上一个落点。

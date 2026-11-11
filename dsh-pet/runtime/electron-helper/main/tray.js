@@ -9,6 +9,18 @@
 
 const path = require('node:path');
 
+/** 显示位置取值与文案：与 shared/menu/tree.ts 的 DISPLAY_LABELS 必须一致（主进程拿不到 shared-core）。 */
+const DISPLAY_ORDER = ['web', 'desktop', 'both', 'none'];
+const DISPLAY_LABELS = { web: '仅网页', desktop: '仅桌面', both: '两者', none: '都不' };
+
+/** 音量档位：托盘只给这几档，精确值仍可在设置页的滑块上调。 */
+const VOLUME_STEPS = [0, 0.25, 0.5, 0.75, 1];
+
+/** 档位文案：0 写「静音」，其余写百分比（与设置页滑块的读数同单位）。 */
+function volumeLabel(value) {
+  return value === 0 ? '静音' : Math.round(value * 100) + '%';
+}
+
 /**
  * 造托盘能力。
  *
@@ -36,6 +48,7 @@ function createTray({
   petRoute,
   platform,
   helperDir,
+  petWindows,
 }) {
   const isDesktopDisplay = (display) => display === 'desktop' || display === 'both';
 
@@ -44,12 +57,41 @@ function createTray({
     display === 'both' ? 'web' : display === 'web' ? 'both' : display === 'desktop' ? 'none' : 'desktop';
 
   let tray = null;
+  /** 托盘「隐藏宠物」的当前状态：只影响窗口显隐，不动配置（下一次重建进程会回到「显示」）。 */
+  let hidden = false;
 
   /** 写回某只宠物的 display：宿主写完配置会重启本进程，响应可能永远不回（同 sprite.js 的 setPetDisplay） */
   function traySetPetDisplay(id, display) {
     hostRequest('POST', petRoute + '/pet-display', JSON.stringify({ id, display })).catch((e) => {
       console.error('[dsh-pet-desktop-helper] tray pet-display failed:', String(e && e.message ? e.message : e));
     });
+  }
+
+  /**
+   * 写播放音量（全局 0–1）。这条**不会**重启 Helper：音量是播放端增益，写盘后广播 config 即可；
+   * 写完顺手刷新一次菜单，让新档位打上勾。
+   */
+  function traySetVolume(volume) {
+    hostRequest('POST', petRoute + '/voice/volume', JSON.stringify({ volume }))
+      .then(() => refreshTray())
+      .catch((e) => {
+        console.error('[dsh-pet-desktop-helper] tray voice volume failed:', String(e && e.message ? e.message : e));
+      });
+  }
+
+  /** 托盘里的维护动作：两个都会把本进程换掉（重载配置 / 重新组合插件），所以不 await、不重试。 */
+  function trayPost(route, label) {
+    hostRequest('POST', petRoute + route).catch((e) => {
+      console.error('[dsh-pet-desktop-helper] tray ' + label + ' failed:', String(e && e.message ? e.message : e));
+    });
+  }
+
+  /** 「隐藏宠物 / 显示宠物」：整批窗口 hide/showInactive，改的是显隐不是配置。 */
+  function toggleHidden() {
+    if (!petWindows || typeof petWindows.setHidden !== 'function') return;
+    hidden = !hidden;
+    petWindows.setHidden(hidden);
+    void refreshTray();
   }
 
   /** 托盘图标：包内 logo 缩到 16×16（macOS 要模板图，否则深色菜单栏下看不见） */
@@ -107,16 +149,41 @@ function createTray({
       .filter((pet) => pet.id);
     if (!pets.length) return null; // 配置里没有任何宠物：没有可切换的对象，不建托盘
     const canQuit = await canQuitSelf();
+    // 当前音量：读成品配置的 main.voiceVolume（缺省 1 = 满音量，与 shared/voice.ts 的 clamp 口径一致）。
+    const rawVolume = merged && merged.main ? merged.main.voiceVolume : undefined;
+    const currentVolume = typeof rawVolume === 'number' && Number.isFinite(rawVolume) ? rawVolume : 1;
+
+    /**
+     * 托盘「退出」：能退出整个应用就退出，否则只结束桌面助手。
+     *
+     * BRIDGE 模式下不能自己 app.quit()——宿主会按崩溃退避重启，点了只是闪一下；
+     * 所以走宿主：有 shutdownApp 就 POST /quit（整个应用退出），没有就 POST /desktop/stop
+     * （只停桌面助手，DSH 继续跑，直到下次配置写入或重启插件）。
+     */
     const quitApp = () => {
       if (!isBridge || appMode) {
         app.quit();
         return;
       }
-      // 交给宿主停机：它会先停本进程再退，所以这条请求不用等结果
-      hostRequest('POST', petRoute + '/quit').catch((e) => {
-        console.error('[dsh-pet-desktop-helper] tray quit failed:', String(e && e.message ? e.message : e));
-      });
+      trayPost(canQuit ? '/quit' : '/desktop/stop', 'quit');
     };
+
+    /** 每只宠物的四个显示位置（单宠物时摊平，多宠物时每只一层，与动作树的摊平口径一致）。 */
+    const displayItems = (pet) =>
+      DISPLAY_ORDER.map((display) => ({
+        label: DISPLAY_LABELS[display],
+        type: 'radio',
+        checked: pet.display === display,
+        click: () => traySetPetDisplay(pet.id, display),
+      }));
+    const displayMenu =
+      pets.length === 1
+        ? displayItems(pets[0])
+        : pets.map((pet) => ({
+            label: pet.name || pet.id,
+            submenu: displayItems(pet),
+          }));
+
     return Menu.buildFromTemplate([
       ...pets.map((pet) => ({
         label: pet.name || pet.id,
@@ -124,7 +191,32 @@ function createTray({
         checked: isDesktopDisplay(pet.display),
         click: () => traySetPetDisplay(pet.id, toggleDisplay(pet.display)),
       })),
-      ...(canQuit ? [{ type: 'separator' }, { label: '退出', click: quitApp }] : []),
+      { type: 'separator' },
+      // 显示位置：右键菜单那一项的四选一，这里对全部宠物（或逐只）生效。
+      { label: '显示位置', submenu: displayMenu },
+      // 音量：写 voiceVolume，不重启进程；当前档位打勾（不在档位上的精确值四项都不勾）。
+      {
+        label: '音量',
+        submenu: VOLUME_STEPS.map((value) => ({
+          label: volumeLabel(value),
+          type: 'radio',
+          checked: Math.abs(currentVolume - value) < 0.001,
+          click: () => traySetVolume(value),
+        })),
+      },
+      { label: hidden ? '显示宠物' : '隐藏宠物', click: toggleHidden },
+      { type: 'separator' },
+      { label: '重载配置', click: () => trayPost('/reload', 'reload') },
+      { label: '重启插件', click: () => trayPost('/plugin-restart', 'plugin-restart') },
+      // 回到初始位置：位置状态在渲染端（会话位置 + 拖拽），托盘只能发命令让它自己复位。
+      {
+        label: '回到初始位置',
+        click: () => {
+          if (petWindows && typeof petWindows.broadcastCommand === 'function') petWindows.broadcastCommand('home');
+        },
+      },
+      { type: 'separator' },
+      { label: '退出', click: quitApp },
     ]);
   }
 

@@ -390,6 +390,36 @@ function createWindows({
     }
   }
 
+  /**
+   * 托盘「隐藏宠物 / 显示宠物」：整批窗口 hide/showInactive。
+   *
+   * 用 showInactive 而不是 show：桌宠不该因为从托盘里喊回来就抢走当前窗口的焦点。
+   * 隐藏的是窗口不是配置——display 一个字节都不动，所以「显示宠物」只是把同一批窗口放出来。
+   */
+  function setHidden(hidden) {
+    for (const win of windows.values()) {
+      if (win.isDestroyed()) continue;
+      try {
+        if (hidden) win.hide();
+        else win.showInactive();
+      } catch (e) {
+        console.error('[dsh-pet-desktop-helper] window hide/show failed:', String(e && e.message ? e.message : e));
+      }
+    }
+  }
+
+  /**
+   * 给全部宠物窗口发一条渲染端命令（目前只有 `home` = 回到初始位置）。
+   *
+   * 托盘在主进程里，拿不到渲染端的会话位置与拖拽状态；位置复位必须由渲染端自己做（goHome）。
+   */
+  function broadcastCommand(name) {
+    for (const win of windows.values()) {
+      if (win.isDestroyed()) continue;
+      win.webContents.send('pet:command', name);
+    }
+  }
+
   return {
     state: { windows, lastRequestedBounds, winMargins, windowIgnore, inputBusy, inputRegions, offBodyMs, petStates },
     create: createPetWindows,
@@ -400,6 +430,8 @@ function createWindows({
     broadcastPetStates,
     keepOffTaskbar,
     stopTaskbarWatchdog,
+    setHidden,
+    broadcastCommand,
     setPointerFallbackPaused: (paused) => {
       pointerFallbackPaused = paused;
     },

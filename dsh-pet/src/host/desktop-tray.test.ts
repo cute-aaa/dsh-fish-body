@@ -1,8 +1,9 @@
 /**
  * 桌面托盘的行为契约（runtime/electron-helper/main/tray.js）。
  *
- * 三条行为必须成立：勾选来自配置、点一下写回相反的一档、退出项按运行形态决定自己退还是交给宿主。
- * 依赖全由调用方注入（含 Electron 的 Tray/Menu/nativeImage），所以这里不需要真的 Electron。
+ * 必须成立：勾选来自配置、点一下写回相反的一档；显示位置/音量/隐藏/重载/重启/复位/退出都在菜单里，
+ * 且各自打到该打的端点或 IPC 命令（退出按运行形态决定自己退、交给宿主退、还是只停桌面助手）。
+ * 依赖全由调用方注入（含 Electron 的 Tray/Menu/nativeImage 与 petWindows），所以不需要真的 Electron。
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,21 +25,24 @@ interface MenuItem {
   type?: string;
   checked?: boolean;
   click?: () => void;
+  submenu?: MenuItem[];
 }
 
 const { createTray } = createRequire(import.meta.url)('../../runtime/electron-helper/main/tray.js') as TrayModule;
 
-/** 造一套假依赖：记录宿主请求、菜单模板与退出调用。 */
+/** 造一套假依赖：记录宿主请求、菜单模板、退出调用与窗口命令。 */
 function harness(options: {
   appMode?: boolean;
   isBridge?: boolean;
   canQuit?: boolean;
+  volume?: number;
   pets?: Array<Record<string, unknown>>;
 }) {
   const requests: string[] = [];
   const bodies: string[] = [];
   const quits: string[] = [];
   const menus: MenuItem[][] = [];
+  const windowCalls: string[] = [];
 
   class FakeTray {
     setToolTip(): void {}
@@ -61,7 +65,12 @@ function harness(options: {
       requests.push(method + ' ' + url);
       if (body !== undefined) bodies.push(body);
       if (url.endsWith('/config')) {
-        return { status: 200, body: JSON.stringify({ main: { pets: options.pets ?? [] } }) };
+        return {
+          status: 200,
+          body: JSON.stringify({
+            main: { pets: options.pets ?? [], voiceVolume: options.volume ?? 1 },
+          }),
+        };
       }
       if (url.endsWith('/quit')) {
         return { status: 200, body: JSON.stringify({ canQuit: options.canQuit === true }) };
@@ -74,10 +83,14 @@ function harness(options: {
     petRoute: '/dsh-pet-7340',
     platform: { templateImage: false, leftClickPopsMenu: false },
     helperDir: '.',
+    petWindows: {
+      setHidden: (hidden: boolean) => windowCalls.push('hidden=' + String(hidden)),
+      broadcastCommand: (name: string) => windowCalls.push('cmd=' + name),
+    },
   };
 
   const tray = createTray(deps);
-  return { tray, requests, bodies, quits, menus };
+  return { tray, requests, bodies, quits, menus, windowCalls };
 }
 
 /** 取最后一次构建出来的菜单模板。 */
@@ -158,17 +171,117 @@ describe('createTray —— 退出项的分支', () => {
     assert.ok(requests.includes('POST /dsh-pet-7340/quit'), '必须把退出请求交给宿主');
   });
 
-  test('bridge 且宿主不允许：不出现退出项', async () => {
-    const { tray, menus } = harness({
+  test('bridge 且宿主不允许退出应用：退出项仍在，只停桌面助手', async () => {
+    const { tray, menus, requests } = harness({
       isBridge: true,
       canQuit: false,
       pets: [{ label: 'a', id: 'a', display: 'both' }],
     });
     await tray.start();
+    const quit = lastMenu(menus).find((item) => item.label === '退出');
+    assert.ok(quit?.click, 'DSH 宿主内也要有退出入口（只结束桌面侧）');
+    quit.click();
+    assert.ok(requests.includes('POST /dsh-pet-7340/desktop/stop'), '应停桌面助手而不是退出 DSH');
     assert.equal(
-      lastMenu(menus).some((item) => item.label === '退出'),
+      requests.some((request) => request === 'POST /dsh-pet-7340/quit'),
       false,
+      '宿主没有退出能力时不该去请求 POST /quit（GET 探能力那条不算）',
     );
+  });
+});
+
+describe('createTray —— 显示位置 / 音量 / 隐藏 / 维护项', () => {
+  /** 取一级菜单里的某一项。 */
+  const item = (menus: MenuItem[][], label: string): MenuItem | undefined =>
+    lastMenu(menus).find((entry) => entry.label === label);
+
+  test('显示位置：单宠物时摊平成四项，当前值打勾，点一下写回', async () => {
+    const { tray, menus, requests, bodies } = harness({ pets: [{ id: 'main', display: 'desktop' }] });
+    await tray.start();
+    const branch = item(menus, '显示位置');
+    assert.ok(branch?.submenu, '托盘要有「显示位置」');
+    assert.deepEqual(
+      branch.submenu.map((entry) => entry.label),
+      ['仅网页', '仅桌面', '两者', '都不'],
+    );
+    assert.deepEqual(
+      branch.submenu.map((entry) => entry.checked),
+      [false, true, false, false],
+      '当前 display=desktop 应勾在「仅桌面」',
+    );
+    branch.submenu[0]?.click?.();
+    assert.ok(requests.includes('POST /dsh-pet-7340/pet-display'));
+    assert.deepEqual(JSON.parse(bodies[0] ?? '{}'), { id: 'main', display: 'web' });
+  });
+
+  test('显示位置：多宠物时每只一层子菜单', async () => {
+    const { tray, menus } = harness({
+      pets: [
+        { id: 'a', name: '甲', display: 'web' },
+        { id: 'b', name: '乙', display: 'desktop' },
+      ],
+    });
+    await tray.start();
+    const branch = item(menus, '显示位置');
+    assert.ok(branch?.submenu);
+    assert.deepEqual(
+      branch.submenu.map((entry) => entry.label),
+      ['甲', '乙'],
+    );
+    assert.equal(branch.submenu[0]?.submenu?.[0]?.label, '仅网页');
+  });
+
+  test('音量：五档、当前值打勾，点一下写 voiceVolume 并刷新菜单', async () => {
+    const { tray, menus, requests, bodies } = harness({
+      volume: 0.5,
+      pets: [{ id: 'main', display: 'desktop' }],
+    });
+    await tray.start();
+    const branch = item(menus, '音量');
+    assert.ok(branch?.submenu);
+    assert.deepEqual(
+      branch.submenu.map((entry) => entry.label),
+      ['静音', '25%', '50%', '75%', '100%'],
+    );
+    assert.deepEqual(
+      branch.submenu.map((entry) => entry.checked),
+      [false, false, true, false, false],
+    );
+    branch.submenu[1]?.click?.();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.ok(requests.includes('POST /dsh-pet-7340/voice/volume'));
+    assert.deepEqual(JSON.parse(bodies[0] ?? '{}'), { volume: 0.25 });
+    assert.ok(menus.length >= 2, '改完音量要重画菜单（勾选跟着走）');
+  });
+
+  test('隐藏宠物：点一下整批窗口隐藏，标签变「显示宠物」', async () => {
+    const { tray, menus, windowCalls } = harness({ pets: [{ id: 'main', display: 'desktop' }] });
+    await tray.start();
+    const hide = item(menus, '隐藏宠物');
+    assert.ok(hide?.click, '托盘要有隐藏项');
+    hide.click();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(windowCalls, ['hidden=true']);
+    assert.ok(
+      lastMenu(menus).some((entry) => entry.label === '显示宠物'),
+      '隐藏后同一位置变成「显示宠物」',
+    );
+  });
+
+  test('回到初始位置：给全部宠物窗口发 home 命令（位置状态在渲染端）', async () => {
+    const { tray, menus, windowCalls } = harness({ pets: [{ id: 'main', display: 'desktop' }] });
+    await tray.start();
+    item(menus, '回到初始位置')?.click?.();
+    assert.deepEqual(windowCalls, ['cmd=home']);
+  });
+
+  test('重载配置 / 重启插件：各自打到宿主的维护端点', async () => {
+    const { tray, menus, requests } = harness({ pets: [{ id: 'main', display: 'desktop' }] });
+    await tray.start();
+    item(menus, '重载配置')?.click?.();
+    item(menus, '重启插件')?.click?.();
+    assert.ok(requests.includes('POST /dsh-pet-7340/reload'));
+    assert.ok(requests.includes('POST /dsh-pet-7340/plugin-restart'));
   });
 });
 

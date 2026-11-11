@@ -148,7 +148,7 @@ describe('GET /quit —— 探「宿主是否允许退出」', () => {
     assert.deepEqual(JSON.parse(r.body), { canQuit: true });
   });
 
-  test('DSH 宿主没有该能力 → canQuit:false（桌面端因此不显示退出项）', async () => {
+  test('DSH 宿主没有该能力 → canQuit:false（桌面端改走 /desktop/stop，不出现「退出整个应用」）', async () => {
     delete hostCtx.shutdownApp;
     try {
       const r = await call('/dsh-pet-7340/quit');
@@ -189,6 +189,44 @@ describe('POST /quit —— 把退出交给宿主停机', () => {
 
   test('PUT → 405（退出是动作端点，不是可保存的资源）', async () => {
     const r = await call('/dsh-pet-7340/quit', 'PUT');
+    assert.equal(r.status, 405);
+  });
+});
+
+describe('POST /voice/volume —— 托盘音量写回', () => {
+  test('合法值：写进用户主配置的 voiceVolume，并回 ok', async () => {
+    const r = await call('/dsh-pet-7340/voice/volume', 'POST', JSON.stringify({ volume: 0.4 }));
+    assert.equal(r.status, 200);
+    assert.deepEqual(JSON.parse(r.body), { ok: true, volume: 0.4 });
+    const file = join(dir, 'home', 'dsh-pet', 'main-config.jsonc');
+    assert.equal((JSON.parse(readFileSync(file, 'utf8')) as { voiceVolume?: number }).voiceVolume, 0.4);
+  });
+
+  test('越界与非数：bad-request，不写盘', async () => {
+    for (const volume of [1.5, -0.1, '0.5', null]) {
+      const r = await call('/dsh-pet-7340/voice/volume', 'POST', JSON.stringify({ volume }));
+      assert.equal(r.status, 200);
+      const body = JSON.parse(r.body) as { ok: boolean; reason: string };
+      assert.equal(body.ok, false, JSON.stringify(volume));
+      assert.equal(body.reason, 'bad-request', JSON.stringify(volume));
+    }
+  });
+
+  test('GET → 405（音量是动作端点）', async () => {
+    const r = await call('/dsh-pet-7340/voice/volume');
+    assert.equal(r.status, 405);
+  });
+});
+
+describe('POST /desktop/stop —— 托盘「退出」在 DSH 宿主内的落地', () => {
+  test('走通并回 stopping（只停桌面助手，不退出 DSH）', async () => {
+    const r = await call('/dsh-pet-7340/desktop/stop', 'POST');
+    assert.equal(r.status, 200);
+    assert.deepEqual(JSON.parse(r.body), { ok: true, stopping: true });
+  });
+
+  test('GET → 405', async () => {
+    const r = await call('/dsh-pet-7340/desktop/stop');
     assert.equal(r.status, 405);
   });
 });

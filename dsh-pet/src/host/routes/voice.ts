@@ -9,6 +9,9 @@ import type { RouteResult } from '../http.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import { failResult, invalidJson, methodNotAllowed, okResult } from './result.ts';
 import { voiceProviderStatuses } from '../voice/registry.ts';
+import { readUserConfig } from '../config.ts';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { providerConfigPath, readProviderValues, writeProviderFields, writeProviderVoice } from '../voice/gsv/store.ts';
 
 /** 单个配置项的长度上限（字符）：路径与 URL 都远短于这个，超了基本是粘错内容。 */
@@ -110,6 +113,36 @@ export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): 
       values: readProviderValues(file, status.id, keys),
       providers: voiceProviderStatuses(),
     });
+  }
+
+  // 播放音量（全局 0–1）：托盘「音量」子菜单写的就是它。写用户主配置后广播 config，
+  // **不重启桌面 Helper**——拖一次音量重建全部窗口不可接受（与 /pet-display 那类写入不同）。
+  if (rest === 'voice/volume') {
+    if (method !== 'POST') return methodNotAllowed();
+    let parsed: { volume?: unknown };
+    try {
+      parsed = JSON.parse(body ?? 'null') as { volume?: unknown };
+    } catch {
+      return invalidJson();
+    }
+    const volume = parsed.volume;
+    if (typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0 || volume > 1) {
+      return failResult('bad-request', 'volume 必须是 0–1 的有限数');
+    }
+    const existing = readUserConfig(deps.configPaths) ?? {};
+    try {
+      await mkdir(dirname(deps.userConfigPath), { recursive: true });
+      await writeFile(
+        deps.userConfigPath,
+        JSON.stringify({ ...existing, voiceVolume: volume }, null, 2) + '\n',
+        'utf8',
+      );
+    } catch (error) {
+      return failResult('generate-error', error instanceof Error ? error.message : String(error));
+    }
+    // 广播 config：网页端据此重读 /config 并刷新播放增益（setVoiceConfig），当前播放中的那段不受影响。
+    deps.state.writeSection('config', {});
+    return okResult({ ok: true, volume });
   }
 
   if (rest === 'voice/speak') {

@@ -2726,6 +2726,74 @@ paths:
         "400":
           description: 请求体不是合法 JSON。
 
+  /dsh-pet-7340/voice/volume:
+    post:
+      tags: [Voice]
+      operationId: setVoiceVolume
+      summary: 设置播放音量（全局）
+      description: |
+        写用户主配置的 `voiceVolume`（0–1），并广播 `config` 让网页端重读（`setVoiceConfig`）。
+        **不重启桌面 Helper**：音量是播放端增益，重建窗口只为了换一个系数没有意义。
+        入口是托盘「音量」子菜单（静音 / 25% / 50% / 75% / 100%），设置页还有 5% 步进的滑块。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [volume]
+              properties:
+                volume:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  description: 播放增益；0 = 静音，1 = 原始响度。
+      responses:
+        "200":
+          description: 保存结果（失败是业务实体，不是 4xx）。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, volume]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  volume:
+                    type: number
+        "400":
+          description: 请求体不是合法 JSON。
+        "405":
+          description: 方法不是 POST。
+
+  /dsh-pet-7340/desktop/stop:
+    post:
+      tags: [Action]
+      operationId: stopDesktopHelper
+      summary: 停掉桌面助手（不退出 DSH）
+      description: |
+        托盘「退出」在 DSH 宿主内的落地：宿主没有 `shutdownApp` 时，退出只结束桌面 Helper 进程，
+        DSH 继续运行；桌面宠物要到下一次配置写入（保存设置 / 重载配置）或重启插件才回来。
+        独立模式下托盘走 `/quit`（整个应用退出），不会用这个端点。
+      responses:
+        "200":
+          description: 已安排停机（响应可能先于进程消失返回）。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, stopping]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  stopping:
+                    type: boolean
+                    const: true
+        "405":
+          description: 方法不是 POST。
+
   /dsh-pet-7340/character:
     get:
       tags: [Assets]

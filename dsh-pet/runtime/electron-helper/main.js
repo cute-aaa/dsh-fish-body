@@ -236,6 +236,8 @@ const tray = createTray({
   petRoute: PET_ROUTE,
   platform: TRAY_PLATFORM,
   helperDir: __dirname,
+  // 托盘要能隐藏/显示宠物窗口、并让渲染端「回到初始位置」
+  petWindows,
 });
 
 /**
