@@ -181,6 +181,9 @@ export const es: Record<Key, string> = {
   voiceNotifyEnabledHint:
     'Locuta una frase configurada de estado de trabajo cuando una tarea termina, falla o espera tu confirmación. Igual que las notificaciones del sistema, solo locuta cuando no estás en esta página (otra aplicación, sin foco, minimizada): no interrumpe mientras miras la pantalla. Solo se locuta la frase configurada, nunca el detalle de la tarea. Desactivado por defecto.',
   voiceNameLabel: 'Voz',
+  voiceLocalLabel: 'Voz (local)',
+  voiceLocalHint: 'Timbre del servicio de voz local; se aplica desde la frase siguiente',
+  voiceNameFallbackHint: 'No se usa mientras la voz local este disponible: solo elige la voz de edge si GSV falla',
   voiceVolumeLabel: 'Volumen',
   voiceVolumeHint:
     'Volumen de reproducción como decimal 0–1: 1 es el volumen máximo (100 %) y 0 silencia. Solo cambia la intensidad y no vuelve a sintetizar el audio, así que ajustarlo no tiene coste extra. Los cuatro tipos de locución comparten este mismo volumen.',

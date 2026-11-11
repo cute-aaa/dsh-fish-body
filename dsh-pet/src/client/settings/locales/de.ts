@@ -178,6 +178,9 @@ export const de: Record<Key, string> = {
   voiceNotifyEnabledHint:
     'Spricht eine konfigurierte Arbeitsstatus-Zeile, wenn eine Aufgabe abgeschlossen ist, fehlschlägt oder auf Ihre Bestätigung wartet. Wie Systembenachrichtigungen wird nur gesprochen, während Sie nicht auf dieser Seite sind (weggewechselt, ohne Fokus, minimiert) – keine Unterbrechung, während Sie auf den Bildschirm schauen. Nur die konfigurierte Zeile wird gesprochen, nie das Aufgabendetail. Standardmäßig aus.',
   voiceNameLabel: 'Stimme',
+  voiceLocalLabel: 'Stimme (lokal)',
+  voiceLocalHint: 'Klang der lokalen Sprachausgabe; gilt ab dem naechsten Satz',
+  voiceNameFallbackHint: 'Wird ignoriert, solange die lokale Stimme verfuegbar ist: waehlt nur die edge-Stimme, falls GSV ausfaellt',
   voiceVolumeLabel: 'Lautstärke',
   voiceVolumeHint:
     'Wiedergabelautstärke als Dezimalzahl 0–1: 1 ist die maximale Lautstärke (100 %), 0 ist stumm. Ändert nur die Lautheit und synthetisiert kein Audio neu, kostet also nichts extra. Alle vier Arten von Sprachausgabe teilen sich diese eine Lautstärke.',

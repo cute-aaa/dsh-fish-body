@@ -23,6 +23,10 @@ import { registerTodoReminders } from './plugin/todo-reminders.ts';
 import { registerPersonaSync } from './plugin/persona-sync.ts';
 import { createVoiceService } from './voice/speak.ts';
 import { createHearService } from './voice/hear.ts';
+import { createGsvProvider } from './voice/gsv/provider.ts';
+import { gsvSettingsOf } from './voice/gsv/settings.ts';
+import { providerConfigPath, readProviderConfig } from './voice/gsv/store.ts';
+import { registerVoiceProvider } from './voice/registry.ts';
 import { TODO_FILE_NAME, TodoStore } from './todo/store.ts';
 import { join } from 'node:path';
 import type { PetRouteDeps } from './routes/types.ts';
@@ -51,6 +55,21 @@ export function apply(ctx: any): void {
     EXTERNAL_WORK_SESSION,
     nextExternalWorkSeq,
   } = setup;
+  // 本地 GSV（GPT-SoVITS api_v2）：配置在 `<userRoot>/voice-providers.json`（路由 /voice/provider-voice 写它）。
+  // 注册后即成为回退链的第一环；服务没起或没配时 availability 为假，链自动落到内置 edge，不报错也不静默。
+  const gsv = createGsvProvider({
+    settings: () => gsvSettingsOf(readProviderConfig(providerConfigPath(userRoot))),
+    log,
+  });
+  const unregisterGsv = registerVoiceProvider(gsv);
+  ctx.effect(
+    () => () => {
+      unregisterGsv();
+      gsv.dispose();
+    },
+    'dsh-pet: gsv voice provider',
+  );
+
   const workStatusBridge = createWorkStatusBridge({ state, workStatus, EXTERNAL_WORK_SESSION });
   const { publishWorkStatus, stopWorkStatusFlush } = workStatusBridge;
   const downloadReport = createDownloadReport({

@@ -42,6 +42,18 @@ export interface VoiceCardProps {
   readonly onTodoToggle: (value: boolean) => void;
   /** 切换工作状态播报。 */
   readonly onNotifyToggle: (value: boolean) => void;
+  /** 本地音色（第三方实现，如 GSV）的可选清单；缺席 = 这台机器上没有可切音色的实现。 */
+  readonly localVoices?: readonly VoiceOption[];
+  /** 本地音色当前值。 */
+  readonly localVoice?: string;
+  /** 本地实现此刻可用否（服务没起时置灰，但选项仍列出，让人知道有这些嗓子）。 */
+  readonly localAvailable?: boolean;
+  /** 不可用原因（服务没起 / 没配音色目录），显示在控件下方。 */
+  readonly localReason?: string;
+  /** 本地音色切换中。 */
+  readonly localBusy?: boolean;
+  /** 选择本地音色（即时落盘，不随「保存」）。 */
+  readonly onLocalVoiceChange?: (voice: string) => void;
 }
 
 /**
@@ -59,6 +71,8 @@ export function makeVoiceCard(
   const { cardHead, field, toggleCell } = makeUiKit({ h, t });
 
   return function VoiceCard(props: VoiceCardProps) {
+    // 本地实现（GSV）此刻可用且有音色可切：edge 那一格只是兜底，置灰并说明。
+    const localActive = props.localAvailable === true && (props.localVoices?.length ?? 0) > 0;
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
@@ -77,13 +91,19 @@ export function makeVoiceCard(
         h('div', {
           className: 'dsh-pet-cfg__grid2',
           children: [
-            h(picker, {
-              label: t('voiceNameLabel'),
-              value: props.voiceName,
-              options: props.voices,
-              disabled: props.busy,
-              onChange: props.onVoiceChange,
-            }),
+            // edge 音色：本地 GSV 可用时置灰（这一项只决定「GSV 不可用时 edge 用谁的嗓子」），
+            // 并挂一句说明——否则选了晓晓却发现声音没变，只会让人以为配置没生效。
+            field(
+              t('voiceNameLabel'),
+              h(picker, {
+                label: t('voiceNameLabel'),
+                value: props.voiceName,
+                options: props.voices,
+                disabled: props.busy || localActive,
+                onChange: props.onVoiceChange,
+              }),
+              localActive ? t('voiceNameFallbackHint') : undefined,
+            ),
             field(
               t('voiceVolumeLabel'),
               h(
@@ -97,6 +117,23 @@ export function makeVoiceCard(
               ),
               t('voiceVolumeHint'),
             ),
+            // 本地音色（GSV）：与 edge 白名单并列但互不覆盖——上面那格是「云端换声线」，
+            // 这格是「本机音色包」。没有可切音色时整格不出现，不留一个空下拉。
+            ...(props.localVoices && props.localVoices.length > 0
+              ? [
+                  field(
+                    t('voiceLocalLabel'),
+                    h(picker, {
+                      label: t('voiceLocalLabel'),
+                      value: props.localVoice ?? '',
+                      options: props.localVoices,
+                      disabled: props.busy || props.localBusy === true || props.localAvailable === false,
+                      onChange: (voice: string) => props.onLocalVoiceChange?.(voice),
+                    }),
+                    props.localAvailable === false ? props.localReason || t('voiceLocalHint') : t('voiceLocalHint'),
+                  ),
+                ]
+              : []),
           ],
         }),
       ],

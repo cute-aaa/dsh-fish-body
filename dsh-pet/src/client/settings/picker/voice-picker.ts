@@ -45,7 +45,11 @@ export function makeVoicePicker(
     return h(Select, {
       label: props.label,
       value: props.value,
-      options: props.options.map((option) => ({ id: option.id, label: `${option.name}（${option.tag}）` })),
+      options: props.options.map((option) => ({
+        id: option.id,
+        // 没有标签就不带空括号：本地音色包的 id 自己就够读（`vodyanitsa`）。
+        label: option.tag ? `${option.name}（${option.tag}）` : option.name,
+      })),
       disabled: props.disabled,
       onChange: props.onChange,
     });

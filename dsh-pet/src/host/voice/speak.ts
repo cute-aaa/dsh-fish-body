@@ -12,7 +12,7 @@ import { rename, rm, writeFile } from 'node:fs/promises';
 import { audioExtOf, normalizeAudioMime } from './audio.ts';
 import { cacheKey, cachePath, ensureCacheDir, findCachedClip, pruneCache } from './cache.ts';
 import { voiceChain, type VoiceChainInput, type VoiceChainLink } from './chain.ts';
-import { BUILTIN_VOICE_ID, voiceProviderEntries } from './registry.ts';
+import { BUILTIN_VOICE_ID, voiceProviderEntries, type VoiceProvider } from './registry.ts';
 import { VoiceSynthError, synthesize, type SynthInput } from './edge.ts';
 import { DEFAULT_VOICE, VOICES, isKnownVoice, type VoiceInfo } from './voices.ts';
 import type { AudioClip } from './audio.ts';
@@ -141,12 +141,12 @@ export function createVoiceService(options: {
     const links = voiceChain(synthesizeImpl);
     const source = links[0]?.id ?? 'edge';
     const startedMs = Date.now();
-    // 缓存按「来源」分开存：注册表里的实现（含此刻不可用的）与内置都探一遍——
+    // 缓存按「来源 + 当前的嗓子」分开存：注册表里的实现（含此刻不可用的）与内置都探一遍——
     // 第三方临时挂掉时用同一嗓子的旧音频顶上，比换成 edge 的另一个声音更自然。
-    for (const origin of cacheSources()) {
-      const cached = await findCachedClip(userRoot, cacheKeyOf(origin, text, voice, rate));
+    for (const origin of cacheOrigins()) {
+      const cached = await findCachedClip(userRoot, cacheKeyOf(origin.id, origin.timbre, text, voice, rate));
       if (cached) {
-        log?.info?.(`[dsh-pet] voice speak: cache=hit chars=${text.length} voice=${origin} mime=${cached.mime}`);
+        log?.info?.(`[dsh-pet] voice speak: cache=hit chars=${text.length} voice=${origin.id} mime=${cached.mime}`);
         return { ok: true, file: cached.file, mime: cached.mime };
       }
     }
@@ -204,19 +204,32 @@ export function createVoiceService(options: {
   return { listVoices: () => VOICES, speak };
 }
 
-/** 一环的缓存键：第三方没有音色概念，音色置空；来源进键，换实现不会命中旧音频。 */
+/** 一环的缓存键：来源 + 那一环当下的嗓子；换实现或换音色都不会命中旧音频。 */
 function keyOf(link: VoiceChainLink, text: string, voice: string, rate: string): string {
-  return cacheKeyOf(link.id, text, voice, rate);
+  return cacheKeyOf(link.id, link.timbre, text, voice, rate);
 }
 
-/** 按来源 id 算缓存键：只有内置实现吃音色，第三方自带嗓子。 */
-function cacheKeyOf(source: string, text: string, voice: string, rate: string): string {
-  return cacheKey(source, source === BUILTIN_VOICE_ID ? voice : '', rate, text);
+/** 按「来源 + 嗓子」算缓存键：只有内置实现吃请求里的音色，第三方用自己报的指纹。 */
+function cacheKeyOf(source: string, timbre: string, text: string, voice: string, rate: string): string {
+  return cacheKey(source, source === BUILTIN_VOICE_ID ? voice : timbre, rate, text);
 }
 
-/** 缓存要探的来源：全部已注册实现（含此刻不可用的）在前，内置收尾。 */
-function cacheSources(): string[] {
-  return [...voiceProviderEntries().map((entry) => entry.provider.id), BUILTIN_VOICE_ID];
+/** 缓存要探的来源：全部已注册实现（含此刻不可用的）在前，内置收尾；每条带当下嗓子指纹。 */
+function cacheOrigins(): { id: string; timbre: string }[] {
+  const external = voiceProviderEntries().map((entry) => ({
+    id: entry.provider.id,
+    timbre: timbreOf(entry.provider),
+  }));
+  return [...external, { id: BUILTIN_VOICE_ID, timbre: '' }];
+}
+
+/** 取一个实现的嗓子指纹；它自己抛错只当没指纹（缓存键算不出来会让每次请求都重新合成）。 */
+function timbreOf(provider: VoiceProvider): string {
+  try {
+    return provider.cacheTag?.() ?? '';
+  } catch {
+    return '';
+  }
 }
 
 /**

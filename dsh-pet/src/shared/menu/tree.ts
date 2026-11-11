@@ -8,6 +8,7 @@
 import { DISPLAY_HOTKEY_HINTS, DISPLAY_ORDER } from '../display-hotkey.ts';
 import { RENDERERS } from '../config.ts';
 import { type Animations, type Category, type PetDisplay, type RendererKind } from '../types.ts';
+import { switchableProviders, type VoiceProviderView } from '../voice-providers.ts';
 import type { MenuBranch, MenuLeaf, MenuMoreItem, MenuNode } from './types.ts';
 
 /** 睡着时仍然放行的菜单动作：维护类、「叫醒它」本身，以及第三方菜单项。
@@ -21,6 +22,7 @@ const SLEEP_ALLOWED_ACTIONS: readonly string[] = [
   'set-renderer',
   'set-model',
   'set-size',
+  'set-provider-voice',
   'reload',
   'reload-plugin',
   'third-party',
@@ -105,7 +107,6 @@ export const skinMenuBranch = (skins: readonly string[], current?: string): Menu
 
 /** 取消「当前表情/配件」的动作名：渲染器把表情清回模型默认外观。 */
 export const EXPRESSION_RESET = 'expression-reset';
-
 /** 取消「叠加中的动作/定格姿态」的动作名：渲染器把动作层全部摘掉，回到纯待机。 */
 export const MOTION_RESET = 'motion-reset';
 
@@ -163,9 +164,39 @@ export const accessoryMenuBranch = (names: readonly string[], active?: readonly 
   return { label: '外观', children };
 };
 
+/**
+ * 「音色」子菜单：第三方语音实现能念的音色（目前是 GSV 的本地音色包）。
+ *
+ * 与「模型 / 皮肤」分开：那是**画面**的素材，这是**声音**的嗓子，两者互不影响，
+ * 所以各占一层，不塞进同一棵树里。多个实现时每个实现一层子菜单（名字是实现的展示名）。
+ * 实现不可用时整层条目置灰并带原因：让人看见「有 9 个音色，但服务没起」，而不是整项消失。
+ *
+ * @param providers - `/voice/voices` 的 `providers` 段（已解析）。
+ * @returns 子菜单；没有任何实现能切音色时返回 null。
+ */
+export const voiceMenuBranch = (providers: readonly VoiceProviderView[]): MenuBranch | null => {
+  const usable = switchableProviders(providers);
+  if (usable.length === 0) return null;
+  const layers = usable.map((provider): MenuBranch => ({
+    label: provider.name,
+    children: provider.voices.map((choice): MenuLeaf => {
+      const checked = provider.voice === choice.id;
+      return {
+        label: checked ? `${choice.name} ✓` : choice.name,
+        action: 'set-provider-voice',
+        voiceProvider: provider.id,
+        providerVoice: choice.id,
+        ...(provider.available ? {} : { disabled: true, hint: provider.reason ?? '不可用' }),
+      };
+    }),
+  }));
+  const single = layers[0];
+  if (layers.length === 1 && single) return { label: '音色', children: single.children };
+  return { label: '音色', children: layers };
+};
+
 /** 第三方菜单项统一收在这个一级菜单下（宿主自己的菜单项不进这里）。 */
 export const MORE_MENU_LABEL = '更多';
-
 /** 从 /state 的 sections.menu.data 里读出本端要显示的第三方菜单项。
  *  target 等于本端身份或 both 才收；target 缺失或不认识时按 both 处理——老宿主没有这个字段，
  *  宁可在两端都显示，也不要让一个正在用的第三方菜单凭空消失。

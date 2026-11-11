@@ -165,6 +165,9 @@ export const zh = {
   voiceNotifyEnabledHint:
     '任务完成、出错、等你确认时念一句该档位配置的工作状态文案。和系统通知同一取向：用户不在本页（切走、失焦、最小化）时才念，正看着屏幕时不打扰。只念配置里的台词，不念任务详情。默认关闭。',
   voiceNameLabel: '音色',
+  voiceLocalLabel: '音色（本地）',
+  voiceLocalHint: '本机语音服务的音色，切换后下一句生效',
+  voiceNameFallbackHint: '本地音色可用时这一项不生效：它只决定 GSV 不可用时 edge 用谁的嗓子',
   voiceVolumeLabel: '音量',
   voiceVolumeHint:
     '播报音量，0–1 的小数：1 是最大音量（100%），0 是静音。只改播放响度，不会重新合成音频，调它不额外花钱。四类语音共用这一个音量。',

@@ -31,8 +31,10 @@ import {
   rendererMenuBranch,
   sizeMenuBranch,
   skinMenuBranch,
+  voiceMenuBranch,
   type MenuNode,
 } from '../../../shared/menu.ts';
+import { readVoiceProviders, type VoiceProviderView } from '../../../shared/voice-providers.ts';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import { LAYERED_MANIFEST_PATHS } from '../../../shared/layered-paths.ts';
 import { renderSizeOf } from '../../../shared/pet-size.ts';
@@ -94,6 +96,8 @@ export interface CardEntry {
   onPointerEnter: (e: ReactNS.PointerEvent<HTMLDivElement>) => void;
   /** 指针离开：收起提示。 */
   onPointerLeave: () => void;
+  /** 音色切成功后更新本地快照：下次开菜单时勾在新音色上（不重拉、不重挂）。 */
+  applyProviderVoice: (provider: string, voice: string) => void;
 }
 
 /**
@@ -117,6 +121,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
     const skinsRef = useRef<string[]>([]);
     // 这只宠物实际有素材的后端：右键「渲染方式」子菜单拿它把缺素材的项置灰，挂载时探一次。
     const availableRef = useRef<readonly RendererKind[]>(['webm']);
+    // 第三方语音实现的可切音色快照（/voice/voices 的 providers 段）：右键「音色」用它，挂载时拉一次。
+    const providersRef = useRef<VoiceProviderView[]>([]);
 
     // 素材探测：layered 看皮肤清单能否取到（根布局或 `layered/` 子目录布局），live2d 看模型清单是否非空
     // （`/models` 空数组也算没有）；webm 恒可用——动画池来自配置，缺素材是配置问题而不是后端问题。
@@ -158,6 +164,21 @@ export function createCardEntry(rt: CardEntryRuntime) {
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps -- 探测只随素材根变化：换后端不改这只有什么素材
     }, [cfgRef.current.assetRoot]);
+
+    // 音色清单：与素材探测分开（它跟素材根无关，换皮肤不影响嗓子）。拉不到就空——那时右键不出现「音色」。
+    useEffect(() => {
+      let alive = true;
+      void fetch(ROUTE_PATH + '/voice/voices')
+        .then((response) => (response.ok ? response.json() : null))
+        .then((body: { providers?: unknown } | null) => {
+          if (!alive || !body) return;
+          providersRef.current = readVoiceProviders(body.providers);
+        })
+        .catch(() => undefined);
+      return () => {
+        alive = false;
+      };
+    }, []);
 
     /** 把提示框摆到光标右下，放不下时翻边并夹回视口。
      *  直接写 DOM style：每次鼠标移动都走 React 状态会让整个 PetCard 重渲染。
@@ -421,6 +442,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
       );
       // 大小：改当前渲染方式的画框宽度（写 pets[].sizes[renderer]），另一套素材的尺寸不受影响。
       const sizeBranch = sizeMenuBranch(renderSizeOf(cfgRef.current), cfgRef.current.size);
+      // 音色：第三方实现（GSV）的嗓子清单；没有可切音色时整项不出现。
+      const voiceBranch = voiceMenuBranch(providersRef.current);
       // 顺序与桌面端同一排法：余额 / 待办 / 碎碎念 / 对话 / 配图 / 睡觉 → 动作树 → 显示位置 / 回到初始位置。
       // 桌面专属的两项（打开软件、重载配置）在网页端没有对应动作，不出现。
       const tools: MenuNode[] = [
@@ -437,6 +460,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
         ...(picker !== null ? [picker] : []),
         // 大小：三种渲染方式各自一套，切完由宿主回成品聚合 → 卡片按新尺寸重排/重绘。
         sizeBranch,
+        // 音色：嗓子（声音）与模型/皮肤（画面）分开，切完不重建 stage，下一句合成即生效。
+        ...(voiceBranch !== null ? [voiceBranch] : []),
         // 外观（live2d）：表情是挂着的状态，切换后一直生效，另给「恢复默认外观」。
         ...(accessory !== null && rendererNow === 'live2d' ? [accessory] : []),
       ];
@@ -492,6 +517,9 @@ export function createCardEntry(rt: CardEntryRuntime) {
       openChat,
       openTodo,
       placeTip,
+      applyProviderVoice: (provider, voice) => {
+        providersRef.current = providersRef.current.map((item) => (item.id === provider ? { ...item, voice } : item));
+      },
     };
   };
 }

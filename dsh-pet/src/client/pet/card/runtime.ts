@@ -207,6 +207,8 @@ export function createCardRuntime(rt: PetRuntime) {
       isFacingRight: () => card.facingRef.current === 'right',
       openChat: () => entryRef.current?.openChat(),
       openTodo: () => entryRef.current?.openTodo(),
+      // 音色切成功：就地更新右键菜单的勾选快照（不重挂渲染器、不重拉配置）。
+      onProviderVoiceChanged: (provider, voice) => entryRef.current?.applyProviderVoice(provider, voice),
       petId: cfg.id,
       playOnce: (anim, playbackId) => {
         actions.setOnce(true);

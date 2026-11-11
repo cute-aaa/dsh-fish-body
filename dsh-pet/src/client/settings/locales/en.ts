@@ -177,6 +177,9 @@ export const en: Record<Key, string> = {
   voiceNotifyEnabledHint:
     'Speaks a configured work-status line when a task completes, fails, or waits for your confirmation. Like system notifications, it only speaks while you are away from this page (switched away, unfocused, minimized) — no interruption while you are looking at the screen. Only the configured line is spoken, never the task detail. Off by default.',
   voiceNameLabel: 'Voice',
+  voiceLocalLabel: 'Voice (local)',
+  voiceLocalHint: 'Timbre of the local voice service; applies from the next sentence',
+  voiceNameFallbackHint: 'Ignored while the local voice is available: it only picks the edge voice used when GSV is down',
   voiceVolumeLabel: 'Volume',
   voiceVolumeHint:
     'Playback volume as a 0–1 decimal: 1 is full volume (100%), 0 is muted. Changes loudness only and never re-synthesizes audio, so adjusting it costs nothing extra. All four kinds of speech share this one volume.',

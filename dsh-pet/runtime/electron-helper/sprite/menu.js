@@ -83,6 +83,11 @@ Object.assign(PetSprite.prototype, {
     if (picker) tools.push(picker);
     // 大小：只作用于当前渲染方式（写 pets[].sizes[renderer]），另一套素材的尺寸不受影响
     tools.push(S.sizeMenuBranch(S.renderSizeOf(this.pet), Number(this.pet.size) || this.size));
+    // 音色：第三方语音实现（GSV）的嗓子清单；与「模型/皮肤」分开——那是画面，这是声音。
+    // 与网页端同一份分支（S.voiceMenuBranch）：当前项打勾，服务没起时整层置灰并带原因。
+    // 点下去只写 voice-providers.json，不重建窗口；下一句合成时 provider 自己切权重。
+    const voiceBranch = S.voiceMenuBranch(this.voiceProviders || []);
+    if (voiceBranch) tools.push(voiceBranch);
     // 外观（live2d）：外观是挂着的状态，可同时挂多个；勾表示当前挂着它，末尾另有「恢复默认外观」
     if (this.renderer === 'live2d') {
       const api = this.backend;
@@ -210,6 +215,11 @@ Object.assign(PetSprite.prototype, {
     if (leaf.action === 'set-size') {
       // 改当前渲染方式的画框宽度：宿主写盘后重启 Helper 重建窗口；size 缺省 = 删掉覆盖
       this.setPetSize(leaf.size);
+      return;
+    }
+    if (leaf.action === 'set-provider-voice') {
+      // 换嗓子：只写 voice-providers.json（不重建窗口、不重启 Helper），下一句合成时切权重。
+      this.setProviderVoice(leaf.voiceProvider, leaf.providerVoice);
       return;
     }
     if (leaf.action === 'renderer-action') {
@@ -505,6 +515,26 @@ Object.assign(PetSprite.prototype, {
     }).catch((e) => {
       console.warn('[dsh-pet] 模型请求失败（宿主不可达？）', e);
     });
+  },
+
+  // 「音色」菜单：给第三方语音实现（GSV）换嗓子。写的是 voice-providers.json，与 pets[] 无关，
+  // 所以不重建窗口、不重启 Helper——下一句合成时 provider 自己切权重。成功后就地更新本地快照，
+  // 让下一次右键的勾选跟着走（不重拉 /voice/voices，省一次请求）。
+  setProviderVoice(provider, voice) {
+    if (typeof provider !== 'string' || !provider || typeof voice !== 'string' || !voice) return;
+    S.postAction(BASE + '/voice/provider-voice', { provider, voice })
+      .then((ok) => {
+        if (!ok) {
+          console.warn('[dsh-pet] 音色切换未成功 provider=' + provider + ' voice=' + voice);
+          return;
+        }
+        this.voiceProviders = (this.voiceProviders || []).map((item) =>
+          item.id === provider ? Object.assign({}, item, { voice }) : item,
+        );
+      })
+      .catch((e) => {
+        console.warn('[dsh-pet] 音色切换请求失败（宿主不可达？）', e);
+      });
   },
 
   /**

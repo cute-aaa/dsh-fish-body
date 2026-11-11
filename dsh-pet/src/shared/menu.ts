@@ -24,6 +24,7 @@ export {
   rendererMenuBranch,
   sizeMenuBranch,
   skinMenuBranch,
+  voiceMenuBranch,
 } from './menu/tree.ts';
 export {
   IDLE_MOTION_GROUP,

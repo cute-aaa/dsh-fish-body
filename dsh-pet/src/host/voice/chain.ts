@@ -32,6 +32,8 @@ export interface VoiceChainLink {
   readonly id: string;
   /** 是否内置实现（内置没有音色/配置概念，缓存键里音色置空）。 */
   readonly builtin: boolean;
+  /** 当前嗓子的指纹（第三方换音色/换权重后会变）；内置实现为空串。 */
+  readonly timbre: string;
   /**
    * 合成一段音频（已含超时与错误归一）。
    *
@@ -60,11 +62,21 @@ function withTimeout<T>(task: Promise<T>, timeoutMs: number): Promise<T> {
   });
 }
 
+/** 取一个实现的嗓子指纹；它自己抛错只当「没有指纹」，不能让缓存键算不出来。 */
+function timbreOf(provider: VoiceProvider): string {
+  try {
+    return provider.cacheTag?.() ?? '';
+  } catch {
+    return '';
+  }
+}
+
 /** 把第三方实现包成链环：超时与错误都归一到 {@link VoiceSynthError}。 */
 function providerLink(provider: VoiceProvider): VoiceChainLink {
   return {
     id: provider.id,
     builtin: false,
+    timbre: timbreOf(provider),
     synthesize: async (input) => {
       try {
         return await withTimeout(provider.synthesize({ text: input.text, rate: input.rate }), PROVIDER_TIMEOUT_MS);
@@ -80,6 +92,7 @@ function builtinLink(impl: (input: SynthInput) => Promise<AudioClip>): VoiceChai
   return {
     id: BUILTIN_VOICE_ID,
     builtin: true,
+    timbre: '',
     synthesize: async (input) => {
       let last: unknown;
       for (let attempt = 0; attempt < BUILTIN_ATTEMPTS; attempt += 1) {

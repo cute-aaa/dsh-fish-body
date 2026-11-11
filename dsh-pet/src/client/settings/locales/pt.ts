@@ -178,6 +178,9 @@ export const pt: Record<Key, string> = {
   voiceNotifyEnabledHint:
     'Fala uma frase configurada de estado de trabalho quando uma tarefa termina, falha ou aguarda sua confirmação. Como as notificações do sistema, só fala enquanto você não está nesta página (outro aplicativo, sem foco, minimizado) — sem interromper enquanto você olha para a tela. Só a frase configurada é falada, nunca o detalhe da tarefa. Desligado por padrão.',
   voiceNameLabel: 'Voz',
+  voiceLocalLabel: 'Voz (local)',
+  voiceLocalHint: 'Timbre do servico de voz local; vale a partir da proxima frase',
+  voiceNameFallbackHint: 'Ignorado enquanto a voz local estiver disponivel: so escolhe a voz edge se o GSV cair',
   voiceVolumeLabel: 'Volume',
   voiceVolumeHint:
     'Volume de reprodução em decimal 0–1: 1 é o volume máximo (100%) e 0 silencia. Altera apenas a intensidade e não sintetiza o áudio de novo, então ajustá-lo não custa nada extra. Os quatro tipos de fala compartilham este mesmo volume.',

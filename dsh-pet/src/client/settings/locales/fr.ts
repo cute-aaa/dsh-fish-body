@@ -179,6 +179,9 @@ export const fr: Record<Key, string> = {
   voiceNotifyEnabledHint:
     "Lit une réplique d'état de travail configurée quand une tâche se termine, échoue ou attend votre confirmation. Comme les notifications système, elle n'est lue que lorsque vous n'êtes pas sur cette page (autre application, sans focus, réduite) — aucune interruption pendant que vous regardez l'écran. Seule la réplique configurée est lue, jamais le détail de la tâche. Désactivé par défaut.",
   voiceNameLabel: 'Voix',
+  voiceLocalLabel: 'Voix (locale)',
+  voiceLocalHint: 'Timbre du service vocal local ; s’applique dès la phrase suivante',
+  voiceNameFallbackHint: 'Ignore tant que la voix locale est disponible : ne choisit que la voix edge si GSV tombe',
   voiceVolumeLabel: 'Volume',
   voiceVolumeHint:
     'Volume de lecture en décimal 0–1 : 1 correspond au volume maximal (100 %), 0 coupe le son. Seule l’intensité change et l’audio n’est pas resynthétisé, donc le régler ne coûte rien de plus. Les quatre types de parole partagent ce même volume.',

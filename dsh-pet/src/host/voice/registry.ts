@@ -37,6 +37,16 @@ export interface VoiceField {
 /** 可用性结论：不可用时给一句人话，直接显示在设置页上。 */
 export type VoiceProviderAvailability = { readonly ok: true } | { readonly ok: false; readonly reason: string };
 
+/** 一个实现能念的音色（设置页与右键菜单里可切的选项）。 */
+export interface ProviderVoiceInfo {
+  /** 音色 id（写进 `voiceProviders.<providerId>.voice`）。 */
+  readonly id: string;
+  /** 展示名。 */
+  readonly name: string;
+  /** 补充说明（如音色包的一行描述）。 */
+  readonly tag?: string;
+}
+
 /** 第三方语音实现：给一段文本，返回音频字节与格式。 */
 export interface VoiceProvider {
   /** 唯一标识；参与缓存键，换实现不会命中旧音频。 */
@@ -52,6 +62,24 @@ export interface VoiceProvider {
    * 不可用**不是错误**：链会跳过它落到下一环，用户只会更难听到声音，不会看到失败。
    */
   availability?(): VoiceProviderAvailability;
+  /**
+   * 能念的音色清单；不声明 = 这个实现没有可切换音色的概念。
+   *
+   * 同步返回（设置页与 `/voice/voices` 现取）：实现自己缓存扫描结果。
+   */
+  listVoices?(): readonly ProviderVoiceInfo[];
+  /**
+   * 当前选中的音色 id；不声明 = 没有「当前音色」这个概念（内置 edge 看请求里的 `voiceName`）。
+   *
+   * 设置页与右键菜单靠它打勾，避免把「配置里写的」和「正在用的」混成一个概念。
+   */
+  activeVoice?(): string;
+  /**
+   * 当前嗓子的指纹，进缓存键；不声明 = 音色不影响缓存（内置 edge 走请求里的 `voiceName`）。
+   *
+   * 换音色/换权重后指纹必须变，否则同一句话会命中旧嗓子合成的音频，听起来像「切了没生效」。
+   */
+  cacheTag?(): string;
   /**
    * 把一段文本合成为音频。
    *
@@ -146,6 +174,10 @@ export interface VoiceProviderStatus {
   readonly reason?: string;
   /** 声明式配置项（内置实现为空数组）。 */
   readonly fields: readonly VoiceField[];
+  /** 能念的音色（内置实现为空数组：它的音色走请求里的 `voiceName` 白名单）。 */
+  readonly voices: readonly ProviderVoiceInfo[];
+  /** 当前选中的音色 id；没有这个概念（内置实现）时为空串。 */
+  readonly voice: string;
 }
 
 /**
@@ -161,8 +193,40 @@ export function voiceProviderStatuses(): VoiceProviderStatus[] {
     available: entry.available,
     ...(entry.reason === undefined ? {} : { reason: entry.reason }),
     fields: entry.provider.fields ?? [],
+    // 音色扫描失败（目录没配、磁盘抽风）不该让整条链不可用：空数组就是「暂时列不出音色」
+    voices: safely(() => entry.provider.listVoices?.() ?? []),
+    voice: safelyText(() => entry.provider.activeVoice?.() ?? ''),
   }));
-  return [...external, { id: BUILTIN_VOICE_ID, name: 'edge 在线语音', builtin: true, available: true, fields: [] }];
+  return [
+    ...external,
+    {
+      id: BUILTIN_VOICE_ID,
+      name: 'edge 在线语音',
+      builtin: true,
+      available: true,
+      fields: [],
+      voices: [],
+      voice: '',
+    },
+  ];
+}
+
+/** 取音色清单时的兜底：实现自己抛错只当「列不出来」。 */
+function safely(read: () => readonly ProviderVoiceInfo[]): readonly ProviderVoiceInfo[] {
+  try {
+    return read();
+  } catch {
+    return [];
+  }
+}
+
+/** 取「当前音色」时的兜底：实现自己抛错只当「没选」。 */
+function safelyText(read: () => string): string {
+  try {
+    return read();
+  } catch {
+    return '';
+  }
 }
 
 /**

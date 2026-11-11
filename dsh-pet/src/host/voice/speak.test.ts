@@ -315,6 +315,34 @@ test('链上全挂：只剩内置兜底，内置也失败才判 generate-error',
   ).finally(dispose);
 });
 
+test('第三方换音色（cacheTag 变）：同一句话必须重新合成，不能拿旧嗓子顶上', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-timbre-'));
+  let timbre = 'alpha';
+  let calls = 0;
+  const dispose = registerVoiceProvider({
+    id: 'gsv',
+    name: 'GSV',
+    cacheTag: () => timbre,
+    synthesize: async () => {
+      calls += 1;
+      return { data: new Uint8Array([calls, 1]), mime: 'audio/wav' };
+    },
+  });
+  try {
+    const voice = createVoiceService({ userRoot: root, synthesize: async () => mp3Clip() });
+    await voice.speak({ text: '同一句话' });
+    await voice.speak({ text: '同一句话' });
+    assert.equal(calls, 1, '同一嗓子第二次应命中缓存');
+    timbre = 'beta';
+    const result = await voice.speak({ text: '同一句话' });
+    assert.equal(result.ok ? result.mime : '', 'audio/wav');
+    assert.equal(calls, 2, '换了嗓子就换了缓存键，必须重合成');
+  } finally {
+    dispose();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('第三方此刻不可用：仍命中它以前合成的缓存，不换成内置的声音', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-crosscache-'));
   let builtinCalls = 0;

@@ -41,6 +41,8 @@ export interface MenuActionDeps {
   report: (playbackId: string, status: 'failed', reason: string) => void;
   /** 显示位置切换后，把宿主回的成品聚合交给容器重渲染。 */
   applyMerged: (merged: Record<string, Record<string, unknown>>) => void;
+  /** 音色切成功后就地更新菜单勾选（不重启、不重拉配置）。缺省 = 不更新，下次开菜单按旧值打勾。 */
+  onProviderVoiceChanged?: (provider: string, voice: string) => void;
   /** 动作失败时打一行告警（文案自带原因）。 */
   warn: (message: string) => void;
   /** 是否在睡：睡着时任何「打扰类」动作只弹拒绝台词、不执行。缺省视为醒着。 */
@@ -144,6 +146,33 @@ async function switchSize(deps: MenuActionDeps, size: number | undefined): Promi
     deps.applyMerged(body as Record<string, Record<string, unknown>>);
   } catch (error) {
     deps.warn('[dsh-pet] 改大小失败 ' + (error instanceof Error ? error.message : String(error)));
+  }
+}
+
+/**
+ * 音色：给第三方语音实现（GSV）换嗓子。
+ *
+ * 写的是 `<userRoot>/voice-providers.json`，不动 pets[] 也不重启 Helper——下一句合成自己会切权重，
+ * 所以这里既不用回填成品聚合，也不用重建窗口（与「模型 / 皮肤」是两件事）。
+ *
+ * @param deps - 派发依赖（只用来留痕与回填菜单勾选）。
+ * @param provider - 实现 id（`gsv`）。
+ * @param voice - 目标音色 id。
+ */
+async function switchProviderVoice(deps: MenuActionDeps, provider: string, voice: string): Promise<void> {
+  try {
+    const response = await fetch(ROUTE_PATH + '/voice/provider-voice', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ provider, voice }),
+    });
+    if (!response.ok) throw new Error('voice/provider-voice HTTP ' + response.status);
+    const body = (await response.json()) as Record<string, unknown>;
+    // 业务失败是 HTTP 200 + {ok:false, reason}：只看状态码会把失败体当成功，菜单勾也会错位。
+    if (body.ok === false) throw new Error('voice/provider-voice 被拒：' + String(body.reason ?? ''));
+    deps.onProviderVoiceChanged?.(provider, voice);
+  } catch (error) {
+    deps.warn('[dsh-pet] 音色切换失败 ' + (error instanceof Error ? error.message : String(error)));
   }
 }
 
@@ -271,6 +300,14 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       // size 缺省 = 删掉当前渲染方式的覆盖，回落 pets[].size；宿主按该宠物现有 renderer 落键。
       console.info('[dsh-pet] 菜单改大小 pet=' + petId + ' size=' + String(leaf.size ?? '默认'));
       void switchSize(deps, leaf.size);
+      return;
+    }
+    if (leaf.action === 'set-provider-voice') {
+      const provider = leaf.voiceProvider;
+      const voice = leaf.providerVoice;
+      if (!provider || !voice) return;
+      console.info('[dsh-pet] 菜单切换音色 pet=' + petId + ' provider=' + provider + ' voice=' + voice);
+      void switchProviderVoice(deps, provider, voice);
       return;
     }
     if (leaf.action === 'renderer-action') {

@@ -2532,7 +2532,7 @@ paths:
                     description: 合成链（第三方按注册顺序在前，内置 edge 收尾）。
                     items:
                       type: object
-                      required: [id, name, builtin, available, fields]
+                      required: [id, name, builtin, available, fields, voices, voice]
                       properties:
                         id:
                           type: string
@@ -2546,6 +2546,25 @@ paths:
                         reason:
                           type: string
                           description: 不可用原因（服务没起、没配必填项…），直接显示给用户。
+                        voices:
+                          type: array
+                          description: |
+                            这个实现能念的音色（`/voice/provider-voice` 的可选值）；内置实现恒为空数组，
+                            它的音色走请求体里的 `voice`。扫描失败时也是空数组（不能因此判整环不可用）。
+                          items:
+                            type: object
+                            required: [id, name]
+                            properties:
+                              id:
+                                type: string
+                              name:
+                                type: string
+                              tag:
+                                type: string
+                                description: 一行说明（音色包 `voice.json` 的 `desc`）。
+                        voice:
+                          type: string
+                          description: 当前选中的音色 id；没有「当前音色」这个概念时为空串。
                         fields:
                           type: array
                           description: 声明式配置项；设置页按 `kind` 选控件。
@@ -2572,6 +2591,56 @@ paths:
                                 type: string
         "405":
           description: 方法不是 GET。
+
+  /dsh-pet-7340/voice/provider-voice:
+    post:
+      tags: [Voice]
+      operationId: setProviderVoice
+      summary: 切换第三方语音实现的音色
+      description: |
+        只改 `<userRoot>/voice-providers.json` 里该实现的 `voice`，**不写** `pets[]`，也不重启桌面 Helper：
+        下一句合成时实现自己切权重（换嗓子的成本是一次 `/set_*_weights`，不是重建窗口）。
+
+        `voice` 必须是该实现此刻扫到的音色之一（见 `/voice/voices` 的 `providers[].voices`）；
+        写一个扫不到的 id 在界面上看着像成功了，实际只会让这一环在合成时报错并落到 edge。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, voice]
+              properties:
+                provider:
+                  type: string
+                  description: 实现 id（内置 edge 不接受：它的音色走 `voiceName`）。
+                voice:
+                  type: string
+                  description: 音色 id（音色目录名）。
+      responses:
+        "200":
+          description: 切换成功，附切换后的实现状态（与 `/voice/voices` 的 `providers` 同形）。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, provider, voice, providers]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  provider:
+                    type: string
+                  voice:
+                    type: string
+                  providers:
+                    type: array
+                    items:
+                      type: object
+        "400":
+          description: 请求体不是合法 JSON。
+        "405":
+          description: 方法不是 POST。
 
   /dsh-pet-7340/character:
     get:

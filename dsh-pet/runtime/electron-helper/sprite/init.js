@@ -34,7 +34,10 @@ Object.assign(PetSprite.prototype, {
     this.rendererOptions = ['webm'];
     this.modelOptions = [];
     this.skinOptions = [];
+    // 第三方语音实现的可切音色（/voice/voices 的 providers 段）：右键「音色」读它，启动时拉一次。
+    this.voiceProviders = [];
     this.probeRenderOptions();
+    this.probeVoiceProviders();
   },
 
   /**
@@ -69,6 +72,23 @@ Object.assign(PetSprite.prototype, {
       if (list.length > 0) options.push('live2d');
       this.rendererOptions = options;
     });
+  },
+
+  /**
+   * 拉一次第三方语音实现的可切音色（右键「音色」用）。
+   *
+   * 与素材探测分开：音色跟皮肤/模型无关（换皮肤不该换嗓子），而且失败时只是少一项菜单，
+   * 不该影响渲染方式那几项。拉不到就保持空数组——菜单里不会出现空的「音色」。
+   */
+  probeVoiceProviders() {
+    fetch(BASE + '/voice/voices')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        this.voiceProviders = S.readVoiceProviders(body && body.providers);
+      })
+      .catch(() => {
+        this.voiceProviders = [];
+      });
   },
 
   /** 拖拽 / 抛掷 / 移动 / 挤压的帧句柄与状态；stop 之前这些只有一份。 */

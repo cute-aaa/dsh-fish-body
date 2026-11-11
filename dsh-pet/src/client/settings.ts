@@ -10,6 +10,7 @@ import { avatarUrl } from '../shared/avatar.ts';
 import { DEFAULT_FONT } from '../shared/fonts.ts';
 import { DEFAULT_PHYSICS } from '../shared/physics.ts';
 import type { FontConfig, ModelSelection, PhysicsParams, Weights } from '../shared/types.ts';
+import { readVoiceProviders, switchableProviders, type VoiceProviderView } from '../shared/voice-providers.ts';
 import type { FunctionComponent } from 'react';
 import { requestNotificationPermission } from './notify.ts';
 import { injectSettingsCss } from './settings/css.ts';
@@ -126,13 +127,35 @@ export function makePetConfigSection(
       let alive = true;
       void fetch(ROUTE_PATH + '/voice/voices')
         .then((response) => (response.ok ? response.json() : null))
-        .then((body: { voices?: VoiceOption[] } | null) => {
-          if (alive && body && Array.isArray(body.voices)) setVoiceOptions(body.voices);
+        .then((body: { voices?: VoiceOption[]; providers?: unknown } | null) => {
+          if (!alive || !body) return;
+          if (Array.isArray(body.voices)) setVoiceOptions(body.voices);
+          // 第三方实现的可切音色（GSV 本地音色包）：与 edge 白名单分开渲染，互不覆盖。
+          setProviderOptions(readVoiceProviders(body.providers));
         })
         .catch(() => undefined);
       return () => {
         alive = false;
       };
+    }, []);
+
+    // 本地音色（GSV）：一改就落盘，不随「保存」整包写——它是「换嗓子」而不是表单里的一份配置，
+    // 写的是 voice-providers.json（不重启 Helper、不重建窗口）。
+    const changeProviderVoice = useCallback((providerId: string, voice: string) => {
+      setProviderBusy(true);
+      void fetch(ROUTE_PATH + '/voice/provider-voice', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: providerId, voice }),
+      })
+        .then(async (response) => {
+          const body = (await response.json().catch(() => null)) as { ok?: unknown; providers?: unknown } | null;
+          if (!response.ok || !body) throw new Error('voice/provider-voice HTTP ' + response.status);
+          if (body.ok === false) throw new Error('voice/provider-voice 被拒');
+          setProviderOptions(readVoiceProviders(body.providers));
+        })
+        .catch(() => undefined)
+        .finally(() => setProviderBusy(false));
     }, []);
 
     // 系统通知总开关：与其余全局开关同构，切换只改本地状态、随「保存」整包写入。
@@ -161,6 +184,9 @@ export function makePetConfigSection(
     const [voiceNotifyEnabled, setVoiceNotifyEnabled] = useState(false);
     // 可选音色：来自宿主 /voice/voices，拉不到就留空——下拉只显示当前值，绝不硬编码音色 id。
     const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
+    // 第三方语音实现（GSV）：能切的音色与当前选中项；切换即时落盘，不随「保存」整包写入。
+    const [providerOptions, setProviderOptions] = useState<VoiceProviderView[]>([]);
+    const [providerBusy, setProviderBusy] = useState(false);
     // 物理参数（全局）：只改本地状态，随「保存」整包写入；初值仅占位，成品加载成功后才允许编辑与保存。
     const [physics, setPhysics] = useState<PhysicsParams>({ ...DEFAULT_PHYSICS });
     // 字体（全局默认）：与 physics 同一套语义；初值仅占位，成品加载成功后才允许编辑与保存。
@@ -288,6 +314,9 @@ export function makePetConfigSection(
     const patchFont = (patch: Partial<FontConfig>): void => setFont((current) => ({ ...current, ...patch }));
     const patchPhysics = (patch: Partial<PhysicsParams>): void => setPhysics((current) => ({ ...current, ...patch }));
 
+    // 本地音色那一格只列第一个「有音色可切」的实现（今天只有 GSV）；没有就不出现这一格。
+    const localProvider = switchableProviders(providerOptions)[0];
+
     /** 两个模型字段各有一份状态，卡片只回传键名。 */
     const setModel = (key: ModelFieldKey, value: ModelSelection): void => {
       if (key === 'whisperModel') setWhisperModel(value);
@@ -395,6 +424,21 @@ export function makePetConfigSection(
           voiceName,
           volume: voiceVolume,
           voices: voiceOptions,
+          // 本地音色（GSV）：有可切音色才出现这一格；服务没起时置灰，说明写在 hint 里。
+          ...(localProvider === undefined
+            ? {}
+            : {
+                localVoices: localProvider.voices.map((voice) => ({
+                  id: voice.id,
+                  name: voice.name,
+                  tag: voice.tag ?? '',
+                })),
+                localVoice: localProvider.voice,
+                localAvailable: localProvider.available,
+                localReason: localProvider.reason ?? '',
+                localBusy: providerBusy,
+                onLocalVoiceChange: (id: string) => changeProviderVoice(localProvider.id, id),
+              }),
           whisperEnabled: voiceWhisperEnabled,
           todoEnabled: voiceTodoEnabled,
           notifyEnabled: voiceNotifyEnabled,

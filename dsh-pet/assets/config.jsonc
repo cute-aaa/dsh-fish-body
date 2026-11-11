@@ -87,6 +87,9 @@
   // 用哪个音色念：必须是 /voice/voices 里的 id（四个中文音色的白名单）。
   // 写错或留空即配置错误 → 告警并回落到默认 zh-CN-XiaoyiNeural（晓伊，女声·活泼）。
   "voiceName": "zh-CN-XiaoyiNeural",
+  // 本地语音（GSV / GPT-SoVITS）的音色与素材目录不写在这里：那是机器级设置，单独存在
+  // <DSH_HOME>/dsh-pet/voice-providers.json（右键「音色」或设置页切换时写入；手改也可）。
+  // 上面这个 voiceName 只对内置 edge 实现生效。
   // 播放音量（全局）：0–1 的小数，1 = 最大音量（100%），0 = 静音。四类语音共用这一个音量。
   // 只改播放响度，不重新合成音频，所以调它不会多花一次 TTS 请求。
   "voiceVolume": 1,
