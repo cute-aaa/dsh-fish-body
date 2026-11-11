@@ -33,6 +33,7 @@ Object.assign(PetSprite.prototype, {
     // 默认只给 webm，探测回来再补——菜单在右键那一刻现读，早于探测完成就只显示 webm。
     this.rendererOptions = ['webm'];
     this.modelOptions = [];
+    this.skinOptions = [];
     this.probeRenderOptions();
   },
 
@@ -52,12 +53,17 @@ Object.assign(PetSprite.prototype, {
           .catch(() => false),
       ),
     ).then((hits) => hits.some(Boolean));
+    const skins = fetch(dir + 'skins')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => (body && Array.isArray(body.skins) ? body.skins.filter((s) => typeof s === 'string') : []))
+      .catch(() => []);
     const models = fetch(dir + 'models')
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => (body && Array.isArray(body.models) ? body.models.filter((m) => typeof m === 'string') : []))
       .catch(() => []);
-    Promise.all([hasSkin, models]).then(([skin, list]) => {
+    Promise.all([hasSkin, models, skins]).then(([skin, list, skinList]) => {
       this.modelOptions = list;
+      this.skinOptions = skinList;
       const options = ['webm'];
       if (skin) options.push('layered');
       if (list.length > 0) options.push('live2d');

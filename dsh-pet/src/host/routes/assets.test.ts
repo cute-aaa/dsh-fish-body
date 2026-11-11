@@ -80,3 +80,43 @@ describe('handleAssetsRoutes —— /logo?root=', () => {
     assert.equal(readFileSync(join(dir, 'main-avatar.png')).equals(PNG), true, '残留文件不被删除');
   });
 });
+
+describe('/skin/<root>/skins —— layered 可切换皮肤清单', () => {
+  /** 调一次皮肤清单读取。 */
+  const readSkins = (root: string) =>
+    handleAssetsRoutes(deps(), {
+      url: new URL('http://localhost/skin/' + root + '/skins'),
+      rest: 'skin/' + root + '/skins',
+      method: 'GET',
+    });
+
+  test('根布局记空串、子目录布局记目录名，一级子目录里的清单也算', async () => {
+    const skinDir = join(dir, 'fish-skin');
+    mkdirSync(join(skinDir, 'layered'), { recursive: true });
+    writeFileSync(join(skinDir, 'layered', 'manifest.json'), '{"canvas":{"w":1,"h":1},"layers":[]}');
+    mkdirSync(join(skinDir, 'winter'), { recursive: true });
+    writeFileSync(join(skinDir, 'winter', 'manifest.json'), '{"canvas":{"w":1,"h":1},"layers":[]}');
+    mkdirSync(join(skinDir, 'not-a-skin'), { recursive: true });
+    const result = await readSkins('fish');
+    assert.equal(result?.kind, 'json');
+    if (result?.kind !== 'json') return;
+    assert.deepEqual((result.obj as { skins: string[] }).skins, ['layered', 'winter'], '根上没有清单就不出现空串');
+  });
+
+  test('根布局存在时排在第一个（空串 = 默认皮肤）', async () => {
+    const skinDir = join(dir, 'fish-skin');
+    mkdirSync(skinDir, { recursive: true });
+    writeFileSync(join(skinDir, 'manifest.json'), '{"canvas":{"w":1,"h":1},"layers":[]}');
+    mkdirSync(join(skinDir, 'layered'), { recursive: true });
+    writeFileSync(join(skinDir, 'layered', 'manifest.json'), '{"canvas":{"w":1,"h":1},"layers":[]}');
+    const result = await readSkins('fish');
+    if (result?.kind !== 'json') return;
+    assert.deepEqual((result.obj as { skins: string[] }).skins, ['', 'layered']);
+  });
+
+  test('皮肤目录不存在：空数组而不是 404', async () => {
+    const result = await readSkins('nobody');
+    if (result?.kind !== 'json') return;
+    assert.deepEqual((result.obj as { skins: string[] }).skins, []);
+  });
+});

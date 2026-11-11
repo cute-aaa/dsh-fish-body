@@ -8,7 +8,16 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildMoreBranch, isSleepAllowedAction, modelMenuBranch, readMenuItems, rendererMenuBranch } from './tree.ts';
+import {
+  EXPRESSION_RESET,
+  accessoryMenuBranch,
+  buildMoreBranch,
+  isSleepAllowedAction,
+  modelMenuBranch,
+  readMenuItems,
+  rendererMenuBranch,
+  skinMenuBranch,
+} from './tree.ts';
 import type { MenuLeaf } from './types.ts';
 
 describe('isSleepAllowedAction —— 睡着时仍然放行的动作', () => {
@@ -176,5 +185,31 @@ describe('modelMenuBranch —— 「模型」子菜单', () => {
 
   test('清单为空 → null（菜单里不出现空的「模型」）', () => {
     assert.equal(modelMenuBranch([], undefined), null);
+  });
+});
+
+describe('skinMenuBranch / accessoryMenuBranch —— 皮肤与外观（按渲染方式配套）', () => {
+  test('皮肤：空串记作「默认皮肤」，当前那项打勾', () => {
+    assert.deepEqual(skinMenuBranch(['', 'layered'], ''), {
+      label: '皮肤',
+      children: [
+        { label: '默认皮肤 ✓', action: 'set-model', model: '' },
+        { label: 'layered', action: 'set-model', model: 'layered' },
+      ],
+    });
+    assert.equal(skinMenuBranch([], ''), null, '没有可切换的皮肤就不出现这一项');
+  });
+
+  test('外观：勾表示当前挂着它，末尾恒有「恢复默认外观」', () => {
+    const branch = accessoryMenuBranch(['单片眼镜', '尾巴开关'], '尾巴开关');
+    assert.ok(branch !== null);
+    assert.equal(branch.label, '外观');
+    assert.deepEqual(
+      branch.children.map((leaf) => leaf.label),
+      ['单片眼镜', '尾巴开关 ✓', '恢复默认外观'],
+    );
+    const reset = branch.children[2] as MenuLeaf;
+    assert.equal(reset.rendererAction, EXPRESSION_RESET);
+    assert.equal(accessoryMenuBranch([], null), null);
   });
 });

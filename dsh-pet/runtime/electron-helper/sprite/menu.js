@@ -73,8 +73,23 @@ Object.assign(PetSprite.prototype, {
     // 缺素材的后端置灰（可用态来自 initPlayback 的探测）；点可用项写这只宠物的配置，
     // 宿主按写盘事件重启 Helper、按新配置重建窗口（本进程随即被换掉）。
     tools.push(S.rendererMenuBranch(this.renderer, this.rendererOptions));
-    const modelBranch = S.modelMenuBranch(this.modelOptions, this.pet.model);
-    if (modelBranch) tools.push(modelBranch);
+    // 模型 / 皮肤：与渲染方式配套（live2d 列 .model3.json，layered 列皮肤 id），两者都写 pets[].model
+    const picker =
+      this.renderer === 'layered'
+        ? S.skinMenuBranch(this.skinOptions || [], this.pet.model)
+        : this.renderer === 'live2d'
+          ? S.modelMenuBranch(this.modelOptions, this.pet.model)
+          : null;
+    if (picker) tools.push(picker);
+    // 外观（live2d）：表情是挂着的状态，勾表示当前挂着它；末尾另有「恢复默认外观」
+    if (this.renderer === 'live2d') {
+      const api = this.backend;
+      const accessory = S.accessoryMenuBranch(
+        api && api.expressions ? api.expressions : [],
+        api && api.activeExpression ? api.activeExpression : null,
+      );
+      if (accessory) tools.push(accessory);
+    }
     // 动作树之后是维护类：显示位置 → 重载配置 → 回到初始位置。
     const tail = [
       // 显示位置（仅网页/仅桌面/两者/都不）：改这只宠物的 display 配置，由宿主重载生效。

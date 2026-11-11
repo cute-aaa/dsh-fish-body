@@ -86,10 +86,13 @@ function motionGroupOf(group: string, list: readonly unknown[]): RendererActionG
 }
 
 /**
- * model3.json → 动作组（Motions 每组一组，Expressions 合成一组「表情」）。
+ * model3.json → 动作组（Motions 每组一组）。
+ *
+ * **不包含 Expressions**：表情是「挂在身上的状态」而不是一次性动作，归「外观」子菜单
+ * （见 shared/menu/tree 的 `accessoryMenuBranch`），否则切换状态会被当成播一次。
  *
  * @param raw - `Live2DModel.from` 用的模型清单原始值（unknown）。
- * @returns 按声明顺序排列的动作组；没有 Motions / Expressions 时返回空数组。
+ * @returns 按声明顺序排列的动作组；没有 Motions 时返回空数组。
  */
 export function model3ActionGroups(raw: unknown): RendererActionGroup[] {
   const refs = obj(obj(raw)?.FileReferences);
@@ -103,16 +106,25 @@ export function model3ActionGroups(raw: unknown): RendererActionGroup[] {
       if (parsed !== null) groups.push(parsed);
     }
   }
-  const expressions = refs.Expressions;
-  if (Array.isArray(expressions)) {
-    const actions: RendererAction[] = [];
-    for (const item of expressions) {
-      const name = obj(item)?.Name;
-      if (typeof name === 'string' && name !== '') actions.push({ label: name, name: 'expression:' + name });
-    }
-    if (actions.length > 0) groups.push({ label: '表情', actions });
-  }
   return groups;
+}
+
+/**
+ * model3.json → 表情名清单（供「外观」子菜单）。
+ *
+ * @param raw - 模型清单原始值。
+ * @returns 声明顺序的表情名；没有 `Expressions` 时返回空数组。
+ */
+export function model3Expressions(raw: unknown): string[] {
+  const refs = obj(obj(raw)?.FileReferences);
+  const expressions = refs?.Expressions;
+  if (!Array.isArray(expressions)) return [];
+  const out: string[] = [];
+  for (const item of expressions) {
+    const name = obj(item)?.Name;
+    if (typeof name === 'string' && name !== '') out.push(name);
+  }
+  return out;
 }
 
 /** 动作组 → 一层叶子；空白标签与空组在这里统一剔掉。 */

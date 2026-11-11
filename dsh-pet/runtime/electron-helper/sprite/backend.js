@@ -75,9 +75,11 @@ function applyBubbleAnchor(sprite, ratio) {
  * @param {string} root - 素材根。
  * @returns {Promise<{skin: object, base: string}>} 解析好的清单与地址前缀。
  */
-async function loadLayeredManifest(root) {
+async function loadLayeredManifest(root, skinId) {
   let status = 0;
-  for (const path of S.LAYERED_MANIFEST_PATHS) {
+  // 选中某套皮肤：它自己的清单优先，找不到再退回「根 → layered/」的老口径
+  const paths = skinId ? [skinId + '/manifest.json'].concat(S.LAYERED_MANIFEST_PATHS) : S.LAYERED_MANIFEST_PATHS;
+  for (const path of paths) {
     const res = await fetch(skinUrlOf(root, path));
     if (!res.ok) {
       status = res.status;
@@ -179,7 +181,7 @@ function createCanvasHost(sprite, host) {
  */
 async function mountLayered(sprite, host, api) {
   const root = sprite.assetRoot;
-  const { skin, base } = await loadLayeredManifest(root);
+  const { skin, base } = await loadLayeredManifest(root, sprite.pet.model);
   api.skin = skin;
   const layers = await Promise.all(
     skin.layers.map(async (layer) => ({
@@ -346,15 +348,18 @@ async function mountLive2d(sprite, host, api) {
   if (chosen === undefined) throw new Error('皮肤目录没有 .model3.json：' + root);
   if (api.destroyed) return;
 
-  // 菜单用：模型声明的动作组（Motions / Expressions）与各 motion 的时长。
-  // 取不到就当没有声明，菜单里不出现「动作」、动作按兜底时长收尾。
+  // 菜单用：动作组（Motions）、外观（Expressions）与各 motion 的时长。
+  // 取不到就当没有声明，菜单里不出现「动作 / 外观」、动作按兜底时长收尾。
   api.actionGroups = [];
+  api.expressions = [];
+  api.activeExpression = null;
   api.motionDurations = {};
   try {
     const settingsRes = await fetch(skinUrlOf(root, chosen));
     if (settingsRes.ok) {
       const settings = await settingsRes.json();
       api.actionGroups = window.PetShared.model3ActionGroups(settings);
+      api.expressions = window.PetShared.model3Expressions(settings);
       api.motionDurations = window.PetShared.motionDurationsOf(settings);
     }
   } catch {
@@ -447,8 +452,18 @@ async function mountLive2d(sprite, host, api) {
       playTimedMotion(motion[1], Number(motion[2]));
       return;
     }
+    if (name === window.PetShared.EXPRESSION_RESET) {
+      // 复位：运行库把表情清回 defaultExpression（模型原始外观）
+      const manager = model.internalModel.motionManager.expressionManager;
+      if (manager) manager.resetExpression();
+      api.activeExpression = null;
+      return;
+    }
     if (String(name).startsWith('expression:')) {
-      void model.expression(String(name).slice('expression:'.length));
+      const expression = String(name).slice('expression:'.length);
+      // 同一时刻只挂一个表情（expressionManager 单槽），所以外观是单选而不是叠挂
+      void model.expression(expression);
+      api.activeExpression = expression;
       return;
     }
     if (/tap|click|点击|摸|戳/i.test(name)) {

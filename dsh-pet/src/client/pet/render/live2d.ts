@@ -15,6 +15,8 @@ import { ROUTE_PATH } from '../../../shared/constants.ts';
 import { bubbleAnchorY } from '../../../shared/bubble-anchor.ts';
 import { hiddenDrawableIndexesOf } from '../../../shared/live2d-fixes.ts';
 import { hasIdleMotion, motionDurationsOf, motionHoldMs } from '../../../shared/live2d-motions.ts';
+import { model3Expressions } from '../../../shared/menu/renderer-actions.ts';
+import { EXPRESSION_RESET } from '../../../shared/menu/tree.ts';
 import { model3ActionGroups } from '../../../shared/menu/renderer-actions.ts';
 import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
@@ -101,23 +103,27 @@ async function listModels(root: string): Promise<string[]> {
 }
 
 /**
- * 读模型清单：声明的动作组（右键「动作」树）与各 motion 的时长（点完多久复位）。
+ * 读模型清单：动作组（右键「动作」）、各 motion 时长（点完多久复位）与表情名（右键「外观」）。
  *
  * @param root - 素材根。
  * @param rel - 选定的 `.model3.json` 相对路径。
- * @returns 动作组与时长表；取不到或解析不出时都是空（菜单少一组、动作用兜底时长，画面照常）。
+ * @returns 解析结果；取不到或解析不出时都是空（菜单少几组、动作用兜底时长，画面照常）。
  */
 async function loadSettings(
   root: string,
   rel: string,
-): Promise<{ groups: RendererActionGroup[]; durations: Readonly<Record<string, number>> }> {
+): Promise<{
+  groups: RendererActionGroup[];
+  durations: Readonly<Record<string, number>>;
+  expressions: readonly string[];
+}> {
   try {
     const res = await fetch(skinUrl(root, rel));
-    if (!res.ok) return { groups: [], durations: {} };
+    if (!res.ok) return { groups: [], durations: {}, expressions: [] };
     const raw = (await res.json()) as unknown;
-    return { groups: model3ActionGroups(raw), durations: motionDurationsOf(raw) };
+    return { groups: model3ActionGroups(raw), durations: motionDurationsOf(raw), expressions: model3Expressions(raw) };
   } catch {
-    return { groups: [], durations: {} };
+    return { groups: [], durations: {}, expressions: [] };
   }
 }
 
@@ -134,6 +140,10 @@ export function createLive2dRenderer(): Renderer {
   let cubism: Live2dNamespace | null = null;
   /** 模型声明的动作组：右键「动作」树读它（网页端不把 webm 动画池混进来）。 */
   let actionGroups: readonly RendererActionGroup[] = [];
+  /** 可切换的外观（Expressions）：右键「外观」子菜单读它。 */
+  let expressions: readonly string[] = [];
+  /** 当前挂着的外观；切换/复位都改它，菜单按它打勾。 */
+  let activeExpression: string | null = null;
   /** motion 组:序号 → 时长（秒）：点完按它复位，循环片段才不会把宠物钉在某个姿态上。 */
   let motionDurations: Readonly<Record<string, number>> = {};
   /** 复位计时器：换动作/卸载都要先清，否则旧计时器会把新动作掐掉。 */
@@ -160,6 +170,8 @@ export function createLive2dRenderer(): Renderer {
     const settings = await loadSettings(root, chosen);
     actionGroups = settings.groups;
     motionDurations = settings.durations;
+    expressions = settings.expressions;
+    activeExpression = null;
     if (destroyed) return;
 
     const created = new pixi.Application({
@@ -218,6 +230,8 @@ export function createLive2dRenderer(): Renderer {
     model = null;
     actionGroups = [];
     motionDurations = {};
+    expressions = [];
+    activeExpression = null;
     if (app !== null) {
       app.destroy(true, { children: true, texture: true, baseTexture: true });
       app = null;
@@ -265,8 +279,17 @@ export function createLive2dRenderer(): Renderer {
         playTimed(motion[1], Number(motion[2]));
         return;
       }
+      if (name === EXPRESSION_RESET) {
+        // 复位：运行库把表情清回 defaultExpression（模型原始外观）
+        model.internalModel.motionManager.expressionManager?.resetExpression();
+        activeExpression = null;
+        return;
+      }
       if (name.startsWith(EXPRESSION_PREFIX)) {
-        void model.expression(name.slice(EXPRESSION_PREFIX.length));
+        const expression = name.slice(EXPRESSION_PREFIX.length);
+        // 同一时刻只挂一个表情（运行库的 expressionManager 是单槽），所以外观是单选而不是叠挂
+        void model.expression(expression);
+        activeExpression = expression;
         return;
       }
       // 其余名字来自 webm 池（点击回应 / 摸头等）：模型没声明动作时退回自然运动。
@@ -292,6 +315,8 @@ export function createLive2dRenderer(): Renderer {
     },
     hitTest: () => undefined, // model3.json 未声明 HitAreas 时无命中区。
     listActionGroups: () => actionGroups,
+    listExpressions: () => expressions,
+    activeExpression: () => activeExpression,
     get ready() {
       return ready;
     },

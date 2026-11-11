@@ -109,6 +109,10 @@ export interface Renderer {
   gestureAt?(x: number, y: number): string | undefined;
   /** 渲染器自带的动作清单（右键「动作」树按渲染方式差异化读它）；webm 不实现，走动画池。 */
   listActionGroups?(): readonly RendererActionGroup[];
+  /** 可切换的外观/配件清单（live2d 的 Expressions）；不支持返回空数组或不实现。 */
+  listExpressions?(): readonly string[];
+  /** 当前挂着的外观/配件名；没有则为 null（右键「外观」据此打勾）。 */
+  activeExpression?(): string | null;
   /** 是否已就绪（首帧/首张图层已挂上）。 */
   readonly ready: boolean;
 }

@@ -55,14 +55,18 @@ async function loadImage(url: string): Promise<CanvasImageSource> {
 /** 装配动作名 → 触发哪种装配：词表在 layered/gestures.ts，与桌面 Helper 共用同一份。 */
 
 /**
- * 找皮肤清单：先根布局后子目录布局（见 shared/layered-paths）。
+ * 找皮肤清单：先按 `pets[].model` 指的子目录，再根布局、后 `layered/` 子目录（见 shared/layered-paths）。
  *
  * @param root - 素材根。
- * @returns 清单本体与它在素材根下的地址前缀；两种布局都没有时抛错。
+ * @param skin - `pets[].model` 指皮肤 id（根布局为空串）；缺省或找不到时按候选表顺序探。
+ * @returns 清单本体与它在素材根下的地址前缀；一处都没有时抛错。
  */
-async function loadManifest(root: string): Promise<{ parsed: SkinManifest; base: string }> {
+async function loadManifest(root: string, skin?: string): Promise<{ parsed: SkinManifest; base: string }> {
+  // 选中某套皮肤：它自己的清单优先，找不到再退回「根 → layered/」的老口径
+  const paths =
+    skin !== undefined && skin !== '' ? [skin + '/manifest.json', ...LAYERED_MANIFEST_PATHS] : LAYERED_MANIFEST_PATHS;
   let lastStatus = 0;
-  for (const path of LAYERED_MANIFEST_PATHS) {
+  for (const path of paths) {
     const res = await fetch(skinUrl(root, path));
     if (!res.ok) {
       lastStatus = res.status;
@@ -114,7 +118,7 @@ export function createLayeredRenderer(): Renderer {
     if (stage !== null) destroy();
     stage = el;
     const root = opts.assetRoot;
-    const { parsed, base } = await loadManifest(root);
+    const { parsed, base } = await loadManifest(root, opts.source.cfg().model);
     if (destroyed) return; // 加载期间被卸载：丢弃。
 
     skin = parsed;

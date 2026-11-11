@@ -20,6 +20,7 @@ import type { PetDisplay, RendererKind } from '../../../shared/types.ts';
 import { bindOpenChat } from './open-chat.ts';
 import { registerPetChatHandle } from './registry.ts';
 import {
+  accessoryMenuBranch,
   actionMenuTree,
   buildMemeBranch,
   buildMoreBranch,
@@ -28,6 +29,7 @@ import {
   modelMenuBranch,
   mountContextMenu,
   rendererMenuBranch,
+  skinMenuBranch,
   type MenuNode,
 } from '../../../shared/menu.ts';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
@@ -109,6 +111,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
     const chatRef = useRef<ChatDialogMount | null>(null);
     // live2d/layered 的可用模型清单（相对皮肤目录路径）：右键「模型」子菜单用它，挂载时拉一次。
     const modelsRef = useRef<string[]>([]);
+    // layered 可切换的皮肤 id（根布局为空串）：右键「皮肤」子菜单用它，同样挂载时拉一次。
+    const skinsRef = useRef<string[]>([]);
     // 这只宠物实际有素材的后端：右键「渲染方式」子菜单拿它把缺素材的项置灰，挂载时探一次。
     const availableRef = useRef<readonly RendererKind[]>(['webm']);
 
@@ -132,9 +136,16 @@ export function createCardEntry(rt: CardEntryRuntime) {
           b && Array.isArray(b.models) ? b.models.filter((m): m is string => typeof m === 'string') : [],
         )
         .catch((): string[] => []);
-      void Promise.all([probeSkin, probeModels]).then(([hasSkin, models]) => {
+      const probeSkins = fetch(dir + '/skins')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((b: { skins?: unknown } | null) =>
+          b && Array.isArray(b.skins) ? b.skins.filter((s): s is string => typeof s === 'string') : [],
+        )
+        .catch((): string[] => []);
+      void Promise.all([probeSkin, probeModels, probeSkins]).then(([hasSkin, models, skins]) => {
         if (!alive) return;
         modelsRef.current = [...models];
+        skinsRef.current = [...skins];
         const kinds: RendererKind[] = ['webm'];
         if (hasSkin) kinds.push('layered');
         if (models.length > 0) kinds.push('live2d');
@@ -392,8 +403,20 @@ export function createCardEntry(rt: CardEntryRuntime) {
       const sleepItem: MenuNode = asleep
         ? { label: '起来', action: 'wake', hint: SLEEP_HOTKEY_HINT }
         : { label: '睡觉', action: 'sleep', hint: SLEEP_HOTKEY_HINT };
-      // 模型子菜单：live2d/layered 皮肤目录下多模型时出现（modelsRef 在挂载时拉取）。
-      const modelBranch = modelMenuBranch(modelsRef.current, cfgRef.current.model);
+      // 模型/皮肤子菜单：与渲染方式配套——live2d 列 `.model3.json`，layered 列可切换的皮肤 id。
+      // 两者都写同一个 `pets[].model` 字段，只是文案不同（「模型」vs「皮肤」）。
+      const rendererNow = cfgRef.current.renderer ?? 'webm';
+      const picker =
+        rendererNow === 'layered'
+          ? skinMenuBranch(skinsRef.current, cfgRef.current.model)
+          : rendererNow === 'live2d'
+            ? modelMenuBranch(modelsRef.current, cfgRef.current.model)
+            : null;
+      // 外观：live2d 的 Expressions（单片眼镜、尾巴开关…），打勾表示当前挂着它
+      const accessory = accessoryMenuBranch(
+        live.current.ownAnim?.listExpressions?.() ?? [],
+        live.current.ownAnim?.activeExpression?.() ?? null,
+      );
       // 顺序与桌面端同一排法：余额 / 待办 / 碎碎念 / 对话 / 配图 / 睡觉 → 动作树 → 显示位置 / 回到初始位置。
       // 桌面专属的两项（打开软件、重载配置）在网页端没有对应动作，不出现。
       const tools: MenuNode[] = [
@@ -406,8 +429,10 @@ export function createCardEntry(rt: CardEntryRuntime) {
         // 渲染方式：三种后端互斥，切完由宿主回成品聚合 → 容器重渲染 → stage 即时重建。
         // 缺素材的后端置灰（可用态由挂载时的探测给出），避免点一下就剩个空画布。
         rendererMenuBranch(cfgRef.current.renderer, availableRef.current),
-        // 模型：live2d/layered 皮肤目录下多模型时列出，切完同样回成品聚合重建。
-        ...(modelBranch !== null ? [modelBranch] : []),
+        // 模型（live2d）/ 皮肤（layered）：切完同样回成品聚合重建。
+        ...(picker !== null ? [picker] : []),
+        // 外观（live2d）：表情是挂着的状态，切换后一直生效，另给「恢复默认外观」。
+        ...(accessory !== null && rendererNow === 'live2d' ? [accessory] : []),
       ];
       const tail: MenuNode[] = [
         // 显示位置子菜单与桌面端同一份；改成不含 web 的值后本宠物会从页面消失。

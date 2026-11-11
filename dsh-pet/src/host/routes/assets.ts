@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { PACKAGE_ROOT } from '../paths.ts';
 import { MIME, resolveAsset, resolveExisting } from '../http.ts';
 import { isValidPetId } from '../config.ts';
+import { LAYERED_MANIFEST_PATHS, layeredBaseOf } from '../../shared/layered-paths.ts';
 import { isModelSettingsFile, mergeModelExtras } from '../model-extras.ts';
 import { petAvatarFile } from '../pet-avatar.ts';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -29,6 +30,33 @@ function listModel3(dir: string): string[] {
     return []; // 目录不存在 / 读失败：当作无模型。
   }
   return out.sort();
+}
+
+/**
+ * 列出可切换的分层皮肤：根布局记作空串，子目录布局记子目录名（`layered` → `"layered"`）。
+ *
+ * 只扫两层（根 + 一级子目录）：「一个素材根里几套皮肤」够用，再深就没人看得出哪套是哪套了。
+ *
+ * @param dir - 皮肤目录（`pet/<素材根>-skin/`）。
+ * @returns 皮肤 id 列表；根布局在前，其后按名字排序。
+ */
+function listSkinDirs(dir: string): string[] {
+  const out: string[] = [];
+  for (const path of LAYERED_MANIFEST_PATHS) {
+    if (existsSync(join(dir, path))) out.push(layeredBaseOf(path).replace(/\/$/, ''));
+  }
+  // 一级子目录里的清单（`<id>/manifest.json`）：多套皮肤并排时用。
+  // 目录链接（Windows junction）也算：皮肤目录常常是软链过来的，Dirent.isDirectory() 对它为假。
+  try {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+      if (!existsSync(join(dir, entry.name, 'manifest.json'))) continue;
+      if (!out.includes(entry.name)) out.push(entry.name);
+    }
+  } catch {
+    /* 目录都读不了：上面的候选结果就是全部 */
+  }
+  return out;
 }
 
 /** 静态素材领域：未命中返回 undefined，命中返回应答。 */
@@ -149,6 +177,13 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     if (nameParts.length === 1 && nameParts[0] === 'models') {
       const models = skinDir !== undefined && existsSync(skinDir) ? listModel3(skinDir) : [];
       return { kind: 'json', status: 200, obj: { models } };
+    }
+    // /skin/<root>/skins：列出可切换的分层皮肤（清单所在子目录名，根布局为空串），
+    // 供 layered 右键「皮肤」切换（pets[].model 写这里的值）。根布局与子目录布局都认，
+    // 见 shared/layered-paths——一处布局变了，这条列表跟着变，别在两端各写一套扫描。
+    if (nameParts.length === 1 && nameParts[0] === 'skins') {
+      const skins = skinDir !== undefined && existsSync(skinDir) ? listSkinDirs(skinDir) : [];
+      return { kind: 'json', status: 200, obj: { skins } };
     }
     const skinFile = skinDir === undefined ? undefined : resolveExisting(skinDir, rel);
     if (skinFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: skin file not found' };

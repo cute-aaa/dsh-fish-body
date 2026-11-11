@@ -7,7 +7,13 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { actionMenuTree, model3ActionGroups, rendererActionTree, skinMenuGroups } from './renderer-actions.ts';
+import {
+  actionMenuTree,
+  model3ActionGroups,
+  model3Expressions,
+  rendererActionTree,
+  skinMenuGroups,
+} from './renderer-actions.ts';
 import type { Animations } from '../types.ts';
 
 /** 一份最小动画池（只有 webm 分支读它）。 */
@@ -68,17 +74,26 @@ describe('model3ActionGroups —— model3 的 Motions / Expressions', () => {
     ]);
   });
 
-  test('Expressions 合成一组「表情」，缺 Name 的条目跳过', () => {
-    const groups = model3ActionGroups({
-      FileReferences: { Expressions: [{ Name: '脸红', File: 'a.exp3.json' }, { File: 'b.exp3.json' }] },
-    });
-    assert.deepEqual(groups, [{ label: '表情', actions: [{ label: '脸红', name: 'expression:脸红' }] }]);
+  test('Expressions 不进「动作」：表情是挂着的状态，归「外观」子菜单', () => {
+    const raw = {
+      FileReferences: {
+        Motions: { Idle: [{ File: 'Animation/IDLE.motion3.json' }] },
+        Expressions: [{ Name: '脸红', File: 'a.exp3.json' }, { File: 'b.exp3.json' }],
+      },
+    };
+    assert.deepEqual(
+      model3ActionGroups(raw).map((group) => group.label),
+      ['Idle'],
+      '动作树里只留 motion 组',
+    );
+    assert.deepEqual(model3Expressions(raw), ['脸红'], '缺 Name 的表情跳过，其余留给外观菜单');
   });
 
   test('未声明 / 坏形状 → 空数组（DeepSeek 公皮就是这一种）', () => {
     assert.deepEqual(model3ActionGroups({ Version: 3, FileReferences: { Moc: 'a.moc3' } }), []);
     assert.deepEqual(model3ActionGroups({ FileReferences: { Motions: {} } }), []);
     assert.deepEqual(model3ActionGroups(null), []);
+    assert.deepEqual(model3Expressions({ FileReferences: {} }), []);
   });
 });
 
@@ -96,12 +111,14 @@ describe('rendererActionTree —— 动作树形状', () => {
     ]);
   });
 
-  test('多组：每组一个子菜单（live2d 的 motion 组与「表情」）', () => {
+  test('多组：每组一个子菜单（live2d 的多组 motion）', () => {
     const tree = rendererActionTree(
       model3ActionGroups({
         FileReferences: {
-          Motions: { TapBody: [{ File: 'a.json' }] },
-          Expressions: [{ Name: '脸红', File: 'a.exp3.json' }],
+          Motions: {
+            TapBody: [{ File: 'a.json' }],
+            Idle: [{ File: 'b.json' }, { File: 'c.json' }],
+          },
         },
       }),
     );
@@ -114,8 +131,11 @@ describe('rendererActionTree —— 动作树形状', () => {
             children: [{ label: 'TapBody', action: 'renderer-action', rendererAction: 'motion:TapBody:0' }],
           },
           {
-            label: '表情',
-            children: [{ label: '脸红', action: 'renderer-action', rendererAction: 'expression:脸红' }],
+            label: 'Idle',
+            children: [
+              { label: 'Idle 1', action: 'renderer-action', rendererAction: 'motion:Idle:0' },
+              { label: 'Idle 2', action: 'renderer-action', rendererAction: 'motion:Idle:1' },
+            ],
           },
         ],
       },

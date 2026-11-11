@@ -73,17 +73,58 @@ export const rendererMenuBranch = (current?: RendererKind, available?: readonly 
   }),
 });
 
-/** 「模型」子菜单：layered 皮肤 / live2d 模型的列表（相对皮肤目录路径）；空列表返回 null。 */
-export const modelMenuBranch = (models: readonly string[], current?: string): MenuBranch | null => {
-  if (models.length === 0) return null;
+/** 单选子菜单：给一组取值与当前值，当前那项打勾。`items` 是取值本身（菜单文案与取值同形）。 */
+const choiceMenuBranch = (label: string, items: readonly string[], current?: string): MenuBranch | null => {
+  if (items.length === 0) return null;
   return {
-    label: '模型',
-    children: models.map((model): MenuLeaf => ({
-      label: current === model ? `${model} ✓` : model,
+    label,
+    children: items.map((item): MenuLeaf => ({
+      label: current === item ? `${item} ✓` : item,
       action: 'set-model',
-      model,
+      model: item,
     })),
   };
+};
+
+/** 「模型」子菜单：layered 皮肤 / live2d 模型的列表（相对皮肤目录路径）；空列表返回 null。 */
+export const modelMenuBranch = (models: readonly string[], current?: string): MenuBranch | null =>
+  choiceMenuBranch('模型', models, current);
+
+/** 「皮肤」子菜单：layered 的皮肤 id（根布局记为空串 → 文案写「默认」）；空列表返回 null。 */
+export const skinMenuBranch = (skins: readonly string[], current?: string): MenuBranch | null => {
+  if (skins.length === 0) return null;
+  return {
+    label: '皮肤',
+    children: skins.map((skin): MenuLeaf => {
+      const shown = skin === '' ? '默认皮肤' : skin;
+      return { label: current === skin ? `${shown} ✓` : shown, action: 'set-model', model: skin };
+    }),
+  };
+};
+
+/** 取消「当前表情/配件」的动作名：渲染器把表情清回模型默认外观。 */
+export const EXPRESSION_RESET = 'expression-reset';
+
+/**
+ * 「外观」子菜单：live2d 的 Expressions（单片眼镜、兔牙、尾巴开关…）。
+ *
+ * 与「动作」分开：动作是播一次就完的 motion，表情是**挂在身上的状态**，切换后一直生效，
+ * 所以这里打勾表示「当前挂着它」，另给一条「恢复默认外观」把状态清掉。
+ * Cubism 运行库同一时刻只挂一个表情（expressionManager 单槽），所以这里做单选而不是多选叠挂。
+ *
+ * @param names - 表情名（来自模型清单的 `Expressions[].Name`）。
+ * @param active - 当前挂着的表情名；没有则为 null。
+ * @returns 子菜单；没有表情时返回 null（菜单里不出现空的外观）。
+ */
+export const accessoryMenuBranch = (names: readonly string[], active?: string | null): MenuBranch | null => {
+  if (names.length === 0) return null;
+  const children: MenuLeaf[] = names.map((name) => ({
+    label: active === name ? `${name} ✓` : name,
+    action: 'renderer-action',
+    rendererAction: 'expression:' + name,
+  }));
+  children.push({ label: '恢复默认外观', action: 'renderer-action', rendererAction: EXPRESSION_RESET });
+  return { label: '外观', children };
 };
 
 /** 第三方菜单项统一收在这个一级菜单下（宿主自己的菜单项不进这里）。 */
