@@ -30,6 +30,9 @@ export const MENU_CSS = [
   '.dsh-pet-menu-item{position:relative;display:flex;align-items:center;justify-content:space-between;',
   'gap:14px;padding:5px 12px;border-radius:6px;white-space:nowrap;cursor:default}',
   '.dsh-pet-menu-item:hover{background:rgba(43,99,255,.14)}',
+  // 不可用项：仍显示（告诉用户有这个后端/模型），但置灰、不响应 hover，点了也不会有动作。
+  '.dsh-pet-menu-item-disabled{color:rgba(43,43,43,.38);cursor:default}',
+  '.dsh-pet-menu-item-disabled:hover{background:transparent}',
   // 文字占满剩余宽度：菜单项是 space-between 的 flex 行，label 吃掉弹性空间后，箭头与 hint 才会贴右。
   // 按类名选而不是 `>span:first-child`——带缩略图的项里第一个子节点是 img。
   '.dsh-pet-menu-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}',

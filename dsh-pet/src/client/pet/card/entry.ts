@@ -16,7 +16,7 @@ import { captureDisplayFrame } from '../../../shared/chat/capture.ts';
 import { displayOfHotkey } from '../../../shared/display-hotkey.ts';
 import { SLEEP_HOTKEY_HINT, isSleepHotkey } from '../../../shared/sleep-hotkey.ts';
 import { TODO_HOTKEY_HINT, isTodoHotkey } from '../../../shared/todo/hotkey.ts';
-import type { PetDisplay } from '../../../shared/types.ts';
+import type { PetDisplay, RendererKind } from '../../../shared/types.ts';
 import { bindOpenChat } from './open-chat.ts';
 import { registerPetChatHandle } from './registry.ts';
 import {
@@ -108,25 +108,38 @@ export function createCardEntry(rt: CardEntryRuntime) {
     const chatRef = useRef<ChatDialogMount | null>(null);
     // live2d/layered 的可用模型清单（相对皮肤目录路径）：右键「模型」子菜单用它，挂载时拉一次。
     const modelsRef = useRef<string[]>([]);
+    // 这只宠物实际有素材的后端：右键「渲染方式」子菜单拿它把缺素材的项置灰，挂载时探一次。
+    const availableRef = useRef<readonly RendererKind[]>(['webm']);
 
-    // live2d/layered 皮肤目录的模型清单：只在需要时拉一次，供右键「模型」子菜单枚举。
+    // 素材探测：layered 看皮肤清单能否取到，live2d 看模型清单是否非空（`/models` 空数组也算没有）；
+    // webm 恒可用——动画池来自配置，缺素材是配置问题而不是后端问题。
+    // 探测失败按「没有」处理：给一个点下去黑屏的选项，比少一个灰项更糟。
     useEffect(() => {
       const cfg = cfgRef.current;
-      if (cfg.renderer !== 'live2d' && cfg.renderer !== 'layered') return;
+      const dir = ROUTE_PATH + '/skin/' + encodeURIComponent(cfg.assetRoot ?? cfg.id);
       let alive = true;
-      void fetch(ROUTE_PATH + '/skin/' + encodeURIComponent(cfg.assetRoot ?? cfg.id) + '/models')
+      const probeSkin = fetch(dir + '/manifest.json')
+        .then((r) => r.ok)
+        .catch(() => false);
+      const probeModels = fetch(dir + '/models')
         .then((r) => (r.ok ? r.json() : null))
-        .then((b: { models?: unknown } | null) => {
-          if (alive && b && Array.isArray(b.models)) {
-            modelsRef.current = b.models.filter((m): m is string => typeof m === 'string');
-          }
-        })
-        .catch(() => undefined);
+        .then((b: { models?: unknown } | null) =>
+          b && Array.isArray(b.models) ? b.models.filter((m): m is string => typeof m === 'string') : [],
+        )
+        .catch((): string[] => []);
+      void Promise.all([probeSkin, probeModels]).then(([hasSkin, models]) => {
+        if (!alive) return;
+        modelsRef.current = [...models];
+        const kinds: RendererKind[] = ['webm'];
+        if (hasSkin) kinds.push('layered');
+        if (models.length > 0) kinds.push('live2d');
+        availableRef.current = kinds;
+      });
       return () => {
         alive = false;
       };
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖只有渲染方式与素材根；变更即重拉一次
-    }, [cfgRef.current.renderer, cfgRef.current.assetRoot]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 探测只随素材根变化：换后端不改这只有什么素材
+    }, [cfgRef.current.assetRoot]);
 
     /** 把提示框摆到光标右下，放不下时翻边并夹回视口。
      *  直接写 DOM style：每次鼠标移动都走 React 状态会让整个 PetCard 重渲染。
@@ -386,7 +399,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
         ...(memes ? [memes] : []),
         ...(canSleep ? [sleepItem] : []),
         // 渲染方式：三种后端互斥，切完由宿主回成品聚合 → 容器重渲染 → stage 即时重建。
-        rendererMenuBranch(),
+        // 缺素材的后端置灰（可用态由挂载时的探测给出），避免点一下就剩个空画布。
+        rendererMenuBranch(cfgRef.current.renderer, availableRef.current),
         // 模型：live2d/layered 皮肤目录下多模型时列出，切完同样回成品聚合重建。
         ...(modelBranch !== null ? [modelBranch] : []),
       ];

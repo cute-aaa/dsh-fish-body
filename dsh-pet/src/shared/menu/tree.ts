@@ -57,14 +57,19 @@ const RENDERER_LABELS: Readonly<Record<RendererKind, string>> = {
   live2d: 'live2d（Cubism）',
 };
 
-/** 「渲染方式」子菜单：三种互斥后端，点击即切换（与 pets[].renderer 同一套取值）。 */
-export const rendererMenuBranch = (): MenuBranch => ({
+/** 「渲染方式」子菜单：三种互斥后端，点击即切换（与 pets[].renderer 同一套取值）。
+ *
+ *  `current` 给了就在对应项上打勾；`available` 给了就把缺素材的后端置灰——两端都从这里出菜单，
+ *  选中态与可用态只写一处。`available` 缺省（探测还没回来）时按「都可用」渲染，不挡住切换。
+ *  当前值即使不在 `available` 里也不置灰：那是「配置说它在用」，以配置为准。
+ */
+export const rendererMenuBranch = (current?: RendererKind, available?: readonly RendererKind[]): MenuBranch => ({
   label: '渲染方式',
-  children: RENDERERS.map((renderer): MenuLeaf => ({
-    label: RENDERER_LABELS[renderer],
-    action: 'set-renderer',
-    renderer,
-  })),
+  children: RENDERERS.map((renderer): MenuLeaf => {
+    const usable = available === undefined || available.includes(renderer) || renderer === current;
+    const label = current === renderer ? `${RENDERER_LABELS[renderer]} ✓` : RENDERER_LABELS[renderer];
+    return { label, action: 'set-renderer', renderer, ...(usable ? {} : { disabled: true }) };
+  }),
 });
 
 /** 「模型」子菜单：layered 皮肤 / live2d 模型的列表（相对皮肤目录路径）；空列表返回 null。 */

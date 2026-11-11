@@ -49,6 +49,8 @@ export interface MenuLeaf {
   image?: string;
   /** 该项左侧的缩略图地址（完整 URL，已编码）。缺省 = 只有文字，不占位。 */
   thumb?: string;
+  /** 置灰且不可点：选项本身有意义（让人知道有这项），但当前素材/配置用不了它。 */
+  disabled?: boolean;
 }
 
 /** 分支：带子菜单的项。 */

@@ -8,7 +8,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildMoreBranch, isSleepAllowedAction, readMenuItems } from './tree.ts';
+import { buildMoreBranch, isSleepAllowedAction, modelMenuBranch, readMenuItems, rendererMenuBranch } from './tree.ts';
+import type { MenuLeaf } from './types.ts';
 
 describe('isSleepAllowedAction —— 睡着时仍然放行的动作', () => {
   test('睡觉 / 起来 / 维护类 / 第三方菜单项放行', () => {
@@ -118,5 +119,62 @@ describe('buildMoreBranch —— 「更多」：label 唯一平铺，重名收�
       label: '更多',
       children: [{ label: '签到', action: 'third-party', owner: '插件A' }],
     });
+  });
+});
+
+describe('rendererMenuBranch —— 「渲染方式」子菜单', () => {
+  test('三种后端各一个叶子，动作名与取值都对齐 pets[].renderer', () => {
+    assert.deepEqual(rendererMenuBranch(), {
+      label: '渲染方式',
+      children: [
+        { label: 'webm（视频）', action: 'set-renderer', renderer: 'webm' },
+        { label: 'layered（分层 PNG）', action: 'set-renderer', renderer: 'layered' },
+        { label: 'live2d（Cubism）', action: 'set-renderer', renderer: 'live2d' },
+      ],
+    });
+  });
+
+  test('给了当前值就在对应项上打勾（两端共用这一份选中态）', () => {
+    const branch = rendererMenuBranch('layered');
+    assert.deepEqual(
+      branch.children.map((leaf) => leaf.label),
+      ['webm（视频）', 'layered（分层 PNG） ✓', 'live2d（Cubism）'],
+    );
+  });
+
+  test('缺素材的后端置灰不可点；当前值与未探测时的缺省都不置灰', () => {
+    // 这一层按构造只有叶子（webm / layered / live2d 三项），断言前先收窄类型。
+    const leavesOf = (branch: { children: unknown[] }): MenuLeaf[] => branch.children as MenuLeaf[];
+    const branch = rendererMenuBranch('layered', ['webm', 'layered']);
+    assert.deepEqual(
+      leavesOf(branch).map((leaf) => leaf.disabled === true),
+      [false, false, true],
+      'live2d 没有 .model3.json → 置灰',
+    );
+    // 配置说当前是 live2d、探测却说没素材：以配置为准，不把正在用的项置灰。
+    const configured = rendererMenuBranch('live2d', ['webm']);
+    assert.equal(leavesOf(configured)[2]?.disabled, undefined);
+    // 探测还没回来（缺省）：三项都可点，不耽误切换。
+    assert.ok(leavesOf(rendererMenuBranch('webm')).every((leaf) => leaf.disabled === undefined));
+  });
+
+  test('睡着时放行：换后端不改宠物状态，属于维护类', () => {
+    assert.equal(isSleepAllowedAction('set-renderer'), true);
+  });
+});
+
+describe('modelMenuBranch —— 「模型」子菜单', () => {
+  test('列出模型清单，当前选中的打勾', () => {
+    assert.deepEqual(modelMenuBranch(['a.model3.json', 'b.model3.json'], 'b.model3.json'), {
+      label: '模型',
+      children: [
+        { label: 'a.model3.json', action: 'set-model', model: 'a.model3.json' },
+        { label: 'b.model3.json ✓', action: 'set-model', model: 'b.model3.json' },
+      ],
+    });
+  });
+
+  test('清单为空 → null（菜单里不出现空的「模型」）', () => {
+    assert.equal(modelMenuBranch([], undefined), null);
   });
 });

@@ -41,7 +41,8 @@ Object.assign(PetSprite.prototype, {
     this.stopMove(); // 菜单悬停期间宠物不漫游
     // 桌面专属工具根项 + 共享菜单树（动作 → 分类 → 具体动画）。碎碎念/对话无条件显示：手动触发
     // 不受 whisperEnabled 限制（该字段只影响自动轮询）。首项文案与去向随宿主形态变，见 OPEN_LABEL。
-    // 顺序：打开软件 / 余额 / 待办 / 碎碎念 / 对话 / 配图 / 睡觉 → 动作树 → 显示位置 / 重载配置 / 回到初始位置。
+    // 顺序：打开软件 / 余额 / 待办 / 碎碎念 / 对话 / 配图 / 睡觉 → 渲染方式 / 模型 → 动作树 →
+    //       显示位置 / 重载配置 / 回到初始位置。
     const tools = [
       {
         label: OPEN_LABEL[OPEN_TARGET],
@@ -68,6 +69,12 @@ Object.assign(PetSprite.prototype, {
       if (this.sleeping) tools.push({ label: '起来', action: 'wake', hint: S.SLEEP_HOTKEY_HINT });
       else tools.push({ label: '睡觉', action: 'sleep', hint: S.SLEEP_HOTKEY_HINT });
     }
+    // 渲染方式（webm / layered / live2d 互斥）与模型清单：「动作」树之前，与浏览器端同一排法。
+    // 缺素材的后端置灰（可用态来自 initPlayback 的探测）；点可用项写这只宠物的配置，
+    // 宿主按写盘事件重启 Helper、按新配置重建窗口（本进程随即被换掉）。
+    tools.push(S.rendererMenuBranch(this.renderer, this.rendererOptions));
+    const modelBranch = S.modelMenuBranch(this.modelOptions, this.pet.model);
+    if (modelBranch) tools.push(modelBranch);
     // 动作树之后是维护类：显示位置 → 重载配置 → 回到初始位置。
     const tail = [
       // 显示位置（仅网页/仅桌面/两者/都不）：改这只宠物的 display 配置，由宿主重载生效。
@@ -167,6 +174,14 @@ Object.assign(PetSprite.prototype, {
     }
     if (leaf.action === 'reload') {
       this.reloadDesktop(); // 请宿主重启桌面 Helper：全部桌面宠物窗口按最新配置重建
+      return;
+    }
+    if (leaf.action === 'set-renderer') {
+      this.setPetRenderer(leaf.renderer); // 换后端：写 renderer 配置，由宿主重启 Helper 重建窗口
+      return;
+    }
+    if (leaf.action === 'set-model') {
+      this.setPetModel(leaf.model); // 换皮肤/模型：写 model 配置，同样由宿主重载生效
       return;
     }
     if (leaf.action === 'renderer-action') {
@@ -414,6 +429,32 @@ Object.assign(PetSprite.prototype, {
       body: JSON.stringify({ id: this.pet.id, display }),
     }).catch((e) => {
       console.warn('[dsh-pet] 显示位置请求失败（宿主不可达？）', e);
+    });
+  },
+
+  // 「渲染方式」菜单：三种后端互斥，改这一只宠物的 renderer。宿主写盘后 requestRestart 重建窗口，
+  // 本进程随即被换掉——与 setPetDisplay 同一处境：不 await、不重试，失败只记日志。
+  setPetRenderer(renderer) {
+    if (!renderer) return;
+    fetch(BASE + '/pet-renderer', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: this.pet.id, renderer }),
+    }).catch((e) => {
+      console.warn('[dsh-pet] 渲染方式请求失败（宿主不可达？）', e);
+    });
+  },
+
+  // 「模型」菜单：layered 皮肤 id / live2d `.model3.json` 相对路径。写入后同样由宿主重载生效；
+  // 空串是合法的「回到缺省」，所以只拒非字符串（与 /pet-model 的取值口径一致）。
+  setPetModel(model) {
+    if (typeof model !== 'string') return;
+    fetch(BASE + '/pet-model', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: this.pet.id, model }),
+    }).catch((e) => {
+      console.warn('[dsh-pet] 模型请求失败（宿主不可达？）', e);
     });
   },
 

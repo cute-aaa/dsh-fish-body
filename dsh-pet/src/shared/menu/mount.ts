@@ -140,12 +140,18 @@ export function mountContextMenu(opts: {
           hint.textContent = node.hint;
           item.appendChild(hint);
         }
-        item.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          close();
-          onAction(node);
-        });
+        if (node.disabled === true) {
+          // 不可用项照常显示：让人看见「有这项，只是这只宠物没有对应素材」，而不是假装菜单里没有它。
+          item.classList.add('dsh-pet-menu-item-disabled');
+          item.setAttribute('aria-disabled', 'true');
+        } else {
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            close();
+            onAction(node);
+          });
+        }
       }
       panel.appendChild(item);
     }

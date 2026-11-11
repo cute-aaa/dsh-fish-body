@@ -29,6 +29,35 @@ Object.assign(PetSprite.prototype, {
     // 朝向走 accessor：赋值即标记实况脏。初始化阶段直接写 `_facing`，避免其它字段就绪前触发上报。
     this._facing = 'left';
     this.poseTimer = null; // 实况上报的节流定时器（见 markPoseDirty）
+    // 右键菜单两项的数据：本宠物有素材的后端（webm 恒在）、皮肤目录下的模型清单。
+    // 默认只给 webm，探测回来再补——菜单在右键那一刻现读，早于探测完成就只显示 webm。
+    this.rendererOptions = ['webm'];
+    this.modelOptions = [];
+    this.probeRenderOptions();
+  },
+
+  /**
+   * 探测这只宠物实际可用的后端与模型清单（右键「渲染方式 / 模型」读它）。
+   *
+   * layered 看皮肤清单能否取到，live2d 看 `/models` 是否非空（200 + 空数组也算没有）；
+   * webm 恒可用——动画池来自配置。探测失败按「没有」处理：宁可置灰一项，也不给点下去黑屏的选项。
+   */
+  probeRenderOptions() {
+    const dir = BASE + '/skin/' + encodeURIComponent(this.assetRoot) + '/';
+    const hasSkin = fetch(dir + 'manifest.json')
+      .then((res) => res.ok)
+      .catch(() => false);
+    const models = fetch(dir + 'models')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => (body && Array.isArray(body.models) ? body.models.filter((m) => typeof m === 'string') : []))
+      .catch(() => []);
+    Promise.all([hasSkin, models]).then(([skin, list]) => {
+      this.modelOptions = list;
+      const options = ['webm'];
+      if (skin) options.push('layered');
+      if (list.length > 0) options.push('live2d');
+      this.rendererOptions = options;
+    });
   },
 
   /** 拖拽 / 抛掷 / 移动 / 挤压的帧句柄与状态；stop 之前这些只有一份。 */
