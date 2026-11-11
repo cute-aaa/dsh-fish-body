@@ -174,6 +174,23 @@ export function makePetConfigSection(
         .finally(() => setProviderBusy(false));
     }, []);
 
+    // 页面开着时每 30s 对一次可用性：服务可能被外部脚本启停（用户自己的 bat / 别的窗口），
+    // 「启动 / 停止」两个按钮的可用态必须跟着服务地址的真实状态走，不能停在打开页面那一刻。
+    useEffect(() => {
+      const timer = window.setInterval(() => {
+        void fetch(ROUTE_PATH + '/voice/voices')
+          .then((response) => (response.ok ? response.json() : null))
+          .then((body: { providers?: unknown } | null) => {
+            if (!body) return;
+            const next = readVoiceProviders(body.providers);
+            setProviderOptions(next);
+            if (next.some((item) => item.id === 'gsv' && item.available)) setProviderStarting(false);
+          })
+          .catch(() => undefined);
+      }, 30_000);
+      return () => window.clearInterval(timer);
+    }, []);
+
     // 音色清单的重新拉取（启停后服务要几十秒才稳，单次刷新看不到变化）。
     const pollProviders = useCallback((times: number) => {
       let left = times;
@@ -183,7 +200,11 @@ export function makePetConfigSection(
         void fetch(ROUTE_PATH + '/voice/voices')
           .then((response) => (response.ok ? response.json() : null))
           .then((body: { providers?: unknown } | null) => {
-            if (body) setProviderOptions(readVoiceProviders(body.providers));
+            if (!body) return;
+            const next = readVoiceProviders(body.providers);
+            setProviderOptions(next);
+            // 服务真的起来了就解除「启动中」，按钮立刻翻成「停止」可点。
+            if (next.some((item) => item.id === 'gsv' && item.available)) setProviderStarting(false);
           })
           .catch(() => undefined)
           .finally(() => {
@@ -208,6 +229,11 @@ export function makePetConfigSection(
             if (!response.ok || !body) throw new Error('HTTP ' + response.status);
             if (body.ok === false) throw new Error(typeof body.message === 'string' ? body.message : '脚本执行失败');
             setProcessMsg(action === 'start' ? t('voiceProviderStarted') : t('voiceProviderStopped'));
+            if (action === 'start') {
+              setProviderStarting(true);
+              // 兜底：脚本存在但服务起不来时，90 秒后也要放开「启动」，否则只能刷新页面重试。
+              window.setTimeout(() => setProviderStarting(false), 90_000);
+            }
             pollProviders(action === 'start' ? 12 : 3);
           })
           .catch((error: unknown) => setProcessMsg('!' + (error instanceof Error ? error.message : String(error))))
@@ -285,6 +311,8 @@ export function makePetConfigSection(
     // 启停（只跑用户填的脚本）：启动要几十秒，所以点完先回一句，再用探活把可用性翻过来。
     const [processBusy, setProcessBusy] = useState(false);
     const [processMsg, setProcessMsg] = useState('');
+    // 刚发过启动：服务加载要几十秒，这期间「启动」按住不放，避免连点起两份抢同一个端口。
+    const [providerStarting, setProviderStarting] = useState(false);
     // 物理参数（全局）：只改本地状态，随「保存」整包写入；初值仅占位，成品加载成功后才允许编辑与保存。
     const [physics, setPhysics] = useState<PhysicsParams>({ ...DEFAULT_PHYSICS });
     // 字体（全局默认）：与 physics 同一套语义；初值仅占位，成品加载成功后才允许编辑与保存。
@@ -561,7 +589,10 @@ export function makePetConfigSection(
               onChange: (key: string, value: string) => setProviderDraft((draft) => ({ ...draft, [key]: value })),
               onSave: () => saveProviderConfig(providerForm.id, providerDraft),
               canStart: Boolean(providerDraft.startScript),
-              canStop: Boolean(providerDraft.stopScript),
+              // 停止总有办法：配了脚本就跑脚本，没配就走 api_v2 的 /control?command=exit。
+              canStop: true,
+              running: providerForm.available,
+              starting: providerStarting,
               processBusy,
               processMessage: processMsg,
               onStart: () => runProviderProcess(providerForm.id, 'start'),

@@ -3,7 +3,8 @@
  * 只断言协议层：方法判定、JSON 判定，以及把语音服务的结论映射成应答；不发真实请求。
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync as writeFile } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, test } from 'node:test';
@@ -236,6 +237,38 @@ describe('voice/provider-process —— 启停脚本', () => {
       assert.equal(result?.kind === 'json' ? result.status : 0, 405);
     } finally {
       dispose();
+    }
+  });
+
+  test('没配停止脚本：走 api_v2 的 /control?command=exit，不让用户去写脚本', async () => {
+    const dispose = registerGsvStub();
+    const root = tempRoot();
+    // 造一个只会回 200 的假 api_v2：记录被请求的路径。
+    const seen: string[] = [];
+    const server = createServer((req, res) => {
+      seen.push(String(req.url));
+      res.writeHead(200).end('{}');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+    try {
+      await writeFile(
+        join(root, 'voice-providers.json'),
+        JSON.stringify({ gsv: { baseURL: `http://127.0.0.1:${port}` } }),
+        'utf8',
+      );
+      const result = await handleVoiceRoutes(
+        providerDeps(root),
+        input('voice/provider-process', 'POST', JSON.stringify({ provider: 'gsv', action: 'stop' })),
+      );
+      const obj = (result as { obj: { ok: boolean; message?: string } }).obj;
+      assert.equal(obj.ok, true);
+      assert.match(obj.message ?? '', /自行退出/);
+      assert.ok(seen.includes('/control?command=exit'), 'should call /control?command=exit: ' + seen.join(','));
+    } finally {
+      dispose();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
 });

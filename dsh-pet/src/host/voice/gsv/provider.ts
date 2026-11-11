@@ -190,7 +190,12 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
     // 启停脚本：只由设置页的「启动 / 停止」按钮触发，插件不会自动跑它们（GPU 加载几十秒，
     // 拖慢 profile 启动；失败还得退避重试，那是另一套机制）。空着就是没有这个能力。
     { key: 'startScript', label: '启动脚本', kind: 'text', placeholder: 'D:/AI/FishChi/voice-local/gsv.bat' },
-    { key: 'stopScript', label: '停止脚本', kind: 'text', placeholder: 'D:/AI/FishChi/voice-local/stop.bat' },
+    {
+      key: 'stopScript',
+      label: '停止脚本（可选）',
+      kind: 'text',
+      placeholder: '留空则用 api_v2 的 /control?command=exit',
+    },
   ];
 
   const provider: GsvProvider = {

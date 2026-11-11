@@ -75,6 +75,30 @@ async function getOk(url: string, timeoutMs: number, what: string): Promise<void
   throw new VoiceSynthError(`${what} 返回 ${response.status}${detail ? `：${detail}` : ''}`);
 }
 
+/**
+ * 让 api_v2 自己退出（`GET /control?command=exit`，服务端收到后 SIGTERM 自杀）。
+ *
+ * 这是「没配停止脚本」时的标准停法：官方端点、只影响本服务，不用扫端口杀进程。
+ * 服务自杀时连接往往直接被重置，取不到响应——那种情况按成功算（它确实在退）。
+ *
+ * @param baseURL - api_v2 根地址。
+ * @param timeoutMs - 等响应的时间；服务先死会更快返回。
+ * @throws {VoiceSynthError} 服务明确回了非 2xx 时。
+ */
+export async function requestExit(baseURL: string, timeoutMs = 5_000): Promise<void> {
+  try {
+    const response = await fetch(`${trimBase(baseURL)}/control?command=exit`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok) throw new VoiceSynthError(`/control 返回 ${response.status}`);
+  } catch (error) {
+    // 连接被重置 / 提前关闭 = 进程正在退，算成功；超时与其它网络错误也按「已发出」处理，
+    // 真实结果由随后的可用性探活决定（调用方会立刻重探一次）。
+    if (error instanceof VoiceSynthError) throw error;
+  }
+}
+
 /** 真实实现：fetch + 超时。 */
 export const gsvHttp: GsvHttp = {
   async probe(baseURL, timeoutMs) {

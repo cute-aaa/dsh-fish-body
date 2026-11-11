@@ -8,7 +8,7 @@
 import type { RouteResult } from '../http.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import { failResult, invalidJson, methodNotAllowed, okResult } from './result.ts';
-import { voiceProviderStatuses } from '../voice/registry.ts';
+import { voiceProviderOf, voiceProviderStatuses } from '../voice/registry.ts';
 import { readUserConfig } from '../config.ts';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -21,9 +21,24 @@ import {
 } from '../voice/gsv/store.ts';
 import { gsvSettingsOf } from '../voice/gsv/settings.ts';
 import { startService, stopService } from '../voice/gsv/process.ts';
+import { requestExit } from '../voice/gsv/client.ts';
 
 /** 单个配置项的长度上限（字符）：路径与 URL 都远短于这个，超了基本是粘错内容。 */
 const MAX_CONFIG_VALUE_CHARS = 512;
+
+/**
+ * 没有停止脚本时的停法：让 api_v2 自己退出。
+ * @param baseURL - GSV 服务地址。
+ * @returns 已发出退出请求 / 失败原因。
+ */
+async function stopByControl(baseURL: string): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requestExit(baseURL);
+    return { ok: true, message: '未配停止脚本，已请求服务自行退出' };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}
 
 /** 语音领域：未命中返回 undefined，命中返回应答。 */
 export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
@@ -171,8 +186,17 @@ export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): 
     if (providerId !== 'gsv') return failResult('unsupported', `实现 ${providerId} 未提供启停脚本`);
     if (action !== 'start' && action !== 'stop') return failResult('bad-request', 'action 只能是 start 或 stop');
     const settings = gsvSettingsOf(readProviderConfig(providerConfigPath(deps.userRoot)));
-    const result = action === 'start' ? startService(settings.startScript) : await stopService(settings.stopScript);
+    // 停止优先用用户脚本；没配就走 api_v2 的标准 `/control?command=exit`（让服务自己退）。
+    const result =
+      action === 'start'
+        ? startService(settings.startScript)
+        : settings.stopScript
+          ? await stopService(settings.stopScript)
+          : await stopByControl(settings.baseURL);
     if (!result.ok) return failResult('bad-request', result.message ?? '脚本执行失败');
+    // 停完立刻重探一次：不主动探的话，缓存结论最多还会「在线」20 秒，按钮状态看起来像没生效。
+    // 启动不探——服务要加载几十秒，现在探只会把结论钉在「不可用」，由后台重探翻牌即可。
+    if (action === 'stop') void voiceProviderOf(providerId)?.refresh?.();
     return okResult({ ok: true, provider: providerId, action, ...(result.message ? { message: result.message } : {}) });
   }
 

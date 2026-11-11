@@ -31,10 +31,14 @@ export interface VoiceProviderCardProps {
   readonly onChange: (key: string, value: string) => void;
   /** 提交全部草稿值。 */
   readonly onSave: () => void;
-  /** 配了启动脚本 → 「启动服务」可点。 */
+  /** 配了启动脚本 → 「启动服务」有脚本可跑。 */
   readonly canStart: boolean;
-  /** 配了停止脚本 → 「停止服务」可点。 */
+  /** 配了停止脚本 → 「停止服务」有脚本可跑。 */
   readonly canStop: boolean;
+  /** 服务此刻可用（探活结论）：可用时只该点「停止」，不可用时只该点「启动」。 */
+  readonly running: boolean;
+  /** 刚发过启动、还在等它起来（此时「启动」也要按住，避免连点起两份）。 */
+  readonly starting: boolean;
   /** 启停请求进行中。 */
   readonly processBusy: boolean;
   /** 启停结论（一句话，失败带 `!` 前缀）。 */
@@ -57,6 +61,10 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
   return function VoiceProviderCard(props: VoiceProviderCardProps) {
     if (props.fields.length === 0) return null;
     const status = props.available ? '' : props.reason;
+    // 两个按钮互斥，且都看「服务地址此刻通不通」：通了只该停，不通只该启；
+    // 刚发过启动时按住「启动」——服务要几十秒才起来，连点会起出两份抢同一个端口。
+    const startDisabled = props.busy || props.processBusy || !props.canStart || props.running || props.starting;
+    const stopDisabled = props.busy || props.processBusy || !props.canStop || !props.running;
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
@@ -96,14 +104,14 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
             h('button', {
               type: 'button',
               className: 'dsh-pet-cfg__btn',
-              disabled: props.busy || props.processBusy || !props.canStart,
+              disabled: startDisabled,
               onClick: props.onStart,
               children: [t('voiceProviderStart')],
             }),
             h('button', {
               type: 'button',
               className: 'dsh-pet-cfg__btn',
-              disabled: props.busy || props.processBusy || !props.canStop,
+              disabled: stopDisabled,
               onClick: props.onStop,
               children: [t('voiceProviderStop')],
             }),

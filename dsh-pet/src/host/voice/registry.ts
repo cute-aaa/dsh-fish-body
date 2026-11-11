@@ -81,6 +81,13 @@ export interface VoiceProvider {
    */
   cacheTag?(): string;
   /**
+   * 立刻重探一次可用性（可选）。
+   *
+   * 存在的意义：启停脚本刚跑完，缓存结论还停在旧值上——不主动探，设置页要等一轮 20s 的重探
+   * 才看到按钮状态翻牌。实现可以不声明（那就只能等下一轮）。
+   */
+  refresh?(): Promise<boolean>;
+  /**
    * 把一段文本合成为音频。
    *
    * 失败必须抛错——宿主会记日志并落到下一环；自己吞掉会让上层以为成功。
@@ -227,6 +234,16 @@ function safelyText(read: () => string): string {
   } catch {
     return '';
   }
+}
+
+/**
+ * 按 id 取当前注册的实现（路由要拿它做「立刻重探」这类动作）。
+ *
+ * @param id - 实现 id。
+ * @returns 实现本体；没注册时 undefined（内置实现不在这个表里）。
+ */
+export function voiceProviderOf(id: string): VoiceProvider | undefined {
+  return providers.get(id);
 }
 
 /**
