@@ -3,6 +3,7 @@
  * 与 layered 类似没有 video：模型在 PIXI 画布上跑自然运动（呼吸/眨眼/物理），
  * 口型 / 视线走标准参数（ParamMouthOpenY / ParamEyeBallX/Y）；动作（motion）/表情（expression）
  * 依赖 model3.json 声明，声明的组同时决定右键「动作」树（本机 DeepSeek 公皮未声明，故两者都为空）。
+ * 逐模型的图层修正（如勿画纯黑遮罩源）在 `shared/live2d-fixes`，桌面 `sprite/backend.js` 读同一张表。
  * 皮肤目录 `pet/<素材根>-skin/` 下可放多个 `.model3.json`，按 pets[].model 选择，缺省取第一个。
  * 两个依赖一律走 `/vendor` 的 UMD 脚本 + 全局 PIXI：按 ESM 打进 client bundle 会带出 node 的
  * url/punycode 垫片与顶层 import，经典脚本下必然加载失败（详见 docs/交接-P3.md 踩坑 11）。
@@ -11,6 +12,7 @@
 import type * as PIXI from 'pixi.js';
 import type { Live2DModel } from 'pixi-live2d-display/cubism4';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
+import { hiddenDrawableIndexesOf } from '../../../shared/live2d-fixes.ts';
 import { model3ActionGroups } from '../../../shared/menu/renderer-actions.ts';
 import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
@@ -167,6 +169,15 @@ export function createLive2dRenderer(): Renderer {
       return;
     }
     app.stage.addChild(model);
+    // 逐模型修正：把「纯黑遮罩源」从可见绘制里去掉（见 shared/live2d-fixes）。
+    // 只压 getDrawableOpacity：遮罩绘制走的是同一次 drawMesh，但那条路径忽略不透明度，裁切不受影响。
+    const hidden = hiddenDrawableIndexesOf(chosen);
+    if (hidden.length > 0) {
+      const core = model.internalModel.coreModel as { getDrawableOpacity?(index: number): number };
+      const original = core.getDrawableOpacity?.bind(core);
+      const skip = new Set(hidden);
+      if (original !== undefined) core.getDrawableOpacity = (index) => (skip.has(index) ? 0 : original(index));
+    }
     // 居中 + 按画布大边适配 size。
     const mw = model.internalModel.originalWidth;
     const mh = model.internalModel.originalHeight;

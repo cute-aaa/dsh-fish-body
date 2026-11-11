@@ -327,6 +327,15 @@ async function mountLive2d(sprite, host, api) {
   api.canvas = canvasHost;
   api.app = app;
   api.model = model;
+  // 逐模型修正：把「纯黑遮罩源」从可见绘制里去掉（与浏览器端同一张表）。
+  // 只压 getDrawableOpacity：遮罩绘制忽略不透明度，裁切不受影响。
+  const hiddenDrawables = S.hiddenDrawableIndexesOf(chosen);
+  if (hiddenDrawables.length > 0) {
+    const core = model.internalModel.coreModel;
+    const originalOpacity = core.getDrawableOpacity?.bind(core);
+    const skip = new Set(hiddenDrawables);
+    if (originalOpacity) core.getDrawableOpacity = (index) => (skip.has(index) ? 0 : originalOpacity(index));
+  }
   api.playAction = (name) => {
     // 菜单动作名与浏览器端同格式（见 shared/menu/renderer-actions）：motion:<组>:<序号> / expression:<名>。
     const motion = /^motion:(.+):(\d+)$/.exec(String(name));
