@@ -184,6 +184,10 @@ export const en: Record<Key, string> = {
   voiceProviderSave: 'Save connection',
   voiceProviderSaved: 'Saved; the voice list has been refreshed',
   voiceProviderReady: 'Service online, voices ready',
+  voiceProviderStart: 'Start service',
+  voiceProviderStop: 'Stop service',
+  voiceProviderStarted: 'Start sent; available in about 40 seconds',
+  voiceProviderStopped: 'Stop sent',
   voiceNameFallbackHint:
     'Ignored while the local voice is available: it only picks the edge voice used when GSV is down',
   voiceVolumeLabel: 'Volume',

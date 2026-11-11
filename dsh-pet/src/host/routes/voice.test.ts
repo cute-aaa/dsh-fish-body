@@ -191,6 +191,55 @@ function providerInput(rest: string, provider: string, method: string, body?: st
   return { url, rest, method, body };
 }
 
+describe('voice/provider-process —— 启停脚本', () => {
+  afterEach(() => {
+    resetVoiceProviders();
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  /** 调一次启停路由。 */
+  const post = (body: unknown) =>
+    handleVoiceRoutes(providerDeps(tempRoot()), input('voice/provider-process', 'POST', JSON.stringify(body)));
+
+  test('没配启动脚本：bad-request 说清缺什么', async () => {
+    const dispose = registerGsvStub();
+    try {
+      const result = await post({ provider: 'gsv', action: 'start' });
+      assert.equal(result?.kind === 'json' ? result.status : 0, 200);
+      const obj = (result as { obj: { ok: boolean; reason: string; message: string } }).obj;
+      assert.equal(obj.ok, false);
+      assert.equal(obj.reason, 'bad-request');
+      assert.match(obj.message, /未配置脚本路径/);
+    } finally {
+      dispose();
+    }
+  });
+
+  test('action 不合法 / 内置实现 / 未知实现：各自拒绝', async () => {
+    const dispose = registerGsvStub();
+    try {
+      const badAction = await post({ provider: 'gsv', action: 'reboot' });
+      assert.equal((badAction as { obj: { reason: string } }).obj.reason, 'bad-request');
+      const builtin = await post({ provider: 'edge', action: 'start' });
+      assert.equal((builtin as { obj: { reason: string } }).obj.reason, 'bad-request');
+      const missing = await post({ provider: 'ghost', action: 'start' });
+      assert.equal((missing as { obj: { reason: string } }).obj.reason, 'provider-missing');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('GET → 405', async () => {
+    const dispose = registerGsvStub();
+    try {
+      const result = await handleVoiceRoutes(providerDeps(tempRoot()), input('voice/provider-process', 'GET'));
+      assert.equal(result?.kind === 'json' ? result.status : 0, 405);
+    } finally {
+      dispose();
+    }
+  });
+});
+
 describe('voice/provider-config —— 接入配置读写', () => {
   afterEach(() => {
     resetVoiceProviders();

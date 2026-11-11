@@ -189,6 +189,10 @@ export const es: Record<Key, string> = {
   voiceProviderSave: 'Guardar conexion',
   voiceProviderSaved: 'Guardado; lista de voces actualizada',
   voiceProviderReady: 'Servicio en linea',
+  voiceProviderStart: 'Iniciar servicio',
+  voiceProviderStop: 'Detener servicio',
+  voiceProviderStarted: 'Inicio enviado; disponible en unos 40 segundos',
+  voiceProviderStopped: 'Parada enviada',
   voiceVolumeLabel: 'Volumen',
   voiceVolumeHint:
     'Volumen de reproducción como decimal 0–1: 1 es el volumen máximo (100 %) y 0 silencia. Solo cambia la intensidad y no vuelve a sintetizar el audio, así que ajustarlo no tiene coste extra. Los cuatro tipos de locución comparten este mismo volumen.',

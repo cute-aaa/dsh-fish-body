@@ -174,7 +174,49 @@ export function makePetConfigSection(
         .finally(() => setProviderBusy(false));
     }, []);
 
-    // 本地语音接入配置（GSV 的服务地址与目录）：保存后立刻用宿主回的新状态刷新音色下拉，
+    // 音色清单的重新拉取（启停后服务要几十秒才稳，单次刷新看不到变化）。
+    const pollProviders = useCallback((times: number) => {
+      let left = times;
+      const tick = (): void => {
+        if (left <= 0) return;
+        left -= 1;
+        void fetch(ROUTE_PATH + '/voice/voices')
+          .then((response) => (response.ok ? response.json() : null))
+          .then((body: { providers?: unknown } | null) => {
+            if (body) setProviderOptions(readVoiceProviders(body.providers));
+          })
+          .catch(() => undefined)
+          .finally(() => {
+            if (left > 0) window.setTimeout(tick, 5000);
+          });
+      };
+      window.setTimeout(tick, 3000);
+    }, []);
+
+    // 启停：把用户填的脚本交给宿主执行，宿主只负责跑脚本（见 /voice/provider-process）。
+    const runProviderProcess = useCallback(
+      (providerId: string, action: 'start' | 'stop') => {
+        setProcessBusy(true);
+        setProcessMsg('');
+        void fetch(ROUTE_PATH + '/voice/provider-process', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ provider: providerId, action }),
+        })
+          .then(async (response) => {
+            const body = (await response.json().catch(() => null)) as { ok?: unknown; message?: unknown } | null;
+            if (!response.ok || !body) throw new Error('HTTP ' + response.status);
+            if (body.ok === false) throw new Error(typeof body.message === 'string' ? body.message : '脚本执行失败');
+            setProcessMsg(action === 'start' ? t('voiceProviderStarted') : t('voiceProviderStopped'));
+            pollProviders(action === 'start' ? 12 : 3);
+          })
+          .catch((error: unknown) => setProcessMsg('!' + (error instanceof Error ? error.message : String(error))))
+          .finally(() => setProcessBusy(false));
+      },
+      [pollProviders],
+    );
+    // 不必等 provider 的 15s 软过期；失败时把原因原样显示在卡里（800 行的设置页不弹窗）。
+    // 接入配置保存（GSV 的服务地址与目录）：保存后立刻用宿主回的新状态刷新音色下拉，
     // 不必等 provider 的 15s 软过期；失败时把原因原样显示在卡里（800 行的设置页不弹窗）。
     const saveProviderConfig = useCallback((providerId: string, draft: Record<string, string>) => {
       setProviderConfigBusy(true);
@@ -240,6 +282,9 @@ export function makePetConfigSection(
     const [providerDraft, setProviderDraft] = useState<Record<string, string>>({});
     const [providerConfigBusy, setProviderConfigBusy] = useState(false);
     const [providerConfigMsg, setProviderConfigMsg] = useState('');
+    // 启停（只跑用户填的脚本）：启动要几十秒，所以点完先回一句，再用探活把可用性翻过来。
+    const [processBusy, setProcessBusy] = useState(false);
+    const [processMsg, setProcessMsg] = useState('');
     // 物理参数（全局）：只改本地状态，随「保存」整包写入；初值仅占位，成品加载成功后才允许编辑与保存。
     const [physics, setPhysics] = useState<PhysicsParams>({ ...DEFAULT_PHYSICS });
     // 字体（全局默认）：与 physics 同一套语义；初值仅占位，成品加载成功后才允许编辑与保存。
@@ -515,6 +560,12 @@ export function makePetConfigSection(
               message: providerConfigMsg,
               onChange: (key: string, value: string) => setProviderDraft((draft) => ({ ...draft, [key]: value })),
               onSave: () => saveProviderConfig(providerForm.id, providerDraft),
+              canStart: Boolean(providerDraft.startScript),
+              canStop: Boolean(providerDraft.stopScript),
+              processBusy,
+              processMessage: processMsg,
+              onStart: () => runProviderProcess(providerForm.id, 'start'),
+              onStop: () => runProviderProcess(providerForm.id, 'stop'),
             })
           : null,
         h(FontCard, { busy, font, onChange: patchFont }),

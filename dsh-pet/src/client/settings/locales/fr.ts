@@ -188,6 +188,10 @@ export const fr: Record<Key, string> = {
   voiceProviderSave: 'Enregistrer la connexion',
   voiceProviderSaved: 'Enregistré ; liste des voix actualisée',
   voiceProviderReady: 'Service en ligne',
+  voiceProviderStart: 'Demarrer le service',
+  voiceProviderStop: 'Arreter le service',
+  voiceProviderStarted: 'Demarrage envoye ; disponible sous 40 secondes',
+  voiceProviderStopped: 'Arret envoye',
   voiceVolumeLabel: 'Volume',
   voiceVolumeHint:
     'Volume de lecture en décimal 0–1 : 1 correspond au volume maximal (100 %), 0 coupe le son. Seule l’intensité change et l’audio n’est pas resynthétisé, donc le régler ne coûte rien de plus. Les quatre types de parole partagent ce même volume.',

@@ -30,6 +30,10 @@ export interface GsvSettings {
   readonly textLang: string;
   /** 参考音频的语种；缺省跟随 {@link textLang}。 */
   readonly promptLang: string;
+  /** 启动脚本（设置页「启动」按钮跑它）；空串 = 不提供启动能力。 */
+  readonly startScript: string;
+  /** 停止脚本（「停止」按钮跑它）；空串 = 只能手动关服务。 */
+  readonly stopScript: string;
 }
 
 /** 全空配置：未配置时的初值，缺项即空串。 */
@@ -41,6 +45,8 @@ export const EMPTY_GSV_SETTINGS: GsvSettings = {
   sovitsWeightsDir: '',
   textLang: GSV_DEFAULT_LANG,
   promptLang: GSV_DEFAULT_LANG,
+  startScript: '',
+  stopScript: '',
 };
 
 /** 把一个 unknown 当对象看；不是对象就当空对象（配置被写坏时不炸，由缺项判定接手）。 */
@@ -69,6 +75,8 @@ export function gsvSettingsOf(source: unknown): GsvSettings {
     sovitsWeightsDir: str(conf.sovitsWeightsDir),
     textLang: str(conf.textLang) || GSV_DEFAULT_LANG,
     promptLang: str(conf.promptLang) || str(conf.textLang) || GSV_DEFAULT_LANG,
+    startScript: str(conf.startScript),
+    stopScript: str(conf.stopScript),
   };
 }
 

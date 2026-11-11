@@ -173,6 +173,10 @@ export const zh = {
   voiceProviderSave: '保存接入配置',
   voiceProviderSaved: '已保存，音色清单已刷新',
   voiceProviderReady: '服务在线，音色可用',
+  voiceProviderStart: '启动服务',
+  voiceProviderStop: '停止服务',
+  voiceProviderStarted: '已发送启动，加载约 40 秒后可用',
+  voiceProviderStopped: '已发送停止',
   voiceVolumeLabel: '音量',
   voiceVolumeHint:
     '播报音量，0–1 的小数：1 是最大音量（100%），0 是静音。只改播放响度，不会重新合成音频，调它不额外花钱。四类语音共用这一个音量。',

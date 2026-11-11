@@ -185,6 +185,10 @@ export const de: Record<Key, string> = {
   voiceProviderSave: 'Verbindung speichern',
   voiceProviderSaved: 'Gespeichert; Stimmliste aktualisiert',
   voiceProviderReady: 'Dienst ist online',
+  voiceProviderStart: 'Dienst starten',
+  voiceProviderStop: 'Dienst stoppen',
+  voiceProviderStarted: 'Start gesendet; in etwa 40 Sekunden verfuegbar',
+  voiceProviderStopped: 'Stopp gesendet',
   voiceNameFallbackHint:
     'Wird ignoriert, solange die lokale Stimme verfuegbar ist: waehlt nur die edge-Stimme, falls GSV ausfaellt',
   voiceVolumeLabel: 'Lautstärke',

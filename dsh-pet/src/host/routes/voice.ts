@@ -12,7 +12,15 @@ import { voiceProviderStatuses } from '../voice/registry.ts';
 import { readUserConfig } from '../config.ts';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { providerConfigPath, readProviderValues, writeProviderFields, writeProviderVoice } from '../voice/gsv/store.ts';
+import {
+  providerConfigPath,
+  readProviderConfig,
+  readProviderValues,
+  writeProviderFields,
+  writeProviderVoice,
+} from '../voice/gsv/store.ts';
+import { gsvSettingsOf } from '../voice/gsv/settings.ts';
+import { startService, stopService } from '../voice/gsv/process.ts';
 
 /** 单个配置项的长度上限（字符）：路径与 URL 都远短于这个，超了基本是粘错内容。 */
 const MAX_CONFIG_VALUE_CHARS = 512;
@@ -143,6 +151,29 @@ export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): 
     // 广播 config：网页端据此重读 /config 并刷新播放增益（setVoiceConfig），当前播放中的那段不受影响。
     deps.state.writeSection('config', {});
     return okResult({ ok: true, volume });
+  }
+
+  // 第三方实现的启停（设置页「启动 / 停止」按钮）：只跑用户填的脚本，不猜进程树。
+  // 启动立刻返回（服务加载几十秒，由 20s 的探活把可用性翻过来）；停止最多等 20s。
+  if (rest === 'voice/provider-process') {
+    if (method !== 'POST') return methodNotAllowed();
+    let parsed: { provider?: unknown; action?: unknown };
+    try {
+      parsed = JSON.parse(body ?? 'null') as { provider?: unknown; action?: unknown };
+    } catch {
+      return invalidJson();
+    }
+    const providerId = typeof parsed.provider === 'string' ? parsed.provider.trim() : '';
+    const action = typeof parsed.action === 'string' ? parsed.action.trim() : '';
+    const status = providerId ? voiceProviderStatuses().find((item) => item.id === providerId) : undefined;
+    if (!status) return failResult('provider-missing', `没有这个语音实现：${providerId || '(空)'}`);
+    if (status.builtin) return failResult('bad-request', '内置实现没有进程可启停');
+    if (providerId !== 'gsv') return failResult('unsupported', `实现 ${providerId} 未提供启停脚本`);
+    if (action !== 'start' && action !== 'stop') return failResult('bad-request', 'action 只能是 start 或 stop');
+    const settings = gsvSettingsOf(readProviderConfig(providerConfigPath(deps.userRoot)));
+    const result = action === 'start' ? startService(settings.startScript) : await stopService(settings.stopScript);
+    if (!result.ok) return failResult('bad-request', result.message ?? '脚本执行失败');
+    return okResult({ ok: true, provider: providerId, action, ...(result.message ? { message: result.message } : {}) });
   }
 
   if (rest === 'voice/speak') {

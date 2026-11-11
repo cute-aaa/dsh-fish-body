@@ -2794,6 +2794,57 @@ paths:
         "405":
           description: 方法不是 POST。
 
+  /dsh-pet-7340/voice/provider-process:
+    post:
+      tags: [Voice]
+      operationId: runProviderProcess
+      summary: 启停第三方语音服务（跑用户配置的脚本）
+      description: |
+        只跑用户在 `voice-providers.json` 里填的 `startScript` / `stopScript`，**不猜进程树**：
+        部署形态太多（vendored api_v2 / 官方工程 / bat / sh / ps1），参数与环境变量只有用户脚本知道；
+        停止也不按端口扫进程（本机 9880 未必只跑 GSV，杀错比停不掉更糟）。
+
+        启动立刻返回（服务加载约 40 秒，可用性由 20s 的探活翻牌）；停止最多等 20 秒。
+        插件**不会**自动启动它：GPU 加载会拖慢 profile 启动，失败还要退避重试。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, action]
+              properties:
+                provider:
+                  type: string
+                  description: 实现 id（只有 `gsv` 提供启停脚本）。
+                action:
+                  type: string
+                  enum: [start, stop]
+      responses:
+        "200":
+          description: 脚本已执行（失败是业务实体）。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, provider, action]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  provider:
+                    type: string
+                  action:
+                    type: string
+                    enum: [start, stop]
+                  message:
+                    type: string
+                    description: 非 0 退出码等提示（不影响 ok）。
+        "400":
+          description: 请求体不是合法 JSON。
+        "405":
+          description: 方法不是 POST。
+
   /dsh-pet-7340/character:
     get:
       tags: [Assets]

@@ -31,6 +31,18 @@ export interface VoiceProviderCardProps {
   readonly onChange: (key: string, value: string) => void;
   /** 提交全部草稿值。 */
   readonly onSave: () => void;
+  /** 配了启动脚本 → 「启动服务」可点。 */
+  readonly canStart: boolean;
+  /** 配了停止脚本 → 「停止服务」可点。 */
+  readonly canStop: boolean;
+  /** 启停请求进行中。 */
+  readonly processBusy: boolean;
+  /** 启停结论（一句话，失败带 `!` 前缀）。 */
+  readonly processMessage: string;
+  /** 跑启动脚本。 */
+  readonly onStart: () => void;
+  /** 跑停止脚本。 */
+  readonly onStop: () => void;
 }
 
 /**
@@ -80,10 +92,31 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
               onClick: props.onSave,
               children: [t('voiceProviderSave')],
             }),
+            // 启停：只跑用户填的脚本。启动要几十秒，所以点完只回一句「已发送」，可用性由探活翻牌。
+            h('button', {
+              type: 'button',
+              className: 'dsh-pet-cfg__btn',
+              disabled: props.busy || props.processBusy || !props.canStart,
+              onClick: props.onStart,
+              children: [t('voiceProviderStart')],
+            }),
+            h('button', {
+              type: 'button',
+              className: 'dsh-pet-cfg__btn',
+              disabled: props.busy || props.processBusy || !props.canStop,
+              onClick: props.onStop,
+              children: [t('voiceProviderStop')],
+            }),
             props.message
               ? h('div', {
                   className: 'dsh-pet-cfg__msg' + (props.message.startsWith('!') ? ' is-err' : ''),
                   children: [props.message.replace(/^!/, '')],
+                })
+              : null,
+            props.processMessage
+              ? h('div', {
+                  className: 'dsh-pet-cfg__msg' + (props.processMessage.startsWith('!') ? ' is-err' : ''),
+                  children: [props.processMessage.replace(/^!/, '')],
                 })
               : null,
           ],

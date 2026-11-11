@@ -187,6 +187,10 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
     { key: 'gptWeightsDir', label: 'GPT 权重目录', kind: 'text', placeholder: '…/GPT_weights_v2' },
     { key: 'sovitsWeightsDir', label: 'SoVITS 权重目录', kind: 'text', placeholder: '…/SoVITS_weights_v2' },
     { key: 'textLang', label: '合成语种', kind: 'text', placeholder: 'zh' },
+    // 启停脚本：只由设置页的「启动 / 停止」按钮触发，插件不会自动跑它们（GPU 加载几十秒，
+    // 拖慢 profile 启动；失败还得退避重试，那是另一套机制）。空着就是没有这个能力。
+    { key: 'startScript', label: '启动脚本', kind: 'text', placeholder: 'D:/AI/FishChi/voice-local/gsv.bat' },
+    { key: 'stopScript', label: '停止脚本', kind: 'text', placeholder: 'D:/AI/FishChi/voice-local/stop.bat' },
   ];
 
   const provider: GsvProvider = {
