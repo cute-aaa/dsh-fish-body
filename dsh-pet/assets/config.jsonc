@@ -3,8 +3,8 @@
 //       （结构性缺失静默、显式写错告警），返回给消费端的永远是填满的成品。
 // 字段归属（三层，改配置前先看这里）：
 //   · 实例级（写在 pets[] 里，每只独立）：name / id / size / balanceEnabled / whisperEnabled /
-//     workStatusEnabled / fixedEnabled / display / position，外加可选的 whisperPrompt（人设）——
-//     写了就取代所属条目顶层那一份，留空则跟随条目（设置页有输入框）
+//     workStatusEnabled / fixedEnabled / display / position，外加可选的 sizes（按渲染方式的宽度）/
+//     renderer / model / whisperPrompt（人设）——写了就取代所属条目顶层那一份，留空则跟随条目（设置页有输入框）
 //   · 全局默认（本文件是默认值；用户在 main-config.jsonc 里写一次就对**所有宠物**生效，
 //     含 pet/<名>-config.json 定义的种类；种类文件自己写了则覆盖自己那份）：
 //     physics / font / confineToScreen / whisperImageEnabled / chatImageEnabled / chatAnimationEnabled /
@@ -242,6 +242,9 @@
   //   缺失按默认 both 处理并告警（兼容 ≤0.2.0 旧配置），写了非法值即配置错误；桌面模式渲染
   //   display 含 desktop/both 的全部宠物，每只一个局部小窗）、
   // position（corner: 四角之一；marginX/marginY: 距所属角落偏移 px）、
+  // sizes（可选：按渲染方式覆盖宽度，{ "webm": 500, "layered": 620, "live2d": 620 }，缺键回落 size。
+  //   三种素材的人物占框比例不同——webm 只占画面中间 37.5%，方形画布几乎铺满整块——所以尺寸分开放；
+  //   右键「大小」与设置页写的就是它，删空 = 没有覆盖）、
   // whisperPrompt（可选：这只宠物自己的人设，写了取代条目顶层那份；不写/留空 = 跟随条目）
   "pets": [
     {

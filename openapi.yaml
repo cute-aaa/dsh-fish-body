@@ -3412,6 +3412,52 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
+  /dsh-pet-7340/pet-size:
+    post:
+      tags: [Config]
+      operationId: setPetSize
+      summary: 改单只宠物某个渲染方式下的画框宽度
+      description: |
+        按宠物 id 写 `pets[].sizes[renderer]`（画框宽度 px，120–2048），返回改动后的成品聚合。
+        `size` 缺省或 `null` 表示删掉该渲染方式的覆盖，回落到 `pets[].size`；删空之后 `sizes` 整段去掉。
+
+        三种渲染方式各自一套尺寸：webm 的人物只占画框中间 37.5%，方形画布几乎铺满整块，
+        一个数字跨不过来（几何见 `shared/body-box`）。不给 `renderer` 时按该宠物**当前**的渲染方式落键。
+
+        写盘后异步重启桌面 Helper（窗口内容区尺寸在构造时算死，改不回来），与 `POST /pet-renderer`
+        同一条链路。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  description: 宠物实例 id（合并后全局唯一）
+                renderer:
+                  type: string
+                  enum: [webm, layered, live2d]
+                  description: 目标渲染方式；缺省 = 该宠物当前的 `pets[].renderer`
+                size:
+                  type: number
+                  minimum: 120
+                  maximum: 2048
+                  nullable: true
+                  description: 画框宽度 px；`null` 或缺省 = 删掉该渲染方式的覆盖
+      responses:
+        "200":
+          description: 改动后的成品聚合；失败时是 JSON 失败实体（ok 为 false）
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: 请求体不是 JSON 对象（`invalid-json`）。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
 components:
   parameters:
     PetIdQuery:
