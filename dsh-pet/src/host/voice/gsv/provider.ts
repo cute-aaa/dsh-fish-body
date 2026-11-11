@@ -175,7 +175,8 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
 
   const fields: readonly VoiceField[] = [
     { key: 'baseURL', label: 'GSV 服务地址', kind: 'text', placeholder: 'http://127.0.0.1:9880' },
-    { key: 'voice', label: '音色', kind: 'select', description: '扫描 voicesDir 得到的音色 id' },
+    // 音色不在 fields 里：它是「运行时选谁」，走右键/设置页的音色下拉（/voice/provider-voice），
+    // 与「怎么连上这个服务」是两件事；混进表单只会让人手打一个扫不到的 id。
     {
       key: 'voicesDir',
       label: '音色目录',

@@ -43,6 +43,44 @@ export function readProviderConfig(file: string): Record<string, unknown> {
 }
 
 /**
+ * 读一个实现的配置值（只取调用方点名的键，缺的给空串）。
+ *
+ * 为什么要键白名单：设置页只渲染该实现 `fields` 声明的那几项，别的键（比如以后加的）不该
+ * 顺着网络回传给浏览器；这也让「未知键」在写路径上直接被拒。
+ *
+ * @param file - 配置文件路径。
+ * @param providerId - 实现 id（`gsv`）。
+ * @param keys - 要读的键（= 该实现的 `fields[].key`）。
+ * @returns 键值表；缺项为空串。
+ */
+export function readProviderValues(file: string, providerId: string, keys: readonly string[]): Record<string, string> {
+  const conf = recordOf(readProviderConfig(file)[providerId]);
+  const values: Record<string, string> = {};
+  for (const key of keys) {
+    const value = conf[key];
+    values[key] = typeof value === 'string' ? value : '';
+  }
+  return values;
+}
+
+/**
+ * 写一个实现的多项配置（设置页「本地语音接入」表单）：空串 = 删掉该键（回落代码默认值）。
+ * @param file - 配置文件路径。
+ * @param providerId - 实现 id。
+ * @param patch - 已校验过的键值（键必须是该实现 `fields` 里的 key）。
+ */
+export async function writeProviderFields(
+  file: string,
+  providerId: string,
+  patch: Record<string, string>,
+): Promise<void> {
+  // 空串 = 删掉该键：设置页把「音色目录」清空，语义就是回到代码默认（而不是存一个空目录）。
+  const normalized: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(patch)) normalized[key] = value === '' ? undefined : value;
+  await writeProviderConfig(file, providerId, normalized);
+}
+
+/**
  * 只改一个实现的一项（目前只有 `voice`），其余键原样保留。
  *
  * 用「读-改-整份写」而不是追加：文件很小，且 JSON 没有原地改一行的语法；

@@ -9,7 +9,10 @@ import type { RouteResult } from '../http.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import { failResult, invalidJson, methodNotAllowed, okResult } from './result.ts';
 import { voiceProviderStatuses } from '../voice/registry.ts';
-import { providerConfigPath, writeProviderVoice } from '../voice/gsv/store.ts';
+import { providerConfigPath, readProviderValues, writeProviderFields, writeProviderVoice } from '../voice/gsv/store.ts';
+
+/** 单个配置项的长度上限（字符）：路径与 URL 都远短于这个，超了基本是粘错内容。 */
+const MAX_CONFIG_VALUE_CHARS = 512;
 
 /** 语音领域：未命中返回 undefined，命中返回应答。 */
 export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
@@ -48,6 +51,65 @@ export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): 
       return failResult('generate-error', error instanceof Error ? error.message : String(error));
     }
     return okResult({ ok: true, provider: providerId, voice: voiceId, providers: voiceProviderStatuses() });
+  }
+
+  // 第三方实现的接入配置（GSV 的服务地址与音色/权重目录）：设置页按 `fields` 生成表单，读写这一段。
+  // 存在 `<userRoot>/voice-providers.json`，不碰主配置（那份带注释，整份重写会丢）。
+  // provider 两种给法都认：GET 用 query，POST 用请求体（也会回落到 query，方便 curl 手测）。
+  if (rest === 'voice/provider-config') {
+    if (method !== 'GET' && method !== 'POST') return methodNotAllowed();
+    let parsed: { provider?: unknown; patch?: unknown } = {};
+    if (method === 'POST') {
+      try {
+        parsed = JSON.parse(body ?? 'null') as { provider?: unknown; patch?: unknown };
+      } catch {
+        return invalidJson();
+      }
+    }
+    const queryId = (input.url.searchParams.get('provider') ?? '').trim();
+    const bodyId = typeof parsed.provider === 'string' ? parsed.provider.trim() : '';
+    const providerId = bodyId || queryId;
+    const status = providerId ? voiceProviderStatuses().find((item) => item.id === providerId) : undefined;
+    if (!status) return failResult('provider-missing', `没有这个语音实现：${providerId || '(空)'}`);
+    if (status.builtin) return failResult('bad-request', '内置实现没有接入配置');
+    const file = providerConfigPath(deps.userRoot);
+    const keys = status.fields.map((field) => field.key);
+    if (method === 'GET') {
+      return okResult({ ok: true, provider: status.id, values: readProviderValues(file, status.id, keys) });
+    }
+    const patchRaw = parsed.patch;
+    if (patchRaw === undefined || patchRaw === null) return failResult('bad-request', 'patch 必填');
+    if (typeof patchRaw !== 'object' || Array.isArray(patchRaw)) {
+      return failResult('bad-request', 'patch 必须是对象');
+    }
+    const patch: Record<string, string> = {};
+    for (const [key, value] of Object.entries(patchRaw as Record<string, unknown>)) {
+      // 只认该实现声明过的键：多写的键静默丢弃会让设置页以为保存成功，所以直接拒。
+      if (!keys.includes(key)) return failResult('bad-request', `未知配置项：${key}`);
+      if (typeof value !== 'string') return failResult('bad-request', `${key} 必须是字符串`);
+      const trimmed = value.trim();
+      if (trimmed.length > MAX_CONFIG_VALUE_CHARS) {
+        return failResult('bad-request', `${key} 太长（上限 ${MAX_CONFIG_VALUE_CHARS} 字符）`);
+      }
+      // baseURL 只收 http(s)：写个别的东西进去，探活会一直失败而界面看不出原因。
+      if (key === 'baseURL' && trimmed !== '' && !/^https?:\/\//i.test(trimmed)) {
+        return failResult('bad-request', 'baseURL 必须以 http:// 或 https:// 开头');
+      }
+      patch[key] = trimmed;
+    }
+    if (Object.keys(patch).length === 0) return failResult('bad-request', 'patch 是空的');
+    try {
+      await writeProviderFields(file, status.id, patch);
+    } catch (error) {
+      return failResult('generate-error', error instanceof Error ? error.message : String(error));
+    }
+    // 配置变了要立刻重扫：设置页拿这份新状态刷新音色下拉，不用等 provider 的 15s 软过期。
+    return okResult({
+      ok: true,
+      provider: status.id,
+      values: readProviderValues(file, status.id, keys),
+      providers: voiceProviderStatuses(),
+    });
   }
 
   if (rest === 'voice/speak') {

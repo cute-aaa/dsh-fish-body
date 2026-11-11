@@ -180,6 +180,11 @@ export const de: Record<Key, string> = {
   voiceNameLabel: 'Stimme',
   voiceLocalLabel: 'Stimme (lokal)',
   voiceLocalHint: 'Klang der lokalen Sprachausgabe; gilt ab dem naechsten Satz',
+  voiceProviderTitle: 'Lokale Stimme (GSV)',
+  voiceProviderHint: 'GPT-SoVITS-Adresse und Materialordner; Stimmen werden nach dem Speichern neu gescannt',
+  voiceProviderSave: 'Verbindung speichern',
+  voiceProviderSaved: 'Gespeichert; Stimmliste aktualisiert',
+  voiceProviderReady: 'Dienst ist online',
   voiceNameFallbackHint:
     'Wird ignoriert, solange die lokale Stimme verfuegbar ist: waehlt nur die edge-Stimme, falls GSV ausfaellt',
   voiceVolumeLabel: 'Lautstärke',

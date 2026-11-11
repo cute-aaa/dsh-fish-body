@@ -168,6 +168,11 @@ export const zh = {
   voiceLocalLabel: '音色（本地）',
   voiceLocalHint: '本机语音服务的音色，切换后下一句生效',
   voiceNameFallbackHint: '本地音色可用时这一项不生效：它只决定 GSV 不可用时 edge 用谁的嗓子',
+  voiceProviderTitle: '本地语音接入（GSV）',
+  voiceProviderHint: 'GPT-SoVITS 的服务地址与素材目录；保存后立即重扫音色',
+  voiceProviderSave: '保存接入配置',
+  voiceProviderSaved: '已保存，音色清单已刷新',
+  voiceProviderReady: '服务在线，音色可用',
   voiceVolumeLabel: '音量',
   voiceVolumeHint:
     '播报音量，0–1 的小数：1 是最大音量（100%），0 是静音。只改播放响度，不会重新合成音频，调它不额外花钱。四类语音共用这一个音量。',

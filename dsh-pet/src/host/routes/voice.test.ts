@@ -3,9 +3,16 @@
  * 只断言协议层：方法判定、JSON 判定，以及把语音服务的结论映射成应答；不发真实请求。
  */
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, test } from 'node:test';
 import type { PetRouteDeps } from './types.ts';
 import { handleVoiceRoutes } from './voice.ts';
+import { registerVoiceProvider, resetVoiceProviders } from '../voice/registry.ts';
+
+/** 临时目录登记表：每个用例结束时清掉。 */
+const roots: string[] = [];
 
 const VOICES = [{ id: 'zh-CN-XiaoxiaoNeural', name: '晓晓', tag: '女 · 通用', default: true }];
 
@@ -145,4 +152,162 @@ test('不相干的路径：交回 undefined，让下一个处理器接手', asyn
     input('state', 'GET'),
   );
   assert.equal(result, undefined);
+});
+
+/** 临时数据根：接入配置写的是 `<userRoot>/voice-providers.json`。 */
+function tempRoot(): string {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-pet-voicecfg-'));
+  roots.push(root);
+  return root;
+}
+
+/** 注册一个带 fields 的假实现，返回注销函数。 */
+function registerGsvStub(): () => void {
+  return registerVoiceProvider({
+    id: 'gsv',
+    name: 'GSV',
+    fields: [
+      { key: 'baseURL', label: '地址', kind: 'text' },
+      { key: 'voicesDir', label: '音色目录', kind: 'text', required: true },
+    ],
+    listVoices: () => [{ id: 'vodyanitsa', name: 'vodyanitsa' }],
+    activeVoice: () => 'vodyanitsa',
+    synthesize: async () => ({ data: new Uint8Array([1]), mime: 'audio/wav' }),
+  });
+}
+
+/** 带 userRoot 的依赖（接入配置路由要它）。 */
+function providerDeps(userRoot: string): PetRouteDeps {
+  return {
+    voice: { listVoices: () => VOICES, speak: async () => ({ ok: true, file: '/x' }) },
+    speech: { hear: async () => ({ ok: true, text: '' }) },
+    userRoot,
+  } as unknown as PetRouteDeps;
+}
+
+/** 接入配置的输入：query 进 url，`rest` 只留路径（与真实路由一致）。 */
+function providerInput(rest: string, provider: string, method: string, body?: string) {
+  const url = new URL(`http://127.0.0.1:1/dsh-pet-7340/${rest}?provider=${encodeURIComponent(provider)}`);
+  return { url, rest, method, body };
+}
+
+describe('voice/provider-config —— 接入配置读写', () => {
+  afterEach(() => {
+    resetVoiceProviders();
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  test('GET：没有文件时给空串（不是 500，也不是编默认路径）', async () => {
+    const dispose = registerGsvStub();
+    try {
+      const result = await handleVoiceRoutes(
+        providerDeps(tempRoot()),
+        providerInput('voice/provider-config', 'gsv', 'GET'),
+      );
+      assert.equal(result?.kind, 'json');
+      if (result?.kind !== 'json') return;
+      assert.deepEqual(result.obj, { ok: true, provider: 'gsv', values: { baseURL: '', voicesDir: '' } });
+    } finally {
+      dispose();
+    }
+  });
+
+  test('POST：写盘并回新值，空串 = 删掉该键', async () => {
+    const dispose = registerGsvStub();
+    const root = tempRoot();
+    try {
+      const saved = await handleVoiceRoutes(
+        providerDeps(root),
+        providerInput(
+          'voice/provider-config',
+          'gsv',
+          'POST',
+          JSON.stringify({ provider: 'gsv', patch: { baseURL: 'http://127.0.0.1:9880', voicesDir: 'D:/v' } }),
+        ),
+      );
+      assert.equal(saved?.kind === 'json' ? saved.status : 0, 200);
+      const file = join(root, 'voice-providers.json');
+      assert.equal(JSON.parse(readFileSync(file, 'utf8')).gsv.voicesDir, 'D:/v');
+
+      const cleared = await handleVoiceRoutes(
+        providerDeps(root),
+        providerInput(
+          'voice/provider-config',
+          'gsv',
+          'POST',
+          JSON.stringify({ provider: 'gsv', patch: { voicesDir: '' } }),
+        ),
+      );
+      assert.deepEqual((cleared as { obj: { values: unknown } }).obj.values, {
+        baseURL: 'http://127.0.0.1:9880',
+        voicesDir: '',
+      });
+      assert.equal(JSON.parse(readFileSync(file, 'utf8')).gsv.voicesDir, undefined, '空串要删键，不写空值');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('POST 拒绝：未知键 / 非字符串 / baseURL 没有协议 / 空 patch', async () => {
+    const dispose = registerGsvStub();
+    const deps = providerDeps(tempRoot());
+    try {
+      for (const patch of [{ nope: 'x' }, { baseURL: 42 }, { baseURL: '127.0.0.1:9880' }, {}]) {
+        const result = await handleVoiceRoutes(
+          deps,
+          providerInput('voice/provider-config', 'gsv', 'POST', JSON.stringify({ provider: 'gsv', patch })),
+        );
+        assert.equal(result?.kind === 'json' ? result.status : 0, 200, JSON.stringify(patch));
+        assert.equal((result as { obj: { reason: string } }).obj.reason, 'bad-request', JSON.stringify(patch));
+      }
+    } finally {
+      dispose();
+    }
+  });
+
+  test('内置实现没有接入配置；不存在的实现回 provider-missing', async () => {
+    const edge = await handleVoiceRoutes(
+      providerDeps(tempRoot()),
+      providerInput('voice/provider-config', 'edge', 'GET'),
+    );
+    assert.equal((edge as { obj: { reason: string } }).obj.reason, 'bad-request');
+    const missing = await handleVoiceRoutes(
+      providerDeps(tempRoot()),
+      providerInput('voice/provider-config', 'ghost', 'GET'),
+    );
+    assert.equal((missing as { obj: { reason: string } }).obj.reason, 'provider-missing');
+  });
+
+  test('PUT 之类的方法：405', async () => {
+    const dispose = registerGsvStub();
+    try {
+      const result = await handleVoiceRoutes(
+        providerDeps(tempRoot()),
+        providerInput('voice/provider-config', 'gsv', 'PUT', '{}'),
+      );
+      assert.equal(result?.kind === 'json' ? result.status : 0, 405);
+    } finally {
+      dispose();
+    }
+  });
+
+  test('POST 的 provider 也可以只写在请求体里（设置页就是这么发的）', async () => {
+    const dispose = registerGsvStub();
+    const root = tempRoot();
+    try {
+      const result = await handleVoiceRoutes(providerDeps(root), {
+        url: new URL('http://127.0.0.1:1/dsh-pet-7340/voice/provider-config'),
+        rest: 'voice/provider-config',
+        method: 'POST',
+        body: JSON.stringify({ provider: 'gsv', patch: { baseURL: 'http://127.0.0.1:9999' } }),
+      });
+      assert.equal((result as { obj: { ok: boolean } }).obj.ok, true);
+      assert.equal(
+        JSON.parse(readFileSync(join(root, 'voice-providers.json'), 'utf8')).gsv.baseURL,
+        'http://127.0.0.1:9999',
+      );
+    } finally {
+      dispose();
+    }
+  });
 });

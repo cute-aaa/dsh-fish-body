@@ -43,6 +43,7 @@ import { usePetList } from './settings/use-pet-list.ts';
 import { useRemoteData } from './settings/use-remote-data.ts';
 import { makeUiKit } from './settings/ui.ts';
 import { makeVoiceCard, type VoiceOption } from './settings/voice-card.ts';
+import { makeVoiceProviderCard } from './settings/voice-provider-card.ts';
 import { DEFAULT_WEIGHTS } from '../shared/weights.ts';
 
 // 字典与桥的真源都在 settings/ 里：宿主的 locale 注册、容器与测试夹具都经这里取，不各自深路径引用。
@@ -78,6 +79,7 @@ export function makePetConfigSection(
   const PetCard = makePetCard(rt);
   const GlobalCard = makeGlobalCard(rt);
   const VoiceCard = makeVoiceCard(rt, VoicePicker);
+  const VoiceProviderCard = makeVoiceProviderCard(rt);
   const FontCard = makeFontCard(rt);
   const ModelCard = makeModelCard(rt, ModelPicker);
   const PhysicsCard = makePhysicsCard(rt);
@@ -132,6 +134,20 @@ export function makePetConfigSection(
           if (Array.isArray(body.voices)) setVoiceOptions(body.voices);
           // 第三方实现的可切音色（GSV 本地音色包）：与 edge 白名单分开渲染，互不覆盖。
           setProviderOptions(readVoiceProviders(body.providers));
+          // 接入配置（服务地址 / 目录）：有声明 fields 的实现才拉，值单独取一份（不回显在 voices 里）。
+          const form = readVoiceProviders(body.providers).find((item) => !item.builtin && item.fields.length > 0);
+          if (!form) return;
+          void fetch(ROUTE_PATH + '/voice/provider-config?provider=' + encodeURIComponent(form.id))
+            .then((response) => (response.ok ? response.json() : null))
+            .then((cfg: { values?: unknown } | null) => {
+              if (!alive || !cfg || typeof cfg.values !== 'object' || cfg.values === null) return;
+              const values: Record<string, string> = {};
+              for (const [key, value] of Object.entries(cfg.values as Record<string, unknown>)) {
+                if (typeof value === 'string') values[key] = value;
+              }
+              setProviderDraft(values);
+            })
+            .catch(() => undefined);
         })
         .catch(() => undefined);
       return () => {
@@ -156,6 +172,39 @@ export function makePetConfigSection(
         })
         .catch(() => undefined)
         .finally(() => setProviderBusy(false));
+    }, []);
+
+    // 本地语音接入配置（GSV 的服务地址与目录）：保存后立刻用宿主回的新状态刷新音色下拉，
+    // 不必等 provider 的 15s 软过期；失败时把原因原样显示在卡里（800 行的设置页不弹窗）。
+    const saveProviderConfig = useCallback((providerId: string, draft: Record<string, string>) => {
+      setProviderConfigBusy(true);
+      setProviderConfigMsg('');
+      void fetch(ROUTE_PATH + '/voice/provider-config', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: providerId, patch: draft }),
+      })
+        .then(async (response) => {
+          const body = (await response.json().catch(() => null)) as {
+            ok?: unknown;
+            message?: unknown;
+            values?: unknown;
+            providers?: unknown;
+          } | null;
+          if (!response.ok || !body) throw new Error('HTTP ' + response.status);
+          if (body.ok === false) throw new Error(typeof body.message === 'string' ? body.message : '保存被拒');
+          if (body.providers) setProviderOptions(readVoiceProviders(body.providers));
+          if (body.values && typeof body.values === 'object') {
+            const values: Record<string, string> = {};
+            for (const [key, value] of Object.entries(body.values as Record<string, unknown>)) {
+              if (typeof value === 'string') values[key] = value;
+            }
+            setProviderDraft(values);
+          }
+          setProviderConfigMsg(t('voiceProviderSaved'));
+        })
+        .catch((error: unknown) => setProviderConfigMsg('!' + (error instanceof Error ? error.message : String(error))))
+        .finally(() => setProviderConfigBusy(false));
     }, []);
 
     // 系统通知总开关：与其余全局开关同构，切换只改本地状态、随「保存」整包写入。
@@ -187,6 +236,10 @@ export function makePetConfigSection(
     // 第三方语音实现（GSV）：能切的音色与当前选中项；切换即时落盘，不随「保存」整包写入。
     const [providerOptions, setProviderOptions] = useState<VoiceProviderView[]>([]);
     const [providerBusy, setProviderBusy] = useState(false);
+    // 本地语音接入（GSV）的表单草稿与保存反馈：与「随保存整包写」的全局字段不同，这里单独提交。
+    const [providerDraft, setProviderDraft] = useState<Record<string, string>>({});
+    const [providerConfigBusy, setProviderConfigBusy] = useState(false);
+    const [providerConfigMsg, setProviderConfigMsg] = useState('');
     // 物理参数（全局）：只改本地状态，随「保存」整包写入；初值仅占位，成品加载成功后才允许编辑与保存。
     const [physics, setPhysics] = useState<PhysicsParams>({ ...DEFAULT_PHYSICS });
     // 字体（全局默认）：与 physics 同一套语义；初值仅占位，成品加载成功后才允许编辑与保存。
@@ -316,6 +369,8 @@ export function makePetConfigSection(
 
     // 本地音色那一格只列第一个「有音色可切」的实现（今天只有 GSV）；没有就不出现这一格。
     const localProvider = switchableProviders(providerOptions)[0];
+    // 接入表单只跟「声明了 fields 的实现」走（内置 edge 没有），可用与否都显示——服务没起时更要能改地址。
+    const providerForm = providerOptions.find((item) => !item.builtin && item.fields.length > 0);
 
     /** 两个模型字段各有一份状态，卡片只回传键名。 */
     const setModel = (key: ModelFieldKey, value: ModelSelection): void => {
@@ -449,6 +504,19 @@ export function makePetConfigSection(
           onTodoToggle: setVoiceTodoEnabled,
           onNotifyToggle: setVoiceNotifyEnabled,
         }),
+        providerForm
+          ? h(VoiceProviderCard, {
+              busy: providerConfigBusy,
+              name: providerForm.name,
+              available: providerForm.available,
+              reason: providerForm.reason ?? '',
+              fields: providerForm.fields,
+              values: providerDraft,
+              message: providerConfigMsg,
+              onChange: (key: string, value: string) => setProviderDraft((draft) => ({ ...draft, [key]: value })),
+              onSave: () => saveProviderConfig(providerForm.id, providerDraft),
+            })
+          : null,
         h(FontCard, { busy, font, onChange: patchFont }),
         h(ModelCard, {
           busy,

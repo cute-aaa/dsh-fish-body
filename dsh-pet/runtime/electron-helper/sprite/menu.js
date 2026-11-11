@@ -467,70 +467,63 @@ Object.assign(PetSprite.prototype, {
   // 「显示位置」菜单：改这一只宠物的 display，写它自己的配置，再由宿主重载生效。取值直接来自菜单项，
   // 渲染端不做推导（当前状态以配置为准）。不就地开关窗：窗口是进程启动时按 DSH_PET_PETS 一次性建的。
   // 与 reloadDesktop 同一处境：选「仅网页/都不」时本进程会在重载中被换掉，故不 await、不重试。
+  // 请求形状与失败判据走共享的 S.postPetConfig（网页端用同一份，只有后续动作不同）。
   setPetDisplay(display) {
     if (!display) return;
-    fetch(BASE + '/pet-display', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: this.pet.id, display }),
-    }).catch((e) => {
-      console.warn('[dsh-pet] 显示位置请求失败（宿主不可达？）', e);
-    });
+    this.postConfig({ kind: 'display', display }, '显示位置');
   },
 
   // 「渲染方式」菜单：三种后端互斥，改这一只宠物的 renderer。宿主写盘后 requestRestart 重建窗口，
   // 本进程随即被换掉——与 setPetDisplay 同一处境：不 await、不重试，失败只记日志。
   setPetRenderer(renderer) {
     if (!renderer) return;
-    fetch(BASE + '/pet-renderer', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: this.pet.id, renderer }),
-    }).catch((e) => {
-      console.warn('[dsh-pet] 渲染方式请求失败（宿主不可达？）', e);
-    });
+    this.postConfig({ kind: 'renderer', renderer }, '渲染方式');
   },
 
   // 「大小」菜单：只改当前渲染方式的尺寸（宿主按 pet.renderer 落键）。size 缺省 = 删掉该覆盖，
   // 回落 pets[].size；窗口重建后新尺寸才生效，所以同样不 await、不重试。
   setPetSize(size) {
     if (size !== undefined && !Number.isFinite(size)) return;
-    fetch(BASE + '/pet-size', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: this.pet.id, size: size === undefined ? null : size }),
-    }).catch((e) => {
-      console.warn('[dsh-pet] 改大小请求失败（宿主不可达？）', e);
-    });
+    this.postConfig({ kind: 'size', size }, '改大小');
   },
 
   // 「模型」菜单：layered 皮肤 id / live2d `.model3.json` 相对路径。写入后同样由宿主重载生效；
   // 空串是合法的「回到缺省」，所以只拒非字符串（与 /pet-model 的取值口径一致）。
   setPetModel(model) {
     if (typeof model !== 'string') return;
-    fetch(BASE + '/pet-model', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: this.pet.id, model }),
-    }).catch((e) => {
-      console.warn('[dsh-pet] 模型请求失败（宿主不可达？）', e);
-    });
+    this.postConfig({ kind: 'model', model }, '模型');
+  },
+
+  /**
+   * 五个「写配置」菜单的共用出口：共享层负责端点、请求体与失败判据，本端只记日志。
+   *
+   * 桌面端不看回执里的成品聚合——宿主写盘后会重启 Helper，本进程随即被换掉，重渲染没有意义。
+   *
+   * @param {object} intent - 改什么（见 shared/pet-config-actions 的 PetConfigIntent）。
+   * @param {string} label - 日志里的动作名。
+   */
+  postConfig(intent, label) {
+    S.postPetConfig(BASE, this.pet.id, intent)
+      .then((result) => {
+        if (!result.ok) console.warn('[dsh-pet] ' + label + '请求失败：' + (result.message || ''));
+      })
+      .catch((e) => {
+        console.warn('[dsh-pet] ' + label + '请求失败（宿主不可达？）', e);
+      });
   },
 
   // 「音色」菜单：给第三方语音实现（GSV）换嗓子。写的是 voice-providers.json，与 pets[] 无关，
-  // 所以不重建窗口、不重启 Helper——下一句合成时 provider 自己切权重。成功后就地更新本地快照，
-  // 让下一次右键的勾选跟着走（不重拉 /voice/voices，省一次请求）。
+  // 所以不重建窗口、不重启 Helper——下一句合成时 provider 自己切权重。请求走共享的 S.postPetConfig；
+  // 成功后用回执里的 providers 刷新本地快照，让下次右键的勾选跟着走。
   setProviderVoice(provider, voice) {
     if (typeof provider !== 'string' || !provider || typeof voice !== 'string' || !voice) return;
-    S.postAction(BASE + '/voice/provider-voice', { provider, voice })
-      .then((ok) => {
-        if (!ok) {
+    S.postPetConfig(BASE, this.pet.id, { kind: 'provider-voice', provider, voice })
+      .then((result) => {
+        if (!result.ok) {
           console.warn('[dsh-pet] 音色切换未成功 provider=' + provider + ' voice=' + voice);
           return;
         }
-        this.voiceProviders = (this.voiceProviders || []).map((item) =>
-          item.id === provider ? Object.assign({}, item, { voice }) : item,
-        );
+        this.voiceProviders = S.readVoiceProviders(result.providers);
       })
       .catch((e) => {
         console.warn('[dsh-pet] 音色切换请求失败（宿主不可达？）', e);

@@ -179,6 +179,11 @@ export const en: Record<Key, string> = {
   voiceNameLabel: 'Voice',
   voiceLocalLabel: 'Voice (local)',
   voiceLocalHint: 'Timbre of the local voice service; applies from the next sentence',
+  voiceProviderTitle: 'Local voice (GSV)',
+  voiceProviderHint: 'GPT-SoVITS service URL and asset folders; voices are rescanned right after saving',
+  voiceProviderSave: 'Save connection',
+  voiceProviderSaved: 'Saved; the voice list has been refreshed',
+  voiceProviderReady: 'Service online, voices ready',
   voiceNameFallbackHint:
     'Ignored while the local voice is available: it only picks the edge voice used when GSV is down',
   voiceVolumeLabel: 'Volume',

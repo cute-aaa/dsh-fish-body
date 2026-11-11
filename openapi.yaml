@@ -2642,6 +2642,90 @@ paths:
         "405":
           description: 方法不是 POST。
 
+  /dsh-pet-7340/voice/provider-config:
+    get:
+      tags: [Voice]
+      operationId: getProviderConfig
+      summary: 读第三方语音实现的接入配置
+      description: |
+        设置页「本地语音接入」表单的初值：只回该实现 `fields` 声明过的键（服务地址、音色目录、权重目录、语种），
+        缺项给空串——不替用户编默认路径（那会让「没配」和「配错」看起来一样）。
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 实现 id（内置 edge 没有接入配置）。
+      responses:
+        "200":
+          description: 当前值（键 = `fields[].key`）。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, provider, values]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  provider:
+                    type: string
+                  values:
+                    type: object
+                    additionalProperties:
+                      type: string
+        "405":
+          description: 方法不是 GET / POST。
+    post:
+      tags: [Voice]
+      operationId: setProviderConfig
+      summary: 写第三方语音实现的接入配置
+      description: |
+        只改 `<userRoot>/voice-providers.json` 里该实现的那几个键，**不写** `pets[]`、不重启桌面 Helper。
+        值一律 trim 后落盘；**空串 = 删掉该键**（回落代码默认，例如 baseURL 回 `http://127.0.0.1:9880`）。
+        `baseURL` 只收 `http(s)://` 开头；键必须是该实现 `fields` 里声明过的，多写的直接 400 级业务失败
+        （静默丢弃会让设置页以为保存成功）。保存后立刻重扫音色，响应里带回新的 `providers`。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, patch]
+              properties:
+                provider:
+                  type: string
+                patch:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: 键 = `fields[].key`；空串表示删除该键。
+      responses:
+        "200":
+          description: 保存后的值与实现状态。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, provider, values, providers]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  provider:
+                    type: string
+                  values:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  providers:
+                    type: array
+                    items:
+                      type: object
+        "400":
+          description: 请求体不是合法 JSON。
+
   /dsh-pet-7340/character:
     get:
       tags: [Assets]

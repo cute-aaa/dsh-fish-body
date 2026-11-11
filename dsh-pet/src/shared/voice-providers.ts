@@ -14,6 +14,16 @@ export interface VoiceChoice {
   readonly tag?: string;
 }
 
+/** 一个接入配置项（宿主声明，设置页据此生成控件）。 */
+export interface VoiceFieldView {
+  readonly key: string;
+  readonly label: string;
+  readonly kind: 'text' | 'password' | 'number' | 'select';
+  readonly required: boolean;
+  readonly placeholder?: string;
+  readonly description?: string;
+}
+
 /** 一个语音实现的状态视图。 */
 export interface VoiceProviderView {
   readonly id: string;
@@ -26,6 +36,8 @@ export interface VoiceProviderView {
   readonly voices: readonly VoiceChoice[];
   /** 当前选中的音色 id；空串 = 没选。 */
   readonly voice: string;
+  /** 接入配置项（服务地址 / 目录 / 语种…）：设置页按它生成表单。 */
+  readonly fields: readonly VoiceFieldView[];
 }
 
 /** 取对象；非对象返回 undefined。 */
@@ -54,6 +66,30 @@ function parseChoice(raw: unknown): VoiceChoice | undefined {
 }
 
 /**
+ * 解析一个接入配置项。
+ * @param raw - 网络来的任意值。
+ * @returns 合法项；缺 key/label 或 kind 不认识时 undefined（不认识的控件渲染不出来，宁可不显示）。
+ */
+function parseField(raw: unknown): VoiceFieldView | undefined {
+  const entry = obj(raw);
+  if (!entry) return undefined;
+  const key = str(entry.key).trim();
+  if (!key) return undefined;
+  const kind = str(entry.kind).trim();
+  if (kind !== 'text' && kind !== 'password' && kind !== 'number' && kind !== 'select') return undefined;
+  const placeholder = str(entry.placeholder).trim();
+  const description = str(entry.description).trim();
+  return {
+    key,
+    label: str(entry.label).trim() || key,
+    kind,
+    required: entry.required === true,
+    ...(placeholder ? { placeholder } : {}),
+    ...(description ? { description } : {}),
+  };
+}
+
+/**
  * 解析一个实现的状态。
  * @param raw - 网络来的任意值。
  * @returns 合法的实现；缺 id 时 undefined。
@@ -66,6 +102,9 @@ function parseProvider(raw: unknown): VoiceProviderView | undefined {
   const voices = Array.isArray(entry.voices)
     ? entry.voices.map(parseChoice).filter((item): item is VoiceChoice => item !== undefined)
     : [];
+  const fields = Array.isArray(entry.fields)
+    ? entry.fields.map(parseField).filter((item): item is VoiceFieldView => item !== undefined)
+    : [];
   const reason = str(entry.reason).trim();
   return {
     id,
@@ -76,6 +115,7 @@ function parseProvider(raw: unknown): VoiceProviderView | undefined {
     ...(reason ? { reason } : {}),
     voices,
     voice: str(entry.voice).trim(),
+    fields,
   };
 }
 

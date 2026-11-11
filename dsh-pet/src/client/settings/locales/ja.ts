@@ -179,6 +179,11 @@ export const ja: Record<Key, string> = {
   voiceLocalLabel: '声質（ローカル）',
   voiceLocalHint: 'ローカル音声サービスの声質。次の文から反映されます',
   voiceNameFallbackHint: 'ローカル音色が使える間は効きません（GSV 停止時の edge の声だけを決めます）',
+  voiceProviderTitle: 'ローカル音声（GSV）',
+  voiceProviderHint: 'GPT-SoVITS の接続先と素材フォルダ。保存すると音色を再スキャンします',
+  voiceProviderSave: '接続設定を保存',
+  voiceProviderSaved: '保存しました（音色を再読み込み）',
+  voiceProviderReady: 'サービスはオンラインです',
   voiceVolumeLabel: '音量',
   voiceVolumeHint:
     '読み上げの音量（0〜1 の小数）。1 が最大音量（100%）、0 は消音です。変わるのは再生の大きさだけで、音声の再合成は行いません。4種類の音声はこの1つの音量を共有します。',

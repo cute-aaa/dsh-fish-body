@@ -9,6 +9,7 @@ import type { MenuLeaf } from '../../shared/menu.ts';
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import type { Animations } from '../../shared/types.ts';
 import { postAction } from '../../shared/state.ts';
+import { postPetConfig, type PetConfigIntent } from '../../shared/pet-config-actions.ts';
 import { setMenuClick } from '../menu-service.ts';
 
 /** 菜单派发的依赖。 */
@@ -71,109 +72,22 @@ export interface MenuActions {
   run: (leaf: MenuLeaf, playbackId?: string, keepFacing?: boolean, hostInstruction?: boolean) => void;
 }
 
-/** 显示位置：写配置后宿主回成品聚合，交给容器重渲染。 */
-async function switchDisplay(deps: MenuActionDeps, display: string): Promise<void> {
-  try {
-    const response = await fetch(ROUTE_PATH + '/pet-display', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: deps.petId, display }),
-    });
-    if (!response.ok) throw new Error('pet-display HTTP ' + response.status);
-    const body = (await response.json()) as Record<string, unknown>;
-    // 业务失败是 HTTP 200 + {ok:false, reason}：只看状态码会把失败体当成成品聚合。
-    if (body.ok === false) throw new Error('pet-display 被拒：' + String(body.reason ?? ''));
-    // 响应体就是改动后的成品聚合，必须交给容器；否则会再拉一次 GET /config，可能拿到旧值。
-    deps.applyMerged(body as Record<string, Record<string, unknown>>);
-  } catch (error) {
-    deps.warn('[dsh-pet] 显示位置切换失败 ' + (error instanceof Error ? error.message : String(error)));
-  }
-}
-
-/** 渲染方式：写配置后宿主回成品聚合，交给容器重渲染（stage 即时重建）。 */
-async function switchRenderer(deps: MenuActionDeps, renderer: string): Promise<void> {
-  try {
-    const response = await fetch(ROUTE_PATH + '/pet-renderer', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: deps.petId, renderer }),
-    });
-    if (!response.ok) throw new Error('pet-renderer HTTP ' + response.status);
-    const body = (await response.json()) as Record<string, unknown>;
-    if (body.ok === false) throw new Error('pet-renderer 被拒：' + String(body.reason ?? ''));
-    deps.applyMerged(body as Record<string, Record<string, unknown>>);
-  } catch (error) {
-    deps.warn('[dsh-pet] 渲染方式切换失败 ' + (error instanceof Error ? error.message : String(error)));
-  }
-}
-
-/** 皮肤/模型：写配置后宿主回成品聚合，交给容器重渲染（live2d/layered 换模型）。 */
-async function switchModel(deps: MenuActionDeps, model: string): Promise<void> {
-  try {
-    const response = await fetch(ROUTE_PATH + '/pet-model', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: deps.petId, model }),
-    });
-    if (!response.ok) throw new Error('pet-model HTTP ' + response.status);
-    const body = (await response.json()) as Record<string, unknown>;
-    if (body.ok === false) throw new Error('pet-model 被拒：' + String(body.reason ?? ''));
-    deps.applyMerged(body as Record<string, Record<string, unknown>>);
-  } catch (error) {
-    deps.warn('[dsh-pet] 模型切换失败 ' + (error instanceof Error ? error.message : String(error)));
-  }
-}
-
 /**
- * 大小：写当前渲染方式的画框宽度，宿主回成品聚合。
- *
- * 不传 renderer——由宿主按该宠物现有渲染方式落键，菜单这里少一个可能与配置不同步的参数。
+ * 一次「改配置」的统一出口：请求形状与失败判据在 shared/pet-config-actions（桌面端用的是同一份），
+ * 这里只做网页端特有的一步——把宿主回的成品聚合交给容器重渲染。
  *
  * @param deps - 派发依赖（宠物 id 与聚合回填）。
- * @param size - 目标宽度 px；undefined = 删掉该渲染方式的覆盖。
+ * @param intent - 改什么（显示位置 / 渲染方式 / 模型 / 大小 / 音色）。
+ * @param label - 日志里的动作名（中文，只用于排障）。
  */
-async function switchSize(deps: MenuActionDeps, size: number | undefined): Promise<void> {
-  try {
-    const payload = size === undefined ? { id: deps.petId, size: null } : { id: deps.petId, size };
-    const response = await fetch(ROUTE_PATH + '/pet-size', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) throw new Error('pet-size HTTP ' + response.status);
-    const body = (await response.json()) as Record<string, unknown>;
-    if (body.ok === false) throw new Error('pet-size 被拒：' + String(body.reason ?? ''));
-    deps.applyMerged(body as Record<string, Record<string, unknown>>);
-  } catch (error) {
-    deps.warn('[dsh-pet] 改大小失败 ' + (error instanceof Error ? error.message : String(error)));
+async function applyPetConfig(deps: MenuActionDeps, intent: PetConfigIntent, label: string): Promise<void> {
+  const result = await postPetConfig(ROUTE_PATH, deps.petId, intent);
+  if (!result.ok) {
+    deps.warn(`[dsh-pet] ${label}失败：${result.message ?? ''}`);
+    return;
   }
-}
-
-/**
- * 音色：给第三方语音实现（GSV）换嗓子。
- *
- * 写的是 `<userRoot>/voice-providers.json`，不动 pets[] 也不重启 Helper——下一句合成自己会切权重，
- * 所以这里既不用回填成品聚合，也不用重建窗口（与「模型 / 皮肤」是两件事）。
- *
- * @param deps - 派发依赖（只用来留痕与回填菜单勾选）。
- * @param provider - 实现 id（`gsv`）。
- * @param voice - 目标音色 id。
- */
-async function switchProviderVoice(deps: MenuActionDeps, provider: string, voice: string): Promise<void> {
-  try {
-    const response = await fetch(ROUTE_PATH + '/voice/provider-voice', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ provider, voice }),
-    });
-    if (!response.ok) throw new Error('voice/provider-voice HTTP ' + response.status);
-    const body = (await response.json()) as Record<string, unknown>;
-    // 业务失败是 HTTP 200 + {ok:false, reason}：只看状态码会把失败体当成功，菜单勾也会错位。
-    if (body.ok === false) throw new Error('voice/provider-voice 被拒：' + String(body.reason ?? ''));
-    deps.onProviderVoiceChanged?.(provider, voice);
-  } catch (error) {
-    deps.warn('[dsh-pet] 音色切换失败 ' + (error instanceof Error ? error.message : String(error)));
-  }
+  if (result.merged) deps.applyMerged(result.merged);
+  if (intent.kind === 'provider-voice') deps.onProviderVoiceChanged?.(intent.provider, intent.voice);
 }
 
 /**
@@ -279,27 +193,27 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       const display = leaf.display;
       if (!display) return;
       console.info('[dsh-pet] 菜单切换显示位置 pet=' + petId + ' display=' + display);
-      void switchDisplay(deps, display);
+      void applyPetConfig(deps, { kind: 'display', display }, '显示位置切换');
       return;
     }
     if (leaf.action === 'set-renderer') {
       const renderer = leaf.renderer;
       if (!renderer) return;
       console.info('[dsh-pet] 菜单切换渲染方式 pet=' + petId + ' renderer=' + renderer);
-      void switchRenderer(deps, renderer);
+      void applyPetConfig(deps, { kind: 'renderer', renderer }, '渲染方式切换');
       return;
     }
     if (leaf.action === 'set-model') {
       const model = leaf.model;
       if (model === undefined) return;
       console.info('[dsh-pet] 菜单切换模型 pet=' + petId + ' model=' + model);
-      void switchModel(deps, model);
+      void applyPetConfig(deps, { kind: 'model', model }, '模型切换');
       return;
     }
     if (leaf.action === 'set-size') {
       // size 缺省 = 删掉当前渲染方式的覆盖，回落 pets[].size；宿主按该宠物现有 renderer 落键。
       console.info('[dsh-pet] 菜单改大小 pet=' + petId + ' size=' + String(leaf.size ?? '默认'));
-      void switchSize(deps, leaf.size);
+      void applyPetConfig(deps, { kind: 'size', size: leaf.size }, '改大小');
       return;
     }
     if (leaf.action === 'set-provider-voice') {
@@ -307,7 +221,7 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       const voice = leaf.providerVoice;
       if (!provider || !voice) return;
       console.info('[dsh-pet] 菜单切换音色 pet=' + petId + ' provider=' + provider + ' voice=' + voice);
-      void switchProviderVoice(deps, provider, voice);
+      void applyPetConfig(deps, { kind: 'provider-voice', provider, voice }, '音色切换');
       return;
     }
     if (leaf.action === 'renderer-action') {

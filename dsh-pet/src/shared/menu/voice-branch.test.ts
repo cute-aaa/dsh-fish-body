@@ -22,6 +22,7 @@ function provider(over: Partial<VoiceProviderView> = {}): VoiceProviderView {
       { id: 'klee', name: 'klee', tag: '原神角色语音' },
     ],
     voice: 'vodyanitsa',
+    fields: [],
     ...over,
   };
 }

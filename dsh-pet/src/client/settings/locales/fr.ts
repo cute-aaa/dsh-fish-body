@@ -182,6 +182,12 @@ export const fr: Record<Key, string> = {
   voiceLocalLabel: 'Voix (locale)',
   voiceLocalHint: 'Timbre du service vocal local ; s’applique dès la phrase suivante',
   voiceNameFallbackHint: 'Ignore tant que la voix locale est disponible : ne choisit que la voix edge si GSV tombe',
+  voiceProviderTitle: 'Voix locale (GSV)',
+  voiceProviderHint:
+    'URL du service GPT-SoVITS et dossiers de ressources ; les voix sont rescannées après enregistrement',
+  voiceProviderSave: 'Enregistrer la connexion',
+  voiceProviderSaved: 'Enregistré ; liste des voix actualisée',
+  voiceProviderReady: 'Service en ligne',
   voiceVolumeLabel: 'Volume',
   voiceVolumeHint:
     'Volume de lecture en décimal 0–1 : 1 correspond au volume maximal (100 %), 0 coupe le son. Seule l’intensité change et l’audio n’est pas resynthétisé, donc le régler ne coûte rien de plus. Les quatre types de parole partagent ce même volume.',
