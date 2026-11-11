@@ -73,6 +73,9 @@ const SETTINGS_CSS = [
   '.dsh-pet-cfg__grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 16px;align-items:end}',
   '.dsh-pet-cfg__grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px;align-items:end}',
   '.dsh-pet-cfg__grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;align-items:end}',
+  // 音量滑块：原生 range 在各家 Chromium 里外观差很多，只统一轨道高度与强调色。
+  '.dsh-pet-cfg__range{width:100%;height:28px;accent-color:var(--dsw-alias-button-info-fill);cursor:pointer}',
+  '.dsh-pet-cfg__range:disabled{cursor:default;opacity:.5}',
 
   '@container (max-width:600px){.dsh-pet-cfg__grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}',
   '@container (max-width:400px){.dsh-pet-cfg__grid2,.dsh-pet-cfg__grid3,.dsh-pet-cfg__grid4{grid-template-columns:minmax(0,1fr)}}',

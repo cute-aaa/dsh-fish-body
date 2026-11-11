@@ -8,7 +8,7 @@
 import type { FunctionComponent } from 'react';
 import type { VoiceOption, VoicePickerProps } from './picker/voice-picker.ts';
 import type { SettingsRuntime } from './runtime.ts';
-import { makeUiKit, numberInputProps } from './ui.ts';
+import { makeUiKit } from './ui.ts';
 
 export type { VoiceOption } from './picker/voice-picker.ts';
 
@@ -104,17 +104,23 @@ export function makeVoiceCard(
               }),
               localActive ? t('voiceNameFallbackHint') : undefined,
             ),
+            // 音量：播放端系数（0–1）。用滑块 + 百分比读数而不是裸小数——「0.65」没人看得出是多大，
+            // 而且 GSV 与 edge 的响度本来就不同，用户需要边放边拖。落盘仍是 0–1（配置校验不变）。
             field(
-              t('voiceVolumeLabel'),
-              h(
-                'input',
-                numberInputProps(props.volume, props.onVolumeChange, {
-                  step: '0.05',
-                  min: '0',
-                  max: '1',
-                  disabled: props.busy,
-                }),
-              ),
+              `${t('voiceVolumeLabel')}（${Math.round(props.volume * 100)}%）`,
+              h('input', {
+                type: 'range',
+                className: 'dsh-pet-cfg__range',
+                min: '0',
+                max: '1',
+                step: '0.05',
+                value: String(props.volume),
+                disabled: props.busy,
+                onChange: (event: { target: { value: string } }) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) props.onVolumeChange(next);
+                },
+              }),
               t('voiceVolumeHint'),
             ),
             // 本地音色（GSV）：与 edge 白名单并列但互不覆盖——上面那格是「云端换声线」，
