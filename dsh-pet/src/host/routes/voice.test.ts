@@ -22,7 +22,7 @@ function input(rest: string, method: string, body?: string) {
   return { url: new URL(`http://127.0.0.1:1/dsh-pet-7340/${rest}`), rest, method, body };
 }
 
-test('GET /voice/voices：返回音色列表', async () => {
+test('GET /voice/voices：返回音色列表与 provider 状态（内置 edge 恒在）', async () => {
   const result = await handleVoiceRoutes(
     makeDeps(async () => ({ ok: true, file: '/x.mp3' })),
     input('voice/voices', 'GET'),
@@ -31,6 +31,13 @@ test('GET /voice/voices：返回音色列表', async () => {
   if (result?.kind !== 'json') return;
   assert.equal(result.status, 200);
   assert.deepEqual((result.obj as { voices: unknown }).voices, VOICES);
+  const providers = (result.obj as { providers: Array<{ id: string; builtin: boolean; available: boolean }> })
+    .providers;
+  assert.deepEqual(
+    providers.map((p) => [p.id, p.builtin, p.available]),
+    [['edge', true, true]],
+    '没注册第三方时只剩内置一环',
+  );
 });
 
 test('POST /voice/speak 成功：交回音频文件，Content-Type 跟着 mime', async () => {

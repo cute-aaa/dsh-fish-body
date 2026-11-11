@@ -1,10 +1,11 @@
 /**
- * 第三方语音实现的注册表：单槽，后注册的覆盖先注册的。
+ * 第三方语音实现的注册表：**多 provider + 回退链**，内置 edge 永远是最后一环。
  *
- * 与余额注册表不同，语音没有「按服务商名匹配」的键——一句话念出来就完事，
- * 不存在多实现并存的语义，所以这里是一个槽而不是 Map。
+ * 与余额注册表不同，语音没有「按服务商名匹配」的键——一句话念出来就完事，谁合成的用户并不关心；
+ * 所以这里按注册顺序排成一条链：前面的先试，不可用或失败就落到下一环，最后是内置 edge（不会缺席）。
+ * 声明式 `fields` 只描述「这实现需要哪些配置项」，设置页据此生成控件（T3.6），本模块不读配置。
  * 模块单例：注册返回 disposer；测试用 {@link resetVoiceProviders} 复位。
- * 只登记与查找，不合成、不缓存、不读配置。
+ * 只登记、排序与探测可用性，不合成、不缓存。
  * @module dsh-pet/src/host/voice/registry
  */
 import type { AudioClip } from './audio.ts';
@@ -12,31 +13,71 @@ import type { AudioClip } from './audio.ts';
 /** 内置实现的名字；缓存键与排障都用它，第三方不能占用。 */
 export const BUILTIN_VOICE_ID = 'edge';
 
+/** 声明式配置项的类型：设置页按它选控件。 */
+export type VoiceFieldKind = 'text' | 'password' | 'number' | 'select';
+
+/** 一个实现需要的配置项（只描述形状，值由调用方从配置/凭据里取）。 */
+export interface VoiceField {
+  /** 配置键（写进 `voiceProviderConfig[<providerId>][key]`）。 */
+  readonly key: string;
+  /** 控件标签。 */
+  readonly label: string;
+  /** 控件类型；`password` 的值走 DSH credentials，不进普通配置。 */
+  readonly kind: VoiceFieldKind;
+  /** 是否必填（缺它就不可用）。 */
+  readonly required?: boolean;
+  /** 输入框占位或选择框缺省提示。 */
+  readonly placeholder?: string;
+  /** `select` 的候选值。 */
+  readonly options?: readonly string[];
+  /** 一句说明，设置页显示在控件下方。 */
+  readonly description?: string;
+}
+
+/** 可用性结论：不可用时给一句人话，直接显示在设置页上。 */
+export type VoiceProviderAvailability = { readonly ok: true } | { readonly ok: false; readonly reason: string };
+
 /** 第三方语音实现：给一段文本，返回音频字节与格式。 */
 export interface VoiceProvider {
   /** 唯一标识；参与缓存键，换实现不会命中旧音频。 */
   readonly id: string;
-  /** 展示名，只用于排障。 */
+  /** 展示名。 */
   readonly name: string;
+  /** 需要哪些配置项（声明式，设置页据此生成控件）。 */
+  readonly fields?: readonly VoiceField[];
+  /**
+   * 现在能不能用（服务没起、没配 key、音色没加载…）。
+   *
+   * 缺省视为可用；必须同步返回——每次合成都会现查一次，异步探测要自己缓存结论。
+   * 不可用**不是错误**：链会跳过它落到下一环，用户只会更难听到声音，不会看到失败。
+   */
+  availability?(): VoiceProviderAvailability;
   /**
    * 把一段文本合成为音频。
    *
-   * 失败必须抛错——宿主会归一成 `generate-error` 并记日志；自己吞掉会让上层以为成功。
+   * 失败必须抛错——宿主会记日志并落到下一环；自己吞掉会让上层以为成功。
    * 不接收音色：`voiceName` 是内置实现的白名单，第三方的嗓子由它自己决定。
-   * MIME 决定缓存扩展名与 `/voice/speak` 的 Content-Type；不认识的格式按失败处理
-   * （见 voice/audio.ts 的 `audioExtOf`）。
+   * MIME 决定缓存扩展名与 `/voice/speak` 的 Content-Type（见 voice/audio.ts）。
    */
   synthesize(input: { readonly text: string; readonly rate: string }): Promise<AudioClip>;
 }
 
-/** 当前生效的第三方实现；`null` = 没注册，合成走内置实现。 */
-let current: VoiceProvider | null = null;
+/** 注册表里的一环：实现 + 当下可用性（探测后的快照，供排序与排障）。 */
+export interface VoiceProviderEntry {
+  readonly provider: VoiceProvider;
+  readonly available: boolean;
+  /** 不可用时的原因；可用时为空。 */
+  readonly reason?: string;
+}
+
+/** 注册顺序表：Map 保持插入顺序，同 id 重注册就地替换（位置不变，避免链序跳动）。 */
+const providers = new Map<string, VoiceProvider>();
 
 /**
- * 注册一个第三方语音实现，覆盖当前生效的那个。
+ * 注册一个第三方语音实现（同 id 覆盖）。
  *
  * @param def - 实现定义；`id` 不能与内置实现同名（那会让缓存键撞在一起）。
- * @returns 注销函数；只在「当前仍是这一份」时才清空，迟到的注销不会顶掉后来者。
+ * @returns 注销函数；只在「当前仍是这一份」时才移除，迟到的注销不会顶掉后来者。
  * @throws {TypeError} 定义非法、`synthesize` 不是函数或 id 与内置同名时。
  */
 export function registerVoiceProvider(def: VoiceProvider): () => void {
@@ -44,27 +85,84 @@ export function registerVoiceProvider(def: VoiceProvider): () => void {
   if (typeof def.id !== 'string' || def.id.length === 0) throw new TypeError('id 必须是非空字符串');
   if (def.id === BUILTIN_VOICE_ID) throw new TypeError('不能与内置实现同名: ' + BUILTIN_VOICE_ID);
   if (typeof def.synthesize !== 'function') throw new TypeError('synthesize 必须是函数');
+  if (def.availability !== undefined && typeof def.availability !== 'function') {
+    throw new TypeError('availability 必须是函数');
+  }
 
-  current = def;
+  providers.set(def.id, def);
   return () => {
-    if (current === def) current = null;
+    if (providers.get(def.id) === def) providers.delete(def.id);
   };
 }
 
+/** 探一次可用性；实现没声明 `availability` 一律当可用。 */
+function probe(provider: VoiceProvider): VoiceProviderAvailability {
+  try {
+    return provider.availability?.() ?? { ok: true };
+  } catch (error) {
+    // 探测自己炸了：当作不可用，别让它把整条链带走
+    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 /**
- * 当前该用哪个第三方实现。
- * @returns 已注册的实现；没注册时返回 `null`，调用方据此回落到内置实现。
+ * 当前注册链（按注册顺序，带可用性快照）。
+ *
+ * @returns 每一环的实现与可用性；没注册任何实现时为空数组。
+ */
+export function voiceProviderEntries(): VoiceProviderEntry[] {
+  return [...providers.values()].map((provider) => {
+    const verdict = probe(provider);
+    return verdict.ok ? { provider, available: true } : { provider, available: false, reason: verdict.reason };
+  });
+}
+
+/**
+ * 当前可用的一环（链上第一个可用的）。
+ *
+ * @returns 可用实现；都不可以用或没注册时返回 `null`，调用方据此落到内置 edge。
  */
 export function activeVoiceProvider(): VoiceProvider | null {
-  return current;
+  return voiceProviderEntries().find((entry) => entry.available)?.provider ?? null;
 }
 
 /**
  * 列出可用实现，用于排障「为什么没走我注册的那个」。
- * @returns `builtin` 恒为内置实现；`external` 是当前生效的第三方 id（没有则为空数组）。
+ *
+ * @returns `builtin` 恒为内置实现；`external` 是注册顺序的全部第三方 id（含当下不可用的）。
  */
 export function listVoiceProviders(): { builtin: string[]; external: string[] } {
-  return { builtin: [BUILTIN_VOICE_ID], external: current ? [current.id] : [] };
+  return { builtin: [BUILTIN_VOICE_ID], external: [...providers.keys()] };
+}
+
+/** 设置页/排障用的一环状态。 */
+export interface VoiceProviderStatus {
+  readonly id: string;
+  readonly name: string;
+  /** 是否内置（edge 恒可用、不可注册、不看 `fields`）。 */
+  readonly builtin: boolean;
+  readonly available: boolean;
+  /** 不可用原因（含「没配必填项」）。 */
+  readonly reason?: string;
+  /** 声明式配置项（内置实现为空数组）。 */
+  readonly fields: readonly VoiceField[];
+}
+
+/**
+ * 全部实现的状态（内置 + 第三方），给 `/voice/voices` 与设置页用。
+ *
+ * @returns 第三方按注册顺序在前，内置 edge 收尾。
+ */
+export function voiceProviderStatuses(): VoiceProviderStatus[] {
+  const external = voiceProviderEntries().map((entry) => ({
+    id: entry.provider.id,
+    name: entry.provider.name,
+    builtin: false,
+    available: entry.available,
+    ...(entry.reason === undefined ? {} : { reason: entry.reason }),
+    fields: entry.provider.fields ?? [],
+  }));
+  return [...external, { id: BUILTIN_VOICE_ID, name: 'edge 在线语音', builtin: true, available: true, fields: [] }];
 }
 
 /**
@@ -72,5 +170,5 @@ export function listVoiceProviders(): { builtin: string[]; external: string[] } 
  * @internal
  */
 export function resetVoiceProviders(): void {
-  current = null;
+  providers.clear();
 }

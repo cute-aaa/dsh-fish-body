@@ -2494,16 +2494,21 @@ paths:
     get:
       tags: [Voice]
       operationId: getVoices
-      summary: 列出可用音色
-      description: 与 `/voice/speak` 的白名单同源；前端据此渲染音色选择器，不要硬编码 id。
+      summary: 列出可用音色与语音实现
+      description: |
+        `voices` 与 `/voice/speak` 的白名单同源；前端据此渲染音色选择器，不要硬编码 id。
+
+        `providers` 是**合成链**的声明式清单：数组顺序就是回退顺序（注册的第三方在前、内置 edge 收尾）。
+        每一环带 `available` / `reason` 与 `fields`（这实现需要哪些配置项），设置页据此生成控件并标出
+        「注册了但没起来」的原因；`available` 现在只是快照，每次 `/voice/speak` 都会重新探一次。
       responses:
         "200":
-          description: 音色列表。
+          description: 音色列表与实现状态。
           content:
             application/json:
               schema:
                 type: object
-                required: [ok, voices]
+                required: [ok, voices, providers]
                 properties:
                   ok:
                     type: boolean
@@ -2522,6 +2527,49 @@ paths:
                           type: string
                         default:
                           type: boolean
+                  providers:
+                    type: array
+                    description: 合成链（第三方按注册顺序在前，内置 edge 收尾）。
+                    items:
+                      type: object
+                      required: [id, name, builtin, available, fields]
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        builtin:
+                          type: boolean
+                          description: 内置实现的 id 恒为 `edge`，不可注册、也不看 `fields`。
+                        available:
+                          type: boolean
+                        reason:
+                          type: string
+                          description: 不可用原因（服务没起、没配必填项…），直接显示给用户。
+                        fields:
+                          type: array
+                          description: 声明式配置项；设置页按 `kind` 选控件。
+                          items:
+                            type: object
+                            required: [key, label, kind]
+                            properties:
+                              key:
+                                type: string
+                              label:
+                                type: string
+                              kind:
+                                type: string
+                                enum: [text, password, number, select]
+                              required:
+                                type: boolean
+                              placeholder:
+                                type: string
+                              options:
+                                type: array
+                                items:
+                                  type: string
+                              description:
+                                type: string
         "405":
           description: 方法不是 GET。
 

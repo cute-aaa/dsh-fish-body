@@ -197,7 +197,7 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
       register: registerBalanceProvider,
       list: listBalanceProviders,
     },
-    // 语音：第三方注册自己的合成实现，非空时合成走它、空则走内置 edge。
+    // 语音：第三方注册自己的合成实现，合成按注册顺序排成回退链、内置 edge 永远收尾（见 voice/chain.ts）。
     // 同样只给 register（返回 disposer）与 list，不给 unregister。
     voice: {
       register: registerVoiceProvider,

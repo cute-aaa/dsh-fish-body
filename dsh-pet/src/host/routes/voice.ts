@@ -8,6 +8,7 @@
 import type { RouteResult } from '../http.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import { failResult, invalidJson, methodNotAllowed, okResult } from './result.ts';
+import { voiceProviderStatuses } from '../voice/registry.ts';
 
 /** 语音领域：未命中返回 undefined，命中返回应答。 */
 export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
@@ -15,7 +16,9 @@ export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): 
 
   if (rest === 'voice/voices') {
     if (method !== 'GET') return methodNotAllowed();
-    return okResult({ ok: true, voices: deps.voice.listVoices() });
+    // providers 是「谁在念、能不能用、要配什么」的声明式清单：设置页据此生成控件（T3.6），
+    // 也让排障能看出「注册了却没轮上」。链序在这里就是数组顺序（第三方在前，内置 edge 收尾）。
+    return okResult({ ok: true, voices: deps.voice.listVoices(), providers: voiceProviderStatuses() });
   }
 
   if (rest === 'voice/speak') {

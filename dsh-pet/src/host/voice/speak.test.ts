@@ -253,3 +253,95 @@ test('第三方返回空字节：判 generate-error，不留下 0 字节文件',
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('第一环失败：自动落到下一环，用户照常听到声音', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-chain-'));
+  const disposeBad = registerVoiceProvider({
+    id: 'bad',
+    name: '坏的',
+    synthesize: async () => {
+      throw new Error('本地服务没起');
+    },
+  });
+  let secondCalls = 0;
+  const disposeGood = registerVoiceProvider({
+    id: 'good',
+    name: '好的',
+    synthesize: async () => {
+      secondCalls += 1;
+      return { data: new Uint8Array([7, 7]), mime: 'audio/wav' };
+    },
+  });
+  try {
+    const logs: string[] = [];
+    const voice = createVoiceService({
+      userRoot: root,
+      log: { warn: (line) => logs.push(line) },
+      synthesize: async () => mp3Clip(),
+    });
+    const result = await voice.speak({ text: '落到下一环' });
+    assert.equal(result.ok, true);
+    assert.equal(result.ok ? result.mime : '', 'audio/wav', '听到的是第二环的格式');
+    assert.equal(secondCalls, 1);
+    assert.ok(
+      logs.some((line) => line.includes('link bad failed')),
+      '失败必须留痕：' + logs.join(' | '),
+    );
+    assert.ok(logs.some((line) => line.includes('fell back to good')));
+  } finally {
+    disposeBad();
+    disposeGood();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('链上全挂：只剩内置兜底，内置也失败才判 generate-error', () => {
+  const dispose = registerVoiceProvider({
+    id: 'bad',
+    name: '坏的',
+    synthesize: async () => {
+      throw new Error('挂了');
+    },
+  });
+  return withService(
+    async (voice) => {
+      const result = await voice.speak({ text: '全都挂了' });
+      assert.equal(result.ok, false);
+      assert.equal(result.ok === false ? result.reason : '', 'generate-error');
+    },
+    async () => {
+      throw new VoiceSynthError('edge also down');
+    },
+  ).finally(dispose);
+});
+
+test('第三方此刻不可用：仍命中它以前合成的缓存，不换成内置的声音', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-crosscache-'));
+  let builtinCalls = 0;
+  let grpcUp = true;
+  const dispose = registerVoiceProvider({
+    id: 'good',
+    name: '好的',
+    availability: () => (grpcUp ? { ok: true } : { ok: false, reason: 'gRPC 没起' }),
+    synthesize: async () => ({ data: new Uint8Array([5, 5]), mime: 'audio/wav' }),
+  });
+  try {
+    const voice = createVoiceService({
+      userRoot: root,
+      synthesize: async () => {
+        builtinCalls += 1;
+        return mp3Clip();
+      },
+    });
+    const first = await voice.speak({ text: '同一句话缓存跨环' });
+    assert.equal(first.ok ? first.mime : '', 'audio/wav');
+    // 本地服务挂了：链上只剩内置，但这一句以前用同一个嗓子合成过，直接复用
+    grpcUp = false;
+    const second = await voice.speak({ text: '同一句话缓存跨环' });
+    assert.equal(second.ok ? second.mime : '', 'audio/wav', '应命中第一环留下的缓存');
+    assert.equal(builtinCalls, 0, '不该为这条去调内置');
+  } finally {
+    dispose();
+    await rm(root, { recursive: true, force: true });
+  }
+});

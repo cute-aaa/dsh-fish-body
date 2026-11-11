@@ -1,8 +1,9 @@
 /**
- * 语音服务：校验输入、串行排队、查缓存、调合成，把结果收敛成「缓存文件 + 格式或失败原因」。
+ * 语音服务：校验输入、串行排队、查缓存、沿回退链合成，把结果收敛成「缓存文件 + 格式或失败原因」。
  *
  * 队列放在这里而不是路由里：并发上限是资源约束，与 HTTP 无关。串行保证同一时刻只有
  * 一条上游连接，也保证先点先响——并发合成会让顺序不可预测。
+ * 合成顺序由 voice/chain.ts 决定：可用的第三方在前、内置 edge 收尾，前一环失败自动落到下一环。
  * 落盘也在这里：合成实现只回 `{ data, mime }`（见 voice/audio.ts），扩展名与
  * `/voice/speak` 的 Content-Type 都由这一份 mime 推出来。
  * @module dsh-pet/src/host/voice/speak
@@ -10,8 +11,9 @@
 import { rename, rm, writeFile } from 'node:fs/promises';
 import { audioExtOf, normalizeAudioMime } from './audio.ts';
 import { cacheKey, cachePath, ensureCacheDir, findCachedClip, pruneCache } from './cache.ts';
+import { voiceChain, type VoiceChainInput, type VoiceChainLink } from './chain.ts';
+import { BUILTIN_VOICE_ID, voiceProviderEntries } from './registry.ts';
 import { VoiceSynthError, synthesize, type SynthInput } from './edge.ts';
-import { BUILTIN_VOICE_ID, activeVoiceProvider, type VoiceProvider } from './registry.ts';
 import { DEFAULT_VOICE, VOICES, isKnownVoice, type VoiceInfo } from './voices.ts';
 import type { AudioClip } from './audio.ts';
 
@@ -26,8 +28,6 @@ const RATE_PATTERN = /^[+-]\d{1,3}%$/;
 const RATE_MIN_PERCENT = -50;
 /** 语速上界（百分比）。 */
 const RATE_MAX_PERCENT = 100;
-/** 第三方实现的单次合成上限（ms）：与内置同口径，避免一句卡住串行队列。 */
-const PROVIDER_TIMEOUT_MS = 15_000;
 /** 内置 edge 合成的总时限（ms）：依赖自带的 15s 只是「静默」超时，每来一帧就重置，不能当总时限用。 */
 const BUILTIN_TIMEOUT_MS = 28_000;
 /** 排队超过这么久还没轮到就丢弃（ms）：等得比一次合成还久，客户端早已放弃，再合成只是白烧上游。 */
@@ -138,24 +138,27 @@ export function createVoiceService(options: {
     if (!parsed.ok) return { ok: false, reason: 'bad-request', message: parsed.message };
     const { text, voice, rate } = parsed.value;
     // 每次请求现查一次：第三方可能运行中才注册、也可能被卸载，启动快照会漏掉这两种
-    const provider = activeVoiceProvider();
-    const source = provider ? provider.id : BUILTIN_VOICE_ID;
-    // 第三方没有音色概念，缓存键里把 voice 置空；来源进键，换实现不会命中旧音频
-    const key = cacheKey(source, provider ? '' : voice, rate, text);
+    const links = voiceChain(synthesizeImpl);
+    const source = links[0]?.id ?? 'edge';
     const startedMs = Date.now();
-    const cached = await findCachedClip(userRoot, key);
-    if (cached) {
-      log?.info?.(`[dsh-pet] voice speak: cache=hit chars=${text.length} voice=${source} mime=${cached.mime}`);
-      return { ok: true, file: cached.file, mime: cached.mime };
+    // 缓存按「来源」分开存：注册表里的实现（含此刻不可用的）与内置都探一遍——
+    // 第三方临时挂掉时用同一嗓子的旧音频顶上，比换成 edge 的另一个声音更自然。
+    for (const origin of cacheSources()) {
+      const cached = await findCachedClip(userRoot, cacheKeyOf(origin, text, voice, rate));
+      if (cached) {
+        log?.info?.(`[dsh-pet] voice speak: cache=hit chars=${text.length} voice=${origin} mime=${cached.mime}`);
+        return { ok: true, file: cached.file, mime: cached.mime };
+      }
     }
     if (queueUsed >= MAX_QUEUE) {
       log?.warn?.(`[dsh-pet] voice speak: queue full (max ${MAX_QUEUE}) chars=${text.length} voice=${source}`);
       return { ok: false, reason: 'voice-busy', message: 'voice queue is full, retry later' };
     }
-    const queue: { dropped: boolean; clip: AudioClip | null; file: string } = {
+    const queue: { dropped: boolean; clip: AudioClip | null; file: string; used: string } = {
       dropped: false,
       clip: null,
       file: '',
+      used: source,
     };
     const queuedMs = Date.now();
     try {
@@ -165,11 +168,10 @@ export function createVoiceService(options: {
           return;
         }
         const dir = await ensureCacheDir(userRoot);
-        const clip = provider
-          ? await synthesizeWithProvider(provider, { text, rate })
-          : await synthesizeImpl({ signal: AbortSignal.timeout(BUILTIN_TIMEOUT_MS), text, voice, rate });
+        const { clip, link } = await synthesizeAlongChain(links, { text, rate, voice }, log);
         queue.clip = clip;
-        queue.file = await writeClip(userRoot, key, clip);
+        queue.used = link.id;
+        queue.file = await writeClip(userRoot, keyOf(link, text, voice, rate), clip);
         // 淘汰放在成功之后：失败时不该为腾地方而删掉还能用的缓存
         await pruneCache(dir);
       });
@@ -193,13 +195,58 @@ export function createVoiceService(options: {
       return { ok: false, reason: 'generate-error', message: 'voice synthesis failed' };
     }
     log?.info?.(
-      `[dsh-pet] voice speak: cache=miss chars=${text.length} voice=${source} ` +
+      `[dsh-pet] voice speak: cache=miss chars=${text.length} voice=${queue.used} ` +
         `mime=${queue.clip.mime} ms=${Date.now() - startedMs}`,
     );
     return { ok: true, file: queue.file, mime: normalizeAudioMime(queue.clip.mime) };
   }
 
   return { listVoices: () => VOICES, speak };
+}
+
+/** 一环的缓存键：第三方没有音色概念，音色置空；来源进键，换实现不会命中旧音频。 */
+function keyOf(link: VoiceChainLink, text: string, voice: string, rate: string): string {
+  return cacheKeyOf(link.id, text, voice, rate);
+}
+
+/** 按来源 id 算缓存键：只有内置实现吃音色，第三方自带嗓子。 */
+function cacheKeyOf(source: string, text: string, voice: string, rate: string): string {
+  return cacheKey(source, source === BUILTIN_VOICE_ID ? voice : '', rate, text);
+}
+
+/** 缓存要探的来源：全部已注册实现（含此刻不可用的）在前，内置收尾。 */
+function cacheSources(): string[] {
+  return [...voiceProviderEntries().map((entry) => entry.provider.id), BUILTIN_VOICE_ID];
+}
+
+/**
+ * 沿回退链合成：前一环失败就落到下一环，全部失败才抛。
+ *
+ * 失败要留痕：第三方挂掉时用户听到的是 edge 的声音，日志里必须能看出「本该是谁念的」。
+ *
+ * @param links - {@link voiceChain} 的结果（至少一环）。
+ * @param input - 文本与语速。
+ * @param log - 留痕；不传则静默。
+ * @returns 成功的片段与产生的环。
+ * @throws {VoiceSynthError} 链上每一环都失败时，抛最后一环的错误。
+ */
+async function synthesizeAlongChain(
+  links: readonly VoiceChainLink[],
+  input: VoiceChainInput,
+  log?: { info?(message: string): void; warn?(message: string): void },
+): Promise<{ clip: AudioClip; link: VoiceChainLink }> {
+  let last: VoiceSynthError | null = null;
+  for (const [index, link] of links.entries()) {
+    try {
+      const clip = await link.synthesize(input);
+      if (index > 0) log?.warn?.(`[dsh-pet] voice speak: fell back to ${link.id} (previous link failed)`);
+      return { clip, link };
+    } catch (error) {
+      last = error instanceof VoiceSynthError ? error : new VoiceSynthError(String(error));
+      log?.warn?.(`[dsh-pet] voice speak: link ${link.id} failed: ${last.message}`);
+    }
+  }
+  throw last ?? new VoiceSynthError('voice chain is empty');
 }
 
 /**
@@ -227,44 +274,4 @@ async function writeClip(userRoot: string, key: string, clip: AudioClip): Promis
     throw new VoiceSynthError(error instanceof Error ? error.message : String(error));
   }
   return target;
-}
-
-/** 给一个 Promise 套超时；超时 reject，原 Promise 不被取消（provider 自己该处理放弃）。 */
-function withTimeout<T>(task: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('voice provider timed out')), timeoutMs);
-    timer.unref?.();
-    task.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      },
-    );
-  });
-}
-
-/**
- * 用第三方实现合成（超时归一到 {@link VoiceSynthError}）。
- *
- * 空字节与不认识的 MIME 由 {@link writeClip} 判失败：0 字节音频放不出声，
- * 命中它等于每次都白播一次静音。
- *
- * @param provider - 已注册的第三方实现。
- * @param input - 文本与语速（音色是内置实现的白名单，第三方自定义）。
- * @returns 音频字节与 MIME。
- * @throws {VoiceSynthError} 超时或实现自己抛错时。
- */
-async function synthesizeWithProvider(
-  provider: VoiceProvider,
-  input: { readonly text: string; readonly rate: string },
-): Promise<AudioClip> {
-  try {
-    return await withTimeout(provider.synthesize({ text: input.text, rate: input.rate }), PROVIDER_TIMEOUT_MS);
-  } catch (error) {
-    throw new VoiceSynthError(error instanceof Error ? error.message : String(error));
-  }
 }
