@@ -27,8 +27,8 @@ export interface SaveFieldParts {
   readonly sfx: SfxConfig;
   /** 三个对话开关，键名即成品字段名。 */
   readonly chat: ChatFlagValues;
-  /** 语音分区里随「保存」写入的六个字段（远端音色与接入配置不在此列）。 */
-  readonly voice: Pick<VoiceSettings, 'enabled' | 'name' | 'volume' | 'whisper' | 'todo' | 'notify'>;
+  /** 语音分区里随「保存」写入的七个字段（远端音色与接入配置不在此列）。 */
+  readonly voice: Pick<VoiceSettings, 'enabled' | 'name' | 'volume' | 'whisper' | 'todo' | 'notify' | 'stripEmoji'>;
   /** 对话分区的模型与上下文上限。 */
   readonly model: Pick<ModelSettings, 'whisperModel' | 'chatModel' | 'chatMemory' | 'chatImageLimit'>;
   /** 外观与手感：物理参数、字体与动作权重。 */
@@ -55,6 +55,7 @@ export function buildSaveFields(parts: SaveFieldParts): SaveFields {
     voiceWhisperEnabled: parts.voice.whisper,
     voiceTodoEnabled: parts.voice.todo,
     voiceNotifyEnabled: parts.voice.notify,
+    speakStripEmoji: parts.voice.stripEmoji,
     physics: parts.look.physics,
     whisperModel: parts.model.whisperModel,
     chatModel: parts.model.chatModel,

@@ -10,10 +10,26 @@
 import type { FunctionComponent } from 'react';
 import { slotFileStem } from '../../shared/sfx/names.ts';
 import { SFX_HOOK_NAME_RE } from '../../shared/sfx/types.ts';
-import type { SfxEventSlot } from '../../shared/types.ts';
+import { tooltipPlacement } from '../../shared/tooltip.ts';
+import { openAssetFolder } from './open-folder.ts';
+import type { SfxEventSlot, SfxFolderTarget } from '../../shared/types.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import type { SfxHookView, SfxSettings, SfxSlotView } from './use-sfx-settings.ts';
 import { makeUiKit } from './ui.ts';
+
+/**
+ * 按钮旁的小气泡：`create` 问「是否创建」，`failed` 只说一句失败原因。
+ *
+ * 锚点是按钮右下角（视口坐标），摆位交给 `tooltipPlacement`，贴边自动翻到另一侧。
+ */
+type FolderTip =
+  | {
+      readonly kind: 'create';
+      readonly which: SfxFolderTarget;
+      readonly path: string;
+      readonly anchor: { x: number; y: number };
+    }
+  | { readonly kind: 'failed'; readonly message: string; readonly anchor: { x: number; y: number } };
 
 /** 音效卡的输入。 */
 export interface SfxCardProps {
@@ -53,13 +69,145 @@ const ORIGIN_LABEL: Record<SfxSlotView['origin'], string> = {
  * @returns 卡片组件。
  */
 export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps> {
-  const { h, t, useState } = rt;
-  const { cardHead } = makeUiKit({ h, t });
+  const { h, t, useState, useEffect, useRef } = rt;
+  const { q } = makeUiKit({ h, t });
 
   return function SfxCard(props: SfxCardProps) {
     const { busy, sfx } = props;
     const [draft, setDraft] = useState('');
     const [error, setError] = useState('');
+    /** 按钮旁的小气泡：问「是否创建」或报一次失败。 */
+    const [tip, setTip] = useState<FolderTip | null>(null);
+    /** 气泡实测坐标；首帧没有尺寸时先藏起来，量完再显示。 */
+    const [tipPos, setTipPos] = useState<{ x: number; y: number } | null>(null);
+    const [creating, setCreating] = useState(false);
+    const tipRef = useRef<HTMLDivElement | null>(null);
+
+    // 摆位要在气泡渲染之后：tooltipPlacement 需要真实宽高才能决定翻不翻边。
+    useEffect(() => {
+      const el = tipRef.current;
+      if (tip === null || el === null) {
+        setTipPos(null);
+        return;
+      }
+      setTipPos(
+        tooltipPlacement(
+          tip.anchor,
+          { w: el.offsetWidth, h: el.offsetHeight },
+          { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight },
+          6,
+        ),
+      );
+    }, [tip]);
+
+    /** 点「打开文件夹」：成功不弹东西，目录没建就在按钮旁问一句。 */
+    const openFolder = (which: SfxFolderTarget, event: { currentTarget: EventTarget }): void => {
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const anchor = { x: rect.right, y: rect.bottom };
+      void openAssetFolder(which).then((outcome) => {
+        if (outcome.ok) {
+          setTip(null);
+          return;
+        }
+        if (outcome.reason === 'not-found') {
+          setTip({ kind: 'create', which, path: outcome.path, anchor });
+          return;
+        }
+        setTip({
+          kind: 'failed',
+          message: outcome.message === '' ? t('sfxOpenFolderFailed') : outcome.message,
+          anchor,
+        });
+      });
+    };
+
+    /** 气泡里的「是」：建出来再打开。 */
+    const confirmCreate = (): void => {
+      if (tip === null || tip.kind !== 'create') return;
+      const { which, anchor } = tip;
+      setCreating(true);
+      void openAssetFolder(which, undefined, true).then((outcome) => {
+        setCreating(false);
+        if (outcome.ok) {
+          setTip(null);
+          return;
+        }
+        setTip({
+          kind: 'failed',
+          message: outcome.message === '' ? t('sfxOpenFolderFailed') : outcome.message,
+          anchor,
+        });
+      });
+    };
+
+    /** 卡头：标题 + 问号 + 右侧「打开文件夹」（素材都是放进这些目录才生效的）。 */
+    const head = (title: string, hint: string, which: SfxFolderTarget) =>
+      h('div', {
+        className: 'dsh-pet-cfg__cardHead',
+        children: [
+          h('span', { key: 't', className: 'dsh-pet-cfg__cardTitle', children: title }),
+          q(hint),
+          h('button', {
+            key: 'b',
+            type: 'button',
+            className: 'dsh-pet-cfg__btn is-sm',
+            disabled: busy,
+            onClick: (event: { currentTarget: EventTarget }) => openFolder(which, event),
+            children: t('sfxOpenFolder'),
+          }),
+        ],
+      });
+
+    /** 按钮旁的气泡：创建确认或失败说明。 */
+    const tipNode =
+      tip === null
+        ? null
+        : h('div', {
+            key: 'tip',
+            ref: (el: HTMLDivElement | null) => {
+              tipRef.current = el;
+            },
+            className: 'dsh-pet-cfg__sfxTip',
+            role: 'dialog',
+            style:
+              tipPos === null
+                ? { left: '0px', top: '0px', visibility: 'hidden' }
+                : { left: tipPos.x + 'px', top: tipPos.y + 'px' },
+            children: [
+              h('div', {
+                key: 'm',
+                className: 'dsh-pet-cfg__sfxTipText',
+                children: tip.kind === 'create' ? t('sfxFolderMissing') : tip.message,
+              }),
+              tip.kind === 'create' && tip.path !== ''
+                ? h('div', { key: 'p', className: 'dsh-pet-cfg__sfxTipPath', children: tip.path })
+                : null,
+              h('div', {
+                key: 'a',
+                className: 'dsh-pet-cfg__sfxTipActions',
+                children: [
+                  tip.kind === 'create'
+                    ? h('button', {
+                        key: 'y',
+                        type: 'button',
+                        className: 'dsh-pet-cfg__btn is-sm is-primary',
+                        disabled: creating,
+                        onClick: confirmCreate,
+                        children: t('sfxFolderCreateYes'),
+                      })
+                    : null,
+                  h('button', {
+                    key: 'n',
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn is-sm',
+                    disabled: creating,
+                    onClick: () => setTip(null),
+                    children: tip.kind === 'create' ? t('sfxFolderCreateNo') : t('sfxFolderDismiss'),
+                  }),
+                ],
+              }),
+            ],
+          });
 
     /** 槽位行：开关与试听在上，来源与命名规则在下（小字）。 */
     const slotRow = (view: SfxSlotView) => {
@@ -154,10 +302,17 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
           h('span', {
             key: 'meta',
             className: 'dsh-pet-cfg__sfxMeta',
-            children: h('span', {
-              className: 'dsh-pet-cfg__sfxFile',
-              children: `${source}：${view.file === '' ? t('sfxNone') : view.file}`,
-            }),
+            children: [
+              h('span', {
+                key: 'f',
+                className: 'dsh-pet-cfg__sfxFile',
+                children: `${source}：${view.file === '' ? t('sfxNone') : view.file}`,
+              }),
+              // 内置点：两端口自己会在固定时机触发，不需要外部 POST；缺文件时它只是安静。
+              view.builtin
+                ? h('span', { key: 'b', className: 'dsh-pet-cfg__sfxPattern', children: t('sfxHookBuiltinTag') })
+                : null,
+            ],
           }),
         ],
       });
@@ -185,7 +340,7 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
           key: 'slots',
           className: 'dsh-pet-cfg__card',
           children: [
-            cardHead(t('sfxTitle'), t('sfxHint')),
+            head(t('sfxTitle'), t('sfxHint'), 'sound'),
             h('div', { key: 'list', className: 'dsh-pet-cfg__sfxList', children: sfx.slots.map(slotRow) }),
             h('div', {
               key: 'hint',
@@ -198,7 +353,7 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
           key: 'hooks',
           className: 'dsh-pet-cfg__card',
           children: [
-            cardHead(t('sfxHooksTitle'), t('sfxHooksHint')),
+            head(t('sfxHooksTitle'), t('sfxHooksHint'), 'sound'),
             // 表单式登记：名字即标识，文件由命名规则自动匹配。
             h('div', {
               key: 'add',
@@ -246,6 +401,8 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
             }),
           ],
         }),
+        // 按钮旁的气泡（fixed 定位，不占布局）：问「是否创建」或说一句失败原因。
+        tipNode,
       ],
     });
   };

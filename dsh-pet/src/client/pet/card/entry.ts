@@ -18,6 +18,7 @@ import { SLEEP_HOTKEY_HINT, isSleepHotkey } from '../../../shared/sleep-hotkey.t
 import { TODO_HOTKEY_HINT, isTodoHotkey } from '../../../shared/todo/hotkey.ts';
 import type { PetDisplay, RendererKind } from '../../../shared/types.ts';
 import { bindOpenChat } from './open-chat.ts';
+import { playPetHook } from '../sfx.ts';
 import { registerPetChatHandle } from './registry.ts';
 import {
   accessoryMenuBranch,
@@ -237,7 +238,11 @@ export function createCardEntry(rt: CardEntryRuntime) {
     };
 
     /** 打开对话（菜单、悬停 L、拖拽都走这条）；带图时直接进入待发送状态。 */
-    const openChat = (image?: File): void => mountChat(image ? { image } : {});
+    const openChat = (image?: File): void => {
+      // 内置 hook 点：hook-chat-open.wav 在每次开窗时响一下；已经开着就不重复触发。
+      if (chatRef.current === null) playPetHook(cfgRef.current, 'chat-open', live.current.ownAnim?.sfxLayer?.());
+      mountChat(image ? { image } : {});
+    };
 
     /** 把一张图送进对话：已开着就塞进去（不丢写了一半的字），没开就带图打开。 */
     const openChatWithImage = (file: File): void => {

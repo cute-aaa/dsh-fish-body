@@ -33,6 +33,8 @@ export interface VoiceSettings {
   readonly todo: boolean;
   /** 工作状态播报。 */
   readonly notify: boolean;
+  /** 念之前去掉文本里的表情符号（只影响播报出的声音，不影响识别结果与气泡）。 */
+  readonly stripEmoji: boolean;
   /** 内置实现的音色清单；拉不到就是空数组，下拉只显示当前值。 */
   readonly voices: readonly VoiceOption[];
   /** 第一个「有音色可切」的实现（今天只有 GSV）；没有就不出这一格。 */
@@ -65,6 +67,8 @@ export interface VoiceSettings {
   setTodo(value: boolean): void;
   /** 改工作状态播报。 */
   setNotify(value: boolean): void;
+  /** 改「播报去表情」。 */
+  setStripEmoji(value: boolean): void;
   /** 改一个接入配置草稿值。 */
   setDraftField(key: string, value: string): void;
   /** 提交接入配置。 */
@@ -137,6 +141,7 @@ export function useVoiceSettings(
   const [whisper, setWhisper] = useState(false);
   const [todo, setTodo] = useState(false);
   const [notify, setNotify] = useState(false);
+  const [stripEmoji, setStripEmoji] = useState(true);
   // 远端：内置音色清单、第三方实现列表与各自的进行中/反馈。
   const [voices, setVoices] = useState<VoiceOption[]>([]);
   const [providers, setProviders] = useState<VoiceProviderView[]>([]);
@@ -276,6 +281,7 @@ export function useVoiceSettings(
     if (patch.voiceWhisperEnabled !== undefined) setWhisper(patch.voiceWhisperEnabled);
     if (patch.voiceTodoEnabled !== undefined) setTodo(patch.voiceTodoEnabled);
     if (patch.voiceNotifyEnabled !== undefined) setNotify(patch.voiceNotifyEnabled);
+    if (patch.speakStripEmoji !== undefined) setStripEmoji(patch.speakStripEmoji);
   }, []);
 
   const setDraftField = useCallback((key: string, value: string): void => {
@@ -290,6 +296,7 @@ export function useVoiceSettings(
     whisper,
     todo,
     notify,
+    stripEmoji,
     voices,
     local: localProviderOf(providers),
     form: providerFormOf(providers),
@@ -306,6 +313,7 @@ export function useVoiceSettings(
     setWhisper,
     setTodo,
     setNotify,
+    setStripEmoji,
     setDraftField,
     saveProvider,
     runProcess,

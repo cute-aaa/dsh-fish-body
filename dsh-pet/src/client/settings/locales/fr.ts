@@ -201,6 +201,13 @@ export const fr: Record<Key, string> = {
   sfxHookPattern: 'Nom de fichier : hook-<nom>.wav ou <skin>-hook-<nom>.wav, dans le dossier du skin ou -sound',
   sfxHookEmpty: 'Aucun hook : enregistrez un nom ci-dessus ou deposez hook-<nom>.wav.',
   sfxHookCurlHint: 'Exemple : curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
+  sfxHookBuiltinTag: 'declencheur integre',
+  sfxOpenFolder: 'Ouvrir le dossier',
+  sfxOpenFolderFailed: 'Impossible d ouvrir le dossier : pas de reponse de l hote.',
+  sfxFolderMissing: 'Ce dossier n existe pas encore. Le creer ?',
+  sfxFolderCreateYes: 'Oui',
+  sfxFolderCreateNo: 'Non',
+  sfxFolderDismiss: 'Compris',
   whisperImageToggle: 'Images des murmures',
   whisperImageToggleHint:
     "Joindre un mème tiré au hasard dans le pool à chaque murmure (la correspondance des images se trouve dans le champ memes, au niveau supérieur de la configuration). Tokens : un murmure appelle déjà le modèle à chaque cycle ; l'image ajoute seulement le nom + la description de ce mème (environ 100 caractères / ~60 tokens) à la même requête — négligeable.",
@@ -236,6 +243,9 @@ export const fr: Record<Key, string> = {
   voiceNotifyEnabled: "Lire l'état de travail",
   voiceNotifyEnabledHint:
     "Lit une réplique d'état de travail configurée quand une tâche se termine, échoue ou attend votre confirmation. Comme les notifications système, elle n'est lue que lorsque vous n'êtes pas sur cette page (autre application, sans focus, réduite) — aucune interruption pendant que vous regardez l'écran. Seule la réplique configurée est lue, jamais le détail de la tâche. Désactivé par défaut.",
+  speakStripEmoji: 'Retirer les emoji a la lecture',
+  speakStripEmojiHint:
+    'Retire les emoji (🙂 / ❤️ / 🇨🇳) du texte avant la synthese : le synthetiseur les lit comme un mot. Une ligne faite uniquement d emoji est ignoree. Actif par defaut ; ne touche qu au texte lu.',
   voiceNameLabel: 'Voix',
   voiceLocalLabel: 'Voix (locale)',
   voiceLocalHint: 'Timbre du service vocal local ; s’applique dès la phrase suivante',

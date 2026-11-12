@@ -236,6 +236,9 @@ export function topFieldValid(key: string, value: unknown): boolean {
     case 'voiceNotifyEnabled':
       // 工作状态播报开关（全局布尔）：只决定完成 / 出错 / 等确认三档念不念，不影响系统通知弹窗
       return typeof value === 'boolean';
+    case 'speakStripEmoji':
+      // 播报去表情（全局布尔）：只影响念出来的文本，不影响识别结果与气泡
+      return typeof value === 'boolean';
     case 'chatImageEnabled':
       return typeof value === 'boolean';
     case 'chatAnimationEnabled':

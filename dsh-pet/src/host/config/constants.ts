@@ -63,6 +63,7 @@ export const GLOBAL_DEFAULT_KEYS = [
   'voiceWhisperEnabled',
   'voiceTodoEnabled',
   'voiceNotifyEnabled',
+  'speakStripEmoji',
   'whisperImageEnabled',
   'chatImageEnabled',
   'chatAnimationEnabled',

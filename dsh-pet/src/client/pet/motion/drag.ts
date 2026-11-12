@@ -95,6 +95,8 @@ export interface DragCard {
   grabVelocity: () => { vx: number; vy: number } | null;
   /** 播一个交互音效：点击、甩出（拖拽成立不出声，见 shared/types 的 SfxEventSlot）。 */
   playSfx: (slot: 'click' | 'throw') => void;
+  /** 播一个内置 hook 点（如 `drag` 拖拽成立）；没有对应素材时静默。 */
+  playHook: (hook: string) => void;
   /** 悬浮提示是否点亮。 */
   tipOn: () => boolean;
   /** 把提示摆到光标旁。 */
@@ -319,6 +321,8 @@ export function createDrag(card: () => DragCard): Drag {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       press.dragging = true;
       c.setOnce(true);
+      // 拖拽成立不出事件音效，但留一个内置 hook 点：想响就放 hook-drag.wav，不放手感零变化。
+      c.playHook('drag');
       if (c.dragAnims.length) {
         const name = pick(c.dragAnims);
         log(c.petId, '-> [DRAG] ' + name);

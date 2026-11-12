@@ -259,6 +259,7 @@ describe('buildSaveBody —— 请求体字段', () => {
       'sfxEnabled',
       'sfxKeepAlive',
       'sfxVolume',
+      'speakStripEmoji',
       'trayEnabled',
       'voiceEnabled',
       'voiceName',

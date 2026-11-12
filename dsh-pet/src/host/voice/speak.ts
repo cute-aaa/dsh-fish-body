@@ -12,6 +12,7 @@ import { rename, rm, writeFile } from 'node:fs/promises';
 import { audioExtOf, normalizeAudioMime } from './audio.ts';
 import { cacheKey, cachePath, ensureCacheDir, findCachedClip, pruneCache } from './cache.ts';
 import { voiceChain, type VoiceChainInput, type VoiceChainLink } from './chain.ts';
+import { stripEmoji } from './emoji.ts';
 import { BUILTIN_VOICE_ID, voiceProviderEntries, type VoiceProvider } from './registry.ts';
 import { VoiceSynthError, synthesize, type SynthInput } from './edge.ts';
 import { DEFAULT_VOICE, VOICES, isKnownVoice, type VoiceInfo } from './voices.ts';
@@ -110,10 +111,13 @@ export function createVoiceService(options: {
   synthesize?: (input: SynthInput) => Promise<AudioClip>;
   /** 容许的最长排队时间（ms）；缺省 {@link STALE_WAIT_MS}，测试用它把丢弃分支逼出来。 */
   staleWaitMs?: number;
+  /** 念之前要不要摘掉文本里的表情（设置页开关，默认摘）；每次合成现读。 */
+  stripEmoji?: () => boolean;
 }): VoiceService {
   const { userRoot, log } = options;
   const synthesizeImpl = options.synthesize ?? synthesize;
   const staleWaitMs = options.staleWaitMs ?? STALE_WAIT_MS;
+  const shouldStrip = options.stripEmoji ?? ((): boolean => true);
   /** 已占用的队列名额（含正在跑的那个）。 */
   let queueUsed = 0;
   /** 串行链：上一件事收尾（成功或失败）后才轮到下一件。 */
@@ -136,7 +140,11 @@ export function createVoiceService(options: {
   async function speak(raw: unknown): Promise<SpeakResult> {
     const parsed = parseSpeakInput(raw);
     if (!parsed.ok) return { ok: false, reason: 'bad-request', message: parsed.message };
-    const { text, voice, rate } = parsed.value;
+    // 播报去表情：合成器读不出表情，只会念成「表情符号」或卡一下，所以念之前先摘掉。
+    // 纯表情没有可念的内容：明确回 bad-request，而不是合成一段空音频。
+    const text = shouldStrip() ? stripEmoji(parsed.value.text) : parsed.value.text;
+    if (text === '') return { ok: false, reason: 'bad-request', message: 'text is only emoji' };
+    const { voice, rate } = parsed.value;
     // 每次请求现查一次：第三方可能运行中才注册、也可能被卸载，启动快照会漏掉这两种
     const links = voiceChain(synthesizeImpl);
     const source = links[0]?.id ?? 'edge';

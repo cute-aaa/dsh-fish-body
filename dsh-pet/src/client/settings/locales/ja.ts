@@ -198,6 +198,13 @@ export const ja: Record<Key, string> = {
     'ファイル名：hook-<名前>.wav または <スキン名>-hook-<名前>.wav、スキンフォルダか -sound フォルダに置く',
   sfxHookEmpty: 'フックがありません：上で名前を登録するか、hook-<名前>.wav を置いてください。',
   sfxHookCurlHint: '例: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
+  sfxHookBuiltinTag: '内蔵トリガー',
+  sfxOpenFolder: 'フォルダを開く',
+  sfxOpenFolderFailed: '素材フォルダを開けません：ホストから応答がありません。',
+  sfxFolderMissing: 'このフォルダはまだありません。作成しますか？',
+  sfxFolderCreateYes: 'はい',
+  sfxFolderCreateNo: 'いいえ',
+  sfxFolderDismiss: '閉じる',
   whisperImageToggle: 'ひとりごとの画像',
   whisperImageToggleHint:
     'ひとりごとのとき、ミーム画像プールからランダムに1枚を選び、その一言と一緒に表示します（画像のマッピングは設定ファイルのトップレベル memes）。トークン：ひとりごとは元々毎回モデルを呼ぶので、選んだ画像の名前 + 説明（約100文字 / ≈60トークン）を同じリクエストに加えるだけで、増分はごくわずかです。',
@@ -233,6 +240,9 @@ export const ja: Record<Key, string> = {
   voiceNotifyEnabled: '作業状態の読み上げ',
   voiceNotifyEnabledHint:
     'タスクの完了・失敗・確認待ちのときに、設定された作業状態のセリフを読み上げます。システム通知と同じ考え方で、このページを見ていないとき（別のアプリに切り替え・フォーカスなし・最小化）にだけ読み上げます——画面を見ている間は邪魔しません。読み上げるのは設定されたセリフだけで、タスクの詳細は読みません。デフォルトはオフです。',
+  speakStripEmoji: '読み上げから絵文字を除去',
+  speakStripEmojiHint:
+    '合成の前にテキストから絵文字（🙂 / ❤️ / 🇨🇳）を取り除きます。合成器は絵文字を読めず「絵文字」と読んだり詰まったりします。絵文字だけの行は読み上げません。既定はオンで、効くのは読み上げるテキストだけです。',
   voiceNameLabel: '声質',
   voiceLocalLabel: '声質（ローカル）',
   voiceLocalHint: 'ローカル音声サービスの声質。次の文から反映されます',

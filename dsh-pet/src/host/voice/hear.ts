@@ -114,6 +114,8 @@ async function withDeadline<T>(
 /**
  * 造识别服务。
  *
+ * 识别结果原样返回（不去表情）：要清的是「念出来的文本」，那道清洗在 speak.ts 的合成前。
+ *
  * @param options.speechToText - 惰性取宿主服务；没启用语音输入插件时它返回 undefined。
  * @param options.timeoutMs - 单次识别超时；缺省 {@link TRANSCRIBE_TIMEOUT_MS}，测试用小值。
  * @returns 只暴露 `hear` 的服务。

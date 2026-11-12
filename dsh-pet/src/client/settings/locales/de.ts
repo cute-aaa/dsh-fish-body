@@ -199,6 +199,13 @@ export const de: Record<Key, string> = {
   sfxHookPattern: 'Dateiname: hook-<name>.wav oder <skin>-hook-<name>.wav, im Skin- oder -sound-Ordner',
   sfxHookEmpty: 'Noch keine Hooks: oben einen Namen eintragen oder hook-<name>.wav ablegen.',
   sfxHookCurlHint: 'Beispiel: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
+  sfxHookBuiltinTag: 'eingebauter Ausloeser',
+  sfxOpenFolder: 'Ordner oeffnen',
+  sfxOpenFolderFailed: 'Materialordner laesst sich nicht oeffnen: keine Antwort vom Host.',
+  sfxFolderMissing: 'Dieser Ordner existiert noch nicht. Anlegen?',
+  sfxFolderCreateYes: 'Ja',
+  sfxFolderCreateNo: 'Nein',
+  sfxFolderDismiss: 'Verstanden',
   whisperImageToggle: 'Flüstern-Bilder',
   whisperImageToggleHint:
     'Hängt an jede Flüstern-Zeile ein zufälliges Meme aus dem Pool (Bildzuordnung im Top-Level-Feld `memes` der Konfiguration). Token: Flüstern ruft ohnehin pro Zyklus das Modell auf, das Bild fügt nur Name + Beschreibung des gezogenen Memes (ca. 100 Zeichen / ≈60 Token) an dieselbe Anfrage an – vernachlässigbar.',
@@ -234,6 +241,9 @@ export const de: Record<Key, string> = {
   voiceNotifyEnabled: 'Arbeitsstatus sprechen',
   voiceNotifyEnabledHint:
     'Spricht eine konfigurierte Arbeitsstatus-Zeile, wenn eine Aufgabe abgeschlossen ist, fehlschlägt oder auf Ihre Bestätigung wartet. Wie Systembenachrichtigungen wird nur gesprochen, während Sie nicht auf dieser Seite sind (weggewechselt, ohne Fokus, minimiert) – keine Unterbrechung, während Sie auf den Bildschirm schauen. Nur die konfigurierte Zeile wird gesprochen, nie das Aufgabendetail. Standardmäßig aus.',
+  speakStripEmoji: 'Emoji beim Sprechen entfernen',
+  speakStripEmojiHint:
+    'Entfernt Emoji (🙂 / ❤️ / 🇨🇳) aus dem Text, bevor synthetisiert wird — Synthesizer lesen sie als Wort vor. Eine Zeile aus nur Emoji wird uebersprungen. Standardmaessig an; betrifft nur gesprochenen Text.',
   voiceNameLabel: 'Stimme',
   voiceLocalLabel: 'Stimme (lokal)',
   voiceLocalHint: 'Klang der lokalen Sprachausgabe; gilt ab dem naechsten Satz',

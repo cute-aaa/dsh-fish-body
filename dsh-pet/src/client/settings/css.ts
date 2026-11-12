@@ -66,6 +66,8 @@ const SETTINGS_CSS = [
 
   '.dsh-pet-cfg__card{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px}',
   '.dsh-pet-cfg__cardHead{display:flex;align-items:center;gap:6px;min-height:20px}',
+  // 卡头右侧动作（如「打开文件夹」）贴右，标题与问号保持左对齐。
+  '.dsh-pet-cfg__cardHead>.dsh-pet-cfg__btn{margin-left:auto;flex:none}',
   '.dsh-pet-cfg__cardTitle{font-size:13px;font-weight:500;color:var(--dsw-alias-label-primary)}',
 
   // 折叠卡（高级配置 / 卸载与存储）：标题行常驻，正文收进裁剪层。
@@ -152,6 +154,11 @@ const SETTINGS_CSS = [
   '.dsh-pet-cfg__sfxAdd{display:flex;align-items:center;gap:8px;min-width:0}',
   '.dsh-pet-cfg__sfxAdd>.dsh-pet-cfg__inp{flex:1;min-width:0}',
   '.dsh-pet-cfg__sfxAdd>.dsh-pet-cfg__btn{flex:none}',
+  // 「打开文件夹」失败/待确认的气泡：fixed 摆到按钮旁，尺寸小、只放一句问话与两个按钮。
+  '.dsh-pet-cfg__sfxTip{position:fixed;z-index:2147483000;display:flex;flex-direction:column;gap:6px;max-width:260px;padding:8px 10px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1);box-shadow:var(--dsw-elevation-prominent,0 8px 30px rgba(0,0,0,.35));color:var(--dsw-alias-label-primary);font-size:12px;line-height:18px}',
+  '.dsh-pet-cfg__sfxTipText{overflow-wrap:anywhere}',
+  '.dsh-pet-cfg__sfxTipPath{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary)}',
+  '.dsh-pet-cfg__sfxTipActions{display:flex;justify-content:flex-end;gap:6px}',
 
   // 悬浮说明气泡：由 ./tip-layer 按光标挂到 body 上，不画在触发元素里——右列与贴顶的说明
   // 会被窗口边缘或滚动容器裁掉。这里只管外观，坐标由 tooltipPlacement 写进 style。

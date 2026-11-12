@@ -1,5 +1,5 @@
 /**
- * 语音卡：四个播报开关与音色、音量。
+ * 语音卡：四个播报开关、一个播报去表情开关，以及音色、音量。
  *
  * 切换只改本地状态、随「保存」整包写入——即时写盘会重启桌面 Helper、重建全部桌面宠物窗口。
  * 音色选择器由外壳注入（与模型卡注入 picker 同构），卡片本身不硬编码任何音色 id。
@@ -41,6 +41,8 @@ export interface VoiceCardProps {
   readonly todoEnabled: boolean;
   /** 工作状态播报要不要念出来。 */
   readonly notifyEnabled: boolean;
+  /** 念之前要不要去掉文本里的表情符号。 */
+  readonly stripEmoji: boolean;
   /** 切换手动播报开关。 */
   readonly onToggle: (value: boolean) => void;
   /** 选择音色。 */
@@ -53,6 +55,8 @@ export interface VoiceCardProps {
   readonly onTodoToggle: (value: boolean) => void;
   /** 切换工作状态播报。 */
   readonly onNotifyToggle: (value: boolean) => void;
+  /** 切换「播报去表情」。 */
+  readonly onStripEmojiToggle: (value: boolean) => void;
   /** 本地音色（第三方实现，如 GSV）的可选清单；缺席 = 这台机器上没有可切音色的实现。 */
   readonly localVoices?: readonly VoiceOption[];
   /** 本地音色当前值。 */
@@ -90,7 +94,7 @@ export function makeVoiceCard(
       className: 'dsh-pet-cfg__card',
       children: [
         cardHead(t('voiceTitle'), t('voiceHint')),
-        // 第一行四个开关：四类语音各一个，必须相邻，读得出是「同一类」；第二行两个输入：音色与音量。
+        // 第一行开关：四类语音各一个，必须相邻，读得出是「同一类」；第二行两个输入：音色与音量。
         // 音色不挂文字标签也不挂问号：下拉当前值「晓伊（女·活泼）」自己就说明了它是什么。
         h('div', {
           className: 'dsh-pet-cfg__grid4',
@@ -99,6 +103,8 @@ export function makeVoiceCard(
             toggleCell('voiceWhisperEnabled', props.whisperEnabled, props.busy, props.onWhisperToggle),
             toggleCell('voiceTodoEnabled', props.todoEnabled, props.busy, props.onTodoToggle),
             toggleCell('voiceNotifyEnabled', props.notifyEnabled, props.busy, props.onNotifyToggle),
+            // 播报侧开关：合成前清洗文本，与上面四个「说不说」不是一回事，所以排在后面单独一格。
+            toggleCell('speakStripEmoji', props.stripEmoji, props.busy, props.onStripEmojiToggle),
           ],
         }),
         h('div', {

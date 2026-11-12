@@ -41,7 +41,15 @@ const parts = (): SaveFieldParts => ({
   sfxVolume: 0.25,
   sfx: { events: { click: { volume: 0.8 } } },
   chat: { whisperImageEnabled: true, chatImageEnabled: false, chatAnimationEnabled: false },
-  voice: { enabled: true, name: 'zh-CN-YunxiNeural', volume: 0.4, whisper: true, todo: false, notify: true },
+  voice: {
+    enabled: true,
+    name: 'zh-CN-YunxiNeural',
+    volume: 0.4,
+    whisper: true,
+    todo: false,
+    notify: true,
+    stripEmoji: false,
+  },
   model: {
     whisperModel: { provider: 'deepseek', model: 'deepseek-chat' },
     chatModel: { provider: '', model: '' },
@@ -71,7 +79,7 @@ describe('buildSaveFields —— 保存请求体的摊平', () => {
     assert.equal(fields.trayEnabled, false);
   });
 
-  test('语音字段名一一对应：whisper/todo/notify 翻成 voiceXxxEnabled', () => {
+  test('语音字段名一一对应：whisper/todo/notify 翻成 voiceXxxEnabled，stripEmoji 翻成 speakStripEmoji', () => {
     const fields = buildSaveFields(parts());
     assert.equal(fields.voiceEnabled, true);
     assert.equal(fields.voiceName, 'zh-CN-YunxiNeural');
@@ -79,6 +87,7 @@ describe('buildSaveFields —— 保存请求体的摊平', () => {
     assert.equal(fields.voiceWhisperEnabled, true);
     assert.equal(fields.voiceTodoEnabled, false);
     assert.equal(fields.voiceNotifyEnabled, true);
+    assert.equal(fields.speakStripEmoji, false, '播报去表情的开关也要随保存写入');
   });
 
   test('对话、外观与实例字段照原值带走', () => {

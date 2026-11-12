@@ -9,6 +9,7 @@ import { pick, pickSlot, rollKind } from '../../../shared/pickers.ts';
 import type { SleepState } from '../../../shared/state.ts';
 import { WORK_STATUS_INDEX } from '../../../shared/work-status.ts';
 import { decideNextAnimation } from '../animation/next-animation.ts';
+import { playPetHook } from '../sfx.ts';
 import { createSleepMachine } from './sleep-machine.ts';
 import type { CardHub } from './hub.ts';
 import type { EndedCue } from '../animation/cues.ts';
@@ -177,6 +178,9 @@ export function createAnimationFlow(rt: AnimationFlowRuntime) {
     /** 说一句：抽碎碎念动画并弹气泡，两者独立。 */
     const speak = (text: string, image?: string, url?: string, duration?: number, anim?: boolean): void => {
       const card = hub.card;
+      // 内置 hook 点：放一个 hook-whisper.wav（或写 sfx.hooks.whisper）就能给碎碎念配首音；没配就静默。
+      // 放在动画池判定之前：缺 events.whisper 时只弹气泡，这一声照旧该有。
+      playPetHook(hub.cfg(), 'whisper', hub.ownAnim?.sfxLayer?.());
       let name: string | null = null;
       // 睡着时只弹气泡、不换动画：梦话与命令气泡都要显示，但睡姿不能被打断
       if (anim !== false && !sleeping()) {

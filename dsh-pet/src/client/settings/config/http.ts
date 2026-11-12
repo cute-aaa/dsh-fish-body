@@ -56,6 +56,8 @@ export interface SaveFields {
   voiceTodoEnabled: boolean;
   /** 工作状态播报要不要念出来（任务完成 / 出错 / 等确认时念一句配置台词）。 */
   voiceNotifyEnabled: boolean;
+  /** 播报时要不要去掉文本里的表情符号（合成前清洗）。 */
+  speakStripEmoji: boolean;
   physics: PhysicsParams;
   whisperModel: ModelSelection;
   chatModel: ModelSelection;
@@ -98,6 +100,7 @@ export function buildSaveBody(fields: SaveFields): Record<string, unknown> {
     voiceWhisperEnabled: fields.voiceWhisperEnabled,
     voiceTodoEnabled: fields.voiceTodoEnabled,
     voiceNotifyEnabled: fields.voiceNotifyEnabled,
+    speakStripEmoji: fields.speakStripEmoji,
     physics: fields.physics,
     whisperModel: fields.whisperModel,
     chatModel: fields.chatModel,

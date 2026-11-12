@@ -399,6 +399,8 @@ Object.assign(PetSprite.prototype, {
     this.chatMount = m;
     this.chatOpen = true; // 穿透守卫：弹窗期间整窗保持可交互
     window.__dshPetDebug.chatOpen = true;
+    // 内置 hook 点：hook-chat-open.wav 在每次新开窗时响一下（上面那条「已开着先关旧的」分支不算）。
+    this.playHookSfx('chat-open');
     this.syncInputBusy();
     this.setInteractive(true);
   },

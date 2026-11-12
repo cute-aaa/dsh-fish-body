@@ -1,5 +1,5 @@
 /**
- * 「语音」分区：语音播报卡（六个随保存写入的字段 + 音色）与本地语音接入卡（GSV 地址与启停）。
+ * 「语音」分区：语音播报卡（七个随保存写入的字段 + 音色）与本地语音接入卡（GSV 地址与启停）。
  *
  * 两张卡写的是两套东西——音色与音量跟「保存」走，接入配置与启停立即落盘——所以只共用同一个
  * `VoiceSettings`，不互相读对方的状态。分区自己不持有状态，也不轮询。
@@ -64,12 +64,14 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
           whisperEnabled: voice.whisper,
           todoEnabled: voice.todo,
           notifyEnabled: voice.notify,
+          stripEmoji: voice.stripEmoji,
           onToggle: (value: boolean) => voice.setEnabled(value),
           onVoiceChange: (value: string) => voice.setName(value),
           onVolumeChange: (value: number) => voice.setVolume(value),
           onWhisperToggle: (value: boolean) => voice.setWhisper(value),
           onTodoToggle: (value: boolean) => voice.setTodo(value),
           onNotifyToggle: (value: boolean) => voice.setNotify(value),
+          onStripEmojiToggle: (value: boolean) => voice.setStripEmoji(value),
           // 试听走与真实播报同一条链路（合成 → 预热 → 播放），所以它验的就是用户会听到的东西。
           preview: voice.preview,
         }),

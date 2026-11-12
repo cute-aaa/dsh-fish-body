@@ -200,6 +200,13 @@ export const pt: Record<Key, string> = {
   sfxHookPattern: 'Nome do arquivo: hook-<nome>.wav ou <skin>-hook-<nome>.wav, na pasta da skin ou -sound',
   sfxHookEmpty: 'Ainda sem hooks: registre um nome acima ou coloque hook-<nome>.wav.',
   sfxHookCurlHint: 'Exemplo: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
+  sfxHookBuiltinTag: 'gatilho interno',
+  sfxOpenFolder: 'Abrir pasta',
+  sfxOpenFolderFailed: 'Nao foi possivel abrir a pasta de recursos: o host nao respondeu.',
+  sfxFolderMissing: 'Esta pasta ainda nao existe. Criar?',
+  sfxFolderCreateYes: 'Sim',
+  sfxFolderCreateNo: 'Nao',
+  sfxFolderDismiss: 'Entendi',
   whisperImageToggle: 'Imagens no sussurro',
   whisperImageToggleHint:
     'Anexa um meme aleatório do pool a cada sussurro (o mapeamento de imagens fica no campo de topo memes). Tokens: o sussurro já chama o modelo a cada ciclo, então a imagem só acrescenta o nome + a descrição daquele meme (~100 caracteres / ~60 tokens) ao mesmo pedido — desprezível.',
@@ -235,6 +242,9 @@ export const pt: Record<Key, string> = {
   voiceNotifyEnabled: 'Falar estado de trabalho',
   voiceNotifyEnabledHint:
     'Fala uma frase configurada de estado de trabalho quando uma tarefa termina, falha ou aguarda sua confirmação. Como as notificações do sistema, só fala enquanto você não está nesta página (outro aplicativo, sem foco, minimizado) — sem interromper enquanto você olha para a tela. Só a frase configurada é falada, nunca o detalhe da tarefa. Desligado por padrão.',
+  speakStripEmoji: 'Remover emoji na fala',
+  speakStripEmojiHint:
+    'Remove os emoji (🙂 / ❤️ / 🇨🇳) do texto antes de sintetizar: o sintetizador os le como palavra. Uma linha so de emoji e ignorada. Ligado por padrao; afeta so o texto falado.',
   voiceNameLabel: 'Voz',
   voiceLocalLabel: 'Voz (local)',
   voiceLocalHint: 'Timbre do servico de voz local; vale a partir da proxima frase',

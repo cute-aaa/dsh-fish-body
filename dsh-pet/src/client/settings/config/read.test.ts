@@ -91,6 +91,13 @@ describe('readMainConfig —— 成品聚合 → 表单补丁', () => {
     assert.equal('voiceTodoEnabled' in (bad ?? {}), false, '非布尔当作没写');
   });
 
+  test('播报去表情开关：布尔原样带出，缺失或非布尔不进补丁', () => {
+    assert.equal(readMainConfig({ main: { pets: [], speakStripEmoji: false } })?.speakStripEmoji, false);
+    assert.equal(readMainConfig({ main: { pets: [], speakStripEmoji: true } })?.speakStripEmoji, true);
+    assert.equal('speakStripEmoji' in (readMainConfig({ main: { pets: [] } }) ?? {}), false);
+    assert.equal('speakStripEmoji' in (readMainConfig({ main: { pets: [], speakStripEmoji: 0 } }) ?? {}), false);
+  });
+
   test('工作状态播报开关：布尔原样带出，缺失或非布尔不进补丁', () => {
     assert.equal(readMainConfig({ main: { pets: [], voiceNotifyEnabled: false } })?.voiceNotifyEnabled, false);
     assert.equal('voiceNotifyEnabled' in (readMainConfig({ main: { pets: [] } }) ?? {}), false);

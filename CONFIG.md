@@ -153,6 +153,8 @@ $DSH_HOME/dsh-pet/
 
 - `file` 省略 = 用自动匹配到的文件；`enabled:false` = 关掉该槽（自动匹配到的也不播）。
 - `hooks` 里的空对象 `{ "ding": {} }` 也是合法写法：只登记名字，文件靠命名规则自动匹配。
+- 内置 hook 点 `drag / whisper / chat-open` 由两端自己在固定时机触发（拖拽成立、碎碎念出现、对话窗打开），
+  同样没有默认音：放 `hook-<名字>.wav` 或在这里登记才响。
 - `animations` 的数组是时间线（各自 `at`）；`events` 的数组是变体（随机抽一个）。
 - 冲突时后者赢：`skins[model]` > 皮肤清单 `manifest.sfx` > `renderers[kind]` > 基座 > 自动匹配 > 内置默认。
 - 事件槽共八个（`click / throw / floor / wall / ceiling / pet / sleepStart / sleepEnd`）：拖拽成立不出声，

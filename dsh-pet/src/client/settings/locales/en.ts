@@ -198,6 +198,13 @@ export const en: Record<Key, string> = {
   sfxHookPattern: 'File name: hook-<name>.wav or <skin>-hook-<name>.wav, inside a skin folder or the -sound folder',
   sfxHookEmpty: 'No hooks yet: register a name above, or drop a hook-<name>.wav file into the sound folders.',
   sfxHookCurlHint: 'Example: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
+  sfxHookBuiltinTag: 'built-in trigger',
+  sfxOpenFolder: 'Open folder',
+  sfxOpenFolderFailed: 'Could not open the asset folder: no answer from the host.',
+  sfxFolderMissing: 'This folder does not exist yet. Create it?',
+  sfxFolderCreateYes: 'Yes',
+  sfxFolderCreateNo: 'No',
+  sfxFolderDismiss: 'Got it',
   whisperImageToggle: 'Whisper images',
   whisperImageToggleHint:
     'Attach one random meme from the pool to each whisper line (image mapping lives in the top-level `memes` config field). Tokens: a whisper already calls the model every cycle, so the image only appends the name + description of that one meme (~100 chars / ~60 tokens) to the same request — negligible.',
@@ -233,6 +240,9 @@ export const en: Record<Key, string> = {
   voiceNotifyEnabled: 'Speak work status',
   voiceNotifyEnabledHint:
     'Speaks a configured work-status line when a task completes, fails, or waits for your confirmation. Like system notifications, it only speaks while you are away from this page (switched away, unfocused, minimized) — no interruption while you are looking at the screen. Only the configured line is spoken, never the task detail. Off by default.',
+  speakStripEmoji: 'Strip emoji from speech',
+  speakStripEmojiHint:
+    'Removes emoji (🙂 / ❤️ / 🇨🇳) from the text before synthesis: synthesizers read them out as a word. A line made only of emoji is skipped. On by default; affects spoken text only, never recognition or bubbles.',
   voiceNameLabel: 'Voice',
   voiceLocalLabel: 'Voice (local)',
   voiceLocalHint: 'Timbre of the local voice service; applies from the next sentence',

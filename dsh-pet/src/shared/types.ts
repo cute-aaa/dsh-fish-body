@@ -244,6 +244,13 @@ export type SfxCueLane = 'both' | SfxLane;
 export type SfxOrigin = 'skin' | 'sound' | 'animation' | 'user' | 'package-default' | 'config';
 
 /**
+ * 设置页「打开素材文件夹」能打开哪几类目录。
+ *
+ * 只给类别名，不给路径：宿主按素材根与皮肤算出真实目录，设置页不拼路径。
+ */
+export type SfxFolderTarget = 'sound' | 'skin' | 'animation' | 'user' | 'package';
+
+/**
  * 一条音效定义（config.jsonc 的 sfx 段里每个槽位/动画名/hook 的值）。
  *
  * `file` 省略时用宿主索引里自动匹配到的文件；两处都没有就不响。

@@ -1138,6 +1138,65 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
+  /dsh-pet-7340/open-folder:
+    post:
+      tags: [Action]
+      operationId: openAssetFolder
+      summary: 用文件管理器打开素材目录
+      description: |
+        设置页的「打开文件夹」：请求方只给**类别名**，宿主按素材根与当前皮肤算出真实目录再交给
+        平台文件管理器（Windows 资源管理器 / macOS Finder / Linux xdg-open）。
+
+        目录不存在时不创建也不猜：回 `not-found`，`message` 里带上算出来的路径，
+        设置页据此在按钮旁问「是否创建」；带 `create=1` 时先建出来再打开。
+      parameters:
+        - $ref: "#/components/parameters/PetIdQuery"
+        - name: which
+          in: query
+          required: true
+          description: |
+            目录类别：`sound`（`pet/<素材根>-sound/`）、`skin`（皮肤目录，live2d 取模型所在层）、
+            `animation`（动画同目录）、`user`（用户共享 `main-sound/`，仅 main 链）、`package`（包内 `assets/sound/`）。
+          schema:
+            type: string
+            enum: [sound, skin, animation, user, package]
+            example: sound
+        - name: create
+          in: query
+          required: false
+          description: 传 `1` 时目录不存在就先递归创建再打开；缺省只回 `not-found`。
+          schema:
+            type: string
+            enum: ["1"]
+      responses:
+        "200":
+          description: |
+            成功回 `{ ok: true, which, path, created? }`；失败恒为 200 + `ok: false`，`reason` 可能是
+            `bad-request`（类别非法）、`not-found`（该宠物没有这一类目录，或目录还没建；体里带 `path`）、
+            `unknown-pet`。
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - allOf:
+                      - $ref: "#/components/schemas/OkResponse"
+                      - type: object
+                        required: [which, path]
+                        properties:
+                          which:
+                            type: string
+                            example: sound
+                          path:
+                            type: string
+                            example: 'D:\DSH\dsh-pet\main-sound'
+                          created:
+                            type: boolean
+                            description: 仅 `create=1` 且这次真的建了目录时出现。
+                            example: true
+                  - $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
   /dsh-pet-7340/sound/{root}/index:
     get:
       tags: [Asset]

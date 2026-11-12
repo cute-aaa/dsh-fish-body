@@ -134,6 +134,7 @@ function harness(extra: Partial<DragCard> = {}) {
     squashes: 0,
     seqs: 0,
     tipOn: [] as boolean[],
+    hooks: [] as string[],
   };
   const card: DragCard = {
     petId: 'main',
@@ -170,6 +171,8 @@ function harness(extra: Partial<DragCard> = {}) {
       // 拖拽成立与甩出也会走这个入口，这里只统计点击那一下。
       if (slot === 'click') calls.clicks++;
     },
+    // 拖拽成立会触发内置 hook 点（hook-drag.wav）：这里记下来，供「不响事件音效」的断言用。
+    playHook: (hook: string) => calls.hooks.push(hook),
     tipOn: () => false,
     placeTip: () => {},
     setTipOn: (on) => calls.tipOn.push(on),
@@ -249,6 +252,9 @@ describe('createDrag —— 按下与阈值', () => {
       drag.onPointerDown(pointer(el, 500, 350));
       drag.onPointerMove(pointer(el, 540, 350));
       assert.deepEqual(calls.plays, ['drag1']);
+      // 拖拽成立不出事件音效，只走内置 hook 点（hook-drag.wav）：那一声归用户自己决定。
+      assert.deepEqual(calls.hooks, ['drag']);
+      assert.equal(calls.clicks, 0, '拖拽不该冒充点击音效');
       assert.equal(stage.style.transform, 'translateY(10px)', '舞台位移应保持恒定');
     } finally {
       frames.restore();

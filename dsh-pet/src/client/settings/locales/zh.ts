@@ -187,6 +187,13 @@ export const zh = {
   sfxHookPattern: '命名：hook-<名字>.wav 或 <皮肤名>-hook-<名字>.wav，放在皮肤目录或 -sound 目录',
   sfxHookEmpty: '还没有 hook：在上面填一个名字登记，或在声音目录里放一个 hook-<名字>.wav。',
   sfxHookCurlHint: '触发示例：curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
+  sfxHookBuiltinTag: '内置触发点',
+  sfxOpenFolder: '打开文件夹',
+  sfxOpenFolderFailed: '打不开素材文件夹：宿主没有回话。',
+  sfxFolderMissing: '这个目录还没有创建，是否创建？',
+  sfxFolderCreateYes: '是',
+  sfxFolderCreateNo: '否',
+  sfxFolderDismiss: '知道了',
   whisperImageToggle: '碎碎念配图',
   whisperImageToggleHint:
     '碎碎念时从表情包池随机抽一张，连同那句话一起显示（图片映射在配置文件顶层 memes）。token：碎碎念本来就每次生成都要调一次模型，配图只是把抽中那张的名称+描述（约 100 字符 / ≈60 token）加进同一次请求，增量可忽略。',
@@ -221,6 +228,9 @@ export const zh = {
   voiceNotifyEnabled: '通知播报',
   voiceNotifyEnabledHint:
     '任务完成、出错、等你确认时念一句该档位配置的工作状态文案。和系统通知同一取向：用户不在本页（切走、失焦、最小化）时才念，正看着屏幕时不打扰。只念配置里的台词，不念任务详情。默认关闭。',
+  speakStripEmoji: '播报去表情',
+  speakStripEmojiHint:
+    '念之前把文本里的表情符号（🙂 / ❤️ / 🇨🇳）摘掉再交给语音合成：合成器读不出表情，只会念成「表情符号」。整句只有表情时不合成。默认开；只影响念出来的文本，不影响识别与气泡。',
   voiceNameLabel: '音色',
   voiceLocalLabel: '音色（本地）',
   voiceLocalHint: '本机语音服务的音色，切换后下一句生效',

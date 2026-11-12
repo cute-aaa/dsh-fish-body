@@ -11,7 +11,7 @@ import { petBridge } from './bridge.ts';
 import { loadSfxIndex, sfxUrl } from '../pet/sfx.ts';
 import { playSfx } from '../../shared/sfx/player.ts';
 import { resolveSfx } from '../../shared/sfx/resolve.ts';
-import { SFX_EVENT_SLOTS, SFX_HOOK_NAME_RE } from '../../shared/sfx/types.ts';
+import { SFX_EVENT_SLOTS, SFX_HOOK_NAME_RE, BUILTIN_HOOKS } from '../../shared/sfx/types.ts';
 import type { MainConfigPatch } from './config/index.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import type { Pet, SfxConfig, SfxCue, SfxEventSlot, SfxIndex, SfxOrigin } from '../../shared/types.ts';
@@ -38,6 +38,8 @@ export interface SfxHookView {
   readonly origin: SfxOrigin | 'none';
   /** 是否已写进配置的 `sfx.hooks`（决定能不能「删除」）。 */
   readonly declared: boolean;
+  /** 是否是内置 hook 点（两端自己在固定时机触发，不需要外部调用）。 */
+  readonly builtin: boolean;
 }
 
 /** 音效分区的状态与回调。 */
@@ -164,17 +166,24 @@ export function useSfxSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCallba
       slot,
     };
   });
-  const hooks: SfxHookView[] = [...new Set([...Object.keys(config.hooks ?? {}), ...Object.keys(index?.hooks ?? {})])]
-    .sort()
-    .map((name) => {
-      const cue = plan.hook(name);
-      return {
-        declared: (config.hooks ?? {})[name] !== undefined,
-        file: cue?.file ?? '',
-        name,
-        origin: cue?.origin ?? 'none',
-      };
-    });
+  const builtin = new Set(BUILTIN_HOOKS);
+  // 内置 hook 点排在前面（没有文件也照样展示命名提示并可登记）；其余按名字排序。
+  const hookNames = [
+    ...BUILTIN_HOOKS,
+    ...[...new Set([...Object.keys(config.hooks ?? {}), ...Object.keys(index?.hooks ?? {})])]
+      .filter((name) => !builtin.has(name))
+      .sort(),
+  ];
+  const hooks: SfxHookView[] = hookNames.map((name) => {
+    const cue = plan.hook(name);
+    return {
+      builtin: builtin.has(name),
+      declared: (config.hooks ?? {})[name] !== undefined,
+      file: cue?.file ?? '',
+      name,
+      origin: cue?.origin ?? 'none',
+    };
+  });
 
   const trySlot = useCallback(
     (slot: SfxEventSlot): void => {

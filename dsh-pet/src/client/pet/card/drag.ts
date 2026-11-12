@@ -6,7 +6,7 @@
  */
 import { createDrag, type Drag, type DragCard } from '../motion/drag.ts';
 import { boxToRatio, clampReachableBox } from '../motion/geometry.ts';
-import { playPetSlot } from '../sfx.ts';
+import { playPetHook, playPetSlot } from '../sfx.ts';
 import type { CardLive } from './live.ts';
 import type { CardMotion } from './motion.ts';
 import type { CardStateApi } from './state.ts';
@@ -92,6 +92,7 @@ export function createCardDrag(rt: CardDragRuntime) {
         grabVelocity: () => (motion.flight.isFlying() ? motion.flight.velocity() : null),
         playSfx: (slot) =>
           void playPetSlot(cfgRef.current, slot, { skinLayer: live.current.ownAnim?.sfxLayer?.() ?? null }),
+        playHook: (hook) => void playPetHook(cfgRef.current, hook, live.current.ownAnim?.sfxLayer?.()),
         tipOn: () => live.current.tipOn(),
         placeTip: (x, y) => live.current.placeTip(x, y),
         setTipOn,

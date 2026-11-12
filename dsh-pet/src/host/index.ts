@@ -23,6 +23,7 @@ import { registerTodoReminders } from './plugin/todo-reminders.ts';
 import { registerPersonaSync } from './plugin/persona-sync.ts';
 import { createVoiceService } from './voice/speak.ts';
 import { createHearService } from './voice/hear.ts';
+import { openDirectory } from './open-folder.ts';
 import { createGsvProvider } from './voice/gsv/provider.ts';
 import { gsvSettingsOf } from './voice/gsv/settings.ts';
 import { providerConfigPath, readProviderConfig } from './voice/gsv/store.ts';
@@ -126,8 +127,15 @@ export function apply(ctx: any): void {
     ...sessionNotify,
     ctx,
     todos,
+    // 「打开素材文件夹」：平台文件管理器由这里的子进程拉起，路由只给类别名
+    openDir: openDirectory,
     // 语音合成：缓存落 userRoot，失败只留日志，不打断宿主
-    voice: createVoiceService({ userRoot, log }),
+    voice: createVoiceService({
+      userRoot,
+      log,
+      // 播报去表情（设置页开关，默认开）：合成前把文本里的表情摘掉，纯表情整句跳过。
+      stripEmoji: () => readAllConfig(configPaths).main?.speakStripEmoji !== false,
+    }),
     // 语音识别：能力来自宿主（DSH 的 speechToText），没启用时服务自己在调用时回 unsupported
     speech: createHearService({ speechToText: () => setup.optionalService('speechToText') }),
   };

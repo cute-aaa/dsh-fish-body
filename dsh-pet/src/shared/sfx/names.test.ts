@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { BUMP_SLOT, DEFAULT_EVENT_FILES, canonicalSlotOf } from './defaults.ts';
 import { impactGain, IMPACT_MIN_SPEED } from './impact.ts';
 import { parseSfxFileName, slotFileStem, stripAudioExt, withSkinPrefix } from './names.ts';
+import { SFX_HOOK_NAME_RE, BUILTIN_HOOKS } from './types.ts';
 
 describe('parseSfxFileName', () => {
   test('槽名即文件名：不分皮肤、带扩展名也认', () => {
@@ -82,6 +83,14 @@ describe('canonicalSlotOf / DEFAULT_EVENT_FILES', () => {
     assert.equal(slotFileStem('click'), 'click');
     assert.equal(slotFileStem('sleepStart'), 'sleep-start');
     assert.equal(slotFileStem('sleepEnd'), 'sleep-end');
+  });
+
+  test('内置 hook 点：名字都过宿主路由白名单，且不与事件槽同名', () => {
+    assert.ok(BUILTIN_HOOKS.length > 0);
+    for (const hook of BUILTIN_HOOKS) {
+      assert.ok(SFX_HOOK_NAME_RE.test(hook), hook + ' 应是合法的 hook 名');
+      assert.equal(canonicalSlotOf(hook), undefined, hook + ' 不能和事件槽重名（否则文件名会撞）');
+    }
   });
 });
 

@@ -38,6 +38,15 @@ export const DEFAULT_CUE_VOLUME = 1;
 export const SFX_AUDIO_EXTS: readonly string[] = ['.wav', '.ogg', '.mp3', '.m4a'];
 
 /**
+ * 内置 hook 点：两端在固定时机自己触发的具名音效。
+ *
+ * 它们**没有**默认音、也没有固定文件：放 `hook-<名字>.wav`（皮肤目录 / `-sound/` / 用户共享）
+ * 或写 `sfx.hooks.<名字>` 才生效，不放就完全静默。选点标准是「语义稳定、两端拿得到同一信号」，
+ * 内部细粒度事件不进这张表——要更多点请用 `POST /sfx/<名字>` 自己触发。
+ */
+export const BUILTIN_HOOKS: readonly string[] = ['drag', 'whisper', 'chat-open'];
+
+/**
  * hook 名的合法形状：字母数字与 `_`/`-`，1–64 字符。
  *
  * 宿主 `/sfx/<名字>` 路由、配置写叶子与设置页表单共用这一份口径，

@@ -129,6 +129,8 @@ export interface PetRouteDeps {
   readonly memeDirsFor: (assetRoot: string) => string[];
   /** 音效搜索目录（皮肤根 / -sound / 用户共享 / 动画同目录 / 包内默认）。 */
   readonly soundDirsFor: (assetRoot: string, ext: string) => SfxDirs;
+  /** 用平台文件管理器打开一个目录（设置页的「打开素材文件夹」）。 */
+  readonly openDir: (path: string) => void;
   /** 姿态上报存储。 */
   readonly pose: PoseStore;
   /** 软取宿主可选服务（缺失返回 undefined）。 */

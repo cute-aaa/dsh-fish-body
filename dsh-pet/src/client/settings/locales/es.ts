@@ -203,6 +203,13 @@ export const es: Record<Key, string> = {
   sfxHookPattern: 'Nombre de archivo: hook-<nombre>.wav o <skin>-hook-<nombre>.wav, en la carpeta de skin o -sound',
   sfxHookEmpty: 'Aun no hay hooks: registra un nombre arriba o coloca hook-<nombre>.wav.',
   sfxHookCurlHint: 'Ejemplo: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
+  sfxHookBuiltinTag: 'disparador integrado',
+  sfxOpenFolder: 'Abrir carpeta',
+  sfxOpenFolderFailed: 'No se pudo abrir la carpeta de recursos: el host no respondio.',
+  sfxFolderMissing: 'Esta carpeta aun no existe. Crearla?',
+  sfxFolderCreateYes: 'Si',
+  sfxFolderCreateNo: 'No',
+  sfxFolderDismiss: 'Entendido',
   whisperImageToggle: 'Imágenes en susurros',
   whisperImageToggleHint:
     'Adjunta un meme aleatorio del pool a cada susurro (el mapeo de imágenes está en el campo `memes` de la configuración de nivel superior). Tokens: un susurro ya llama al modelo en cada ciclo, así que la imagen solo añade el nombre + la descripción de ese meme (~100 caracteres / ~60 tokens) a la misma solicitud: insignificante.',
@@ -238,6 +245,9 @@ export const es: Record<Key, string> = {
   voiceNotifyEnabled: 'Locutar estado de trabajo',
   voiceNotifyEnabledHint:
     'Locuta una frase configurada de estado de trabajo cuando una tarea termina, falla o espera tu confirmación. Igual que las notificaciones del sistema, solo locuta cuando no estás en esta página (otra aplicación, sin foco, minimizada): no interrumpe mientras miras la pantalla. Solo se locuta la frase configurada, nunca el detalle de la tarea. Desactivado por defecto.',
+  speakStripEmoji: 'Quitar emoji al locutar',
+  speakStripEmojiHint:
+    'Quita los emoji (🙂 / ❤️ / 🇨🇳) del texto antes de sintetizar: el sintetizador los lee como palabra. Una linea solo de emoji se omite. Activado por defecto; solo afecta al texto locutado.',
   voiceNameLabel: 'Voz',
   voiceLocalLabel: 'Voz (local)',
   voiceLocalHint: 'Timbre del servicio de voz local; se aplica desde la frase siguiente',

@@ -26,6 +26,7 @@ export type ResultReason =
   | 'locked'
   | 'method-not-allowed'
   | 'no-sleep-animations'
+  | 'not-found'
   | 'payload-too-large'
   | 'pet-not-displayed'
   | 'pet-required'

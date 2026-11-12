@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { describe, test } from 'node:test';
 import { VoiceSynthError, type SynthInput } from './edge.ts';
 import { registerVoiceProvider } from './registry.ts';
 import { MAX_TEXT_CHARS, createVoiceService, isQueueStale, type VoiceService } from './speak.ts';
@@ -19,12 +19,14 @@ const mp3Clip = (): AudioClip => ({ data: new Uint8Array([1, 2, 3]), mime: 'audi
 async function withService(
   run: (voice: VoiceService, root: string) => Promise<void>,
   synthesize?: (input: SynthInput) => Promise<AudioClip>,
+  stripEmoji?: () => boolean,
 ): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-svc-'));
   try {
     const voice = createVoiceService({
       userRoot: root,
       synthesize: synthesize ?? (() => Promise.resolve(mp3Clip())),
+      ...(stripEmoji === undefined ? {} : { stripEmoji }),
     });
     await run(voice, root);
   } finally {
@@ -372,4 +374,55 @@ test('第三方此刻不可用：仍命中它以前合成的缓存，不换成�
     dispose();
     await rm(root, { recursive: true, force: true });
   }
+});
+
+/** 合成实际收到的文本与调用次数（每个用例自己重置）。 */
+const seen: string[] = [];
+let calls = 0;
+
+describe('播报去表情（合成本身拿到的就是清洗后的文本）', () => {
+  test('默认摘掉表情：合成收到的文本里没有 emoji', () =>
+    withService(
+      async (voice) => {
+        seen.length = 0;
+        const result = await voice.speak({ text: '收到啦🎉' });
+        assert.equal(result.ok, true);
+        assert.deepEqual(seen, ['收到啦'], '合成本身只该拿到干净文本');
+      },
+      async (input) => {
+        seen.push(input.text);
+        return mp3Clip();
+      },
+    ));
+
+  test('关掉开关：原样交给合成', () =>
+    withService(
+      async (voice) => {
+        seen.length = 0;
+        const result = await voice.speak({ text: '收到啦🎉' });
+        assert.equal(result.ok, true);
+        assert.deepEqual(seen, ['收到啦🎉']);
+      },
+      async (input) => {
+        seen.push(input.text);
+        return mp3Clip();
+      },
+      () => false,
+    ));
+
+  test('整句只有表情：bad-request，且不去调合成', () =>
+    withService(
+      async (voice) => {
+        calls = 0;
+        const result = await voice.speak({ text: '🙂🙂' });
+        assert.equal(result.ok, false);
+        assert.equal(result.ok === false ? result.reason : '', 'bad-request');
+        assert.equal(result.ok === false ? result.message : '', 'text is only emoji');
+        assert.equal(calls, 0, '没有可念的内容就不该合成');
+      },
+      async () => {
+        calls += 1;
+        return mp3Clip();
+      },
+    ));
 });
