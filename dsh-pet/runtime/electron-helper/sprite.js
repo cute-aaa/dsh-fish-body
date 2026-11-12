@@ -16,9 +16,17 @@ const isOpenShortcut = (e) => !!(e && (e.ctrlKey || e.metaKey));
 
 // 点击音效：播放器、预热与节流都在共享层（shared/click-sfx.js 进 shared-core），这里只做开关与触发。
 // 素材地址由 renderer.js 在 config 到手时一并交给共享层（bridge 模式走管道、普通模式走 HTTP）。
+let clickGatedLogged = false;
 const playClickSound = () => {
   // 开关来自成品配置 main.clickSoundEnabled（renderer.js 的 loadConfig 带入）；缺失一律静音
-  if (!config || config.clickSoundEnabled !== true) return;
+  if (!config || config.clickSoundEnabled !== true) {
+    // 配置还没到手就被点：这一下本来就没声，记一次便于和"音头被吃"区分开
+    if (!clickGatedLogged) {
+      clickGatedLogged = true;
+      console.info('[dsh-pet] click-sfx gated: config not ready');
+    }
+    return;
+  }
   S.playClickSfx();
 };
 

@@ -15,6 +15,7 @@ import { playClickSound, setClickSoundEnabled } from './click-sound.ts';
 class FakeContext {
   static sources = 0;
   state = 'running';
+  sampleRate = 8000;
   destination = { connect: () => undefined };
   resume(): Promise<void> {
     return Promise.resolve();
@@ -26,14 +27,29 @@ class FakeContext {
   createGain(): { gain: { value: number }; connect: () => void } {
     return { gain: { value: 0 }, connect: () => undefined };
   }
-  createBufferSource(): { buffer: unknown; connect: () => void; start: () => void } {
-    return {
-      buffer: null,
+  createBufferSource(): {
+    buffer: unknown;
+    loop: boolean;
+    connect: () => void;
+    start: () => void;
+    stop: () => void;
+    disconnect: () => void;
+  } {
+    const source = {
+      buffer: null as unknown,
+      loop: false,
       connect: () => undefined,
       start: () => {
-        FakeContext.sources += 1;
+        // 常驻保活源循环播放，不算"点击这一声"
+        if (!source.loop) FakeContext.sources += 1;
       },
+      stop: () => undefined,
+      disconnect: () => undefined,
     };
+    return source;
+  }
+  createBuffer(): { getChannelData: () => Float32Array } {
+    return { getChannelData: () => new Float32Array(16) };
   }
   decodeAudioData(): Promise<unknown> {
     return Promise.resolve({ duration: 0.35 });

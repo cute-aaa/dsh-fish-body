@@ -17,6 +17,14 @@ const DEFAULT_THROTTLE_MS = 100;
 const MAX_SFX_BYTES = 1024 * 1024;
 /** 等上下文恢复的上限：超时就不再等，用回退路径补这一声。 */
 const RESUME_WAIT_MS = 120;
+/** 等素材解码完的上限：刚启动就点的那一下宁可晚几毫秒，也别退回会丢音头的 `<audio>`。 */
+const DECODE_WAIT_MS = 150;
+/** 保活信号的幅度：1 个 16bit LSB（约 -90dBFS）。不能是精确 0——全零会被判静音，输出流照旧关掉。 */
+const KEEPALIVE_AMPLITUDE = 1 / 32768;
+/** 保活缓冲长度（秒）：循环播放，够短就够便宜。 */
+const KEEPALIVE_SECONDS = 0.25;
+/** 诊断日志条数：前几次点击记下来，够定位就停，不把日志刷满。 */
+const CLICK_LOG_LIMIT = 3;
 
 /** 播放参数。 */
 export interface ClickSfxOptions {
@@ -55,6 +63,10 @@ let fallbackAudio: HTMLAudioElement | null = null;
 let loggedPath = '';
 /** 是否挂了上下文自愈监听。 */
 let resumeBound = false;
+/** 常驻的保活音源：让输出流一直有非零样本，sink 不会被判静音关掉。 */
+let keepalive: AudioBufferSourceNode | null = null;
+/** 剩下的诊断日志条数（见 {@link CLICK_LOG_LIMIT}）。 */
+let clickLogsLeft = CLICK_LOG_LIMIT;
 
 /**
  * 打开或关闭点击音效；打开时顺带预热播放器。
@@ -78,6 +90,7 @@ export function setClickSfxEnabled(enabled: boolean, nextOptions?: ClickSfxOptio
   // 第一个手势后才真正兑现。兑现前点击会走「先 resume 再起播」或回退路径，都不会静默丢声。
   if (audio.state !== 'running') void audio.resume().catch(() => {});
   if (options !== null) startDecode(audio, options.url);
+  startKeepalive(audio);
   logPath('web-audio');
 }
 
@@ -94,21 +107,50 @@ export function playClickSfx(): boolean {
   lastPlayAt = now;
   const audio = context;
   const buffer = decoded;
-  if (audio === null || buffer === null) {
+  const volume = current.volume;
+  if (audio === null) {
+    logClick('fallback:no-context');
     playFallback(current);
     return true;
   }
-  const volume = current.volume;
-  if (audio.state === 'running') {
-    startSource(audio, buffer, volume);
+  if (buffer === null) return playWhileDecoding(audio, current);
+  if (audio.state !== 'running') {
+    // 被系统挂断（换设备、蓝牙切编码）后恢复要几毫秒：等它起来再补播，宁可晚一点也别丢这一声；
+    // 等不到就退回 `<audio>`，那一路至少能出声。
+    logClick('web-audio:resume');
+    void Promise.race([audio.resume(), wait(RESUME_WAIT_MS)])
+      .then(() => {
+        if (audio.state !== 'running') return playFallback(current);
+        startKeepalive(audio);
+        return startSource(audio, buffer, volume);
+      })
+      .catch(() => playFallback(current));
     return true;
   }
-  // 被系统挂断（换设备、蓝牙切编码）后恢复要几毫秒：等它起来再补播，宁可晚一点也别丢这一声；
-  // 等不到就退回 `<audio>`，那一路至少能出声。
-  void Promise.race([audio.resume(), wait(RESUME_WAIT_MS)])
+  logClick('web-audio');
+  startKeepalive(audio);
+  startSource(audio, buffer, volume);
+  return true;
+}
+
+/**
+ * 素材还在解码时的那一下：等解码完（上限 {@link DECODE_WAIT_MS}）再用 WebAudio 起播。
+ * 刚启动就点的情况多半落在这里——退回 `<audio>` 就等于把音头又丢给一次冷启动。
+ */
+function playWhileDecoding(audio: AudioContext, current: ResolvedClickSfx): boolean {
+  const pending = decoding;
+  if (pending === null) {
+    logClick('fallback:no-buffer');
+    playFallback(current);
+    return true;
+  }
+  logClick('web-audio:await-decode');
+  void Promise.race([pending, wait(DECODE_WAIT_MS)])
     .then(() => {
-      if (audio.state === 'running') startSource(audio, buffer, volume);
-      else playFallback(current);
+      const ready = decoded;
+      if (ready === null) return playFallback(current);
+      startKeepalive(audio);
+      return startSource(audio, ready, current.volume);
     })
     .catch(() => playFallback(current));
   return true;
@@ -139,6 +181,8 @@ export function resetClickSfx(): void {
   fallbackAudio = null;
   loggedPath = '';
   resumeBound = false;
+  keepalive = null;
+  clickLogsLeft = CLICK_LOG_LIMIT;
 }
 
 /** 写入播放参数；地址变了就把解码结果与回退元素一起作废。 */
@@ -179,16 +223,77 @@ function bindAutoResume(audio: AudioContext): void {
   if (resumeBound) return;
   resumeBound = true;
   audio.addEventListener('statechange', () => {
-    if (!sfxEnabled || audio.state !== 'suspended') return;
-    void audio.resume().catch(() => {});
+    if (!sfxEnabled) return;
+    if (audio.state === 'running') {
+      startKeepalive(audio);
+      return;
+    }
+    if (audio.state === 'suspended') void audio.resume().catch(() => {});
   });
 }
 
 /** 关掉开关时挂起上下文：省设备占用，但不 close，下次打开立刻能用。 */
 function suspendContext(): void {
+  stopKeepalive();
   const audio = context;
   if (audio === null || audio.state === 'suspended') return;
   void audio.suspend().catch(() => {});
+}
+
+/**
+ * 起常驻保活音源：幅度一个 LSB 的白噪声，听不见，但输出流里始终有非零样本。
+ *
+ * 只创建上下文不发声时，输出端（sink）会被判成静音而关掉，下一次点击又变成"开流 + 起播"
+ * 的冷启动，音头照样丢——碎碎念之所以正常，是因为它每次播报前都先垫一段循环静音把流开起来。
+ */
+function startKeepalive(audio: AudioContext): void {
+  if (keepalive !== null) return;
+  try {
+    const frames = Math.max(1, Math.round(audio.sampleRate * KEEPALIVE_SECONDS));
+    const buffer = audio.createBuffer(1, frames, audio.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let index = 0; index < frames; index += 1) {
+      channel[index] = (Math.random() < 0.5 ? -1 : 1) * KEEPALIVE_AMPLITUDE;
+    }
+    const source = audio.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(audio.destination);
+    source.start(0);
+    keepalive = source;
+  } catch {
+    keepalive = null;
+  }
+}
+
+/** 停掉保活音源（关开关、挂起上下文时）。 */
+function stopKeepalive(): void {
+  const source = keepalive;
+  keepalive = null;
+  if (source === null) return;
+  try {
+    source.stop();
+    source.disconnect();
+  } catch {
+    /* 已经停过：忽略 */
+  }
+}
+
+/** 记一次点播路径：桌面端只转发带 `[dsh-pet]` 的 console，前几次点击能落到日志里取证。 */
+function logClick(path: string): void {
+  if (clickLogsLeft <= 0) return;
+  clickLogsLeft -= 1;
+  const audio = context;
+  console.info(
+    '[dsh-pet] click-sfx click path=' +
+      path +
+      ' ctx=' +
+      (audio === null ? 'none' : audio.state) +
+      ' keepalive=' +
+      (keepalive === null ? 'off' : 'on') +
+      ' decoded=' +
+      (decoded === null ? 'no' : 'yes'),
+  );
 }
 
 /** 取素材并解码；失败只标一次，绝不外抛。 */

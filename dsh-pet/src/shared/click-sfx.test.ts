@@ -19,15 +19,31 @@ class FakeGain {
   }
 }
 
-/** 假 BufferSource：记起动次数。 */
+/** 假 BufferSource：记起动次数、循环标志与停止次数。 */
 class FakeSource {
+  static stops = 0;
   buffer: unknown = null;
+  loop = false;
   started = 0;
   connect(): void {
     /* 拓扑不关心 */
   }
   start(): void {
     this.started += 1;
+  }
+  stop(): void {
+    FakeSource.stops += 1;
+  }
+  disconnect(): void {
+    /* 拓扑不关心 */
+  }
+}
+
+/** 假 AudioBuffer：只提供写通道数据的能力。 */
+class FakeBuffer {
+  private readonly channel = new Float32Array(16);
+  getChannelData(): Float32Array {
+    return this.channel;
   }
 }
 
@@ -37,6 +53,7 @@ class FakeContext {
   static decodeCalls = 0;
   static failDecode = false;
   state = 'running';
+  sampleRate = 8000;
   destination = new FakeGain();
   sources: FakeSource[] = [];
   constructor() {
@@ -57,6 +74,9 @@ class FakeContext {
     const source = new FakeSource();
     this.sources.push(source);
     return source;
+  }
+  createBuffer(): FakeBuffer {
+    return new FakeBuffer();
   }
   decodeAudioData(): Promise<unknown> {
     FakeContext.decodeCalls += 1;
@@ -79,6 +99,24 @@ class FakeAudio {
   }
 }
 
+/** 取真正的点击音源：排除常驻保活的那条循环源。 */
+function attacks(): FakeSource[] {
+  const audio = FakeContext.instances[0];
+  return audio === undefined ? [] : audio.sources.filter((source) => !source.loop);
+}
+
+/** 取常驻保活源。 */
+function keepalives(): FakeSource[] {
+  const audio = FakeContext.instances[0];
+  return audio === undefined ? [] : audio.sources.filter((source) => source.loop);
+}
+
+/** 条件成立就返回；到点就放弃，避免用例靠固定次数等微任务。 */
+async function until(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate() && Date.now() < deadline) await setImmediate();
+}
+
 const originalFetch = globalThis.fetch;
 const originalAudioContext = (globalThis as { AudioContext?: unknown }).AudioContext;
 const originalAudio = (globalThis as { Audio?: unknown }).Audio;
@@ -91,6 +129,7 @@ beforeEach(() => {
   FakeContext.decodeCalls = 0;
   FakeContext.failDecode = false;
   FakeAudio.plays = 0;
+  FakeSource.stops = 0;
   fetched = [];
   resetClickSfx();
   (globalThis as { AudioContext?: unknown }).AudioContext = FakeContext;
@@ -135,6 +174,21 @@ describe('setClickSfxEnabled —— 预热', () => {
     assert.equal(FakeContext.instances[0].state, 'suspended', '关掉后应挂起以让出音频设备');
     assert.equal(FakeContext.instances.length, 1, '挂起不等于销毁，下次打开要能立刻用');
   });
+
+  test('预热后常驻一条循环保活源：输出流不会因为全零被判静音而关掉', async () => {
+    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    await whenClickSfxReady();
+    assert.equal(keepalives().length, 1, '应该有一条循环源一直在跑');
+    assert.equal(keepalives()[0].started, 1);
+  });
+
+  test('关闭开关：保活源停下，不再占音频设备', async () => {
+    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    await whenClickSfxReady();
+    setClickSfxEnabled(false);
+    await setImmediate();
+    assert.equal(FakeSource.stops, 1, '关掉后保活源要停');
+  });
 });
 
 describe('playClickSfx —— 播放', () => {
@@ -142,8 +196,8 @@ describe('playClickSfx —— 播放', () => {
     setClickSfxEnabled(true, { url: 'sfx.wav' });
     await whenClickSfxReady();
     assert.equal(playClickSfx(), true, '开关打开且素材就绪时应发起播放');
-    assert.equal(FakeContext.instances[0].sources.length, 1);
-    assert.equal(FakeContext.instances[0].sources[0].started, 1);
+    assert.equal(attacks().length, 1);
+    assert.equal(attacks()[0].started, 1);
   });
 
   test('默认节流：100ms 内的第二次点击不再起播', async () => {
@@ -151,7 +205,7 @@ describe('playClickSfx —— 播放', () => {
     await whenClickSfxReady();
     playClickSfx();
     assert.equal(playClickSfx(), false, '节流窗口内的连点应被吃掉');
-    assert.equal(FakeContext.instances[0].sources.length, 1);
+    assert.equal(attacks().length, 1);
   });
 
   test('节流窗口配成 0：每次都起播（连点不丢声）', async () => {
@@ -159,7 +213,7 @@ describe('playClickSfx —— 播放', () => {
     await whenClickSfxReady();
     playClickSfx();
     playClickSfx();
-    assert.equal(FakeContext.instances[0].sources.length, 2);
+    assert.equal(attacks().length, 2);
   });
 
   test('上下文被系统挂断：先恢复再起播，这一声不丢', async () => {
@@ -170,7 +224,7 @@ describe('playClickSfx —— 播放', () => {
     assert.equal(playClickSfx(), true);
     await setImmediate();
     assert.equal(audio.state, 'running', '应该顺手把上下文恢复起来');
-    assert.equal(audio.sources.length, 1, '恢复后要把这一声补上');
+    assert.equal(attacks().length, 1, '恢复后要把这一声补上');
   });
 
   test('开关关闭：不播，也不碰上下文', () => {
@@ -178,6 +232,25 @@ describe('playClickSfx —— 播放', () => {
     assert.equal(playClickSfx(), false);
     assert.equal(FakeContext.instances.length, 0);
     assert.equal(FakeAudio.plays, 0);
+  });
+
+  test('素材还在解码时点击：等解码完再用 WebAudio 起播，不退回会丢音头的 <audio>', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    globalThis.fetch = (async (url: string) => {
+      fetched.push(url);
+      await gate;
+      return new Response(new Uint8Array(64));
+    }) as unknown as typeof fetch;
+
+    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    assert.equal(playClickSfx(), true);
+    assert.equal(FakeAudio.plays, 0, '解码没完也不该退回 <audio>');
+    release();
+    await until(() => attacks().length > 0);
+    assert.equal(attacks().length, 1, '解码一完成就把这一声补上');
   });
 });
 
@@ -188,7 +261,7 @@ describe('playClickSfx —— 回退', () => {
     await whenClickSfxReady();
     assert.doesNotThrow(() => playClickSfx());
     assert.equal(FakeAudio.plays, 1, '解码不成也要能出声');
-    assert.equal(FakeContext.instances[0].sources.length, 0);
+    assert.equal(attacks().length, 0);
   });
 
   test('环境没有 WebAudio：整链走 <audio>', () => {

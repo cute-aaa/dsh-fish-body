@@ -29,6 +29,7 @@ function fixture(enabled: boolean | undefined) {
         return true;
       },
     },
+    console: { info: () => undefined },
     navigator: { platform: 'Win32' },
     Date: { now: () => 1000 },
   }) as { play(): void };
