@@ -169,13 +169,13 @@ export const fr: Record<Key, string> = {
     'Multiplie le volume de chaque effet : 0 coupe seulement les effets (la voix reste), 1 est le maximum. Entree du mixeur = second volume global.',
   sfxTitle: 'Sons d evenement',
   sfxHint:
-    'C est l hote qui choisit le fichier : dossier du skin > dossier -sound > a cote de l animation > partage utilisateur > paquet. Cette page ne regle que les interrupteurs et le volume.',
+    'C est l hote qui choisit le fichier : dossier du skin > dossier -sound > a cote de l animation > partage utilisateur > paquet. Cette page ne regle que les interrupteurs ; le volume est dans Global.',
   sfxFileHint:
     'Pour changer un fichier, placez l audio dans le dossier du skin (pet/xxx-skin/click.wav) ou pet/<root>-sound/ ; le nom du fichier est celui du moment. Rechargez ensuite la page.',
+  sfxSlotPattern: 'Nom de fichier : {name}.wav ou <skin>-{name}.wav',
   sfxNone: 'aucun fichier',
   sfxTry: 'Ecouter',
   sfxSlotClick: 'Clic',
-  sfxSlotDrag: 'Glisser',
   sfxSlotThrow: 'Lancer',
   sfxSlotFloor: 'Atterrissage',
   sfxSlotWall: 'Mur',
@@ -192,8 +192,14 @@ export const fr: Record<Key, string> = {
   sfxOriginNone: 'non trouve',
   sfxHooksTitle: 'Hooks personnalises',
   sfxHooksHint:
-    'Noms declares dans sfx.hooks, ou fichiers hook-<nom>.wav dans les dossiers de sons. Declenchement : POST /sfx/<nom>?pet=<id>.',
-  sfxHookEmpty: 'Aucun hook : ajoutez-en un dans sfx.hooks ou deposez hook-<nom>.wav.',
+    'Enregistrez un nom ici puis declenchez-le avec POST /sfx/<nom>?pet=<id> ; le fichier est trouve par la regle de nommage, sans config.',
+  sfxHookAdd: 'Enregistrer',
+  sfxHookPlaceholder: 'nom du hook, ex. ding',
+  sfxHookInvalid: 'Lettres, chiffres, tiret bas ou tiret uniquement (1-64 caracteres)',
+  sfxHookExists: 'Ce nom est deja enregistre',
+  sfxHookRemove: 'Retirer',
+  sfxHookPattern: 'Nom de fichier : hook-<nom>.wav ou <skin>-hook-<nom>.wav, dans le dossier du skin ou -sound',
+  sfxHookEmpty: 'Aucun hook : enregistrez un nom ci-dessus ou deposez hook-<nom>.wav.',
   sfxHookCurlHint: 'Exemple : curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Images des murmures',
   whisperImageToggleHint:

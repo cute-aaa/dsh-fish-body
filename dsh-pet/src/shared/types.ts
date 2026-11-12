@@ -227,9 +227,12 @@ export interface FontConfig {
   followPet: boolean;
 }
 
-/** 事件槽：固定触发时机，与动画名无关。 */
-export type SfxEventSlot =
-  'click' | 'drag' | 'throw' | 'floor' | 'wall' | 'ceiling' | 'pet' | 'sleepStart' | 'sleepEnd';
+/**
+ * 事件槽：固定触发时机，与动画名无关。
+ *
+ * 拖拽成立时不出声：它与随后的点击（或甩出）间隔常常只有几十毫秒，两条音叠在一起听起来像破音。
+ */
+export type SfxEventSlot = 'click' | 'throw' | 'floor' | 'wall' | 'ceiling' | 'pet' | 'sleepStart' | 'sleepEnd';
 
 /** 播放面：两端各有一份播放器，`lane` 用来避免双端同时响。 */
 export type SfxLane = 'web' | 'desktop';

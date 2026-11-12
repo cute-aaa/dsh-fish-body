@@ -1,9 +1,10 @@
 /**
- * 生成包内默认音效（assets/sound/drag.wav / throw.wav / bump-soft.wav / pet-bump.wav）。
+ * 生成包内默认音效（assets/sound/throw.wav / bump-soft.wav / pet-bump.wav）。
  *
  * 为什么用合成而不是找素材：默认音只是「有动静」的占位，体积、响度与声学前提必须可控——
  * 全部 44.1kHz / 16bit / 单声道、峰值不超过 40% 满幅、攻击段压在 t=0（配合常热 WebAudio 首声不缺头）、
  * 时长 60–160ms。素材要换随时可以覆盖（用户目录与皮肤目录优先级都比包内高）。
+ * 拖拽（drag）没有默认音：它和随后的点击/甩出只差几十毫秒，两条音叠在一起像破音。
  *
  * 用法：`node scripts/gen-sfx.mjs`（幂等，重复执行得到同一份字节）。
  * 产物入库；改了合成公式要重新跑一次并一并提交。
@@ -44,16 +45,6 @@ function render(durationMs, fn) {
   const gain = peak > 0 ? PEAK / peak : 1;
   for (let i = 0; i < total; i += 1) data[i] *= gain;
   return data;
-}
-
-/** 抖落音：短促的低通噪声，像布料擦过桌面。 */
-function drag() {
-  const noise = makeNoise(0x51ed270b);
-  let low = 0;
-  return render(110, (t) => {
-    low = low * 0.82 + noise() * 0.18;
-    return low * attack(t) * decay(t, 26);
-  });
 }
 
 /** 甩出音：450→900Hz 的上滑短音。 */
@@ -113,7 +104,6 @@ const outDir = join(here, '..', 'assets', 'sound');
 mkdirSync(outDir, { recursive: true });
 
 const files = [
-  ['drag.wav', drag()],
   ['throw.wav', throwSfx()],
   ['bump-soft.wav', bumpSoft()],
   ['pet-bump.wav', petBump()],

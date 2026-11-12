@@ -21,8 +21,8 @@
 | `src/client/settings/use-voice-settings.ts`      | 语音状态：六个随保存写入的字段 + 拉取、轮询、启停的节奏        |
 | `src/client/settings/voice-api.ts`               | `/voice/*` 三个接口的请求与解析（读失败回 `null`，写失败抛错） |
 | `src/client/settings/use-global-settings.ts`     | 五个全局开关（含音效总闸）与通知权限申请                       |
-| `src/client/settings/use-sfx-settings.ts`        | 音效分区：槽位编辑、来源展示与试听                             |
-| `src/client/settings/sfx-card.ts`                | 音效卡：九个事件槽 + hook 的开关、音量与试听                   |
+| `src/client/settings/use-sfx-settings.ts`        | 音效分区：槽位开关、hook 登记、来源展示与试听                  |
+| `src/client/settings/sfx-card.ts`                | 音效卡：八个事件槽 + hook 表单的开关、命名提示与试听           |
 | `src/client/settings/use-model-settings.ts`      | 对话状态：两个模型、历史条数、配图上限、三个对话开关           |
 | `src/client/settings/use-appearance-settings.ts` | 字体 / 物理 / 动作权重                                         |
 | `src/client/settings/use-avatar-upload.ts`       | 头像上传：破缓存版本号与上传中标志                             |

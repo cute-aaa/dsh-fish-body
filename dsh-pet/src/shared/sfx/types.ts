@@ -10,7 +10,6 @@ import type { SfxEventSlot } from '../types.ts';
 /** 槽位全集（顺序即设置页展示顺序）；新增槽位时与 shared/types 的 {@link SfxEventSlot} 一起改。 */
 export const SFX_EVENT_SLOTS: readonly SfxEventSlot[] = [
   'click',
-  'drag',
   'throw',
   'floor',
   'wall',
@@ -23,7 +22,6 @@ export const SFX_EVENT_SLOTS: readonly SfxEventSlot[] = [
 /** 槽位缺省节流窗口（毫秒）：点击最密，碰撞次之，睡眠与 hook 不节流。 */
 export const SLOT_DEFAULT_THROTTLE_MS: Readonly<Record<SfxEventSlot, number>> = {
   click: 100,
-  drag: 80,
   throw: 80,
   floor: 60,
   wall: 60,
@@ -38,3 +36,11 @@ export const DEFAULT_CUE_VOLUME = 1;
 
 /** 音频扩展名白名单（宿主扫描与路由共用；顺序即同优先级内的偏好）。 */
 export const SFX_AUDIO_EXTS: readonly string[] = ['.wav', '.ogg', '.mp3', '.m4a'];
+
+/**
+ * hook 名的合法形状：字母数字与 `_`/`-`，1–64 字符。
+ *
+ * 宿主 `/sfx/<名字>` 路由、配置写叶子与设置页表单共用这一份口径，
+ * 免得「设置页收得下、路由却回 bad-request」。
+ */
+export const SFX_HOOK_NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;

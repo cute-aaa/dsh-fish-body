@@ -60,10 +60,10 @@ describe('resolveSfx —— 事件槽', () => {
   });
 
   test('lane 不合就不播；both 与缺省都两端播', () => {
-    const layers: SfxLayer[] = [{ events: { click: { lane: 'desktop' }, drag: { lane: 'both' } } }];
+    const layers: SfxLayer[] = [{ events: { click: { lane: 'desktop' }, throw: { lane: 'both' } } }];
     assert.equal(resolveSfx({ index: skinIndex, layers, lane: 'web' }).slot('click'), null);
     assert.ok(resolveSfx({ index: skinIndex, layers, lane: 'desktop' }).slot('click') !== null);
-    assert.ok(resolveSfx({ index: skinIndex, layers, lane: 'web' }).slot('drag') !== null);
+    assert.ok(resolveSfx({ index: skinIndex, layers, lane: 'web' }).slot('throw') !== null);
   });
 
   test('后写的层压前面的层：按渲染方式与按皮肤的覆盖生效', () => {

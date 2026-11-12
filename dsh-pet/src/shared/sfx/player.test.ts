@@ -11,6 +11,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { setImmediate } from 'node:timers/promises';
 
 import { configureSfx, playSfx, preloadSfx, resetSfx, scheduleSfx, stopScheduledSfx, whenSfxReady } from './player.ts';
+import { DEFAULT_EVENT_FILES } from './defaults.ts';
 
 /** 假增益节点。 */
 class FakeGain {
@@ -296,7 +297,10 @@ describe('包内默认音素材', () => {
   test('每个默认音都存在、单声道 44.1kHz、攻击段贴在 t=0、峰值够大', async () => {
     const dir = new URL('../../../assets/sound/', import.meta.url);
     const names = (await readdir(dir)).filter((name) => name.endsWith('.wav'));
-    for (const expected of ['click-duck.wav', 'drag.wav', 'throw.wav', 'bump-soft.wav', 'pet-bump.wav']) {
+    // 只对「内置默认音」校验声学前提：同目录里还可能放示例素材（如 pot-hit.wav），
+    // 它们不是任何槽的默认值，时长与攻击段由使用者自己定。
+    const defaults = new Set(Object.values(DEFAULT_EVENT_FILES));
+    for (const expected of defaults) {
       assert.ok(names.includes(expected), '缺少默认音：' + expected);
     }
     for (const name of names) {
@@ -306,6 +310,7 @@ describe('包内默认音素材', () => {
       const sampleRate = bytes.readUInt32LE(24);
       assert.equal(sampleRate, 44100, name + ' 采样率应为 44.1kHz');
       assert.equal(bytes.readUInt16LE(22), 1, name + ' 应为单声道');
+      if (!defaults.has(name)) continue;
       const dataOffset = 44;
       const total = Math.floor((bytes.length - dataOffset) / 2);
       const audible = 0.1 * 32768;

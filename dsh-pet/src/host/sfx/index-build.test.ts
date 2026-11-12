@@ -58,11 +58,11 @@ describe('buildSfxIndex —— 事件槽优先级', () => {
   test('用户共享目录排在包内默认之前，排在素材根目录之后', () => {
     const index = buildSfxIndex({
       model: '',
-      sources: sources({ sound: ['throw.wav'], user: ['throw.mp3', 'drag.wav'], packaged: ['drag.wav'] }),
+      sources: sources({ sound: ['throw.wav'], user: ['throw.mp3', 'wall.wav'], packaged: ['wall.wav'] }),
     });
     assert.equal(index.events.throw, 'throw.wav', '素材根目录 > 用户共享');
-    assert.equal(index.events.drag, 'drag.wav');
-    assert.equal(index.origin.drag, 'user');
+    assert.equal(index.events.wall, 'wall.wav', '用户共享 > 包内默认');
+    assert.equal(index.origin.wall, 'user');
   });
 
   test('碰撞 bump 兜底：三个槽一起填，已有的具体文件不动', () => {

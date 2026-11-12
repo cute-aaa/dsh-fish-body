@@ -278,7 +278,7 @@ class PetSprite {
   /**
    * 播一个事件槽。
    *
-   * @param {string} slot - 事件槽名（click / drag / throw / floor / wall / ceiling / pet / sleepStart / sleepEnd）。
+   * @param {string} slot - 事件槽名（click / throw / floor / wall / ceiling / pet / sleepStart / sleepEnd）。
    * @param {number} [gain] - 撞击增益（碰撞槽用）；缺省 1。
    * @returns {boolean} 是否发起了播放。
    */

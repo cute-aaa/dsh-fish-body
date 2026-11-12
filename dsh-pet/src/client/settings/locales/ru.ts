@@ -169,13 +169,13 @@ export const ru: Record<Key, string> = {
     'Умножается на громкость каждого эффекта: 0 глушит только эффекты (голос не меняется), 1 — максимум. Пункт в микшере — ещё один общий уровень.',
   sfxTitle: 'Звуки событий',
   sfxHint:
-    'Какой файл играть, решает хост: папка скина > папка -sound > рядом с анимацией > общая папка > встроенные. Эта страница меняет только переключатели и громкость.',
+    'Какой файл играть, решает хост: папка скина > папка -sound > рядом с анимацией > общая папка > встроенные. Эта страница меняет только переключатели; громкость — в разделе «Общие».',
   sfxFileHint:
     'Чтобы заменить файл, положите звук в папку скина (pet/xxx-skin/click.wav) или pet/<root>-sound/; имя файла — это имя момента. Затем обновите страницу.',
+  sfxSlotPattern: 'Имя файла: {name}.wav или <скин>-{name}.wav',
   sfxNone: 'нет файла',
   sfxTry: 'Прослушать',
   sfxSlotClick: 'Клик',
-  sfxSlotDrag: 'Перетаскивание',
   sfxSlotThrow: 'Бросок',
   sfxSlotFloor: 'Приземление',
   sfxSlotWall: 'Стена',
@@ -191,8 +191,15 @@ export const ru: Record<Key, string> = {
   sfxOriginConfig: 'конфиг',
   sfxOriginNone: 'не найдено',
   sfxHooksTitle: 'Свои хуки',
-  sfxHooksHint: 'Имена из sfx.hooks или файлы hook-<имя>.wav в папках звуков. Запуск: POST /sfx/<имя>?pet=<id>.',
-  sfxHookEmpty: 'Хуков пока нет: добавьте в sfx.hooks или положите hook-<имя>.wav.',
+  sfxHooksHint:
+    'Зарегистрируйте имя здесь и вызывайте через POST /sfx/<имя>?pet=<id>; файл находится по правилу имён, без правки конфигурации.',
+  sfxHookAdd: 'Зарегистрировать',
+  sfxHookPlaceholder: 'имя хука, напр. ding',
+  sfxHookInvalid: 'Только буквы, цифры, подчёркивание или дефис (1–64 символа)',
+  sfxHookExists: 'Это имя уже зарегистрировано',
+  sfxHookRemove: 'Снять',
+  sfxHookPattern: 'Имя файла: hook-<имя>.wav или <скин>-hook-<имя>.wav, в папке скина или -sound',
+  sfxHookEmpty: 'Хуков пока нет: зарегистрируйте имя выше или положите hook-<имя>.wav.',
   sfxHookCurlHint: 'Пример: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Картинки к шёпоту',
   whisperImageToggleHint:

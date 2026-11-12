@@ -167,13 +167,13 @@ export const de: Record<Key, string> = {
     'Wird mit der Lautstaerke jedes Effekts multipliziert: 0 schaltet nur Effekte stumm, 1 ist voll. Der Mixer-Eintrag ist eine zweite Gesamtstufe.',
   sfxTitle: 'Ereignistoene',
   sfxHint:
-    'Welche Datei wann laeuft, entscheidet der Host: Skin-Ordner > -sound-Ordner > neben der Animation > benutzerweit > Paketstandard. Diese Seite aendert nur Schalter und Lautstaerke.',
+    'Welche Datei wann laeuft, entscheidet der Host: Skin-Ordner > -sound-Ordner > neben der Animation > benutzerweit > Paketstandard. Diese Seite aendert nur Schalter; die Lautstaerke steht unter Global.',
   sfxFileHint:
     'Zum Austauschen die Datei in einen Skin-Ordner (pet/xxx-skin/click.wav) oder pet/<root>-sound/ legen; der Dateiname ist der Slot. Danach Seite neu laden.',
+  sfxSlotPattern: 'Dateiname: {name}.wav oder <skin>-{name}.wav',
   sfxNone: 'keine Datei',
   sfxTry: 'Anhören',
   sfxSlotClick: 'Klick',
-  sfxSlotDrag: 'Ziehen',
   sfxSlotThrow: 'Wurf',
   sfxSlotFloor: 'Landung',
   sfxSlotWall: 'Wand',
@@ -190,8 +190,14 @@ export const de: Record<Key, string> = {
   sfxOriginNone: 'kein Treffer',
   sfxHooksTitle: 'Eigene Hooks',
   sfxHooksHint:
-    'Namen aus sfx.hooks oder Dateien hook-<name>.wav in den Sound-Ordnern. Ausloesen mit POST /sfx/<name>?pet=<id>.',
-  sfxHookEmpty: 'Noch keine Hooks: einen unter sfx.hooks eintragen oder hook-<name>.wav ablegen.',
+    'Namen hier eintragen und mit POST /sfx/<name>?pet=<id> ausloesen; die Datei wird per Namensregel automatisch gefunden, ohne Konfiguration.',
+  sfxHookAdd: 'Eintragen',
+  sfxHookPlaceholder: 'Hook-Name, z. B. ding',
+  sfxHookInvalid: 'Nur Buchstaben, Ziffern, Unterstrich oder Bindestrich (1-64 Zeichen)',
+  sfxHookExists: 'Dieser Name ist schon eingetragen',
+  sfxHookRemove: 'Entfernen',
+  sfxHookPattern: 'Dateiname: hook-<name>.wav oder <skin>-hook-<name>.wav, im Skin- oder -sound-Ordner',
+  sfxHookEmpty: 'Noch keine Hooks: oben einen Namen eintragen oder hook-<name>.wav ablegen.',
   sfxHookCurlHint: 'Beispiel: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Flüstern-Bilder',
   whisperImageToggleHint:

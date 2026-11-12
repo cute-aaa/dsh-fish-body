@@ -152,6 +152,10 @@ $DSH_HOME/dsh-pet/
 ```
 
 - `file` 省略 = 用自动匹配到的文件；`enabled:false` = 关掉该槽（自动匹配到的也不播）。
+- `hooks` 里的空对象 `{ "ding": {} }` 也是合法写法：只登记名字，文件靠命名规则自动匹配。
 - `animations` 的数组是时间线（各自 `at`）；`events` 的数组是变体（随机抽一个）。
 - 冲突时后者赢：`skins[model]` > 皮肤清单 `manifest.sfx` > `renderers[kind]` > 基座 > 自动匹配 > 内置默认。
+- 事件槽共八个（`click / throw / floor / wall / ceiling / pet / sleepStart / sleepEnd`）：拖拽成立不出声，
+  它和随后的点击或甩出只差几十毫秒，两条音叠在一起像破音。
+- 设置页的音效分区只调开关与登记 hook；分项 `volume` 由总音量 `sfxVolume` 统一压，不提供逐槽滑块。
 - 旧键 `clickSoundEnabled / clickSoundKeepAlive / clickSoundVolume` 仍可读（映射到上面三项），保存时只写新键。

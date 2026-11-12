@@ -102,7 +102,7 @@ export function makeSettingsPanels(
           h(ShortcutsCard, { key: 'shortcuts' }),
         ],
       }),
-    // 音效：九个事件槽 + hook 的只读来源与音量；文件名由宿主索引决定，这一页不改文件。
+    // 音效：八个事件槽 + hook 登记；文件名由宿主索引决定，这一页不改文件，也不提供逐槽音量。
     sfx: () => h(SfxCard, { busy: deps.busy, sfx: deps.sfx }),
     look: () => h(LookTab, { busy: deps.busy, look: deps.look }),
     voice: () => h(VoiceTab, { busy: deps.busy, voice: deps.voice }),

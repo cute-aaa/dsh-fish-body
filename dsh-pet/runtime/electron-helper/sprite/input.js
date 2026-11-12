@@ -115,8 +115,7 @@ Object.assign(PetSprite.prototype, {
     if (!d.dragging) {
       if (Math.hypot(dx, dy) < S.DRAG_THRESHOLD) return;
       d.dragging = true;
-      // 拖拽成立这一下出声（与动画池无关：没配拖拽动画也该有反馈）。
-      this.playSfxSlot('drag');
+      // 拖拽成立不出声：它和随后的点击/甩出只差几十毫秒，两条音叠在一起像破音。
       // 睡觉：位置照常跟手，但不换拖拽动画——睡姿循环整段归睡觉状态机，顶掉就回不来了。
       if (this.animations.drag.length && !this.sleeping) {
         this.playOnce(S.pick(this.animations.drag));

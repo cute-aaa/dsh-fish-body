@@ -165,13 +165,13 @@ export const ja: Record<Key, string> = {
     '各効果音の音量に掛かります：0 で効果音のみ消音（音声はそのまま）、1 で最大。ミキサーの項目はさらに一段の全体音量です。',
   sfxTitle: 'イベント効果音',
   sfxHint:
-    'どのファイルを鳴らすかはホストが決めます：スキン > -sound > アニメと同じ場所 > ユーザー共有 > パッケージ既定。この画面はオンオフと音量だけ。',
+    'どのファイルを鳴らすかはホストが決めます：スキン > -sound > アニメと同じ場所 > ユーザー共有 > パッケージ既定。この画面はオンオフだけ。音量は「全体」の効果音の音量で調整します。',
   sfxFileHint:
     '差し替えるには音声をスキンフォルダ（pet/xxx-skin/click.wav）か pet/<ルート>-sound/ に置きます。ファイル名がタイミング名です。置いたら再読み込み。',
+  sfxSlotPattern: 'ファイル名：{name}.wav または <スキン名>-{name}.wav',
   sfxNone: 'ファイルなし',
   sfxTry: '試聴',
   sfxSlotClick: 'クリック',
-  sfxSlotDrag: 'ドラッグ',
   sfxSlotThrow: '投げる',
   sfxSlotFloor: '着地',
   sfxSlotWall: '壁',
@@ -188,8 +188,15 @@ export const ja: Record<Key, string> = {
   sfxOriginNone: '未一致',
   sfxHooksTitle: 'カスタムフック',
   sfxHooksHint:
-    'sfx.hooks で宣言した名前、または hook-<名前>.wav というファイル。POST /sfx/<名前>?pet=<id> で発火します。',
-  sfxHookEmpty: 'フックがありません：sfx.hooks に追加するか hook-<名前>.wav を置いてください。',
+    'ここで名前を登録すれば POST /sfx/<名前>?pet=<id> で発火できます。ファイルは命名規則で自動マッチし、設定を書く必要はありません。',
+  sfxHookAdd: '登録',
+  sfxHookPlaceholder: 'フック名（例：ding）',
+  sfxHookInvalid: '名前は英数字・アンダースコア・ハイフンのみ（1〜64 文字）',
+  sfxHookExists: 'その名前は登録済みです',
+  sfxHookRemove: '登録解除',
+  sfxHookPattern:
+    'ファイル名：hook-<名前>.wav または <スキン名>-hook-<名前>.wav、スキンフォルダか -sound フォルダに置く',
+  sfxHookEmpty: 'フックがありません：上で名前を登録するか、hook-<名前>.wav を置いてください。',
   sfxHookCurlHint: '例: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'ひとりごとの画像',
   whisperImageToggleHint:

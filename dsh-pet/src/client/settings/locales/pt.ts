@@ -168,13 +168,13 @@ export const pt: Record<Key, string> = {
     'Multiplica o volume de cada efeito: 0 silencia apenas os efeitos (a voz continua), 1 e o maximo. A entrada do mixer e outro volume geral.',
   sfxTitle: 'Sons de evento',
   sfxHint:
-    'O host decide qual arquivo toca em cada momento: pasta da skin > pasta -sound > ao lado da animacao > compartilhado > pacote. Esta pagina so muda interruptores e volume.',
+    'O host decide qual arquivo toca em cada momento: pasta da skin > pasta -sound > ao lado da animacao > compartilhado > pacote. Esta pagina so muda interruptores; o volume fica em Global.',
   sfxFileHint:
     'Para trocar, coloque o audio na pasta da skin (pet/xxx-skin/click.wav) ou em pet/<root>-sound/; o nome do arquivo e o do momento. Recarregue a pagina depois.',
+  sfxSlotPattern: 'Nome do arquivo: {name}.wav ou <skin>-{name}.wav',
   sfxNone: 'sem arquivo',
   sfxTry: 'Ouvir',
   sfxSlotClick: 'Clique',
-  sfxSlotDrag: 'Arrastar',
   sfxSlotThrow: 'Arremesso',
   sfxSlotFloor: 'Pouso',
   sfxSlotWall: 'Parede',
@@ -191,8 +191,14 @@ export const pt: Record<Key, string> = {
   sfxOriginNone: 'sem correspondencia',
   sfxHooksTitle: 'Hooks proprios',
   sfxHooksHint:
-    'Nomes declarados em sfx.hooks, ou arquivos hook-<nome>.wav nas pastas de som. Dispare com POST /sfx/<nome>?pet=<id>.',
-  sfxHookEmpty: 'Ainda sem hooks: adicione um em sfx.hooks ou coloque hook-<nome>.wav.',
+    'Registre um nome aqui e dispare com POST /sfx/<nome>?pet=<id>; o arquivo e encontrado pela regra de nomes, sem editar configuracao.',
+  sfxHookAdd: 'Registrar',
+  sfxHookPlaceholder: 'nome do hook, ex. ding',
+  sfxHookInvalid: 'Somente letras, digitos, sublinhado ou hifen (1-64 caracteres)',
+  sfxHookExists: 'Esse nome ja esta registrado',
+  sfxHookRemove: 'Remover',
+  sfxHookPattern: 'Nome do arquivo: hook-<nome>.wav ou <skin>-hook-<nome>.wav, na pasta da skin ou -sound',
+  sfxHookEmpty: 'Ainda sem hooks: registre um nome acima ou coloque hook-<nome>.wav.',
   sfxHookCurlHint: 'Exemplo: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Imagens no sussurro',
   whisperImageToggleHint:

@@ -122,19 +122,17 @@ Object.assign(PetSprite.prototype, {
       // 每帧重取：显示器变化时 relayout() 会让缓存失效，res.screen 必须与这一份对应
       const sp = this.throwSpaceOf();
       // 细分积分：弹弓没有速度上限，一帧可能跨过上百 px；不拆会跳过落地/反弹那几帧，
-      // Q 弹、地面摩擦与 atRest 判定都会漏。普通甩抛算出 1 步，与单步积分逐位相同。
-      const substeps = S.throwSubsteps(state.vx, state.vy, dt);
-      let res = S.throwStepRegion(state, dt / substeps, sp, this.physics, lockScreen);
-      for (let i = 1; i < substeps && !res.atRest; i++) {
-        res = S.throwStepRegion(res, dt / substeps, sp, this.physics, lockScreen);
-      }
+      // Q 弹、地面摩擦与 atRest 判定都会漏。合并最重撞击与网页端共用 shared 的同一份实现
+      // ——只留末步时，快速甩出会让撞击落在中间子步、整帧丢音。
+      const res = S.integrateRegion(state, dt, sp, this.physics, lockScreen);
+      const hit = res.hit;
       state = { x: res.x, y: res.y, vx: res.vx, vy: res.vy };
       this.throwState = state;
       // 撞墙 / 落地 / 撞顶：响度按撞击速度换算，轻碰不出声（两边合并成 wall 槽）。
-      if (res.hit) {
-        const gain = S.impactGain(res.hit.speed);
+      if (hit) {
+        const gain = S.impactGain(hit.speed);
         if (gain !== null) {
-          const slot = res.hit.edge === 'left' || res.hit.edge === 'right' ? 'wall' : res.hit.edge;
+          const slot = hit.edge === 'left' || hit.edge === 'right' ? 'wall' : hit.edge;
           this.playSfxSlot(slot, gain);
         }
       }

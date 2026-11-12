@@ -156,13 +156,13 @@ export const zh = {
     '乘在每条音效自己的音量上：0 = 只静音音效（语音照旧），1 = 最大。系统混音器那条「Electron」是整体总闸，两者叠乘。',
   sfxTitle: '事件音效',
   sfxHint:
-    '每个时机播哪个文件由宿主自动匹配：皮肤目录 > -sound 目录 > 动画同目录 > 用户共享 > 包内默认。这里只调开关与音量。',
+    '每个时机播哪个文件由宿主自动匹配：皮肤目录 > -sound 目录 > 动画同目录 > 用户共享 > 包内默认。这里只调开关，响度统一走「全局」里的音效总音量。',
   sfxFileHint:
     '要换文件：把音频放进皮肤目录（如 pet/xxx-skin/click.wav）或 pet/<素材根>-sound/，文件名即时机名；放好后刷新本页。',
+  sfxSlotPattern: '命名：{name}.wav 或 <皮肤名>-{name}.wav',
   sfxNone: '无文件',
   sfxTry: '试听',
   sfxSlotClick: '点击',
-  sfxSlotDrag: '拖拽',
   sfxSlotThrow: '甩出',
   sfxSlotFloor: '落地',
   sfxSlotWall: '撞墙',
@@ -178,9 +178,14 @@ export const zh = {
   sfxOriginConfig: '配置覆盖',
   sfxOriginNone: '未匹配',
   sfxHooksTitle: '自定义 hook',
-  sfxHooksHint:
-    '配置 sfx.hooks 里声明的名字，或目录里名为 hook-<名字>.wav 的文件；第三方用 POST /sfx/<名字>?pet=<id> 触发。',
-  sfxHookEmpty: '还没有 hook：在配置的 sfx.hooks 里加一条，或放一个 hook-<名字>.wav。',
+  sfxHooksHint: '登记一个名字就能用 POST /sfx/<名字>?pet=<id> 触发；文件按命名规则自动匹配，不需要手写配置。',
+  sfxHookAdd: '登记',
+  sfxHookPlaceholder: 'hook 名，如 ding',
+  sfxHookInvalid: '名字只能用字母、数字、下划线或连字符（1–64 字符）',
+  sfxHookExists: '这个名字已经登记过了',
+  sfxHookRemove: '取消登记',
+  sfxHookPattern: '命名：hook-<名字>.wav 或 <皮肤名>-hook-<名字>.wav，放在皮肤目录或 -sound 目录',
+  sfxHookEmpty: '还没有 hook：在上面填一个名字登记，或在声音目录里放一个 hook-<名字>.wav。',
   sfxHookCurlHint: '触发示例：curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: '碎碎念配图',
   whisperImageToggleHint:

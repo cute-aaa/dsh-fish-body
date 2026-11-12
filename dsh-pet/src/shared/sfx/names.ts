@@ -74,3 +74,15 @@ export function parseSfxFileName(file: string, skins: readonly string[] = []): P
 export function withSkinPrefix(skin: string, name: string, ext: string): string {
   return (skin === '' ? name : skin + '-' + name) + ext;
 }
+
+/**
+ * 槽名 → 文件名基名（`sleepStart` → `sleep-start`）。
+ *
+ * 扫描侧对驼峰与连字符两种写法等价（见 {@link parseSfxFileName}），设置页的命名提示统一展示连字符形式。
+ *
+ * @param slot - 事件槽。
+ * @returns 可直接拼进文件名提示的基名。
+ */
+export function slotFileStem(slot: SfxEventSlot): string {
+  return slot.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+}

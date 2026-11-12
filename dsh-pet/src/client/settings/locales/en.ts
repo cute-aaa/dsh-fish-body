@@ -166,13 +166,13 @@ export const en: Record<Key, string> = {
     'Multiplied with each cue own volume: 0 mutes sounds only (voice unaffected), 1 is full. The system mixer entry is a second master gain.',
   sfxTitle: 'Event sounds',
   sfxHint:
-    'Which file plays for each moment is decided by the host: skin folder > -sound folder > next to the animation > user shared > package defaults. This page only changes switches and volume.',
+    'Which file plays for each moment is decided by the host: skin folder > -sound folder > next to the animation > user shared > package defaults. This page only changes switches; loudness is the master sound volume under Global.',
   sfxFileHint:
     'To swap a file, put the audio into a skin folder (pet/xxx-skin/click.wav) or pet/<root>-sound/; the file name is the slot name. Refresh this page afterwards.',
+  sfxSlotPattern: 'File name: {name}.wav or <skin>-{name}.wav',
   sfxNone: 'no file',
   sfxTry: 'Preview',
   sfxSlotClick: 'Click',
-  sfxSlotDrag: 'Drag',
   sfxSlotThrow: 'Throw',
   sfxSlotFloor: 'Land',
   sfxSlotWall: 'Wall',
@@ -189,8 +189,14 @@ export const en: Record<Key, string> = {
   sfxOriginNone: 'unmatched',
   sfxHooksTitle: 'Custom hooks',
   sfxHooksHint:
-    'Names declared in sfx.hooks, or files named hook-<name>.wav in the sound folders. Trigger with POST /sfx/<name>?pet=<id>.',
-  sfxHookEmpty: 'No hooks yet: add one under sfx.hooks, or drop a hook-<name>.wav file.',
+    'Register a name here and trigger it with POST /sfx/<name>?pet=<id>; the file is matched by naming rule, no config editing needed.',
+  sfxHookAdd: 'Register',
+  sfxHookPlaceholder: 'hook name, e.g. ding',
+  sfxHookInvalid: 'Use letters, digits, underscore or hyphen only (1-64 chars)',
+  sfxHookExists: 'That name is already registered',
+  sfxHookRemove: 'Unregister',
+  sfxHookPattern: 'File name: hook-<name>.wav or <skin>-hook-<name>.wav, inside a skin folder or the -sound folder',
+  sfxHookEmpty: 'No hooks yet: register a name above, or drop a hook-<name>.wav file into the sound folders.',
   sfxHookCurlHint: 'Example: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Whisper images',
   whisperImageToggleHint:

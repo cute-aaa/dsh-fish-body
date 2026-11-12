@@ -134,6 +134,25 @@ const SETTINGS_CSS = [
   '.dsh-pet-cfg__toggle>label>span{overflow-wrap:anywhere}',
   '.dsh-pet-cfg__toggle input[type=checkbox]{flex:none;width:16px;height:16px;margin:0;accent-color:var(--dsw-alias-state-business-primary);cursor:pointer}',
 
+  // 音效行：一行一个时机，开关与试听在上、来源与命名规则在下。
+  // 用小卡片而不是 grid 格：命名提示往往比文件名长，挤进四列会互相压行。
+  '.dsh-pet-cfg__sfxList{display:flex;flex-direction:column;gap:6px;min-width:0}',
+  '.dsh-pet-cfg__sfxRow{display:flex;flex-direction:column;gap:3px;min-width:0;padding:7px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px}',
+  '.dsh-pet-cfg__sfxTop{display:flex;align-items:center;gap:8px;min-width:0}',
+  '.dsh-pet-cfg__sfxName{display:inline-flex;align-items:center;gap:6px;min-width:0;font-size:13px;cursor:pointer}',
+  '.dsh-pet-cfg__sfxName input[type=checkbox]{flex:none;width:16px;height:16px;margin:0;accent-color:var(--dsw-alias-state-business-primary);cursor:pointer}',
+  '.dsh-pet-cfg__sfxName>span{overflow-wrap:anywhere}',
+  // 按钮靠右：第一行只有「开关 + 动作」，动作贴边才扫得快。
+  '.dsh-pet-cfg__sfxTop>.dsh-pet-cfg__btn{margin-left:auto;flex:none}',
+  '.dsh-pet-cfg__sfxHook{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:12px;color:var(--dsw-alias-label-primary)}',
+  // 第二行是「来源 · 命名规则」：11px 小字，窄容器时折行而不是被截断。
+  '.dsh-pet-cfg__sfxMeta{display:flex;align-items:baseline;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary)}',
+  '.dsh-pet-cfg__sfxFile{overflow-wrap:anywhere;min-width:0}',
+  '.dsh-pet-cfg__sfxPattern{padding:0;border:none;background:transparent;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary)}',
+  '.dsh-pet-cfg__sfxAdd{display:flex;align-items:center;gap:8px;min-width:0}',
+  '.dsh-pet-cfg__sfxAdd>.dsh-pet-cfg__inp{flex:1;min-width:0}',
+  '.dsh-pet-cfg__sfxAdd>.dsh-pet-cfg__btn{flex:none}',
+
   // 悬浮说明气泡：由 ./tip-layer 按光标挂到 body 上，不画在触发元素里——右列与贴顶的说明
   // 会被窗口边缘或滚动容器裁掉。这里只管外观，坐标由 tooltipPlacement 写进 style。
   '.pet-cfg-tip{position:fixed;left:0;top:0;z-index:2147483000;max-width:320px;padding:6px 10px;border-radius:8px;background:var(--dsw-alias-tooltip-bg);color:var(--dsw-static-neutral-00);font-size:12px;font-style:normal;font-weight:400;line-height:18px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;opacity:0;transition:opacity .12s ease;box-shadow:var(--dsw-elevation-prominent,0 6px 20px rgba(0,0,0,.22))}',

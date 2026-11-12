@@ -502,6 +502,15 @@ describe('saveUserConfig —— 音效段（sfx）', () => {
     >;
     assert.deepEqual(kept.sfx, { hooks: { ding: { file: 'ding.wav' } } });
   });
+
+  test('已废弃的 drag 槽：校验放行、落盘丢弃（旧配置不会整段失效）', () => {
+    // 只写 drag：整段不该被判非法，只是保存后这个键消失。
+    const out = saveUserConfig(
+      { pets: PETS, sfx: { events: { drag: { file: 'old.wav' }, click: { volume: 0.5 } } } },
+      undefined,
+    ) as Record<string, unknown>;
+    assert.deepEqual(out.sfx, { events: { click: { volume: 0.5 } } });
+  });
 });
 
 describe('JSONC 配置读取：字符串中的注释标记与转义', () => {

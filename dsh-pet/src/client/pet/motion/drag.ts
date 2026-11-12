@@ -93,8 +93,8 @@ export interface DragCard {
   releaseLock: () => void;
   /** 抓取瞬间的飞行速度；没在飞时为 null。 */
   grabVelocity: () => { vx: number; vy: number } | null;
-  /** 播一个交互音效：点击、拖拽成立、甩出。 */
-  playSfx: (slot: 'click' | 'drag' | 'throw') => void;
+  /** 播一个交互音效：点击、甩出（拖拽成立不出声，见 shared/types 的 SfxEventSlot）。 */
+  playSfx: (slot: 'click' | 'throw') => void;
   /** 悬浮提示是否点亮。 */
   tipOn: () => boolean;
   /** 把提示摆到光标旁。 */
@@ -319,7 +319,6 @@ export function createDrag(card: () => DragCard): Drag {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       press.dragging = true;
       c.setOnce(true);
-      c.playSfx('drag');
       if (c.dragAnims.length) {
         const name = pick(c.dragAnims);
         log(c.petId, '-> [DRAG] ' + name);

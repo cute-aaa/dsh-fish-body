@@ -10,7 +10,6 @@ import type { SfxEventSlot } from '../types.ts';
 /** 槽位 → 包内默认文件名。 */
 export const DEFAULT_EVENT_FILES: Readonly<Partial<Record<SfxEventSlot, string>>> = {
   click: 'click-duck.wav',
-  drag: 'drag.wav',
   throw: 'throw.wav',
   floor: 'bump-soft.wav',
   wall: 'bump-soft.wav',
@@ -27,7 +26,6 @@ export const COLLISION_SLOTS = ['floor', 'wall', 'ceiling'] as const;
 /** 文件名 → 槽位的别名表（键为小写、连字符形式，与 {@link canonicalSlotOf} 同一口径）。 */
 const SLOT_ALIASES: Readonly<Record<string, SfxEventSlot>> = {
   click: 'click',
-  drag: 'drag',
   throw: 'throw',
   'sleep-start': 'sleepStart',
   'sleep-end': 'sleepEnd',

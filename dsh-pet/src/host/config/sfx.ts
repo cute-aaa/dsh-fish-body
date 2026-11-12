@@ -10,7 +10,14 @@ import { RENDERERS } from '../../shared/config.ts';
 import type { SfxCue, SfxLayer } from '../../shared/types.ts';
 
 /** 事件槽白名单（与 shared/types 的 SfxEventSlot 一一对应）。 */
-const SLOT_SET = new Set(['click', 'drag', 'throw', 'floor', 'wall', 'ceiling', 'pet', 'sleepStart', 'sleepEnd']);
+const SLOT_SET = new Set(['click', 'throw', 'floor', 'wall', 'ceiling', 'pet', 'sleepStart', 'sleepEnd']);
+
+/**
+ * 已废弃的事件槽：`drag` 因为和点击/甩出声叠在一起像破音而取消。
+ *
+ * 校验放行（旧配置写了它不会让整段 `sfx` 失效），{@link cleanSfxConfig} 落盘时丢掉。
+ */
+const DEPRECATED_SLOT_SET = new Set(['drag']);
 
 /** 单条 cue 的合法性：认识的字段都合乎类型，未知字段忽略（不算非法）。 */
 function cueValid(raw: unknown, depth: number): boolean {
@@ -46,7 +53,7 @@ function layerValid(raw: unknown): boolean {
     if (value === undefined) continue;
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     for (const [name, cue] of Object.entries(value as Record<string, unknown>)) {
-      if (bucket === 'events' && !SLOT_SET.has(name)) return false;
+      if (bucket === 'events' && !SLOT_SET.has(name) && !DEPRECATED_SLOT_SET.has(name)) return false;
       if (name === '') return false;
       if (!cueValid(cue, 0)) return false;
     }
@@ -118,7 +125,11 @@ function cleanLayer(raw: unknown): SfxLayer {
     const value = o[bucket];
     if (!value || typeof value !== 'object') continue;
     const result: Record<string, SfxCue | SfxCue[]> = {};
-    for (const [name, cue] of Object.entries(value as Record<string, unknown>)) result[name] = cleanCue(cue);
+    for (const [name, cue] of Object.entries(value as Record<string, unknown>)) {
+      // 废弃槽只在校验时放行，不落盘：下次保存就把它从用户层里清掉。
+      if (bucket === 'events' && DEPRECATED_SLOT_SET.has(name)) continue;
+      result[name] = cleanCue(cue);
+    }
     out[bucket] = result;
   }
   return out;

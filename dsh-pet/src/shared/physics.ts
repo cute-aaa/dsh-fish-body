@@ -49,6 +49,8 @@ export {
   throwSubsteps,
 } from './physics/throw.ts';
 export type { DragSample, GravityVector, ThrowBounds, ThrowSpace, ThrowState } from './physics/throw.ts';
+export { integrateFlight, integrateRegion } from './physics/integrate.ts';
+export type { FlightBounds, FlightStep, RegionFlightStep } from './physics/integrate.ts';
 export type { ContactEdge } from './physics/contact.ts';
 export {
   estimateReleaseVelocity,

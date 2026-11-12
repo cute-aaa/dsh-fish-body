@@ -9,15 +9,10 @@
 import { readAllConfig } from '../config.ts';
 import { buildSfxIndex } from '../sfx/index-build.ts';
 import { readSfxSources, skinIdOfModel } from '../sfx/scan.ts';
+import { SFX_HOOK_NAME_RE } from '../../shared/sfx/types.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import type { RouteResult } from '../http.ts';
 import { failResult, methodNotAllowed, okResult } from './result.ts';
-
-/** hook 名的长度上限：它只是标识符，不是句子。 */
-const MAX_HOOK_LENGTH = 64;
-
-/** 名字里不许出现分隔符（会被当成路径或路由段）。 */
-const HOOK_NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /**
  * 音效 hook 领域：未命中返回 undefined，命中返回应答。
@@ -28,8 +23,9 @@ export async function handleSfxRoutes(deps: PetRouteDeps, input: RouteInput): Pr
   if (!rest.startsWith('sfx/')) return undefined;
   if (method !== 'POST') return methodNotAllowed();
   const hook = rest.slice('sfx/'.length);
-  if (hook === '' || hook.length > MAX_HOOK_LENGTH || !HOOK_NAME_RE.test(hook)) {
-    return failResult('bad-request', 'hook 名只能由字母、数字、下划线与连字符组成（≤' + MAX_HOOK_LENGTH + '）');
+  // 名字口径与设置页表单同一份（shared/sfx/types 的 SFX_HOOK_NAME_RE）。
+  if (!SFX_HOOK_NAME_RE.test(hook)) {
+    return failResult('bad-request', 'hook 名只能由字母、数字、下划线与连字符组成（1–64 字符）');
   }
   try {
     const cfg = readAllConfig(configPaths);

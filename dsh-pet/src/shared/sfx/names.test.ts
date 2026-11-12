@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import { BUMP_SLOT, DEFAULT_EVENT_FILES, canonicalSlotOf } from './defaults.ts';
 import { impactGain, IMPACT_MIN_SPEED } from './impact.ts';
-import { parseSfxFileName, stripAudioExt, withSkinPrefix } from './names.ts';
+import { parseSfxFileName, slotFileStem, stripAudioExt, withSkinPrefix } from './names.ts';
 
 describe('parseSfxFileName', () => {
   test('槽名即文件名：不分皮肤、带扩展名也认', () => {
@@ -64,13 +64,24 @@ describe('parseSfxFileName', () => {
 });
 
 describe('canonicalSlotOf / DEFAULT_EVENT_FILES', () => {
-  test('槽名别名与默认文件覆盖九个事件槽（睡眠两段故意没有默认）', () => {
+  test('槽名别名与默认文件覆盖八个事件槽（睡眠两段故意没有默认）', () => {
     assert.equal(canonicalSlotOf('SLEEP_START'), 'sleepStart');
     assert.equal(canonicalSlotOf('bump'), undefined, 'bump 不是槽位，由 parseSfxFileName 单独判');
     assert.equal(canonicalSlotOf('写代码'), undefined);
     assert.equal(DEFAULT_EVENT_FILES.click, 'click-duck.wav');
     assert.equal(DEFAULT_EVENT_FILES.floor, DEFAULT_EVENT_FILES.wall);
     assert.equal(DEFAULT_EVENT_FILES.sleepStart, undefined);
+    assert.equal(
+      (DEFAULT_EVENT_FILES as Record<string, string | undefined>).drag,
+      undefined,
+      '拖拽槽已取消，不该留默认音',
+    );
+  });
+
+  test('slotFileStem：设置页命名提示用的连字符基名', () => {
+    assert.equal(slotFileStem('click'), 'click');
+    assert.equal(slotFileStem('sleepStart'), 'sleep-start');
+    assert.equal(slotFileStem('sleepEnd'), 'sleep-end');
   });
 });
 
