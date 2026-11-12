@@ -360,5 +360,7 @@ export function createLayeredRenderer(): Renderer {
     get ready() {
       return ready;
     },
+    /** 皮肤清单里的音效覆盖：卡片按它压过自动匹配的槽位。 */
+    sfxLayer: () => skin?.sfx,
   };
 }

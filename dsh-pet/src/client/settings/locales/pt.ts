@@ -10,6 +10,7 @@ export const pt: Record<Key, string> = {
   tabPet: 'Pets',
   tabGlobal: 'Geral',
   tabLook: 'Aparência',
+  tabSfx: 'Som',
   tabVoice: 'Voz',
   tabModel: 'Conversa',
   tabStorage: 'Armazenamento',
@@ -156,15 +157,43 @@ export const pt: Record<Key, string> = {
   notifyToggle: 'Notificações do sistema',
   notifyToggleHint:
     'Avisos do sistema (canto inferior direito do desktop) para fim de conversa, falhas, pedidos de permissão e perguntas — só enquanto esta janela está sem foco.',
-  clickSoundToggle: 'Som de clique',
-  clickSoundToggleHint:
-    'Toca o som de clique embutido (assets/sound/click-duck.wav, volume 0.5) quando o pet é clicado; cliques repetidos em até 100ms tocam uma vez só, então vários pets não empilham som. Desligue para silêncio total. Gravado na configuração do usuário junto com o "Salvar".',
-  clickSoundKeepAliveToggle: 'Manter o áudio pronto',
-  clickSoundKeepAliveToggleHint:
-    'Mantém a saída de áudio aberta com um tom inaudível: o primeiro clique depois de uma longa pausa preserva o ataque e o mixer do sistema mostra sempre uma entrada «Electron» para ajustar o volume geral (vozes incluídas). Custo: a saída nunca fica livre, a bateria dura menos e o Windows costuma não suspender enquanto houver áudio ativo. Ativado por padrão.',
-  clickSoundVolumeLabel: 'Volume do som de clique',
-  clickSoundVolumeHint:
-    'Afeta só o som de clique: 0 silencia o clique (as vozes continuam), 1 é o máximo. O controle «Electron» no mixer do sistema é o volume geral; os dois se multiplicam.',
+  sfxToggle: 'Som',
+  sfxToggleHint:
+    'Toca os arquivos configurados e os detectados automaticamente; desligado silencia tudo. Quase nunca precisa configurar: um click.wav na pasta da skin, em pet/<root>-sound/ ou ao lado de uma animacao e detectado. Sem arquivo valem os sons internos.',
+  sfxKeepAliveToggle: 'Manter o audio pronto',
+  sfxKeepAliveToggleHint:
+    'Mantem a saida aberta com uma fonte inaudivel de 1 LSB: o primeiro som depois de muito tempo nao perde o ataque, e o mixer do sistema mantem uma entrada "Electron" como volume geral. Custa dispositivo e bateria; o Windows normalmente nao suspende com o fluxo ativo.',
+  sfxVolumeLabel: 'Volume dos sons',
+  sfxVolumeHint:
+    'Multiplica o volume de cada efeito: 0 silencia apenas os efeitos (a voz continua), 1 e o maximo. A entrada do mixer e outro volume geral.',
+  sfxTitle: 'Sons de evento',
+  sfxHint:
+    'O host decide qual arquivo toca em cada momento: pasta da skin > pasta -sound > ao lado da animacao > compartilhado > pacote. Esta pagina so muda interruptores e volume.',
+  sfxFileHint:
+    'Para trocar, coloque o audio na pasta da skin (pet/xxx-skin/click.wav) ou em pet/<root>-sound/; o nome do arquivo e o do momento. Recarregue a pagina depois.',
+  sfxNone: 'sem arquivo',
+  sfxTry: 'Ouvir',
+  sfxSlotClick: 'Clique',
+  sfxSlotDrag: 'Arrastar',
+  sfxSlotThrow: 'Arremesso',
+  sfxSlotFloor: 'Pouso',
+  sfxSlotWall: 'Parede',
+  sfxSlotCeiling: 'Teto',
+  sfxSlotPet: 'Choque',
+  sfxSlotSleepStart: 'Dormir',
+  sfxSlotSleepEnd: 'Acordar',
+  sfxOriginSkin: 'skin',
+  sfxOriginSound: 'pasta de som',
+  sfxOriginAnimation: 'pasta de animacao',
+  sfxOriginUser: 'compartilhado',
+  sfxOriginDefault: 'interno',
+  sfxOriginConfig: 'configuracao',
+  sfxOriginNone: 'sem correspondencia',
+  sfxHooksTitle: 'Hooks proprios',
+  sfxHooksHint:
+    'Nomes declarados em sfx.hooks, ou arquivos hook-<nome>.wav nas pastas de som. Dispare com POST /sfx/<nome>?pet=<id>.',
+  sfxHookEmpty: 'Ainda sem hooks: adicione um em sfx.hooks ou coloque hook-<nome>.wav.',
+  sfxHookCurlHint: 'Exemplo: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Imagens no sussurro',
   whisperImageToggleHint:
     'Anexa um meme aleatório do pool a cada sussurro (o mapeamento de imagens fica no campo de topo memes). Tokens: o sussurro já chama o modelo a cada ciclo, então a imagem só acrescenta o nome + a descrição daquele meme (~100 caracteres / ~60 tokens) ao mesmo pedido — desprezível.',

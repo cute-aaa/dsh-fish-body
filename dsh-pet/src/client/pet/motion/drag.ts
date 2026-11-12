@@ -93,8 +93,8 @@ export interface DragCard {
   releaseLock: () => void;
   /** 抓取瞬间的飞行速度；没在飞时为 null。 */
   grabVelocity: () => { vx: number; vy: number } | null;
-  /** 点击音效。 */
-  playClickSound: () => void;
+  /** 播一个交互音效：点击、拖拽成立、甩出。 */
+  playSfx: (slot: 'click' | 'drag' | 'throw') => void;
   /** 悬浮提示是否点亮。 */
   tipOn: () => boolean;
   /** 把提示摆到光标旁。 */
@@ -319,6 +319,7 @@ export function createDrag(card: () => DragCard): Drag {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       press.dragging = true;
       c.setOnce(true);
+      c.playSfx('drag');
       if (c.dragAnims.length) {
         const name = pick(c.dragAnims);
         log(c.petId, '-> [DRAG] ' + name);
@@ -368,6 +369,7 @@ export function createDrag(card: () => DragCard): Drag {
           Math.round(decision.velocity.vy),
       );
       c.startFlight(box.x, box.y, decision.velocity.vx, decision.velocity.vy);
+      c.playSfx('throw');
       return;
     }
     if (decision.kind === 'throw') {
@@ -375,6 +377,7 @@ export function createDrag(card: () => DragCard): Drag {
       log(c.petId, 'release vx=' + Math.round(vx) + ' vy=' + Math.round(vy) + ' |v|=' + Math.round(Math.hypot(vx, vy)));
       // 飞行期间由 rAF 直接写 left/top，落定后才提交归一化中心。
       c.startFlight(box.x, box.y, vx, vy);
+      c.playSfx('throw');
       return;
     }
     // 原地放下：夹到可见下限后提交归一化中心；根节点位置由 commitPlace 直接写，不依赖重渲染。
@@ -441,7 +444,7 @@ export function createDrag(card: () => DragCard): Drag {
     c.stopFlight(); // 点击飞行中的宠物即收手停住。
     c.stopAutonomy();
     // 点击音效放在所有「不播点击动画」的早退分支之后。
-    c.playClickSound();
+    c.playSfx('click');
     c.setOnce(true);
     // 分区手势优先（layered 的皮肤清单声明了 regions）：头/尾/身各自一种装配动作，
     // 与桌面 Helper 同一条规则；没命中才回落 webm 点击池。

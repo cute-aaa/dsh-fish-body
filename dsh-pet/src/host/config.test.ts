@@ -445,44 +445,62 @@ describe('saveUserConfig —— 系统托盘开关（trayEnabled）', () => {
   });
 });
 
-describe('saveUserConfig —— 点击音效常驻预热（clickSoundKeepAlive）', () => {
+describe('saveUserConfig —— 音效总闸三件套（sfxEnabled / sfxKeepAlive / sfxVolume）', () => {
   test('非法值整包拒绝（与其它全局布尔同口径，不静默丢用户输入）', () => {
-    assert.equal(saveUserConfig({ pets: PETS, clickSoundKeepAlive: 'true' }, undefined), null);
-    assert.equal(saveUserConfig({ pets: PETS, clickSoundKeepAlive: 1 }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, sfxKeepAlive: 'true' }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, sfxKeepAlive: 1 }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, sfxEnabled: 'yes' }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, sfxVolume: 1.5 }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, sfxVolume: -0.1 }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, sfxVolume: '0.5' }, undefined), null);
   });
 
   test('请求体没带 → 透传磁盘旧值（不得把用户勾上的预热悄悄关掉）', () => {
-    const out = saveUserConfig({ pets: PETS }, { clickSoundKeepAlive: true }) as Record<string, unknown>;
-    assert.equal(out.clickSoundKeepAlive, true);
-  });
-
-  test('请求体带了 → 以请求体为准', () => {
-    const out = saveUserConfig(
-      { pets: PETS, clickSoundKeepAlive: false },
-      {
-        clickSoundKeepAlive: true,
-      },
-    ) as Record<string, unknown>;
-    assert.equal(out.clickSoundKeepAlive, false);
-  });
-});
-
-describe('saveUserConfig —— 点击音效音量（clickSoundVolume）', () => {
-  test('越界或非数字整包拒绝（与 voiceVolume 同口径）', () => {
-    assert.equal(saveUserConfig({ pets: PETS, clickSoundVolume: 1.5 }, undefined), null);
-    assert.equal(saveUserConfig({ pets: PETS, clickSoundVolume: -0.1 }, undefined), null);
-    assert.equal(saveUserConfig({ pets: PETS, clickSoundVolume: '0.5' }, undefined), null);
-  });
-
-  test('请求体没带 → 透传磁盘旧值', () => {
-    const out = saveUserConfig({ pets: PETS }, { clickSoundVolume: 0.3 }) as Record<string, unknown>;
-    assert.equal(out.clickSoundVolume, 0.3);
+    const out = saveUserConfig({ pets: PETS }, { sfxKeepAlive: true, sfxVolume: 0.3 }) as Record<string, unknown>;
+    assert.equal(out.sfxKeepAlive, true);
+    assert.equal(out.sfxVolume, 0.3);
   });
 
   test('请求体带了 → 以请求体为准（0 是合法值，不能当作没写）', () => {
-    const body = { pets: PETS, clickSoundVolume: 0 };
-    const out = saveUserConfig(body, { clickSoundVolume: 1 }) as Record<string, unknown>;
-    assert.equal(out.clickSoundVolume, 0);
+    const out = saveUserConfig(
+      { pets: PETS, sfxEnabled: false, sfxKeepAlive: false, sfxVolume: 0 },
+      { sfxEnabled: true, sfxKeepAlive: true, sfxVolume: 1 },
+    ) as Record<string, unknown>;
+    assert.equal(out.sfxEnabled, false);
+    assert.equal(out.sfxKeepAlive, false);
+    assert.equal(out.sfxVolume, 0);
+  });
+
+  test('旧键（clickSound*）仍能写进新键，且落盘时不残留旧键', () => {
+    const out = saveUserConfig(
+      { pets: PETS, clickSoundEnabled: false, clickSoundKeepAlive: false, clickSoundVolume: 0.2 },
+      { clickSoundEnabled: true, clickSoundKeepAlive: true, clickSoundVolume: 0.9 },
+    ) as Record<string, unknown>;
+    assert.equal(out.sfxEnabled, false);
+    assert.equal(out.sfxKeepAlive, false);
+    assert.equal(out.sfxVolume, 0.2);
+    for (const legacy of ['clickSoundEnabled', 'clickSoundKeepAlive', 'clickSoundVolume']) {
+      assert.equal(legacy in out, false, '旧键不得继续透传（否则用户会以为它还有效）：' + legacy);
+    }
+  });
+});
+
+describe('saveUserConfig —— 音效段（sfx）', () => {
+  test('非法段整包拒绝：未知槽名 / 越界音量 / 未知渲染方式', () => {
+    assert.equal(saveUserConfig({ pets: PETS, sfx: { events: { nope: {} } } }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, sfx: { events: { click: { volume: 3 } } } }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, sfx: { renderers: { canvas: {} } } }, undefined), null);
+  });
+
+  test('合法段只留白名单字段，请求体没带时透传磁盘旧值', () => {
+    const body = { pets: PETS, sfx: { events: { click: { file: 'my.wav', volume: 0.8, bogus: 1 } } } };
+    const out = saveUserConfig(body, { sfx: { hooks: { ding: { file: 'ding.wav' } } } }) as Record<string, unknown>;
+    assert.deepEqual(out.sfx, { events: { click: { file: 'my.wav', volume: 0.8 } } });
+    const kept = saveUserConfig({ pets: PETS }, { sfx: { hooks: { ding: { file: 'ding.wav' } } } }) as Record<
+      string,
+      unknown
+    >;
+    assert.deepEqual(kept.sfx, { hooks: { ding: { file: 'ding.wav' } } });
   });
 });
 

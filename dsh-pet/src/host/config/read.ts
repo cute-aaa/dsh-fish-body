@@ -11,6 +11,7 @@ import { warnOnce } from './constants.ts';
 import type { ConfigPaths } from './constants.ts';
 import { effectiveUserFile, readJsonc } from './jsonc.ts';
 import { mergeEntry, packBase } from './merge.ts';
+import { migrateLegacySfxKeys } from './sfx.ts';
 
 /**
  * 老用户一次性迁移：main-config.json → main-config.jsonc（重命名，内容一字不动）。
@@ -78,7 +79,8 @@ export function readAllConfig(paths: ConfigPaths): Record<string, Record<string,
 
   // main 条目：内置默认 ← main-config.jsonc（可编辑层；迁移前的老用户回落到 main-config.json）
   const userFile = effectiveUserFile(paths);
-  const mainOverlay = userFile ? readJsonc(userFile) : undefined;
+  // 旧键迁移先做：clickSound* 三键别名到 sfx* 新三键，之后合并、校验、下发都只认新键。
+  const mainOverlay = migrateLegacySfxKeys(userFile ? readJsonc(userFile) : undefined);
   if (userFile && !mainOverlay) {
     warnOnce('file:' + userFile, '用户主配置解析失败，已按无用户配置处理：' + userFile);
   }

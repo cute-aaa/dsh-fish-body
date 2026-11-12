@@ -87,9 +87,11 @@ const scriptGlobals = {
   BALANCE_FADE_MS: 'readonly',
   STATE_WAIT_MS: 'readonly',
   WINDOW_MARGIN_RATIO: 'readonly',
+  soundUrlOf: 'readonly',
   rootEl: 'readonly',
   errorEl: 'readonly',
   sprites: 'writable',
+  sfxIndex: 'writable',
   balance: 'writable',
   balanceTick: 'writable',
   balanceNoticeKey: 'writable',
@@ -103,6 +105,9 @@ const scriptGlobals = {
   playClickSound: 'readonly',
   // events.js
   startLoops: 'readonly',
+  applySfxLeaf: 'readonly',
+  // renderer.js
+  loadSfxIndex: 'readonly',
   // sprite/overlay.js：live2d 叠加层工厂（每只宠物一个实例，类本身是全局）
   createOverlay: 'readonly',
 };

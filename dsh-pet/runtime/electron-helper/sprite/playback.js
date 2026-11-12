@@ -14,6 +14,8 @@ Object.assign(PetSprite.prototype, {
     // 交给调用方维护时 switchTo(x, false) 会留下过期值，events.js 判「是不是工作动画」就永远不成立。
     this.anim = next;
     this.once = !nextOnce;
+    // 动作音与动画名绑定：所有换源都收口在这里，所以一处就够（先清掉上一段排下的点）。
+    this.playAnimSfx(next);
     // layered / live2d 没有视频源：动作交给画布后端，动画链靠合成的「播完」推进（见 sprite/backend.js）。
     if (this.renderer !== 'webm') {
       this.switchBackend(next, nextOnce, playbackId);
@@ -148,6 +150,8 @@ Object.assign(PetSprite.prototype, {
       // 停住正在播的那一段：宿主停不掉一段视频，完全静止只能由渲染端执行；只堵随机链入口不够，
       // 那个入口要等动画播完才被调用。
       this.stopMove();
+      // 冻结 = 完全静止：本段动画排下的动作音一并撤掉（解冻后由下面的 resume 路径重排）。
+      this.stopAnimSfx();
       // 视频能暂停定帧；画布后端没有 pause，停掉换动作计时器即「停在当前画面」。
       if (el && typeof el.pause === 'function') el.pause();
       this.setBackendPaused(true);
@@ -174,6 +178,7 @@ Object.assign(PetSprite.prototype, {
     if (this.resumeSleepAnim()) return;
     if (this.resumeWorkStatusAnim()) return;
     if (this.animations.idle.length) this.playOnce(S.pick(this.animations.idle, this.anim));
+    else this.playAnimSfx(this.anim);
   },
 
   /**
@@ -223,6 +228,7 @@ Object.assign(PetSprite.prototype, {
       }
       this.sleepPhase = 'end';
       this.stopMove();
+      this.playSfxSlot('sleepEnd');
       this.playOnce(this.sleepSet.end);
       console.log(stamp + ' 醒来：播 ' + this.sleepSet.end + ' 一遍');
       return;
@@ -238,6 +244,7 @@ Object.assign(PetSprite.prototype, {
     this.workTimer = null;
     this.workOn = false;
     this.renderBubble();
+    this.playSfxSlot('sleepStart');
     this.playOnce(state.start);
     console.log(stamp + ' 进睡：' + state.start + ' → ' + state.loop);
   },

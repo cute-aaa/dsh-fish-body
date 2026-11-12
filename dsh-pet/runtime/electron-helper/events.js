@@ -422,6 +422,15 @@ function applyMenuLeaf(leaf) {
   for (const s of sprites) s.menuItems = items;
 }
 
+/** hook 音效叶子 → 对应宠物播一次。它是指令：宿主每写一次 counter 就变一拍，所以同名连点也各响一次。 */
+function applySfxLeaf(petId, leaf) {
+  const hit = S.readSfx(leaf);
+  if (!hit) return;
+  for (const s of sprites) {
+    if (s.pet.id === petId) s.playHookSfx(hit.hook);
+  }
+}
+
 /** 跑一拍 /state。返回 true = 按长轮询命中（宿主支持长轮询，可以立刻再请求）。 */
 async function pollStateOnce() {
   try {
@@ -468,6 +477,9 @@ async function pollStateOnce() {
       } else if (change.path.startsWith('pets.') && change.path.endsWith('.sleep')) {
         // 睡觉：同上切片。它是状态而不是指令（见 applySleepLeaf）
         applySleepLeaf(change.path.slice('pets.'.length, -'.sleep'.length), change.leaf);
+      } else if (change.path.startsWith('pets.') && change.path.endsWith('.sfx')) {
+        // hook 音效：同上切片。它是指令——每写一次就响一次（见 applySfxLeaf）
+        applySfxLeaf(change.path.slice('pets.'.length, -'.sfx'.length), change.leaf);
       }
     }
     return true;

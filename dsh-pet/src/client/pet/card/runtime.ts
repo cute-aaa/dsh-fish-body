@@ -13,7 +13,7 @@ import { renderSizeOf, resolvePetSizePx } from '../../../shared/pet-size.ts';
 import { makeBalanceBubble, makeWhisperBubble } from '../../bubble.ts';
 import { makeTodoBubble } from '../../todo-bubble.ts';
 import { petBridge } from '../../settings.ts';
-import { playClickSound } from '../click-sound.ts';
+import { playPetAnimSfx, playPetSlot, stopPetAnimSfx } from '../sfx.ts';
 import { createMenuActions, type MenuActions } from '../menu-actions.ts';
 import { derivePetMetrics, petHitStyle, petRootStyle, petStageStyle } from '../motion/geometry.ts';
 import { makePlaybackReporter } from '../playback-report.ts';
@@ -239,17 +239,21 @@ export function createCardRuntime(rt: PetRuntime) {
       onFrozen: () => {
         // 光堵随机链不够：它只在动画播完时调用，不暂停会把当前这段播完才停。
         motion.stopMove();
+        // 冻结 = 完全静止：本段动画排下的动作音一并撤掉。
+        stopPetAnimSfx();
         // 任务状态气泡：锁一生效就收掉，解冻不补亮。
         bubbles.hideWork();
       },
       onResumed: () => {
         // 解冻：非终态工作状态回档位循环，否则回 idle 一次，播完由动画链接回随机链。
-        if (liveRef.current.flow?.resumeWorkStatusAnim() ?? false) return;
-        if (petAnims.idle.length) {
+        const resumed = liveRef.current.flow?.resumeWorkStatusAnim() ?? false;
+        if (!resumed && petAnims.idle.length) {
           actions.setAnim(pick(petAnims.idle, card.animRef.current));
           actions.setOnce(true);
           actions.bumpSeq();
         }
+        // 冻结期间撤掉了动作音：同一段名不变时换源 effect 不会重跑，这里按当前动画名重排。
+        playPetAnimSfx(cfgRef.current, card.animRef.current, liveRef.current.ownAnim?.sfxLayer?.() ?? null);
       },
       setFrozen: ownAnim.setFrozen,
     });
@@ -287,7 +291,14 @@ export function createCardRuntime(rt: PetRuntime) {
 
     // 睡觉：宿主写叶子、渲染端执行；只在叶子变化时推一次（未变化的重渲染不重播动画）。
     useEffect(() => {
-      if (sleep) flow.applySleep(sleep);
+      if (sleep === undefined) return;
+      const before = flow.sleepPhase();
+      flow.applySleep(sleep);
+      const after = flow.sleepPhase();
+      const skinLayer = liveRef.current.ownAnim?.sfxLayer?.() ?? null;
+      // 只有真的跨过门槛才响：叶子重写一次（已在睡）不该再响一声。
+      if (before === null && after === 'start') playPetSlot(cfgRef.current, 'sleepStart', { skinLayer });
+      else if (before === 'loop' && after === 'end') playPetSlot(cfgRef.current, 'sleepEnd', { skinLayer });
       // eslint-disable-next-line react-hooks/exhaustive-deps -- 只按叶子变化次数触发，sleep 是当拍快照
     }, [sleepTick]);
 
@@ -320,7 +331,7 @@ export function createCardRuntime(rt: PetRuntime) {
         if (phase !== null && phase !== 'start') {
           const front = liveRef.current.frontVideo();
           if (front) liveRef.current.squash.start(front);
-          playClickSound();
+          playPetSlot(cfg, 'click', { skinLayer: liveRef.current.ownAnim?.sfxLayer?.() ?? null });
           void postAction(ROUTE_PATH + '/wake?pet=' + encodeURIComponent(cfg.id));
           return;
         }

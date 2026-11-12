@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import { PACKAGE_ROOT } from '../paths.ts';
 import { MIME, resolveAsset, resolveExisting } from '../http.ts';
 import { isValidPetId } from '../config.ts';
+import { SFX_AUDIO_EXTS } from '../../shared/sfx/types.ts';
+import { isValidModelPath, skinIdOfModel } from '../sfx/scan.ts';
 import { LAYERED_MANIFEST_PATHS, layeredBaseOf } from '../../shared/layered-paths.ts';
 import { isModelSettingsFile, mergeModelExtras } from '../model-extras.ts';
 import { petAvatarFile } from '../pet-avatar.ts';
@@ -61,7 +63,7 @@ function listSkinDirs(dir: string): string[] {
 
 /** 静态素材领域：未命中返回 undefined，命中返回应答。 */
 export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
-  const { assetRootFor, memeDirsFor, petConfigDir, userRootFor } = deps;
+  const { assetRootFor, memeDirsFor, petConfigDir, soundDirsFor, userRootFor } = deps;
   const { rest, url } = input;
 
   // 动画素材：/thumb/<素材根>/<file>，扩展名 webm（默认）/ mov（macOS 定制）。
@@ -131,13 +133,41 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     return { kind: 'file', file: picFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
 
-  // 点击音效：/dsh-pet-7340/sound/<file> → 包内 assets/sound（当前只有 click-duck.wav）。
-  // 与 font 同一种扁平形式（<scope>/<file>）：只有包内一份，不做用户目录覆盖。
+  // 音效：两种形式并存。
+  //   /sound/<素材根>/<file>：按该素材根的音效搜索链取文件（皮肤目录 → -sound → 用户共享 → 动画同目录
+  //     → 包内默认），顺序与 host/sfx/index-build 一致，否则索引指名的文件在这里取不到。
+  //   /sound/<file>：旧形式，等价于素材根 main 的包内默认目录——只为兼容已存在的地址。
+  // ?model= 决定先查哪套皮肤的目录（layered 皮肤名 / live2d 模型所在目录），缺省只看不带皮肤的那几层。
   if (scope === 'sound') {
-    const soundRoot = join(PACKAGE_ROOT, 'assets', 'sound');
-    const soundFile = resolveExisting(soundRoot, restParts.join('/'));
+    const scoped = restParts.length >= 2;
+    const assetRoot = scoped ? restParts[0] : 'main';
+    if (!isValidPetId(assetRoot)) return { kind: 'text', status: 400, body: 'dsh-pet: invalid sound asset root' };
+    const rel = (scoped ? restParts.slice(1) : restParts).join('/');
+    const rawModel = (url.searchParams.get('model') ?? '').trim();
+    if (!isValidModelPath(rawModel)) return { kind: 'text', status: 400, body: 'dsh-pet: invalid model path' };
+    const model = skinIdOfModel(rawModel);
+    const dirs = soundDirsFor(assetRoot, '.webm');
+    const candidates: string[] = [];
+    if (dirs.skinDir !== undefined && model !== '') candidates.push(join(dirs.skinDir, model));
+    if (dirs.skinDir !== undefined) candidates.push(dirs.skinDir);
+    if (dirs.soundDir !== undefined) candidates.push(dirs.soundDir);
+    if (dirs.userSoundDir !== undefined) candidates.push(dirs.userSoundDir);
+    candidates.push(...dirs.animationDirs);
+    candidates.push(dirs.packageSoundDir);
+    let soundFile: string | undefined;
+    for (const dir of candidates) {
+      soundFile = resolveExisting(dir, rel);
+      if (soundFile !== undefined) break;
+    }
     if (soundFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: sound not found' };
     const ext = soundFile.slice(soundFile.lastIndexOf('.')).toLowerCase();
+    if (!SFX_AUDIO_EXTS.includes(ext)) {
+      return {
+        kind: 'text',
+        status: 400,
+        body: 'dsh-pet: unsupported sound format (expected .wav / .ogg / .mp3 / .m4a)',
+      };
+    }
     return { kind: 'file', file: soundFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
 

@@ -10,6 +10,7 @@ export const de: Record<Key, string> = {
   tabPet: 'Pets',
   tabGlobal: 'Allgemein',
   tabLook: 'Aussehen',
+  tabSfx: 'Ton',
   tabVoice: 'Stimme',
   tabModel: 'Chat',
   tabStorage: 'Speicher',
@@ -155,15 +156,43 @@ export const de: Record<Key, string> = {
   notifyToggle: 'Systembenachrichtigungen',
   notifyToggleHint:
     'System-Toasts (unten rechts auf dem Desktop) bei Abschluss einer Konversation, Fehlern, Berechtigungsanfragen und Rückfragen – nur wenn das Fenster nicht fokussiert ist.',
-  clickSoundToggle: 'Klick-Sound',
-  clickSoundToggleHint:
-    'Beim Klick auf ein Pet ertönt der integrierte Klick-Sound (assets/sound/click-duck.wav, Lautstärke 0.5); Klicks innerhalb von 100 ms werden nur einmal abgespielt, auch bei mehreren Pets überlagert sich nichts. Aus = völlig stumm. Wird beim „Speichern" in die Benutzerkonfiguration geschrieben.',
-  clickSoundKeepAliveToggle: 'Klick-Audio warm halten',
-  clickSoundKeepAliveToggleHint:
-    'Hält die Audioausgabe mit einem unhörbaren Ton offen: der erste Klick nach langer Pause behält seinen Anschlag, und im Lautstärkemixer bleibt dauerhaft ein Eintrag „Electron“ für eine Gesamtlautstärke (Stimmen inklusive). Preis: das Ausgabegerät bleibt belegt, Akkus halten kürzer, und Windows schläft bei aktiver Audiospur meist nicht ein. Standard: an.',
-  clickSoundVolumeLabel: 'Lautstärke des Klick-Sounds',
-  clickSoundVolumeHint:
-    'Gilt nur für den Klick-Sound: 0 schaltet ihn stumm (Stimmen bleiben), 1 ist volle Lautstärke. Der Regler „Electron“ im Systemmixer ist die Gesamtlautstärke; beide multiplizieren sich.',
+  sfxToggle: 'Ton',
+  sfxToggleHint:
+    'Spielt konfigurierte und automatisch gefundene Dateien; aus schaltet alles stumm. Dateien muessen selten konfiguriert werden: click.wav im Skin-Ordner, in pet/<root>-sound/ oder neben einer Animation wird erkannt. Ohne Datei greifen die eingebauten Standards.',
+  sfxKeepAliveToggle: 'Audio warm halten',
+  sfxKeepAliveToggleHint:
+    'Haelt die Ausgabe mit einer unhörbaren 1-LSB-Quelle offen: der erste Ton nach langer Pause verliert seinen Anschlag nicht, und im Systemmixer bleibt ein Eintrag "Electron" als Gesamtlautstaerke. Kostet Geraet und Akku; Windows schlaeft bei aktivem Stream meist nicht automatisch.',
+  sfxVolumeLabel: 'Gesamtlautstaerke',
+  sfxVolumeHint:
+    'Wird mit der Lautstaerke jedes Effekts multipliziert: 0 schaltet nur Effekte stumm, 1 ist voll. Der Mixer-Eintrag ist eine zweite Gesamtstufe.',
+  sfxTitle: 'Ereignistoene',
+  sfxHint:
+    'Welche Datei wann laeuft, entscheidet der Host: Skin-Ordner > -sound-Ordner > neben der Animation > benutzerweit > Paketstandard. Diese Seite aendert nur Schalter und Lautstaerke.',
+  sfxFileHint:
+    'Zum Austauschen die Datei in einen Skin-Ordner (pet/xxx-skin/click.wav) oder pet/<root>-sound/ legen; der Dateiname ist der Slot. Danach Seite neu laden.',
+  sfxNone: 'keine Datei',
+  sfxTry: 'Anhören',
+  sfxSlotClick: 'Klick',
+  sfxSlotDrag: 'Ziehen',
+  sfxSlotThrow: 'Wurf',
+  sfxSlotFloor: 'Landung',
+  sfxSlotWall: 'Wand',
+  sfxSlotCeiling: 'Decke',
+  sfxSlotPet: 'Zusammenstoss',
+  sfxSlotSleepStart: 'Einschlafen',
+  sfxSlotSleepEnd: 'Aufwachen',
+  sfxOriginSkin: 'Skin',
+  sfxOriginSound: 'Sound-Ordner',
+  sfxOriginAnimation: 'Animationsordner',
+  sfxOriginUser: 'benutzerweit',
+  sfxOriginDefault: 'eingebaut',
+  sfxOriginConfig: 'Konfiguration',
+  sfxOriginNone: 'kein Treffer',
+  sfxHooksTitle: 'Eigene Hooks',
+  sfxHooksHint:
+    'Namen aus sfx.hooks oder Dateien hook-<name>.wav in den Sound-Ordnern. Ausloesen mit POST /sfx/<name>?pet=<id>.',
+  sfxHookEmpty: 'Noch keine Hooks: einen unter sfx.hooks eintragen oder hook-<name>.wav ablegen.',
+  sfxHookCurlHint: 'Beispiel: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Flüstern-Bilder',
   whisperImageToggleHint:
     'Hängt an jede Flüstern-Zeile ein zufälliges Meme aus dem Pool (Bildzuordnung im Top-Level-Feld `memes` der Konfiguration). Token: Flüstern ruft ohnehin pro Zyklus das Modell auf, das Bild fügt nur Name + Beschreibung des gezogenen Memes (ca. 100 Zeichen / ≈60 Token) an dieselbe Anfrage an – vernachlässigbar.',

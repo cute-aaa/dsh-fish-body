@@ -4,6 +4,8 @@
  * 清单字段多为可选（老版本 / 不同皮肤写法不一），解析一律容错：缺字段取默认、坏字段静默跳过。
  * @module dsh-pet/src/client/pet/render/layered/types
  */
+import { normalizeLayer } from '../../../../shared/sfx/resolve.ts';
+import type { SfxLayer } from '../../../../shared/types.ts';
 
 /** 画布尺寸（px，同画布、同位置、透明底）。 */
 export interface SkinCanvas {
@@ -94,6 +96,8 @@ export interface SkinManifest {
   readonly rig: RigOptions;
   readonly interaction: Interaction;
   readonly layers: readonly SkinLayer[];
+  /** 皮肤自带的音效覆盖（可选）：显式写 sfx 时压过自动匹配，但压不过用户配置里的 skins 层。 */
+  readonly sfx?: SfxLayer;
 }
 
 /** 容错取数：非有限数返回 undefined。 */
@@ -237,6 +241,7 @@ export function parseSkinManifest(raw: unknown): SkinManifest | null {
     }
   }
 
+  const sfx = normalizeLayer(root.sfx);
   return {
     id: str(root.id) ?? '',
     name: str(root.name) ?? str(root.id) ?? '',
@@ -273,5 +278,6 @@ export function parseSkinManifest(raw: unknown): SkinManifest | null {
       menu: Array.isArray(interactionRaw?.menu) ? interactionRaw.menu.filter((m) => typeof m === 'string') : [],
     },
     layers,
+    ...(sfx === undefined ? {} : { sfx }),
   };
 }

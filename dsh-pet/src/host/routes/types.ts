@@ -16,6 +16,7 @@ import type { MenuRegistry } from '../menu.ts';
 import type { PlaybackStore } from '../playback.ts';
 import type { PoseStore } from '../pose.ts';
 import type { SleepStore } from '../sleep.ts';
+import type { SfxDirs } from '../sfx/scan.ts';
 import type { PollStateStore } from '../state.ts';
 import type { VoiceTarget } from '../surface.ts';
 import type { TodoStore } from '../todo/store.ts';
@@ -126,6 +127,8 @@ export interface PetRouteDeps {
   readonly nextExternalWorkSeq: () => number;
   /** 表情包目录链（与 /thumb 同一套归属语义）。 */
   readonly memeDirsFor: (assetRoot: string) => string[];
+  /** 音效搜索目录（皮肤根 / -sound / 用户共享 / 动画同目录 / 包内默认）。 */
+  readonly soundDirsFor: (assetRoot: string, ext: string) => SfxDirs;
   /** 姿态上报存储。 */
   readonly pose: PoseStore;
   /** 软取宿主可选服务（缺失返回 undefined）。 */

@@ -14,20 +14,19 @@ const OPEN_SHORTCUT_HINT = /Mac/i.test(navigator.platform || navigator.userAgent
 /** 本次点击是否按住了「呼出 DSH」的修饰键（Ctrl / Cmd） */
 const isOpenShortcut = (e) => !!(e && (e.ctrlKey || e.metaKey));
 
-// 点击音效：播放器、预热与节流都在共享层（shared/click-sfx.js 进 shared-core），这里只做开关与触发。
-// 素材地址由 renderer.js 在 config 到手时一并交给共享层（bridge 模式走管道、普通模式走 HTTP）。
-let clickGatedLogged = false;
+// 音效：解析（索引 + 条目覆盖 + 渲染方式 + 皮肤清单）与播放都在共享层（shared/sfx 进 shared-core），
+// 这里只负责把「本窗口这只宠物的那一份」交给它，并在事件发生时点名一个槽。
+let sfxGatedLogged = false;
 const playClickSound = () => {
-  // 开关来自成品配置 main.clickSoundEnabled（renderer.js 的 loadConfig 带入）；缺失一律静音
-  if (!config || config.clickSoundEnabled !== true) {
-    // 配置还没到手就被点：这一下本来就没声，记一次便于和"音头被吃"区分开
-    if (!clickGatedLogged) {
-      clickGatedLogged = true;
-      console.info('[dsh-pet] click-sfx gated: config not ready');
+  // 配置还没到手就被点：这一下本来就没声，记一次便于和「音头被吃」区分开。
+  if (!config) {
+    if (!sfxGatedLogged) {
+      sfxGatedLogged = true;
+      console.info('[dsh-pet] sfx gated: config not ready');
     }
     return;
   }
-  S.playClickSfx();
+  for (const sprite of sprites) sprite.playSfxSlot('click');
 };
 
 // 单只宠物：行为与浏览器 PetCard 一致，纯逻辑来自 src/shared
@@ -246,6 +245,90 @@ class PetSprite {
   currentCenterY() {
     if (this.customPos) return this.customPos.ry * VIEW.h;
     return this.pos.y + this.halfH;
+  }
+
+  /**
+   * 写入本窗口的音效索引（renderer.js 在配置到手后调用）。
+   *
+   * @param {object|null} index - `/sound/<素材根>/index` 的结果；null = 取不到，按空索引处理。
+   */
+  applySfx(index) {
+    this.sfxIndex = index || { events: {}, animations: {}, hooks: {}, origin: {} };
+  }
+
+  /** 覆盖层：条目基座 → 渲染方式 → 皮肤清单 manifest.sfx → 按皮肤覆盖（后者赢）。 */
+  sfxLayers() {
+    const cfg = this.pet.sfx || null;
+    const layers = [];
+    if (cfg) layers.push(cfg);
+    const byRenderer = cfg && cfg.renderers ? cfg.renderers[this.pet.renderer || 'webm'] : undefined;
+    if (byRenderer) layers.push(byRenderer);
+    const manifest = this.backend && typeof this.backend.sfxLayer === 'function' ? this.backend.sfxLayer() : undefined;
+    if (manifest) layers.push(manifest);
+    const bySkin = cfg && cfg.skins ? cfg.skins[this.pet.model || ''] : undefined;
+    if (bySkin) layers.push(bySkin);
+    return layers;
+  }
+
+  /** 该宠物当前生效的发音计划（索引 + 覆盖层 + 桌面端 lane）。 */
+  sfxPlan() {
+    return S.resolveSfx({ index: this.sfxIndex, layers: this.sfxLayers(), lane: 'desktop' });
+  }
+
+  /**
+   * 播一个事件槽。
+   *
+   * @param {string} slot - 事件槽名（click / drag / throw / floor / wall / ceiling / pet / sleepStart / sleepEnd）。
+   * @param {number} [gain] - 撞击增益（碰撞槽用）；缺省 1。
+   * @returns {boolean} 是否发起了播放。
+   */
+  playSfxSlot(slot, gain) {
+    const cue = this.sfxPlan().slot(slot);
+    if (!cue) return false;
+    const scaled = typeof gain === 'number' ? gain : 1;
+    if (!(scaled > 0)) return false;
+    return S.playSfx(soundUrlOf(this.assetRoot, cue.file, this.pet.model || ''), {
+      volume: cue.volume * scaled,
+      throttleMs: cue.throttleMs,
+      throttleKey: this.pet.id + ':' + slot,
+    });
+  }
+
+  /**
+   * 播一段动画绑定的动作音（时间线；先清掉上一段排下的点）。
+   *
+   * @param {string} name - 当前动画 / 动作 / gesture 名。
+   */
+  playAnimSfx(name) {
+    const cues = this.sfxPlan().anim(name);
+    if (!cues.length) {
+      S.stopScheduledSfx();
+      return;
+    }
+    S.scheduleSfx(
+      cues.map((cue) => ({
+        url: soundUrlOf(this.assetRoot, cue.file, this.pet.model || ''),
+        at: cue.at,
+        ...(cue.everyMs === null ? {} : { everyMs: cue.everyMs }),
+        volume: cue.volume,
+      })),
+    );
+  }
+
+  /** 停掉当前动画排下的动作音（冻结、换源、卸载时调用）。 */
+  stopAnimSfx() {
+    S.stopScheduledSfx();
+  }
+
+  /** 播一个自定义 hook（`POST /sfx/<名字>` 的落点）。 */
+  playHookSfx(hook) {
+    const cue = this.sfxPlan().hook(hook);
+    if (!cue) return false;
+    return S.playSfx(soundUrlOf(this.assetRoot, cue.file, this.pet.model || ''), {
+      volume: cue.volume,
+      throttleMs: cue.throttleMs,
+      throttleKey: this.pet.id + ':hook:' + hook,
+    });
   }
 
   /**

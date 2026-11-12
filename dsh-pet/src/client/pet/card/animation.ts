@@ -7,6 +7,7 @@
  */
 import { registerPose } from '../../pose.ts';
 import { registerProgress } from '../../progress.ts';
+import { playPetAnimSfx, stopPetAnimSfx } from '../sfx.ts';
 import { boxToRatio, centerToBox, clampReachableBox, derivePetMetrics } from '../motion/geometry.ts';
 import { createRenderer } from '../render/registry.ts';
 import { renderSizeOf, resolvePetSizePx } from '../../../shared/pet-size.ts';
@@ -142,6 +143,10 @@ export function createCardAnimation(rt: CardAnimationRuntime) {
       } else {
         renderer.setIdle(anim);
       }
+      // 动作音与动画名绑定：换源就换音，同一段重播（seq 递增）也重排时间线。
+      playPetAnimSfx(cfgRef.current, anim, live.current.ownAnim?.sfxLayer?.() ?? null);
+      // 换源/卸载先撤掉本段排下的点：旧动画的动作音不该飘到下一段头上。
+      return stopPetAnimSfx;
       // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖由 anim/once/seq/cuePlayback/rendererKind 的换源身份决定
     }, [anim, once, seq, cuePlayback, rendererKind]);
 

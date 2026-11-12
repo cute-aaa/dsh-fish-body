@@ -135,6 +135,8 @@ export interface Pet {
    *  只写正文：名字与时间背景由宿主无条件追加，不要在这里重复写。 */
   whisperPrompt?: string;
   animations?: Animations;
+  /** 音效段（条目级，可被实例覆盖的那一份由合并器吹入）：事件槽/动作音/hook 的显式覆盖。 */
+  sfx?: SfxConfig;
   animationWeights?: Weights;
   extra?: boolean;
   assetRoot?: string;
@@ -225,19 +227,97 @@ export interface FontConfig {
   followPet: boolean;
 }
 
+/** 事件槽：固定触发时机，与动画名无关。 */
+export type SfxEventSlot =
+  'click' | 'drag' | 'throw' | 'floor' | 'wall' | 'ceiling' | 'pet' | 'sleepStart' | 'sleepEnd';
+
+/** 播放面：两端各有一份播放器，`lane` 用来避免双端同时响。 */
+export type SfxLane = 'web' | 'desktop';
+
+/** cue 的生效面；缺省 both（与加 lane 之前的行为一致）。 */
+export type SfxCueLane = 'both' | SfxLane;
+
+/** 自动匹配到某个文件的来源，供设置页展示与排障。 */
+export type SfxOrigin = 'skin' | 'sound' | 'animation' | 'user' | 'package-default' | 'config';
+
+/**
+ * 一条音效定义（config.jsonc 的 sfx 段里每个槽位/动画名/hook 的值）。
+ *
+ * `file` 省略时用宿主索引里自动匹配到的文件；两处都没有就不响。
+ * 事件槽的 cue 允许写成数组，含义是「多个变体随机抽一个」；
+ * `animations` 下的数组含义是「时间线」，每一项按自己的 `at` 各自起播。
+ */
+export interface SfxCue {
+  /** 音频文件名（相对 /sound 链）；省略 = 自动匹配。 */
+  file?: string;
+  /** 分项音量 0–1，乘在总音量上；缺省 1。 */
+  volume?: number;
+  /** 同槽节流窗口毫秒；缺省 click 100 / 碰撞 60 / 其余 80 / 睡眠与 hook 不节流。 */
+  throttleMs?: number;
+  /** 仅动作音：相对该动画起播的偏移毫秒，缺省 0。 */
+  at?: number;
+  /** 仅动作音：该动画持续在前台时的重复间隔毫秒；缺省不重复。 */
+  everyMs?: number;
+  /** 只在哪一端播；缺省按 both 处理。 */
+  lane?: SfxCueLane;
+  /** false = 关掉该槽（自动匹配到的文件也不播）。 */
+  enabled?: boolean;
+}
+
+/** 一层显式覆盖：可出现在条目 `sfx`、`renderers[kind]`、`skins[model]` 与皮肤清单里。 */
+export interface SfxLayer {
+  events?: Partial<Record<SfxEventSlot, SfxCue | readonly SfxCue[]>>;
+  animations?: Record<string, SfxCue | readonly SfxCue[]>;
+  hooks?: Record<string, SfxCue | readonly SfxCue[]>;
+}
+
+/** 条目级 `sfx` 段：在覆盖层之上再加「按渲染方式 / 按皮肤」两层。 */
+export interface SfxConfig extends SfxLayer {
+  renderers?: Partial<Record<RendererKind, SfxLayer>>;
+  skins?: Record<string, SfxLayer>;
+}
+
+/** 宿主索引：已按搜索链算好优先级；事件槽恒完整（缺省填内置默认文件名）。 */
+export interface SfxIndex {
+  /** 槽位 → 文件名；某槽缺键表示该槽不响（内置默认里没有的槽才会缺）。 */
+  events: Partial<Record<SfxEventSlot, string>>;
+  /** 动画名 → 文件名。 */
+  animations: Record<string, string>;
+  /** 自定义 hook 名 → 文件名。 */
+  hooks: Record<string, string>;
+  /** 槽位 → 文件从哪来（排障与设置页标签）。 */
+  origin: Partial<Record<SfxEventSlot, SfxOrigin>>;
+}
+
+/** 生效中的一条 cue：可选值已补齐，`file` 已确定。 */
+export interface ResolvedSfxCue {
+  /** 音频文件名。 */
+  file: string;
+  /** 相对总音量的分项音量（0–1）。 */
+  volume: number;
+  throttleMs: number;
+  /** 动作音起播偏移毫秒。 */
+  at: number;
+  /** 动作音重复间隔；`null` = 不重复。 */
+  everyMs: number | null;
+  origin: SfxOrigin;
+}
+
 /** config.jsonc 全集——运行时直接使用。 */
 export interface ClientConfig {
   /** 系统通知总开关：true = 对话完成 / 生成失败 / 输出截断 / 权限申请 / 用户选择时弹出通知；缺失即配置错误 */
   notificationsEnabled: boolean;
-  /** 点击音效开关：true = 点击宠物时播放内置 click-duck.wav（音量 0.5、100ms 内去重），false = 静音。
-   *  内置默认 false（默认静音，不突袭既有用户）。只读 main 条目这一份，pet pack 不单独覆盖。 */
-  clickSoundEnabled: boolean;
-  /** 点击音效的常驻预热：true = 开着音效期间用一个听不见的极小音源一直占着音频设备，久不点之后
-   *  的第一次点击也不会缺音头，且系统混音器里常驻一项「Electron」可整体调音量；false = 设备闲置即释放。
+  /** 音效总开关：true = 按 sfx 段（含自动匹配到的文件）出音；false = 全程静音。
+   *  内置默认 true。只读 main 条目这一份，pet pack 不单独覆盖。 */
+  sfxEnabled: boolean;
+  /** 音效常驻预热：true = 开着音效期间用一个听不见的极小音源一直占着音频设备，久不发声之后
+   *  的第一下也不会缺音头，且系统混音器里常驻一项「Electron」可整体调音量；false = 设备闲置即释放。
    *  内置默认 true；只有用户显式关掉或字段为 false 才关。 */
-  clickSoundKeepAlive: boolean;
-  /** 点击音效音量系数（0–1）：只作用于点击音效，与 voiceVolume 分开；内置默认 0.5。 */
-  clickSoundVolume: number;
+  sfxKeepAlive: boolean;
+  /** 音效总音量系数（0–1）：乘在每条 cue 自己的 volume 上，与 voiceVolume 分开；内置默认 0.5。 */
+  sfxVolume: number;
+  /** 音效段（条目级）：事件槽/动作音/hook 的显式覆盖 + 按渲染方式、按皮肤分层。 */
+  sfx: SfxConfig;
   /** 桌面模式系统托盘开关：true = 桌面端启动后在通知区域（macOS 为菜单栏）建托盘，列出配置里全部宠物
    *  （含 display 为 web/none 的），勾选即可切回桌面；false = 不建。
    *  缺失默认 true。关掉后「把不在桌面的宠物叫回桌面」在桌面侧没有入口，只能走设置页或网页端右键菜单。 */

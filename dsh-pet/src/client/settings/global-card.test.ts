@@ -28,8 +28,8 @@ function flatten(node: unknown): Node[] {
 
 const allOff: GlobalFlags = {
   notificationsEnabled: false,
-  clickSoundEnabled: false,
-  clickSoundKeepAlive: false,
+  sfxEnabled: false,
+  sfxKeepAlive: false,
   confineToScreen: false,
   trayEnabled: false,
 };
@@ -44,7 +44,7 @@ const slider = (tree: unknown): Node | undefined =>
 
 /** 卡的固定输入：音量与回调按默认值给。 */
 const baseProps = (extra: Record<string, unknown>): never =>
-  ({ busy: false, volume: 0.5, onVolumeChange: () => {}, ...extra }) as never;
+  ({ busy: false, sfxVolume: 0.5, onSfxVolumeChange: () => {}, ...extra }) as never;
 
 describe('GlobalCard —— 全局开关卡', () => {
   test('五个开关都在，勾选态来自 values', () => {
@@ -69,7 +69,7 @@ describe('GlobalCard —— 全局开关卡', () => {
     }
     assert.deepEqual(
       seen.map(([key]) => key),
-      ['notificationsEnabled', 'clickSoundEnabled', 'clickSoundKeepAlive', 'confineToScreen', 'trayEnabled'],
+      ['notificationsEnabled', 'sfxEnabled', 'sfxKeepAlive', 'confineToScreen', 'trayEnabled'],
     );
     assert.ok(
       seen.every(([, value]) => value === true),
@@ -80,7 +80,12 @@ describe('GlobalCard —— 全局开关卡', () => {
   test('音量滑块：读成品值，拖动回传 0–1 的数字', () => {
     const seen: number[] = [];
     const tree = GlobalCard(
-      baseProps({ values: allOff, onChange: () => {}, volume: 0.35, onVolumeChange: (v: number) => seen.push(v) }),
+      baseProps({
+        values: allOff,
+        onChange: () => {},
+        sfxVolume: 0.35,
+        onSfxVolumeChange: (v: number) => seen.push(v),
+      }),
     );
     const range = slider(tree);
     assert.ok(range, '全局卡里应有音量滑块');

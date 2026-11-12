@@ -57,7 +57,7 @@ describe('useGlobalSettings —— 切开关只改本地状态', () => {
     spies.push(spy.restore);
     const flags = useGlobalSettings(rt);
 
-    flags.setFlag('clickSoundEnabled', false);
+    flags.setFlag('sfxEnabled', false);
     flags.setFlag('confineToScreen', true);
     flags.setFlag('trayEnabled', false);
 
@@ -71,8 +71,8 @@ describe('useGlobalSettings —— 切开关只改本地状态', () => {
     spies.push(spy.restore);
     const flags = useGlobalSettings(rt);
 
-    assert.deepEqual(flags.values.clickSoundKeepAlive, true, '常驻预热默认勾上（首声完整 + 混音器里可整体调音量）');
-    flags.setFlag('clickSoundKeepAlive', false);
+    assert.deepEqual(flags.values.sfxKeepAlive, true, '常驻预热默认勾上（首声完整 + 混音器里可整体调音量）');
+    flags.setFlag('sfxKeepAlive', false);
 
     assert.deepEqual(writes, [false]);
     assert.equal(spy.calls.length, 0, '切开关不得即时写盘');
@@ -82,8 +82,8 @@ describe('useGlobalSettings —— 切开关只改本地状态', () => {
     const { rt, writes } = fakeRuntime();
     const flags = useGlobalSettings(rt);
 
-    assert.equal(flags.soundVolume, 0.5, '内置默认 0.5（与其余提示音同一档）');
-    flags.apply({ clickSoundVolume: 0.3 });
+    assert.equal(flags.sfxVolume, 0.5, '内置默认 0.5（与其余提示音同一档）');
+    flags.apply({ sfxVolume: 0.3 });
     assert.deepEqual(writes, [0.3], '音量补丁走 setState，不进开关的写入序列');
   });
 
@@ -116,8 +116,8 @@ describe('useGlobalSettings —— apply 只覆盖响应里出现的键', () => 
 
     flags.apply({
       notificationsEnabled: false,
-      clickSoundEnabled: false,
-      clickSoundKeepAlive: true,
+      sfxEnabled: false,
+      sfxKeepAlive: true,
       confineToScreen: true,
       trayEnabled: false,
     });

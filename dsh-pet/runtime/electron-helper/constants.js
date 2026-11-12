@@ -154,9 +154,25 @@ const STATE_WAIT_MS = 1000;
 // 窗口四周外扩 = 该比例 × 宠物尺寸：为气泡与可能的弹窗预留显示空间，外扩区透明且点击穿透。
 const WINDOW_MARGIN_RATIO = 0.5;
 
+/**
+ * 音效素材地址：`/sound/<素材根>/<文件>`，带 model 时宿主先查该皮肤目录。
+ *
+ * 与网页端 `client/pet/sfx.ts` 的 sfxUrl 同一口径；两处只差前缀常量，改动时一起改。
+ *
+ * @param {string} root - 素材根（= 条目 key）。
+ * @param {string} file - 文件名。
+ * @param {string} model - 皮肤/模型选择（可空）。
+ * @returns {string} 可直接播放的地址。
+ */
+function soundUrlOf(root, file, model) {
+  const base = BASE + '/sound/' + encodeURIComponent(root) + '/' + encodeURIComponent(file);
+  return model ? base + '?model=' + encodeURIComponent(model) : base;
+}
+
 const rootEl = document.getElementById('root');
 const errorEl = document.getElementById('pet-error');
-let config = null; // { pets: 拍平后的成品实例列表, physics, confineToScreen, clickSoundEnabled }（loadConfig 填充）
+let config = null; // { pets: 拍平后的成品实例列表, physics, confineToScreen, sfxEnabled, sfxKeepAlive, sfxVolume }（loadConfig 填充）
+let sfxIndex = null; // 本窗口那只宠物的音效索引（/sound/<素材根>/index 的结果；loadConfig 后单独拉一次）
 let sprites = []; // PetSprite[]（本窗口只装一只宠物）
 let balance = null; // BalanceState（本窗口单宠共用）
 let balanceTick = 0;

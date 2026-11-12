@@ -6,7 +6,7 @@
 
 ## 设置页源码地图
 
-「桌宠配置」设置页按功能分区（宠物 / 全局 / 外观 / 语音 / 对话 / 存储）。文件按**变化原因**切：
+「桌宠配置」设置页按功能分区（宠物 / 全局 / 外观 / 音效 / 语音 / 对话 / 存储）。文件按**变化原因**切：
 一个分区有自己的状态与异步时才有自己的文件，只把几张卡排一下序的分区就地写在装配表里。
 
 | 文件                                             | 职责                                                           |
@@ -20,7 +20,9 @@
 | `src/client/settings/model-tab.ts`               | 对话分区：模型卡                                               |
 | `src/client/settings/use-voice-settings.ts`      | 语音状态：六个随保存写入的字段 + 拉取、轮询、启停的节奏        |
 | `src/client/settings/voice-api.ts`               | `/voice/*` 三个接口的请求与解析（读失败回 `null`，写失败抛错） |
-| `src/client/settings/use-global-settings.ts`     | 五个全局开关与通知权限申请                                     |
+| `src/client/settings/use-global-settings.ts`     | 五个全局开关（含音效总闸）与通知权限申请                       |
+| `src/client/settings/use-sfx-settings.ts`        | 音效分区：槽位编辑、来源展示与试听                             |
+| `src/client/settings/sfx-card.ts`                | 音效卡：九个事件槽 + hook 的开关、音量与试听                   |
 | `src/client/settings/use-model-settings.ts`      | 对话状态：两个模型、历史条数、配图上限、三个对话开关           |
 | `src/client/settings/use-appearance-settings.ts` | 字体 / 物理 / 动作权重                                         |
 | `src/client/settings/use-avatar-upload.ts`       | 头像上传：破缓存版本号与上传中标志                             |

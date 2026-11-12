@@ -6,7 +6,7 @@
  */
 import { createDrag, type Drag, type DragCard } from '../motion/drag.ts';
 import { boxToRatio, clampReachableBox } from '../motion/geometry.ts';
-import { playClickSound } from '../click-sound.ts';
+import { playPetSlot } from '../sfx.ts';
 import type { CardLive } from './live.ts';
 import type { CardMotion } from './motion.ts';
 import type { CardStateApi } from './state.ts';
@@ -90,7 +90,8 @@ export function createCardDrag(rt: CardDragRuntime) {
         isFrozen: () => live.current.ownAnim?.isFrozen() ?? false,
         releaseLock: () => live.current.releaseLock(),
         grabVelocity: () => (motion.flight.isFlying() ? motion.flight.velocity() : null),
-        playClickSound: () => playClickSound(),
+        playSfx: (slot) =>
+          void playPetSlot(cfgRef.current, slot, { skinLayer: live.current.ownAnim?.sfxLayer?.() ?? null }),
         tipOn: () => live.current.tipOn(),
         placeTip: (x, y) => live.current.placeTip(x, y),
         setTipOn,

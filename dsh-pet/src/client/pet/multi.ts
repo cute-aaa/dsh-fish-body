@@ -19,6 +19,7 @@ import {
   readLock,
   readPosition,
   readSay,
+  readSfx,
   readSleep,
   readThrow,
   readWorkStatus,
@@ -44,7 +45,7 @@ import type { PetCollisionSlot } from '../../shared/physics.ts';
 import type { WorkStatusSnapshot } from '../../shared/work-status.ts';
 import type { PetCardProps } from './card/props.ts';
 import type { PetRuntime, RuntimePet } from './types.ts';
-import { setClickSoundEnabled } from './click-sound.ts';
+import { configureSfxFromMain, loadSfxIndex } from './sfx.ts';
 import { setSurface, setVoiceConfig, setVoiceNotifyEnabled } from '../../shared/voice.ts';
 import { runStatePoll } from './state-poll.ts';
 import { setMenuItems } from '../menu-service.ts';
@@ -118,12 +119,8 @@ export function createPetMulti(
         if (typeof main !== 'object' || main === null) {
           throw new Error('配置响应不是成品聚合（host 版本不匹配？）');
         }
-        // 点击音效开关只读 main 条目，非 true 一律静音；常驻预热缺字段按勾选处理（内置默认是勾上）。
-        setClickSoundEnabled(
-          main.clickSoundEnabled === true,
-          main.clickSoundKeepAlive !== false,
-          main.clickSoundVolume as number | undefined,
-        );
+        // 音效总闸只读 main 条目：开关、常驻预热与总音量，缺字段按内置默认（关 / 开 / 0.5）。
+        configureSfxFromMain(main);
         // 本页就是网页端：按叶子播放时只认 voiceTo='web' 的那一句。
         setSurface('web');
         // 音色与音量同源：缺字段即「用默认音色 / 最大音量」，不在端上兜默认值。
@@ -134,6 +131,9 @@ export function createPetMulti(
         // 「添加宠物」模板取 main 条目的 pets[0]。
         petBridge.template = Array.isArray(main.pets) ? ((main.pets as Pet[])[0] ?? undefined) : undefined;
         setPets(flattened);
+        // 音效索引按素材根 + 渲染方式 + 皮肤取一份：失败只降级成内置默认音，不影响宠物渲染。
+        const shown = pickSurfacePet(flattened, (p) => isWebVisible(p.display)).pet;
+        if (shown !== undefined) void loadSfxIndex(shown);
       };
       /** 拉取成品聚合：host readAllConfig 的输出，客户端零校验零兜底。 */
       const loadMerged = async (): Promise<Record<string, Record<string, unknown>>> => {
@@ -209,6 +209,9 @@ export function createPetMulti(
     const sleepRef = useRef<Record<string, SleepState>>({});
     // 第三方菜单项只在打开右键菜单时读一次，不参与渲染。
     const menuItemsRef = useRef<MenuMoreItem[]>([]);
+    // hook 音效：`POST /sfx/<hook>` 写入的指令，按宠物分发；序号自增让同一 hook 连点也能重播。
+    const [sfxTick, setSfxTick] = useState(0);
+    const sfxRef = useRef<Record<string, { hook: string; seq: number }>>({});
     /** 已处理过的跳会话时刻：首拉补跳与后续增量可能指向同一条信号，靠它只跳一次。 */
     const lastFocusTsRef = useRef(0);
     useEffect(() => {
@@ -315,6 +318,14 @@ export function createPetMulti(
             setSleepTick((t) => t + 1);
             return;
           }
+          case 'sfx': {
+            // hook 音效是指令：每写一次递增序号，同一 hook 连点两次也各响一次。
+            const hit = readSfx(leaf);
+            if (!hit) return;
+            sfxRef.current[petId] = { hook: hit.hook, seq: (sfxRef.current[petId]?.seq ?? 0) + 1 };
+            setSfxTick((t) => t + 1);
+            return;
+          }
         }
       };
 
@@ -389,6 +400,8 @@ export function createPetMulti(
       lockTick,
       sleep: sleepRef.current[shownPet.id],
       sleepTick,
+      sfxCue: sfxRef.current[shownPet.id],
+      sfxTick,
       menuItemsRef,
       arena: arenaRef,
     });

@@ -1094,6 +1094,110 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
+  /dsh-pet-7340/sfx/{hook}:
+    post:
+      tags: [Action]
+      operationId: playSfxHook
+      summary: 触发自定义 hook 音效
+      description: |
+        让一只宠物播一段**具名音效**：名字要么在条目级 `sfx.hooks` 里声明过，
+        要么磁盘上有 `hook-<名字>.wav`（见 MAKE-YOUR-OWN-PET.md 的「音效」）。
+        宿主只校验名字并写 `pets.<id>.sfx` 叶子，发声由两端各自执行。
+
+        睡着、被占用锁定或不在所请求的显示面时按既有门禁拒绝（与 `/anim` 同一套语义）。
+        名字只允许字母、数字、下划线与连字符，最长 64。
+      parameters:
+        - name: hook
+          in: path
+          required: true
+          description: hook 名（对应 `sfx.hooks` 的键或 `hook-<名字>.wav` 的文件名部分）。
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9_-]{1,64}$"
+            example: ding
+        - $ref: "#/components/parameters/PetIdQuery"
+      responses:
+        "200":
+          description: |
+            成功回 `{ ok: true, hook }`；失败恒为 200 + `ok: false`，`reason` 可能是
+            `bad-request`（名字非法）、`unknown-pet`、`unknown-hook`（这只宠物没有该音效）、
+            `pet-not-displayed`、`locked`、`sleeping`。
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - allOf:
+                      - $ref: "#/components/schemas/OkResponse"
+                      - type: object
+                        required: [hook]
+                        properties:
+                          hook:
+                            type: string
+                            example: ding
+                  - $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/sound/{root}/index:
+    get:
+      tags: [Asset]
+      operationId: getSfxIndex
+      summary: 音效索引（自动匹配结果）
+      description: |
+        宿主按「皮肤目录 → `-sound/`（带皮肤前缀 > 不带）→ 动画同目录 → 用户共享 → 包内默认」
+        扫一遍，给出这只宠物每个事件槽实际用哪个文件、文件从哪来。
+        事件槽恒完整（缺省填内置默认文件名）；动作音与 hook 只含真正匹配到的。
+        客户端据此决定播什么，不做 404 探测。
+      parameters:
+        - name: root
+          in: path
+          required: true
+          description: 素材根（条目 key）。
+          schema:
+            type: string
+            example: main
+        - name: renderer
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [webm, layered, live2d]
+            default: webm
+        - name: model
+          in: query
+          required: false
+          description: `pets[].model`（layered 皮肤名 / live2d 的 `.model3.json` 相对路径）。
+          schema:
+            type: string
+            default: ""
+      responses:
+        "200":
+          description: 索引（失败也恒为 200 + `ok: false`）。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, events, animations, hooks, origin]
+                properties:
+                  ok:
+                    type: boolean
+                  events:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  animations:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  hooks:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  origin:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      enum: [skin, sound, animation, user, package-default, config]
   /dsh-pet-7340/lock/release:
     post:
       tags: [Action]

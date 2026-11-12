@@ -33,12 +33,13 @@ const parts = (): SaveFieldParts => ({
   pets: [pet('m1')],
   global: {
     notificationsEnabled: false,
-    clickSoundEnabled: false,
-    clickSoundKeepAlive: true,
+    sfxEnabled: false,
+    sfxKeepAlive: true,
     confineToScreen: true,
     trayEnabled: false,
   },
-  clickSoundVolume: 0.25,
+  sfxVolume: 0.25,
+  sfx: { events: { click: { volume: 0.8 } } },
   chat: { whisperImageEnabled: true, chatImageEnabled: false, chatAnimationEnabled: false },
   voice: { enabled: true, name: 'zh-CN-YunxiNeural', volume: 0.4, whisper: true, todo: false, notify: true },
   model: {
@@ -58,9 +59,14 @@ describe('buildSaveFields —— 保存请求体的摊平', () => {
   test('五个全局开关原样进请求体（含系统通知）', () => {
     const fields = buildSaveFields(parts());
     assert.equal(fields.notificationsEnabled, false, '通知开关必须在请求体里，否则切了也不生效');
-    assert.equal(fields.clickSoundEnabled, false);
-    assert.equal(fields.clickSoundKeepAlive, true, '常驻预热也要进请求体，漏了就永远勾不上');
-    assert.equal(fields.clickSoundVolume, 0.25, '音效音量要与语音音量分开带走');
+    assert.equal(fields.sfxEnabled, false);
+    assert.equal(fields.sfxKeepAlive, true, '常驻预热也要进请求体，漏了就永远勾不上');
+    assert.equal(fields.sfxVolume, 0.25, '音效音量要与语音音量分开带走');
+    assert.deepEqual(
+      fields.sfx,
+      { events: { click: { volume: 0.8 } } },
+      'sfx 段要原样带走，否则设置页的音量改动存不进去',
+    );
     assert.equal(fields.confineToScreen, true);
     assert.equal(fields.trayEnabled, false);
   });

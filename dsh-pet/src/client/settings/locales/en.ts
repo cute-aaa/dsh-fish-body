@@ -10,6 +10,7 @@ export const en: Record<Key, string> = {
   tabPet: 'Pets',
   tabGlobal: 'General',
   tabLook: 'Appearance',
+  tabSfx: 'Sound',
   tabVoice: 'Voice',
   tabModel: 'Chat',
   tabStorage: 'Storage',
@@ -154,15 +155,43 @@ export const en: Record<Key, string> = {
   notifyToggle: 'System notifications',
   notifyToggleHint:
     'OS-level toasts (bottom-right of the desktop) for conversation completion, failures, permission requests, and questions — only while this window is unfocused.',
-  clickSoundToggle: 'Click sound',
-  clickSoundToggleHint:
-    'Plays the built-in click sound (assets/sound/click-duck.wav, volume 0.5) when a pet is clicked; repeated clicks within 100ms play only once, so multiple pets never stack up. Turn it off for silence. Written to the user config together with Save.',
-  clickSoundKeepAliveToggle: 'Keep click audio warm',
-  clickSoundKeepAliveToggleHint:
-    'Holds the audio output open with an inaudible tone so the first click after a long pause keeps its attack. It also keeps an "Electron" entry in the system volume mixer, handy for one overall volume/mute (voices included). Cost: the output device never idles, laptops drain faster, and Windows usually will not sleep while an audio stream stays active. On by default.',
-  clickSoundVolumeLabel: 'Click sound volume',
-  clickSoundVolumeHint:
-    'Applies to the click sound only: 0 mutes clicks (voices unaffected), 1 is full volume. The "Electron" slider in the system mixer is the overall volume, and the two multiply.',
+  sfxToggle: 'Sound',
+  sfxToggleHint:
+    'Plays the configured and auto-matched sound files; off mutes everything. You rarely edit config: drop click.wav into a skin folder, pet/<root>-sound/ or next to an animation and it is picked up automatically. Slots without a file fall back to the built-in defaults.',
+  sfxKeepAliveToggle: 'Keep audio warm',
+  sfxKeepAliveToggleHint:
+    'Holds the audio output open with an inaudible 1-LSB source so a long-idle first sound does not lose its attack, and the system mixer keeps an "Electron" entry you can use as a master gain. Costs an always-on device and battery; Windows usually will not auto-sleep while the stream is active.',
+  sfxVolumeLabel: 'Sound volume',
+  sfxVolumeHint:
+    'Multiplied with each cue own volume: 0 mutes sounds only (voice unaffected), 1 is full. The system mixer entry is a second master gain.',
+  sfxTitle: 'Event sounds',
+  sfxHint:
+    'Which file plays for each moment is decided by the host: skin folder > -sound folder > next to the animation > user shared > package defaults. This page only changes switches and volume.',
+  sfxFileHint:
+    'To swap a file, put the audio into a skin folder (pet/xxx-skin/click.wav) or pet/<root>-sound/; the file name is the slot name. Refresh this page afterwards.',
+  sfxNone: 'no file',
+  sfxTry: 'Preview',
+  sfxSlotClick: 'Click',
+  sfxSlotDrag: 'Drag',
+  sfxSlotThrow: 'Throw',
+  sfxSlotFloor: 'Land',
+  sfxSlotWall: 'Wall',
+  sfxSlotCeiling: 'Ceiling',
+  sfxSlotPet: 'Pet bump',
+  sfxSlotSleepStart: 'Falling asleep',
+  sfxSlotSleepEnd: 'Waking up',
+  sfxOriginSkin: 'skin',
+  sfxOriginSound: 'sound folder',
+  sfxOriginAnimation: 'animation folder',
+  sfxOriginUser: 'user shared',
+  sfxOriginDefault: 'built-in',
+  sfxOriginConfig: 'config override',
+  sfxOriginNone: 'unmatched',
+  sfxHooksTitle: 'Custom hooks',
+  sfxHooksHint:
+    'Names declared in sfx.hooks, or files named hook-<name>.wav in the sound folders. Trigger with POST /sfx/<name>?pet=<id>.',
+  sfxHookEmpty: 'No hooks yet: add one under sfx.hooks, or drop a hook-<name>.wav file.',
+  sfxHookCurlHint: 'Example: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Whisper images',
   whisperImageToggleHint:
     'Attach one random meme from the pool to each whisper line (image mapping lives in the top-level `memes` config field). Tokens: a whisper already calls the model every cycle, so the image only appends the name + description of that one meme (~100 chars / ~60 tokens) to the same request — negligible.',

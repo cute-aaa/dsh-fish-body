@@ -19,11 +19,12 @@ export interface SettingsTabDef {
   readonly titleKey: Key;
 }
 
-/** 分区顺序即阅读顺序：先编辑宠物，再改全局与外观，最后是语音、对话与落盘位置。 */
+/** 分区顺序即阅读顺序：先编辑宠物，再改全局与外观，最后是音效、语音、对话与落盘位置。 */
 export const SETTINGS_TABS = [
   { id: 'pet', titleKey: 'tabPet' },
   { id: 'global', titleKey: 'tabGlobal' },
   { id: 'look', titleKey: 'tabLook' },
+  { id: 'sfx', titleKey: 'tabSfx' },
   { id: 'voice', titleKey: 'tabVoice' },
   { id: 'model', titleKey: 'tabModel' },
   { id: 'storage', titleKey: 'tabStorage' },

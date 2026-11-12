@@ -14,6 +14,7 @@ import { RENDERERS } from '../../shared/config.ts';
 import type { RenderSizes } from '../../shared/types.ts';
 import type { ConfigPaths } from './constants.ts';
 import { fontValid, modelSelectionValid, petSizesValid, physicsValid, topFieldValid } from './validate.ts';
+import { cleanSfxConfig, sfxValid } from './sfx.ts';
 
 /**
  * `sizes` 落盘前的收敛：只留三种渲染方式里合法的像素值。
@@ -132,15 +133,18 @@ export function saveUserConfig(
   }
   const ne = o.notificationsEnabled;
   if (ne !== undefined && typeof ne !== 'boolean') return null;
-  // 点击音效开关（全局布尔，与 notificationsEnabled 同语义）：传了必须是布尔，没传走透传保留
-  const cse = o.clickSoundEnabled;
-  if (cse !== undefined && typeof cse !== 'boolean') return null;
-  // 点击音效的常驻预热（全局布尔）：同一套语义——传了必须是布尔，没传走透传保留
-  const csk = o.clickSoundKeepAlive;
-  if (csk !== undefined && typeof csk !== 'boolean') return null;
-  // 点击音效音量（全局系数 0–1）：与 voiceVolume 同一套规则，校验复用读取侧的 topFieldValid
-  const csv = o.clickSoundVolume;
-  if (csv !== undefined && !topFieldValid('clickSoundVolume', csv)) return null;
+  // 音效总闸三件套：与 notificationsEnabled 同语义——传了必须合法，没传走透传保留。
+  // 旧键（clickSound*）仍可接受：读进来映射到新键，落盘只出新键（正文里的 bodyOwned 会把旧键删掉）。
+  const se = o.sfxEnabled ?? o.clickSoundEnabled;
+  if (se !== undefined && typeof se !== 'boolean') return null;
+  const sk = o.sfxKeepAlive ?? o.clickSoundKeepAlive;
+  if (sk !== undefined && typeof sk !== 'boolean') return null;
+  const sv = o.sfxVolume ?? o.clickSoundVolume;
+  if (sv !== undefined && !topFieldValid('sfxVolume', sv)) return null;
+  // 音效段（事件槽 / 动作音 / hook / 按渲染方式 / 按皮肤）：与 physics 同一套语义——
+  // 传了就整段校验后进白名单，没传则走下面的透传保留。
+  const sfx = o.sfx;
+  if (sfx !== undefined && !sfxValid(sfx)) return null;
   const wie = o.whisperImageEnabled;
   if (wie !== undefined && typeof wie !== 'boolean') return null;
   const cie = o.chatImageEnabled;
@@ -214,9 +218,10 @@ export function saveUserConfig(
   // 对话历史条数）同样只在请求体真的传了时才写（未传则走下面的透传保留，不凭空造值）
   const outConfig: { pets: unknown[]; [key: string]: unknown } = { pets: out };
   if (ne !== undefined) outConfig.notificationsEnabled = ne;
-  if (cse !== undefined) outConfig.clickSoundEnabled = cse;
-  if (csk !== undefined) outConfig.clickSoundKeepAlive = csk;
-  if (csv !== undefined) outConfig.clickSoundVolume = csv;
+  if (se !== undefined) outConfig.sfxEnabled = se;
+  if (sk !== undefined) outConfig.sfxKeepAlive = sk;
+  if (sv !== undefined) outConfig.sfxVolume = Number(sv);
+  if (sfx !== undefined) outConfig.sfx = cleanSfxConfig(sfx);
   if (wie !== undefined) outConfig.whisperImageEnabled = wie;
   if (cie !== undefined) outConfig.chatImageEnabled = cie;
   if (cae !== undefined) outConfig.chatAnimationEnabled = cae;
@@ -242,9 +247,10 @@ export function saveUserConfig(
   // 否则整包调用的调用方漏传一个字段，就会把用户既有设置悄悄抹成默认。
   const bodyOwned = new Set(['pets']);
   if (ne !== undefined) bodyOwned.add('notificationsEnabled');
-  if (cse !== undefined) bodyOwned.add('clickSoundEnabled');
-  if (csk !== undefined) bodyOwned.add('clickSoundKeepAlive');
-  if (csv !== undefined) bodyOwned.add('clickSoundVolume');
+  if (se !== undefined) bodyOwned.add('sfxEnabled');
+  if (sk !== undefined) bodyOwned.add('sfxKeepAlive');
+  if (sv !== undefined) bodyOwned.add('sfxVolume');
+  if (sfx !== undefined) bodyOwned.add('sfx');
   if (wie !== undefined) bodyOwned.add('whisperImageEnabled');
   if (cie !== undefined) bodyOwned.add('chatImageEnabled');
   if (cae !== undefined) bodyOwned.add('chatAnimationEnabled');
@@ -263,6 +269,10 @@ export function saveUserConfig(
   if (cm !== undefined) bodyOwned.add('chatModel');
   if (cmr !== undefined) bodyOwned.add('chatMemoryRounds');
   if (cil !== undefined) bodyOwned.add('chatImageLimit');
+  // 旧点击音效三键永不透传：新键已经接管语义，留着只会让人以为「关掉那个旧键就能静音」。
+  bodyOwned.add('clickSoundEnabled');
+  bodyOwned.add('clickSoundKeepAlive');
+  bodyOwned.add('clickSoundVolume');
   if (existing && typeof existing === 'object') {
     for (const key of Object.keys(existing)) {
       if (bodyOwned.has(key)) continue; // 白名单字段由请求体决定

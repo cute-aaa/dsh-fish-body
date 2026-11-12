@@ -10,6 +10,7 @@ export const ja: Record<Key, string> = {
   tabPet: 'ペット',
   tabGlobal: '全体',
   tabLook: '外観',
+  tabSfx: '効果音',
   tabVoice: '音声',
   tabModel: '会話',
   tabStorage: 'ストレージ',
@@ -153,15 +154,43 @@ export const ja: Record<Key, string> = {
   notifyToggle: 'システム通知',
   notifyToggleHint:
     '会話の完了 / 生成失敗 / 権限リクエスト / ユーザーへの確認を、ウィンドウが非アクティブのときに OS レベルの通知（デスクトップ右下）で表示します。',
-  clickSoundToggle: 'クリック音',
-  clickSoundToggleHint:
-    'ペットをクリックすると内蔵の効果音（assets/sound/click-duck.wav、音量 0.5）が一度鳴ります。100ms 以内の連続クリックは1回だけ鳴り、複数起動しても重なりません。オフにすると完全に無音になります。「保存」と一緒にユーザー設定へ書き込まれます。',
-  clickSoundKeepAliveToggle: 'クリック音を常時ウォーム',
-  clickSoundKeepAliveToggleHint:
-    '聴こえない微小な音で音声出力を開いたままにします。しばらく触っていない後の最初のクリックでもアタックが欠けず、システムの音量ミキサーには常に「Electron」が並ぶので音量やミュートをまとめて操作できます（声も一緒です）。代わりに出力デバイスは空かず、ノート PC は電池を多く使い、音声出力が続く間は Windows が自動スリープしないことがあります。既定でオン。',
-  clickSoundVolumeLabel: 'クリック音の音量',
-  clickSoundVolumeHint:
-    'クリック音だけに効きます。0 でクリック音のみ消音（声はそのまま）、1 で最大。システムミキサーの「Electron」は全体の音量で、両者は掛け合わされます。',
+  sfxToggle: '効果音',
+  sfxToggleHint:
+    '設定と自動マッチした素材を鳴らします。オフで全消音。素材はほぼ設定不要：click.wav をスキンフォルダ、pet/<ルート>-sound/、アニメと同じ場所に置けば自動で拾います。無い場合は内蔵の既定音。',
+  sfxKeepAliveToggle: '音声を常時ウォーム',
+  sfxKeepAliveToggleHint:
+    '聞こえない 1 LSB の音源で出力を開いたままにし、久しぶりの一発でも音頭が欠けないようにします。システムミキサーに「Electron」項目が残り、全体音量として使えます。代償はデバイス占有と電池消費、音声ストリーム中は Windows が自動スリープしにくくなります。',
+  sfxVolumeLabel: '効果音の音量',
+  sfxVolumeHint:
+    '各効果音の音量に掛かります：0 で効果音のみ消音（音声はそのまま）、1 で最大。ミキサーの項目はさらに一段の全体音量です。',
+  sfxTitle: 'イベント効果音',
+  sfxHint:
+    'どのファイルを鳴らすかはホストが決めます：スキン > -sound > アニメと同じ場所 > ユーザー共有 > パッケージ既定。この画面はオンオフと音量だけ。',
+  sfxFileHint:
+    '差し替えるには音声をスキンフォルダ（pet/xxx-skin/click.wav）か pet/<ルート>-sound/ に置きます。ファイル名がタイミング名です。置いたら再読み込み。',
+  sfxNone: 'ファイルなし',
+  sfxTry: '試聴',
+  sfxSlotClick: 'クリック',
+  sfxSlotDrag: 'ドラッグ',
+  sfxSlotThrow: '投げる',
+  sfxSlotFloor: '着地',
+  sfxSlotWall: '壁',
+  sfxSlotCeiling: '天井',
+  sfxSlotPet: '衝突',
+  sfxSlotSleepStart: '入眠',
+  sfxSlotSleepEnd: '起床',
+  sfxOriginSkin: 'スキン',
+  sfxOriginSound: 'サウンド',
+  sfxOriginAnimation: 'アニメ隣',
+  sfxOriginUser: '共有',
+  sfxOriginDefault: '既定',
+  sfxOriginConfig: '設定',
+  sfxOriginNone: '未一致',
+  sfxHooksTitle: 'カスタムフック',
+  sfxHooksHint:
+    'sfx.hooks で宣言した名前、または hook-<名前>.wav というファイル。POST /sfx/<名前>?pet=<id> で発火します。',
+  sfxHookEmpty: 'フックがありません：sfx.hooks に追加するか hook-<名前>.wav を置いてください。',
+  sfxHookCurlHint: '例: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'ひとりごとの画像',
   whisperImageToggleHint:
     'ひとりごとのとき、ミーム画像プールからランダムに1枚を選び、その一言と一緒に表示します（画像のマッピングは設定ファイルのトップレベル memes）。トークン：ひとりごとは元々毎回モデルを呼ぶので、選んだ画像の名前 + 説明（約100文字 / ≈60トークン）を同じリクエストに加えるだけで、増分はごくわずかです。',

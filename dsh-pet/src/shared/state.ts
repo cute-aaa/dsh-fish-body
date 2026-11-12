@@ -117,7 +117,7 @@ export function takeChanged(s: PollState, baseline: Record<string, number>): Sta
 export type SectionLeafName = 'config' | 'balance' | 'workStatus' | 'notify' | 'menu' | 'focusSession';
 
 /** `pets.<id>.<名>` 里会被消费端分发的那几个叶子。 */
-export type PetLeafName = 'say' | 'anim' | 'position' | 'throw' | 'lock' | 'sleep';
+export type PetLeafName = 'say' | 'anim' | 'position' | 'throw' | 'lock' | 'sleep' | 'sfx';
 
 /** 一次叶子分发的落点：分段叶子，或某只宠物的叶子。 */
 export type LeafTarget =
@@ -127,7 +127,7 @@ export type LeafTarget =
 const SECTION_LEAF_NAMES = ['config', 'balance', 'workStatus', 'notify', 'menu', 'focusSession'] as const;
 
 /** 宠物叶子名的全集；新增宠物叶子时与 {@link PetLeafName} 一起改。 */
-const PET_LEAF_NAMES = ['say', 'anim', 'position', 'throw', 'lock', 'sleep'] as const;
+const PET_LEAF_NAMES = ['say', 'anim', 'position', 'throw', 'lock', 'sleep', 'sfx'] as const;
 
 /** 把字符串收窄成分段叶子名。 */
 function isSectionLeafName(name: string): name is SectionLeafName {
@@ -331,6 +331,16 @@ export function readThrow(leaf: StateLeaf): { angle: number; power: number } | n
   if (typeof d.angle !== 'number' || !Number.isFinite(d.angle)) return null;
   if (typeof d.power !== 'number' || !Number.isFinite(d.power) || d.power <= 0) return null;
   return { angle: d.angle, power: d.power };
+}
+
+/** 类型收窄：hook 音效叶子 → `{ hook }`（形状非法 → null，消费端跳过这一拍）。
+ *
+ *  这是指令不是状态：宿主或第三方点了名，渲染端播一次对应文件。
+ *  hook 必须是非空字符串；文件是否存在由宿主在写入前判定（见 /sfx/<hook> 路由）。 */
+export function readSfx(leaf: StateLeaf): { hook: string } | null {
+  if (!leaf.data || typeof leaf.data !== 'object') return null;
+  const d = leaf.data as { hook?: unknown };
+  return typeof d.hook === 'string' && d.hook !== '' ? { hook: d.hook } : null;
 }
 
 /** 动作端点：POST 一次，返回是否成功。

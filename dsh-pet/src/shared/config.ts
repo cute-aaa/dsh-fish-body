@@ -13,6 +13,7 @@ import type {
   PetDisplay,
   PhysicsParams,
   RendererKind,
+  SfxConfig,
   Weights,
 } from './types.ts';
 
@@ -65,6 +66,7 @@ export function flattenConfigPets(merged: Record<string, Record<string, unknown>
       out.push({
         ...p,
         animations: conf.animations as Animations | undefined,
+        sfx: conf.sfx as SfxConfig | undefined,
         animationWeights: conf.animationWeights as Weights | undefined,
         eventsRefreshSec: conf.eventsRefreshSec as Record<string, number> | undefined,
         physics: conf.physics as PhysicsParams | undefined,

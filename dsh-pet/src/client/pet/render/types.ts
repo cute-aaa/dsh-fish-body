@@ -6,7 +6,7 @@
  * @module dsh-pet/src/client/pet/render/types
  */
 import type { RendererKind } from '../../../shared/types.ts';
-import type { Animations } from '../../../shared/types.ts';
+import type { Animations, SfxLayer } from '../../../shared/types.ts';
 import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { WorkStatusSnapshot } from '../../../shared/work-status.ts';
 import type { ReportableStatus } from '../../../shared/playback.ts';
@@ -113,6 +113,8 @@ export interface Renderer {
   listExpressions?(): readonly string[];
   /** 当前挂着的外观/配件名（可同时挂多个，见 shared/menu/tree 的 accessoryMenuBranch）。 */
   activeExpressions?(): readonly string[];
+  /** 皮肤自带的音效覆盖（layered 的 manifest.sfx）；不支持的返回 undefined。 */
+  sfxLayer?(): SfxLayer | undefined;
   /** 改画框尺寸（配置里改了大小但后端不重挂）：webm 由 CSS 驱动可不管，画布后端要重设画布与缩放。 */
   resize?(size: number): void;
   /** 是否已就绪（首帧/首张图层已挂上）。 */

@@ -37,6 +37,7 @@ export type ResultReason =
   | 'too-many-owners'
   | 'unknown-animation'
   | 'unknown-entry'
+  | 'unknown-hook'
   | 'unknown-image'
   | 'unknown-owner'
   | 'unknown-pet'

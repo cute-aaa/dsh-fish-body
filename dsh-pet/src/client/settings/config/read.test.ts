@@ -65,27 +65,19 @@ describe('readMainConfig —— 成品聚合 → 表单补丁', () => {
     const patch = readMainConfig({ main: { pets: [] } });
     assert.equal('notificationsEnabled' in (patch ?? {}), false);
     assert.equal('trayEnabled' in (patch ?? {}), false);
-    assert.equal('clickSoundKeepAlive' in (patch ?? {}), false);
+    assert.equal('sfxKeepAlive' in (patch ?? {}), false);
     const withFlag = readMainConfig({ main: { pets: [], trayEnabled: false } });
     assert.equal(withFlag?.trayEnabled, false);
-    const keepAlive = readMainConfig({ main: { pets: [], clickSoundKeepAlive: true } });
-    assert.equal(keepAlive?.clickSoundKeepAlive, true, 'true 是合法值，要带出来');
-    assert.equal(readMainConfig({ main: { pets: [], clickSoundVolume: 0.35 } })?.clickSoundVolume, 0.35);
+    const keepAlive = readMainConfig({ main: { pets: [], sfxKeepAlive: true } });
+    assert.equal(keepAlive?.sfxKeepAlive, true, 'true 是合法值，要带出来');
+    assert.equal(readMainConfig({ main: { pets: [], sfxVolume: 0.35 } })?.sfxVolume, 0.35);
+    assert.equal(readMainConfig({ main: { pets: [], sfxVolume: 1.5 } })?.sfxVolume, undefined, '越界值当没写');
     assert.equal(
-      readMainConfig({ main: { pets: [], clickSoundVolume: 1.5 } })?.clickSoundVolume,
-      undefined,
-      '越界值当没写',
-    );
-    assert.equal(
-      readMainConfig({ main: { pets: [], clickSoundVolume: '0.5' } })?.clickSoundVolume,
+      readMainConfig({ main: { pets: [], sfxVolume: '0.5' } })?.sfxVolume,
       0.5,
       '与 voiceVolume 同一套解析：能转成数字的字符串照收（历史行为）',
     );
-    assert.equal(
-      readMainConfig({ main: { pets: [], clickSoundVolume: 'loud' } })?.clickSoundVolume,
-      undefined,
-      '转不成数字才当没写',
-    );
+    assert.equal(readMainConfig({ main: { pets: [], sfxVolume: 'loud' } })?.sfxVolume, undefined, '转不成数字才当没写');
   });
 
   test('语音细分开关：布尔原样带出，缺失或非布尔不进补丁', () => {

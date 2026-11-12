@@ -37,6 +37,7 @@ import { useModelSettings } from './settings/use-model-settings.ts';
 import { usePermissionTest } from './settings/use-permission-test.ts';
 import { usePetList } from './settings/use-pet-list.ts';
 import { useRemoteData } from './settings/use-remote-data.ts';
+import { useSfxSettings } from './settings/use-sfx-settings.ts';
 import { useVoiceSettings } from './settings/use-voice-settings.ts';
 
 // 字典与桥的真源都在 settings/ 里：宿主的 locale 注册、容器与测试夹具都经这里取，不各自深路径引用。
@@ -87,6 +88,7 @@ export function makePetConfigSection(
     // 各分区的字段状态各归各的文件；这里只按顺序取用，不碰它们的内部状态。
     const list = usePetList(rt, setDialog);
     const global = useGlobalSettings(rt);
+    const sfx = useSfxSettings(rt);
     const voice = useVoiceSettings(rt);
     const model = useModelSettings(rt);
     const look = useAppearanceSettings(rt);
@@ -101,6 +103,7 @@ export function makePetConfigSection(
     // 每个分区只认自己那几项，这里按分区派发，不逐字段 setState。
     const { replace } = list;
     const applyGlobal = global.apply;
+    const applySfx = sfx.apply;
     const applyVoice = voice.apply;
     const applyModel = model.apply;
     const applyLook = look.apply;
@@ -112,16 +115,23 @@ export function makePetConfigSection(
         if (entries === null || patch === null) throw new Error('Invalid config response');
         replace(entries);
         applyGlobal(patch);
+        applySfx(patch);
         applyVoice(patch);
         applyModel(patch);
         applyLook(patch);
       },
-      [replace, applyGlobal, applyVoice, applyModel, applyLook],
+      [replace, applyGlobal, applySfx, applyVoice, applyModel, applyLook],
     );
 
     // 配置没就绪（加载中 / 失败）时整页只读，避免在占位值上编辑再保存回去。
     const { loadState, retry } = useConfigLoad(rt, applyConfig);
     const busy = saving || loadState !== 'ready';
+
+    // 音效索引：配置就绪后拉一次，卡片据此显示每个槽位实际用的文件与来源。
+    const loadSfx = sfx.load;
+    useEffect(() => {
+      if (loadState === 'ready') loadSfx();
+    }, [loadState, loadSfx]);
 
     // 说明气泡：挂 body 摆位（伪元素会被窗口边缘与滚动容器裁掉），随页面卸载一起拆。
     useEffect(() => attachTipLayer(), []);
@@ -137,7 +147,8 @@ export function makePetConfigSection(
         buildSaveFields({
           pets: list.mainPets,
           global: global.values,
-          clickSoundVolume: global.soundVolume,
+          sfxVolume: global.sfxVolume,
+          sfx: sfx.config,
           chat: model.chatFlags,
           voice,
           model,
@@ -172,6 +183,7 @@ export function makePetConfigSection(
       onSave: () => void write.save(),
       remote,
       global,
+      sfx,
       voice,
       model,
       look,

@@ -6,7 +6,7 @@
  */
 import { DEFAULT_FONT } from '../../../shared/fonts.ts';
 import { DEFAULT_PHYSICS } from '../../../shared/physics.ts';
-import type { FontConfig, ModelSelection, Pet, PhysicsParams, Weights } from '../../../shared/types.ts';
+import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../../shared/types.ts';
 import { parseWeights } from '../../../shared/weights.ts';
 
 /** 宿主返回的成品聚合：`main` 是大配置条目，其余键是文件定义的其他宠物条目。 */
@@ -19,11 +19,14 @@ export interface MainConfigPatch {
   /** 条目级人设正文，作为实例人设「留空时跟随什么」的预览。 */
   entryPrompt?: string;
   notificationsEnabled?: boolean;
-  clickSoundEnabled?: boolean;
-  /** 点击音效的常驻预热；缺省表示这次响应里没有可信值。 */
-  clickSoundKeepAlive?: boolean;
-  /** 点击音效音量系数（0–1）；缺省表示这次响应里没有可信值。 */
-  clickSoundVolume?: number;
+  /** 音效总开关；缺省表示这次响应里没有可信值。 */
+  sfxEnabled?: boolean;
+  /** 音效常驻预热；缺省表示这次响应里没有可信值。 */
+  sfxKeepAlive?: boolean;
+  /** 音效总音量系数（0–1）；缺省表示这次响应里没有可信值。 */
+  sfxVolume?: number;
+  /** 条目级音效覆盖；缺省表示这次响应里没有可信值。 */
+  sfx?: SfxConfig;
   whisperImageEnabled?: boolean;
   chatImageEnabled?: boolean;
   /** 对话动作联动开关；缺省表示这次响应里没有可信值。 */
@@ -83,8 +86,9 @@ export function readMainConfig(merged: MergedConfig): MainConfigPatch | null {
   };
   if (typeof main.whisperPrompt === 'string') patch.entryPrompt = main.whisperPrompt;
   if (typeof main.notificationsEnabled === 'boolean') patch.notificationsEnabled = main.notificationsEnabled;
-  if (typeof main.clickSoundEnabled === 'boolean') patch.clickSoundEnabled = main.clickSoundEnabled;
-  if (typeof main.clickSoundKeepAlive === 'boolean') patch.clickSoundKeepAlive = main.clickSoundKeepAlive;
+  if (typeof main.sfxEnabled === 'boolean') patch.sfxEnabled = main.sfxEnabled;
+  if (typeof main.sfxKeepAlive === 'boolean') patch.sfxKeepAlive = main.sfxKeepAlive;
+  if (main.sfx && typeof main.sfx === 'object' && !Array.isArray(main.sfx)) patch.sfx = main.sfx as SfxConfig;
   if (typeof main.whisperImageEnabled === 'boolean') patch.whisperImageEnabled = main.whisperImageEnabled;
   if (typeof main.chatImageEnabled === 'boolean') patch.chatImageEnabled = main.chatImageEnabled;
   if (typeof main.chatAnimationEnabled === 'boolean') patch.chatAnimationEnabled = main.chatAnimationEnabled;
@@ -114,8 +118,8 @@ export function readMainConfig(merged: MergedConfig): MainConfigPatch | null {
   // 上界在宿主侧已经把关，这里补一次跨进程读回的判定：脏值只影响显示，不让它流到播放端
   const volume = nonNegative(main.voiceVolume);
   if (volume !== undefined && volume <= 1) patch.voiceVolume = volume;
-  const clickVolume = nonNegative(main.clickSoundVolume);
-  if (clickVolume !== undefined && clickVolume <= 1) patch.clickSoundVolume = clickVolume;
+  const sfxVolume = nonNegative(main.sfxVolume);
+  if (sfxVolume !== undefined && sfxVolume <= 1) patch.sfxVolume = sfxVolume;
   return patch;
 }
 

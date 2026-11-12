@@ -220,6 +220,8 @@ async function mountLayered(sprite, host, api) {
   const root = sprite.assetRoot;
   const { skin, base } = await loadLayeredManifest(root, sprite.pet.model);
   api.skin = skin;
+  // 皮肤自带的音效覆盖（清单里的 sfx 段）：sprite 组装覆盖层时读它，位置比条目配置更具体。
+  api.sfxLayer = () => (skin && skin.sfx ? skin.sfx : undefined);
   // 探测能力可能缺（核心比本文件旧）：缺了就降级成整幅绘制 / 不量锚点，画面照常出来。
   const measureBox = optionalProbe('measureLayerBox');
   const measureTop = optionalProbe('measureVisualTopRatio');

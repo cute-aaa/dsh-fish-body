@@ -7,7 +7,7 @@
  */
 import { join } from 'node:path';
 import { ROUTE_SEGMENT } from '../../../shared/constants.ts';
-import { PACKAGE_ROOT } from '../../paths.ts';
+import { animSubdirFor, PACKAGE_ROOT } from '../../paths.ts';
 import type { DesktopHelperDeps } from './types.ts';
 import type { DesktopPets } from './pets.ts';
 import { toBridgeResponse } from './bridge-response.ts';
@@ -232,8 +232,6 @@ export function createDesktopSpawn(deps: DesktopSpawnInput) {
     helper = undefined;
     await old?.stopAndWait(reason);
   };
-
-  const animSubdirFor = (ext: string): string => (ext === '.mov' ? 'mov' : 'webm');
 
   const assetRootFor = (ext: string): string => join(PACKAGE_ROOT, 'assets', animSubdirFor(ext));
 

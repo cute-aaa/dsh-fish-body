@@ -9,6 +9,7 @@ export const zh = {
   tabPet: '宠物',
   tabGlobal: '全局',
   tabLook: '外观',
+  tabSfx: '音效',
   tabVoice: '语音',
   tabModel: '对话',
   tabStorage: '存储',
@@ -144,15 +145,43 @@ export const zh = {
   savePartial: '主宠物已保存，但 {names} 没能写回：检查该角色包配置是否合法、目录是否可写。',
   notifyToggle: '系统通知',
   notifyToggleHint: '对话完成 / 生成失败 / 权限申请 / 用户选择，在窗口失焦时弹出系统级通知（桌面右下角）。',
-  clickSoundToggle: '点击音效',
-  clickSoundToggleHint:
-    '点一下宠物播一声内置音效（assets/sound/click-duck.wav，音量 0.5；100ms 内的连续点击只响一次，多开也不会叠音）。关掉即完全静音。随「保存」写入用户配置。',
-  clickSoundKeepAliveToggle: '点击音效常驻预热',
-  clickSoundKeepAliveToggleHint:
-    '用一个听不见的极小音源一直占着音频输出：隔很久再点，第一声也不缺音头；顺带让系统音量混音器里一直有「Electron」这一项，可以在那里整体调音量或静音（连语音一起）。代价：音频设备不空闲、笔记本更费电，音频流持续活跃期间系统一般不会自动睡眠。默认勾选。',
-  clickSoundVolumeLabel: '点击音效音量',
-  clickSoundVolumeHint:
-    '只作用于点击音效，0 = 静音点击声（语音照旧），1 = 最大。系统音量混音器里那条「Electron」是整体总闸，两者叠乘。',
+  sfxToggle: '音效总开关',
+  sfxToggleHint:
+    '按配置与自动匹配到的素材出音；关掉即全程静音。素材不用写配置：把 click.wav 放进皮肤目录、pet/<素材根>-sound/ 或与动画同目录即可自动匹配，没匹配到的用内置默认音。',
+  sfxKeepAliveToggle: '音效常驻预热',
+  sfxKeepAliveToggleHint:
+    '用一个听不见的极小音源一直占着音频输出：久不发声后的第一下也不缺音头；顺带让系统混音器里常驻「Electron」一项可整体调音量。代价：音频设备不空闲、笔记本更费电，音频流活跃期间系统一般不会自动睡眠。',
+  sfxVolumeLabel: '音效总音量',
+  sfxVolumeHint:
+    '乘在每条音效自己的音量上：0 = 只静音音效（语音照旧），1 = 最大。系统混音器那条「Electron」是整体总闸，两者叠乘。',
+  sfxTitle: '事件音效',
+  sfxHint:
+    '每个时机播哪个文件由宿主自动匹配：皮肤目录 > -sound 目录 > 动画同目录 > 用户共享 > 包内默认。这里只调开关与音量。',
+  sfxFileHint:
+    '要换文件：把音频放进皮肤目录（如 pet/xxx-skin/click.wav）或 pet/<素材根>-sound/，文件名即时机名；放好后刷新本页。',
+  sfxNone: '无文件',
+  sfxTry: '试听',
+  sfxSlotClick: '点击',
+  sfxSlotDrag: '拖拽',
+  sfxSlotThrow: '甩出',
+  sfxSlotFloor: '落地',
+  sfxSlotWall: '撞墙',
+  sfxSlotCeiling: '撞顶',
+  sfxSlotPet: '互撞',
+  sfxSlotSleepStart: '入睡',
+  sfxSlotSleepEnd: '醒来',
+  sfxOriginSkin: '皮肤',
+  sfxOriginSound: '声音目录',
+  sfxOriginAnimation: '动画同目录',
+  sfxOriginUser: '用户共享',
+  sfxOriginDefault: '内置默认',
+  sfxOriginConfig: '配置覆盖',
+  sfxOriginNone: '未匹配',
+  sfxHooksTitle: '自定义 hook',
+  sfxHooksHint:
+    '配置 sfx.hooks 里声明的名字，或目录里名为 hook-<名字>.wav 的文件；第三方用 POST /sfx/<名字>?pet=<id> 触发。',
+  sfxHookEmpty: '还没有 hook：在配置的 sfx.hooks 里加一条，或放一个 hook-<名字>.wav。',
+  sfxHookCurlHint: '触发示例：curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: '碎碎念配图',
   whisperImageToggleHint:
     '碎碎念时从表情包池随机抽一张，连同那句话一起显示（图片映射在配置文件顶层 memes）。token：碎碎念本来就每次生成都要调一次模型，配图只是把抽中那张的名称+描述（约 100 字符 / ≈60 token）加进同一次请求，增量可忽略。',

@@ -104,6 +104,8 @@ Object.assign(PetSprite.prototype, {
   startThrow(px, py, vx, vy) {
     this.stopDragFollow();
     this.stopMove();
+    // 甩出去了就出一声；sling / 手速抛掷 / 宿主 /throw 都收口在这里。
+    this.playSfxSlot('throw');
     // 边界 = 工作区并集：空洞是墙，屏缝不是墙（跨屏弹跳照旧）。confineToScreen 开启时改为锁定
     // 松手这一刻所在的那块屏，飞行途中不重取；relayout 改了屏数时由 throwStepRegion 退回不锁定。
     const lockScreen = this.confineToScreen ? S.screenOfBox(this.throwSpaceOf(), px, py) : -1;
@@ -128,6 +130,14 @@ Object.assign(PetSprite.prototype, {
       }
       state = { x: res.x, y: res.y, vx: res.vx, vy: res.vy };
       this.throwState = state;
+      // 撞墙 / 落地 / 撞顶：响度按撞击速度换算，轻碰不出声（两边合并成 wall 槽）。
+      if (res.hit) {
+        const gain = S.impactGain(res.hit.speed);
+        if (gain !== null) {
+          const slot = res.hit.edge === 'left' || res.hit.edge === 'right' ? 'wall' : res.hit.edge;
+          this.playSfxSlot(slot, gain);
+        }
+      }
       // 宠物间碰撞（仅 petCollision 开启）：飞行中的自己撞到其它宠物 → 动量弹开
       if (this.physics && this.physics.petCollision) {
         const myBody = S.bodyPixelBox({ x: state.x, y: state.y, size: this.size, bottomPad: this.bottomPad });
@@ -145,6 +155,8 @@ Object.assign(PetSprite.prototype, {
             state.vx = hit.fvx;
             state.vy = hit.fvy;
             this.throwState = state;
+            // 主动撞上去的一方出声；被撞方由主进程转发后自己播（各自一拍）。
+            this.playSfxSlot('pet', S.impactGain(hit.impactSpeed) ?? 0.5);
             if (window.petBridge && window.petBridge.reportCollide) {
               // 被撞方初速同为 broker 物理像素协议：×scale
               window.petBridge.reportCollide(pid, toScreen(hit.hvx), toScreen(hit.hvy));

@@ -17,7 +17,8 @@ import { listPersonaSources, registerPersonaSource } from '../persona-source/reg
 import { migrateUserConfig, type ConfigPaths } from '../config.ts';
 import { createFileLogger, isFileLogger, setDefaultLogger, type FileLogger, type LoggerLike } from '../log-file.ts';
 import { MenuRegistry } from '../menu.ts';
-import { PACKAGE_MEMES_DIR, PACKAGE_ROOT } from '../paths.ts';
+import { animSubdirFor, PACKAGE_MEMES_DIR, PACKAGE_ROOT, PACKAGE_SOUND_DIR } from '../paths.ts';
+import type { SfxDirs } from '../sfx/scan.ts';
 import { PlaybackStore } from '../playback.ts';
 import { resolveAsset } from '../http.ts';
 import { PollStateStore } from '../state.ts';
@@ -60,6 +61,10 @@ export interface HostSetup {
   readonly memesUserRoot: string;
   /** 表情包目录链 */
   readonly memeDirsFor: (assetRoot: string) => string[];
+  /** 音效搜索目录（皮肤根 / -sound / 用户共享 / 包内默认 / 动画同目录），见 host/sfx/scan。 */
+  readonly soundDirsFor: (assetRoot: string, ext: string) => SfxDirs;
+  /** 用户级共享音效目录（`<用户根>/main-sound`）。 */
+  readonly soundUserRoot: string;
   /** 软取宿主可选服务 */
   readonly optionalService: (name: string) => unknown;
   /** 独立模式的碎碎念授权策略 */
@@ -181,6 +186,34 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     return [memesUserRoot, PACKAGE_MEMES_DIR];
   };
 
+  // 用户级共享音效目录：main 链在没有专属文件时也查这里（加音效不必动包）。
+  const soundUserRoot = join(userRoot, 'main-sound');
+
+  /**
+   * 音效搜索目录，与服务端的素材归属同一套语义，但**不独占**：
+   * 音效是叠加的（皮肤自带 > 素材根 > 用户共享 > 包内默认），少一处文件就往下落，
+   * 所以这里把所有可能的位置一次给全，由 host/sfx/index-build 按优先级取第一个命中。
+   * 三个 pet/<素材根>-* 目录都先过 resolveAsset：素材根来自 URL 段，不能拼出用户根之外的路径。
+   */
+  const soundDirsFor = (assetRoot: string, ext: string): SfxDirs => {
+    const sub = animSubdirFor(ext);
+    const ownSkin = resolveAsset(petConfigDir, assetRoot + '-skin');
+    const ownSound = resolveAsset(petConfigDir, assetRoot + '-sound');
+    const ownAnimation = resolveAsset(petConfigDir, assetRoot + '-animation');
+    return {
+      ...(ownSkin === undefined ? {} : { skinDir: ownSkin }),
+      ...(ownSound === undefined ? {} : { soundDir: ownSound }),
+      // 用户共享目录只给 main 系：pet pack 是整套素材，混用会让别人的音效串到它头上。
+      ...(assetRoot === 'main' ? { userSoundDir: soundUserRoot } : {}),
+      packageSoundDir: PACKAGE_SOUND_DIR,
+      animationDirs: [
+        ...(ownAnimation === undefined ? [] : [ownAnimation]),
+        join(thumbUserRoot, sub),
+        join(PACKAGE_ROOT, 'assets', sub),
+      ],
+    };
+  };
+
   // 轮询状态（/state）：前端 1s 轮询的唯一数据源（余额 / 工作状态 / 通知 / 宠物说话）。
   // 所有写入走 state.writeSection / writePet（统一更新 counter）。
   const state = new PollStateStore();
@@ -248,6 +281,8 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     thumbUserRoot,
     memesUserRoot,
     memeDirsFor,
+    soundDirsFor,
+    soundUserRoot,
     optionalService,
     standaloneAiPolicy,
     standaloneAiBalance,

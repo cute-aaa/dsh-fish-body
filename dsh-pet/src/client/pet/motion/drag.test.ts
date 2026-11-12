@@ -166,8 +166,9 @@ function harness(extra: Partial<DragCard> = {}) {
       calls.releaseLock++;
     },
     grabVelocity: () => null,
-    playClickSound: () => {
-      calls.clicks++;
+    playSfx: (slot: string) => {
+      // 拖拽成立与甩出也会走这个入口，这里只统计点击那一下。
+      if (slot === 'click') calls.clicks++;
     },
     tipOn: () => false,
     placeTip: () => {},

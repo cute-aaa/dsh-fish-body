@@ -132,3 +132,26 @@ $DSH_HOME/dsh-pet/
 - 余额档位动画按各宠物自己的 `events.balance`
 
 
+
+## 音效段（sfx）
+
+素材靠目录与文件名自动匹配（见 `MAKE-YOUR-OWN-PET.md` 的「音效」），`sfx` 段只写**要改的东西**：
+
+```jsonc
+"sfxEnabled": true,        // 总开关
+"sfxKeepAlive": true,      // 常驻预热：久不发声后的第一下也不缺音头（代价：设备不空闲）
+"sfxVolume": 0.5,          // 总音量，乘在每条 cue 自己的 volume 上
+"sfx": {
+  "events": { "click": { "file": "my-click.wav", "volume": 0.8, "lane": "web" },
+              "floor": { "enabled": false } },
+  "animations": { "写代码": [{ "file": "keypress.wav", "at": 0 }, { "file": "ding.wav", "at": 1200 }] },
+  "hooks": { "ding": { "file": "ding.wav" } },
+  "renderers": { "layered": { "events": { "throw": { "volume": 0.6 } } } },
+  "skins": { "beiluoye": { "events": { "click": { "file": "beiluoye-click.wav" } } } }
+}
+```
+
+- `file` 省略 = 用自动匹配到的文件；`enabled:false` = 关掉该槽（自动匹配到的也不播）。
+- `animations` 的数组是时间线（各自 `at`）；`events` 的数组是变体（随机抽一个）。
+- 冲突时后者赢：`skins[model]` > 皮肤清单 `manifest.sfx` > `renderers[kind]` > 基座 > 自动匹配 > 内置默认。
+- 旧键 `clickSoundEnabled / clickSoundKeepAlive / clickSoundVolume` 仍可读（映射到上面三项），保存时只写新键。

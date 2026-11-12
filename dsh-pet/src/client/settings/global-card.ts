@@ -1,5 +1,5 @@
 /**
- * 全局开关卡：通知、点击音效（含常驻预热）、锁定在当前屏幕与系统托盘。
+ * 全局开关卡：通知、音效总闸（含常驻预热与总音量）、锁定在当前屏幕与系统托盘。
  * 切换只改本地状态，随「保存」整包写入——即时写盘会重启桌面 Helper、重建全部桌面宠物窗口。
  * 通知开关额外需要用户手势，开与关都要走外壳的同一个入口，因此卡里只回传键名与目标值。
  * @module dsh-pet/src/client/settings/global-card
@@ -9,8 +9,7 @@ import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit } from './ui.ts';
 
 /** 五个全局开关的键名，与成品配置的字段名一致。 */
-export type GlobalFlagKey =
-  'notificationsEnabled' | 'clickSoundEnabled' | 'clickSoundKeepAlive' | 'confineToScreen' | 'trayEnabled';
+export type GlobalFlagKey = 'notificationsEnabled' | 'sfxEnabled' | 'sfxKeepAlive' | 'confineToScreen' | 'trayEnabled';
 
 /** 五个全局开关的当前值。 */
 export type GlobalFlags = Record<GlobalFlagKey, boolean>;
@@ -23,17 +22,17 @@ export interface GlobalCardProps {
   values: GlobalFlags;
   /** 某个开关被切换；通知开关的权限申请由外壳处理。 */
   onChange: (key: GlobalFlagKey, value: boolean) => void;
-  /** 点击音效音量（0–1）：与语音音量各管各的，宿主给的成品值。 */
-  volume: number;
-  /** 点击音效音量被拖动。 */
-  onVolumeChange: (value: number) => void;
+  /** 音效总音量（0–1）：与语音音量各管各的，宿主给的成品值。 */
+  sfxVolume: number;
+  /** 音效总音量被拖动。 */
+  onSfxVolumeChange: (value: number) => void;
 }
 
 /** 开关的展示顺序与文案键。 */
 const TOGGLES: Array<{ key: GlobalFlagKey; label: string }> = [
   { key: 'notificationsEnabled', label: 'notifyToggle' },
-  { key: 'clickSoundEnabled', label: 'clickSoundToggle' },
-  { key: 'clickSoundKeepAlive', label: 'clickSoundKeepAliveToggle' },
+  { key: 'sfxEnabled', label: 'sfxToggle' },
+  { key: 'sfxKeepAlive', label: 'sfxKeepAliveToggle' },
   { key: 'confineToScreen', label: 'confineToggle' },
   { key: 'trayEnabled', label: 'trayToggle' },
 ];
@@ -61,26 +60,26 @@ export function makeGlobalCard(rt: SettingsRuntime): FunctionComponent<GlobalCar
             ),
           ),
         }),
-        // 音效音量独立于语音音量：混音器里那条是进程级总闸，这里才是「点击这一声多响」的分项旋钮。
+        // 总音量独立于语音音量：混音器里那条是进程级总闸，这里才是「所有音效多响」的分项旋钮。
         h('div', {
           className: 'dsh-pet-cfg__grid4',
           children: [
             field(
-              `${t('clickSoundVolumeLabel')}（${Math.round(props.volume * 100)}%）`,
+              `${t('sfxVolumeLabel')}（${Math.round(props.sfxVolume * 100)}%）`,
               h('input', {
                 type: 'range',
                 className: 'dsh-pet-cfg__range',
                 min: '0',
                 max: '1',
                 step: '0.05',
-                value: String(props.volume),
+                value: String(props.sfxVolume),
                 disabled: props.busy,
                 onChange: (event: { target: { value: string } }) => {
                   const next = Number(event.target.value);
-                  if (Number.isFinite(next)) props.onVolumeChange(next);
+                  if (Number.isFinite(next)) props.onSfxVolumeChange(next);
                 },
               }),
-              t('clickSoundVolumeHint'),
+              t('sfxVolumeHint'),
             ),
           ],
         }),

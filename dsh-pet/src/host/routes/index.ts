@@ -21,6 +21,8 @@ import { handleMotionRoutes } from './motion.ts';
 import { handlePlaybackRoutes } from './playback.ts';
 import { handlePluginRestart } from './plugin-restart.ts';
 import { handleSessionRoutes } from './session.ts';
+import { handleSfxRoutes } from './sfx.ts';
+import { handleSoundRoutes } from './sound.ts';
 import { handleStateRoutes } from './state.ts';
 import { handleSleepRoutes } from './sleep.ts';
 import { handleTodoRoutes } from './todos.ts';
@@ -46,6 +48,8 @@ const HANDLERS: readonly RouteHandler[] = [
   handleAvatarRoutes,
   handleCharacterRoutes,
   handlePluginRestart,
+  handleSfxRoutes,
+  handleSoundRoutes,
   handleAssetsRoutes,
 ];
 
@@ -66,6 +70,8 @@ function sleepGated(rest: string, method: string): boolean {
     rest === 'broadcast' ||
     rest === 'bubble/clear' ||
     rest === 'menu/click' ||
+    rest === 'sfx' ||
+    rest.startsWith('sfx/') ||
     rest === 'voice'
   );
 }

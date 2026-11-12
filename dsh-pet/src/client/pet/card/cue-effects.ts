@@ -1,5 +1,5 @@
 /**
- * 指令处理：余额、余额不可用、工作状态、说话、点播、位置、抛掷七条指令各一个消费函数。
+ * 指令处理：余额、余额不可用、工作状态、说话、点播、位置、抛掷、hook 音效八条指令各一个消费函数。
  * 不负责判定口径（余额档位、工作状态索引、播完分支分别属于 shared 与动画链），也不持有驱动。
  * 依赖卡运行时与当帧 props；每条指令自带「这一拍是否已消费」的守卫。
  * 不变量：只有计数器变化才动手；占用锁生效时自动来源整拍丢弃，显式指令不挡。
@@ -9,6 +9,7 @@ import { balanceEventIndex, balancePercent } from '../../../shared/balance/index
 import { pickSlot, poolIncludes } from '../../../shared/pickers.ts';
 import { WORK_STATUS_INDEX } from '../../../shared/work-status.ts';
 import { playSayVoice } from '../../../shared/voice.ts';
+import { playPetHook } from '../sfx.ts';
 import type { CardHub } from './hub.ts';
 import type { PetCardProps } from './props.ts';
 import type * as ReactNS from 'react';
@@ -41,6 +42,7 @@ export function createCueEffects(rt: CueEffectsRuntime) {
   return function useCueEffects(hub: CardHub, props: PetCardProps): void {
     const { balance, balanceManual, balanceNoticeTick, balanceTick } = props;
     const { animCue, animCueTick, posCue, posCueTick, say, sayTick, throwCue, throwCueTick } = props;
+    const { sfxCue, sfxTick } = props;
     const { workStatus, workStatusTick } = props;
 
     const prevBalanceRef = useRef(0);
@@ -52,6 +54,7 @@ export function createCueEffects(rt: CueEffectsRuntime) {
     const prevAnimRef = useRef(0);
     const prevPosRef = useRef(0);
     const prevThrowRef = useRef(0);
+    const prevSfxRef = useRef(0);
 
     /** 余额事件：按档位播事件动画并弹气泡。手动请求无条件弹，自动轮询要求开启且有百分比；
      *  睡着时自动来源整拍丢弃，否则会顶掉睡姿。 */
@@ -210,8 +213,15 @@ export function createCueEffects(rt: CueEffectsRuntime) {
       hub.applyThrow(throwCue.angle, throwCue.power);
     };
 
-    // 七条指令共用一个 effect：每条自带已消费守卫，只有变化的那条真正动手。
-    // 分开写七个 effect 时每个渲染期闭包都要重新订阅，守卫与依赖说明也重复七遍。
+    /** hook 音效：宿主或第三方点了名就播一次；冻结与睡觉都不挡（它是显式指令）。 */
+    const consumeSfxCue = (): void => {
+      if (!sfxCue || sfxCue.seq === prevSfxRef.current) return;
+      prevSfxRef.current = sfxCue.seq;
+      playPetHook(hub.cfg(), sfxCue.hook, hub.ownAnim.sfxLayer?.() ?? null);
+    };
+
+    // 八条指令共用一个 effect：每条自带已消费守卫，只有变化的那条真正动手。
+    // 分开写八个 effect 时每个渲染期闭包都要重新订阅，守卫与依赖说明也重复八遍。
     useEffect(() => {
       consumeBalance();
       consumeBalanceNotice();
@@ -220,8 +230,9 @@ export function createCueEffects(rt: CueEffectsRuntime) {
       consumeAnimCue();
       consumePosCue();
       consumeThrowCue();
-      // 守卫函数每渲染重建，但只读 ref 与当拍的 props；进依赖会让每个渲染都重跑七个守卫。
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- 变化原因只有这七个计数器
-    }, [balanceTick, balanceNoticeTick, workStatusTick, sayTick, animCueTick, posCueTick, throwCueTick]);
+      consumeSfxCue();
+      // 守卫函数每渲染重建，但只读 ref 与当拍的 props；进依赖会让每个渲染都重跑八个守卫。
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 变化原因只有这八个计数器
+    }, [balanceTick, balanceNoticeTick, workStatusTick, sayTick, animCueTick, posCueTick, throwCueTick, sfxTick]);
   };
 }

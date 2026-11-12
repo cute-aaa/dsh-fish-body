@@ -11,6 +11,7 @@ export const fr: Record<Key, string> = {
   tabPet: 'Compagnons',
   tabGlobal: 'Général',
   tabLook: 'Apparence',
+  tabSfx: 'Son',
   tabVoice: 'Voix',
   tabModel: 'Discussion',
   tabStorage: 'Stockage',
@@ -157,15 +158,43 @@ export const fr: Record<Key, string> = {
   notifyToggle: 'Notifications système',
   notifyToggleHint:
     "Notifications du système d'exploitation (en bas à droite du bureau) pour la fin d'une conversation, les échecs, les demandes de permission et les questions — uniquement lorsque cette fenêtre n'a pas le focus.",
-  clickSoundToggle: 'Son au clic',
-  clickSoundToggleHint:
-    "Joue le son intégré (assets/sound/click-duck.wav, volume 0,5) quand on clique sur un compagnon ; les clics répétés en moins de 100 ms ne sonnent qu'une fois, donc plusieurs compagnons ne se superposent jamais. Désactivez-le pour un silence total. Écrit dans la configuration utilisateur avec « Enregistrer ».",
-  clickSoundKeepAliveToggle: "Maintenir l'audio prêt",
-  clickSoundKeepAliveToggleHint:
-    "Garde la sortie audio ouverte avec un son inaudible : le premier clic après une longue pause conserve son attaque, et le mixeur système affiche toujours une entrée « Electron » pour régler le volume global (voix comprises). Coût : la sortie reste occupée, la batterie se vide plus vite, et Windows ne se met généralement pas en veille tant qu'un flux audio est actif. Activé par défaut.",
-  clickSoundVolumeLabel: 'Volume du son au clic',
-  clickSoundVolumeHint:
-    'Ne concerne que le son du clic : 0 le coupe (les voix restent), 1 est le maximum. Le curseur « Electron » du mixeur système est le volume global ; les deux se multiplient.',
+  sfxToggle: 'Son',
+  sfxToggleHint:
+    'Joue les fichiers configures et detectes automatiquement ; desactive coupe tout. On configure rarement : un click.wav dans le dossier du skin, dans pet/<root>-sound/ ou a cote d une animation est repris seul. Sans fichier, les sons integres prennent le relais.',
+  sfxKeepAliveToggle: "Maintenir l'audio pret",
+  sfxKeepAliveToggleHint:
+    'Garde la sortie audio ouverte avec une source inaudible de 1 LSB : le premier son apres une longue pause ne perd pas son attaque, et le mixeur systeme garde une entree « Electron » comme volume global. Cout : peripherique occupe et batterie ; Windows ne se met generalement pas en veille avec un flux actif.',
+  sfxVolumeLabel: 'Volume des sons',
+  sfxVolumeHint:
+    'Multiplie le volume de chaque effet : 0 coupe seulement les effets (la voix reste), 1 est le maximum. Entree du mixeur = second volume global.',
+  sfxTitle: 'Sons d evenement',
+  sfxHint:
+    'C est l hote qui choisit le fichier : dossier du skin > dossier -sound > a cote de l animation > partage utilisateur > paquet. Cette page ne regle que les interrupteurs et le volume.',
+  sfxFileHint:
+    'Pour changer un fichier, placez l audio dans le dossier du skin (pet/xxx-skin/click.wav) ou pet/<root>-sound/ ; le nom du fichier est celui du moment. Rechargez ensuite la page.',
+  sfxNone: 'aucun fichier',
+  sfxTry: 'Ecouter',
+  sfxSlotClick: 'Clic',
+  sfxSlotDrag: 'Glisser',
+  sfxSlotThrow: 'Lancer',
+  sfxSlotFloor: 'Atterrissage',
+  sfxSlotWall: 'Mur',
+  sfxSlotCeiling: 'Plafond',
+  sfxSlotPet: 'Choc',
+  sfxSlotSleepStart: 'Endormissement',
+  sfxSlotSleepEnd: 'Reveil',
+  sfxOriginSkin: 'skin',
+  sfxOriginSound: 'dossier son',
+  sfxOriginAnimation: 'dossier animation',
+  sfxOriginUser: 'partage',
+  sfxOriginDefault: 'integre',
+  sfxOriginConfig: 'configuration',
+  sfxOriginNone: 'non trouve',
+  sfxHooksTitle: 'Hooks personnalises',
+  sfxHooksHint:
+    'Noms declares dans sfx.hooks, ou fichiers hook-<nom>.wav dans les dossiers de sons. Declenchement : POST /sfx/<nom>?pet=<id>.',
+  sfxHookEmpty: 'Aucun hook : ajoutez-en un dans sfx.hooks ou deposez hook-<nom>.wav.',
+  sfxHookCurlHint: 'Exemple : curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Images des murmures',
   whisperImageToggleHint:
     "Joindre un mème tiré au hasard dans le pool à chaque murmure (la correspondance des images se trouve dans le champ memes, au niveau supérieur de la configuration). Tokens : un murmure appelle déjà le modèle à chaque cycle ; l'image ajoute seulement le nom + la description de ce mème (environ 100 caractères / ~60 tokens) à la même requête — négligeable.",

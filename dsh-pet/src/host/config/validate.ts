@@ -9,6 +9,7 @@ import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../../shared/fonts.ts';
 import { isValidSize } from '../../shared/pet-size.ts';
 import { isKnownVoice } from '../voice/voices.ts';
 import { FONT_FAMILY_SET, RENDERER_SET } from './constants.ts';
+import { sfxValid } from './sfx.ts';
 
 /** 内置玩法动画的槽位数：`animations.baifan` 必须恰好这么多个（顺序是玩法契约，见 shared/types 的 Animations）。 */
 const ACTIVITY_SLOTS = 5;
@@ -194,14 +195,26 @@ export function topFieldValid(key: string, value: unknown): boolean {
     }
     case 'notificationsEnabled':
       return typeof value === 'boolean';
+    case 'sfxEnabled':
+      // 音效总开关（全局布尔，只读 main 条目）：与 notificationsEnabled 同一套校验
+      return typeof value === 'boolean';
+    case 'sfxKeepAlive':
+      // 音效常驻预热（全局布尔）：只影响首声保真与设备占用，缺省开
+      return typeof value === 'boolean';
+    case 'sfxVolume':
+      // 音效总音量系数：0–1 的有限数，与 voiceVolume 同量纲；越界即非法
+      return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+    case 'sfx':
+      // 音效段（事件槽 / 动作音 / hook / 按渲染方式 / 按皮肤）：整段校验，与 physics 同一口径
+      return sfxValid(value);
     case 'clickSoundEnabled':
-      // 点击音效开关（全局布尔，只读 main 条目）：与 notificationsEnabled 同一套校验
+      // 旧键（读取侧会别名到 sfxEnabled，写入只出新键）：保留判定让老用户配置继续可读
       return typeof value === 'boolean';
     case 'clickSoundKeepAlive':
-      // 点击音效的常驻预热（全局布尔）：只影响首声保真与设备占用，缺省开
+      // 旧键：别名到 sfxKeepAlive
       return typeof value === 'boolean';
     case 'clickSoundVolume':
-      // 点击音效音量系数：0–1 的有限数，与 voiceVolume 同量纲；越界即非法
+      // 旧键：别名到 sfxVolume
       return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
     case 'whisperImageEnabled':
       return typeof value === 'boolean';

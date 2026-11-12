@@ -5,7 +5,7 @@
  * @module dsh-pet/src/client/settings/config/http
  */
 import { ROUTE_PATH } from '../../../shared/constants.ts';
-import type { FontConfig, ModelSelection, Pet, PhysicsParams, Weights } from '../../../shared/types.ts';
+import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../../shared/types.ts';
 import type { ModelCatalogGroup } from '../picker/index.ts';
 import type { MergedConfig } from './read.ts';
 
@@ -30,11 +30,14 @@ export interface ConfigMeta {
 export interface SaveFields {
   pets: readonly Pet[];
   notificationsEnabled: boolean;
-  clickSoundEnabled: boolean;
-  /** 点击音效的常驻预热（默认开）。 */
-  clickSoundKeepAlive: boolean;
-  /** 点击音效音量系数（0–1）。 */
-  clickSoundVolume: number;
+  /** 音效总开关。 */
+  sfxEnabled: boolean;
+  /** 音效常驻预热（默认开）。 */
+  sfxKeepAlive: boolean;
+  /** 音效总音量系数（0–1）。 */
+  sfxVolume: number;
+  /** 条目级音效覆盖（事件槽 / 动作音 / hook / 按渲染方式 / 按皮肤）。 */
+  sfx: SfxConfig;
   whisperImageEnabled: boolean;
   chatImageEnabled: boolean;
   /** 对话动作联动开关。 */
@@ -80,9 +83,10 @@ export function buildSaveBody(fields: SaveFields): Record<string, unknown> {
   return {
     pets: fields.pets,
     notificationsEnabled: fields.notificationsEnabled,
-    clickSoundEnabled: fields.clickSoundEnabled,
-    clickSoundKeepAlive: fields.clickSoundKeepAlive,
-    clickSoundVolume: fields.clickSoundVolume,
+    sfxEnabled: fields.sfxEnabled,
+    sfxKeepAlive: fields.sfxKeepAlive,
+    sfxVolume: fields.sfxVolume,
+    sfx: fields.sfx,
     whisperImageEnabled: fields.whisperImageEnabled,
     chatImageEnabled: fields.chatImageEnabled,
     chatAnimationEnabled: fields.chatAnimationEnabled,

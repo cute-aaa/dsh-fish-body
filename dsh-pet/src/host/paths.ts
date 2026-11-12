@@ -16,3 +16,18 @@ export const PACKAGE_ROOT_ASSETS = join(PACKAGE_ROOT, 'assets');
 
 /** 包内表情包目录（表情包池的最后一环：assets/memes/<名称>.png） */
 export const PACKAGE_MEMES_DIR = join(PACKAGE_ROOT_ASSETS, 'memes');
+
+/** 包内音效目录（事件槽内置默认与随包发布的音效都在这里）。 */
+export const PACKAGE_SOUND_DIR = join(PACKAGE_ROOT_ASSETS, 'sound');
+
+/**
+ * 动画扩展名 → 素材子目录名（`main-animation/webm|mov`、`assets/webm|mov` 共用）。
+ *
+ * 宿主里凡是按扩展名找动画目录的地方都必须走这一条：写死 'webm' 会让 mov 用户查不到自己的素材。
+ *
+ * @param ext - 含点的扩展名；未知值按 webm 处理。
+ * @returns 子目录名。
+ */
+export function animSubdirFor(ext: string): string {
+  return ext === '.mov' ? 'mov' : 'webm';
+}

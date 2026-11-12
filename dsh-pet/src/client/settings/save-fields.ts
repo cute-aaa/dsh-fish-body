@@ -7,7 +7,7 @@
  * owns only 字段映射，never 校验、写盘与任何状态。
  * @module dsh-pet/src/client/settings/save-fields
  */
-import type { Pet } from '../../shared/types.ts';
+import type { Pet, SfxConfig } from '../../shared/types.ts';
 import type { SaveFields } from './config/index.ts';
 import type { GlobalFlags } from './global-card.ts';
 import type { ChatFlagValues } from './model-card.ts';
@@ -21,8 +21,10 @@ export interface SaveFieldParts {
   readonly pets: readonly Pet[];
   /** 五个全局开关，键名即成品字段名。 */
   readonly global: GlobalFlags;
-  /** 点击音效音量（0–1）；与语音音量分开，混音器那条是进程级总闸。 */
-  readonly clickSoundVolume: number;
+  /** 音效总音量（0–1）；与语音音量分开，混音器那条是进程级总闸。 */
+  readonly sfxVolume: number;
+  /** 音效分区写回的 `sfx` 段（事件槽覆盖 / 动作音 / hook / 按渲染方式 / 按皮肤）。 */
+  readonly sfx: SfxConfig;
   /** 三个对话开关，键名即成品字段名。 */
   readonly chat: ChatFlagValues;
   /** 语音分区里随「保存」写入的六个字段（远端音色与接入配置不在此列）。 */
@@ -44,7 +46,8 @@ export function buildSaveFields(parts: SaveFieldParts): SaveFields {
     pets: parts.pets,
     // 两个开关组各自就是成品字段名的一份映射，摊平即可：漏键会被类型检查逮住。
     ...parts.global,
-    clickSoundVolume: parts.clickSoundVolume,
+    sfxVolume: parts.sfxVolume,
+    sfx: parts.sfx,
     ...parts.chat,
     voiceEnabled: parts.voice.enabled,
     voiceName: parts.voice.name,

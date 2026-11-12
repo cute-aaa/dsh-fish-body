@@ -7,6 +7,8 @@
 import { createFlight, type Flight, type FlightMetrics } from '../motion/flight.ts';
 import { createHaptics, type Haptics } from '../haptics.ts';
 import { canReadMotionSensors, shakeImpulse, subscribeShake, subscribeTilt, tiltGravity } from '../device-tilt.ts';
+import { playPetSlot } from '../sfx.ts';
+import { impactGain } from '../../../shared/sfx/impact.ts';
 import { createPositionFollow, type PositionFollow } from '../motion/position-follow.ts';
 import { createSquashDriver, type SquashDriver } from '../motion/squash.ts';
 import { createWalk, type Walk } from '../motion/walk.ts';
@@ -175,6 +177,11 @@ export function createCardMotion(rt: CardMotionRuntime) {
       },
       onImpact: (impact) => {
         haptics.hit(impact.kind, impact.speed);
+        // 碰撞音：响度按撞击速度换算，轻碰不出声（见 shared/sfx/impact）。左右边合并成 wall。
+        const slot = impact.kind === 'left' || impact.kind === 'right' ? 'wall' : impact.kind;
+        const gain = impactGain(impact.speed);
+        if (gain === null) return;
+        playPetSlot(cfgRef.current, slot, { gain, skinLayer: live.current.ownAnim?.sfxLayer?.() ?? null });
       },
       // 只在常驻（倾斜）模式被读：倾斜没开或还没有采样时退回竖直重力，行为与关掉体感一致。
       gravity: () => {

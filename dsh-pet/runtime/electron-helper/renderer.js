@@ -46,12 +46,12 @@ async function loadConfig() {
     physics: (merged && merged.main && merged.main.physics) || S.DEFAULT_PHYSICS,
     // 抛掷锁定在当前屏幕（根字段；合并器已填内置默认 false）
     confineToScreen: (merged && merged.main && merged.main.confineToScreen) === true,
-    // 点击音效开关（全局一份，只读 main 条目；合并器已填内置默认 false = 静音）
-    clickSoundEnabled: (merged && merged.main && merged.main.clickSoundEnabled) === true,
-    // 点击音效的常驻预热（全局一份；内置默认开，只有显式 false 才关）
-    clickSoundKeepAlive: !(merged && merged.main && merged.main.clickSoundKeepAlive === false),
-    // 点击音效音量（全局系数；缺省由共享播放器按 0.5 处理）
-    clickSoundVolume: merged && merged.main ? merged.main.clickSoundVolume : undefined,
+    // 音效总闸（全局一份，只读 main 条目；合并器已填内置默认 true）
+    sfxEnabled: (merged && merged.main && merged.main.sfxEnabled) === true,
+    // 音效常驻预热（内置默认开，只有显式 false 才关）
+    sfxKeepAlive: !(merged && merged.main && merged.main.sfxKeepAlive === false),
+    // 音效总音量（缺省由共享播放器按 0.5 处理）
+    sfxVolume: merged && merged.main ? merged.main.sfxVolume : undefined,
     // 字体（全局一份，合并器已填内置默认）：字体族在此注入全局变量，字号由每只宠物按自己的尺寸算
     font: (merged && merged.main && merged.main.font) || S.DEFAULT_FONT,
     // 语音：音色与音量（缺省由共享层按默认音色 / 最大音量处理）
@@ -61,17 +61,59 @@ async function loadConfig() {
   };
 }
 
+/**
+ * 拉本宠物的音效索引：宿主已按搜索链算好优先级、填好内置默认，这里只负责取回来并预热素材。
+ * 失败只告警一次并返回空索引（事件槽仍有内置默认音），绝不阻断启动。
+ *
+ * @param {object} pet - 成品配置里本窗口的宠物。
+ * @returns {Promise<object>} 索引（失败时是空索引）。
+ */
+async function loadSfxIndex(pet) {
+  const root = pet.assetRoot || pet.id;
+  const query =
+    BASE +
+    '/sound/' +
+    encodeURIComponent(root) +
+    '/index?renderer=' +
+    encodeURIComponent(pet.renderer || 'webm') +
+    '&model=' +
+    encodeURIComponent(pet.model || '');
+  try {
+    const res = await fetch(query, { cache: 'no-store' });
+    if (!res.ok) throw new Error('index http ' + res.status);
+    const body = await res.json();
+    if (body && body.ok === false) throw new Error('index ' + String(body.reason || 'failed'));
+    const index = {
+      events: body.events || {},
+      animations: body.animations || {},
+      hooks: body.hooks || {},
+      origin: body.origin || {},
+    };
+    // 预热事件槽素材：第一下不依赖「取文件 + 解码」的延迟，也避免首声走回退路径。
+    for (const file of Object.values(index.events)) S.preloadSfx(soundUrlOf(root, file, pet.model || ''));
+    return index;
+  } catch (e) {
+    console.warn(
+      '[dsh-pet] 音效索引加载失败 pet=' +
+        pet.id +
+        '：' +
+        (e && e.message ? String(e.message) : String(e)) +
+        '（改用内置默认音效）',
+    );
+    return { events: {}, animations: {}, hooks: {}, origin: {} };
+  }
+}
+
 // 启动（配置校验通过才建 sprite；失败大声报错 + 5s 自动重试）
 async function boot() {
   try {
     const cfg = await loadConfig();
     config = cfg;
-    // 点击音效：开关一开就在配置到手时预热共享播放器（常热 AudioContext + 预解码素材），
-    // 首次点击才不会把输出流冷启动的时间吃进音头。关着就挂起，不占音频设备。
-    S.setClickSfxEnabled(cfg.clickSoundEnabled === true, {
-      url: BASE + '/sound/click-duck.wav',
-      keepAlive: cfg.clickSoundKeepAlive !== false,
-      volume: cfg.clickSoundVolume,
+    // 音效：总闸交给共享播放器（常热 AudioContext + 预解码 + 常驻保活），关着就挂起不占设备。
+    S.configureSfx({
+      enabled: cfg.sfxEnabled === true,
+      volume: cfg.sfxVolume,
+      keepAlive: cfg.sfxKeepAlive !== false,
     });
     // 语音：本窗口固定是桌面端；音色、总开关与音量直接取成品配置，不走懒加载——
     // 懒加载要等第一次播放才去拉 /config，撞上 bridge 起步竞态就永远读不到开关（读失败只试一次）。
@@ -102,6 +144,9 @@ async function boot() {
     }
     for (const s of sprites) s.dispose();
     sprites = [new PetSprite(pet)];
+    // 音效索引：本窗只养一只宠物，按它的素材根 / 渲染方式 / 皮肤拉一份；失败只降级成内置默认。
+    sfxIndex = await loadSfxIndex(pet);
+    for (const s of sprites) s.applySfx(sfxIndex);
     window.__dshPetDebug.configOk = true;
     window.__dshPetDebug.spriteCount = sprites.length;
     for (const s of sprites) s.playIdle();

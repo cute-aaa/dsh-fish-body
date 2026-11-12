@@ -15,12 +15,14 @@ import { makeGlobalCard } from './global-card.ts';
 import { makeLookTab } from './look-tab.ts';
 import { makeModelTab } from './model-tab.ts';
 import { makePathsCards } from './paths-cards.ts';
+import { makeSfxCard } from './sfx-card.ts';
 import { makePetTab, type PetAvatarView } from './pet-tab.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeShortcutsCard } from './shortcuts-card.ts';
 import type { SettingsTabId } from './tabs.ts';
 import type { AppearanceSettings } from './use-appearance-settings.ts';
 import type { GlobalSettings } from './use-global-settings.ts';
+import type { SfxSettings } from './use-sfx-settings.ts';
 import type { ModelSettings } from './use-model-settings.ts';
 import type { PetList } from './use-pet-list.ts';
 import type { RemoteData } from './use-remote-data.ts';
@@ -42,6 +44,7 @@ export interface SettingsPanelDeps {
   /** 页面级一次性拉取的结果（候选模型与落盘位置）。 */
   readonly remote: RemoteData;
   readonly global: GlobalSettings;
+  readonly sfx: SfxSettings;
   readonly voice: VoiceSettings;
   readonly model: ModelSettings;
   readonly look: AppearanceSettings;
@@ -67,6 +70,7 @@ export function makeSettingsPanels(
   const { h } = rt;
   const PetTab = makePetTab(rt);
   const GlobalCard = makeGlobalCard(rt);
+  const SfxCard = makeSfxCard(rt);
   const LookTab = makeLookTab(rt);
   const VoiceTab = makeVoiceTab(rt);
   const ModelTab = makeModelTab(rt);
@@ -92,12 +96,14 @@ export function makeSettingsPanels(
             busy: deps.busy,
             values: deps.global.values,
             onChange: deps.global.setFlag,
-            volume: deps.global.soundVolume,
-            onVolumeChange: deps.global.setSoundVolume,
+            sfxVolume: deps.global.sfxVolume,
+            onSfxVolumeChange: deps.global.setSfxVolume,
           }),
           h(ShortcutsCard, { key: 'shortcuts' }),
         ],
       }),
+    // 音效：九个事件槽 + hook 的只读来源与音量；文件名由宿主索引决定，这一页不改文件。
+    sfx: () => h(SfxCard, { busy: deps.busy, sfx: deps.sfx }),
     look: () => h(LookTab, { busy: deps.busy, look: deps.look }),
     voice: () => h(VoiceTab, { busy: deps.busy, voice: deps.voice }),
     model: () => h(ModelTab, { busy: deps.busy, model: deps.model, remote: deps.remote }),

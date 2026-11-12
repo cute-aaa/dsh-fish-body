@@ -54,6 +54,10 @@ export interface PetCardProps {
   sleep?: SleepState;
   /** 睡觉叶子变化次数。 */
   sleepTick: number;
+  /** 本宠物的自定义 hook 音效指令（`POST /sfx/<hook>` 写入）。 */
+  sfxCue?: { hook: string; seq: number };
+  /** hook 音效叶子变化次数。 */
+  sfxTick: number;
   /** 第三方菜单项快照；传 ref 是因为只在右键那一刻读。 */
   menuItemsRef: ReactNS.MutableRefObject<MenuMoreItem[]>;
   /** 宠物间碰撞站场。 */

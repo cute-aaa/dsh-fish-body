@@ -33,9 +33,9 @@ function pickGlobals(main) {
   physicsSource = physics;
   return {
     notificationsEnabled: source.notificationsEnabled !== false,
-    clickSoundEnabled: source.clickSoundEnabled !== false,
-    clickSoundKeepAlive: source.clickSoundKeepAlive !== false,
-    clickSoundVolume: typeof source.clickSoundVolume === 'number' && source.clickSoundVolume >= 0 && source.clickSoundVolume <= 1 ? source.clickSoundVolume : 0.5,
+    sfxEnabled: (source.sfxEnabled !== undefined ? source.sfxEnabled : source.clickSoundEnabled) !== false,
+    sfxKeepAlive: (source.sfxKeepAlive !== undefined ? source.sfxKeepAlive : source.clickSoundKeepAlive) !== false,
+    sfxVolume: (typeof source.sfxVolume === 'number' ? source.sfxVolume : (typeof source.clickSoundVolume === 'number' ? source.clickSoundVolume : 0.5)),
     whisperImageEnabled: source.whisperImageEnabled === true,
     chatImageEnabled: source.chatImageEnabled === true,
     chatAnimationEnabled: source.chatAnimationEnabled === true,
@@ -121,9 +121,9 @@ function physicsBody() {
 function petsBody() {
   return Object.assign({ pets: state.pets.main }, {
     notificationsEnabled: state.globals.notificationsEnabled,
-    clickSoundEnabled: state.globals.clickSoundEnabled,
-    clickSoundKeepAlive: state.globals.clickSoundKeepAlive,
-    clickSoundVolume: state.globals.clickSoundVolume,
+    sfxEnabled: state.globals.sfxEnabled,
+    sfxKeepAlive: state.globals.sfxKeepAlive,
+    sfxVolume: state.globals.sfxVolume,
     whisperImageEnabled: state.globals.whisperImageEnabled,
     chatImageEnabled: state.globals.chatImageEnabled,
     chatAnimationEnabled: state.globals.chatAnimationEnabled,

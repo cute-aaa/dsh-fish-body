@@ -11,6 +11,7 @@ export const es: Record<Key, string> = {
   tabPet: 'Mascotas',
   tabGlobal: 'General',
   tabLook: 'Apariencia',
+  tabSfx: 'Sonido',
   tabVoice: 'Voz',
   tabModel: 'Chat',
   tabStorage: 'Almacenamiento',
@@ -159,15 +160,43 @@ export const es: Record<Key, string> = {
   notifyToggle: 'Notificaciones del sistema',
   notifyToggleHint:
     'Avisos del sistema operativo (abajo a la derecha del escritorio) al completarse una conversación, si falla la generación, cuando se solicita permiso o cuando hay que elegir; solo mientras esta ventana no tiene el foco.',
-  clickSoundToggle: 'Sonido al hacer clic',
-  clickSoundToggleHint:
-    'Reproduce el sonido de clic integrado (assets/sound/click-duck.wav, volumen 0.5) al hacer clic en una mascota; los clics repetidos en menos de 100 ms solo suenan una vez, así que varias mascotas nunca se superponen. Desactívalo para silencio total. Se escribe en la configuración del usuario al Guardar.',
-  clickSoundKeepAliveToggle: 'Mantener el audio listo',
-  clickSoundKeepAliveToggleHint:
-    'Mantiene la salida de audio abierta con un tono inaudible: el primer clic tras una pausa larga conserva su ataque y el mezclador del sistema muestra siempre una entrada «Electron» para ajustar el volumen total (voces incluidas). Coste: la salida nunca queda libre, la batería dura menos y Windows suele no suspenderse mientras hay audio activo. Activado por defecto.',
-  clickSoundVolumeLabel: 'Volumen del sonido al hacer clic',
-  clickSoundVolumeHint:
-    'Solo afecta al sonido del clic: 0 lo silencia (las voces siguen igual), 1 es el máximo. El control «Electron» del mezclador del sistema es el volumen global; ambos se multiplican.',
+  sfxToggle: 'Sonido',
+  sfxToggleHint:
+    'Reproduce los archivos configurados y los detectados automaticamente; apagado silencia todo. Casi nunca hay que configurar: un click.wav en la carpeta de la skin, en pet/<root>-sound/ o junto a una animacion se detecta solo. Sin archivo se usan los sonidos integrados.',
+  sfxKeepAliveToggle: 'Mantener el audio listo',
+  sfxKeepAliveToggleHint:
+    'Mantiene la salida abierta con una fuente inaudible de 1 LSB: el primer sonido tras un largo silencio no pierde el ataque, y el mezclador del sistema conserva una entrada "Electron" como volumen maestro. Cuesta dispositivo y bateria; Windows suele no suspender con el flujo activo.',
+  sfxVolumeLabel: 'Volumen de sonido',
+  sfxVolumeHint:
+    'Se multiplica por el volumen de cada efecto: 0 silencia solo los efectos (la voz no cambia), 1 es el maximo. La entrada del mezclador es otro volumen maestro.',
+  sfxTitle: 'Sonidos de evento',
+  sfxHint:
+    'El host decide que archivo suena en cada momento: carpeta de skin > carpeta -sound > junto a la animacion > compartido > paquete. Esta pagina solo cambia interruptores y volumen.',
+  sfxFileHint:
+    'Para cambiar un archivo, coloca el audio en la carpeta de la skin (pet/xxx-skin/click.wav) o en pet/<root>-sound/; el nombre es el del momento. Recarga esta pagina despues.',
+  sfxNone: 'sin archivo',
+  sfxTry: 'Escuchar',
+  sfxSlotClick: 'Clic',
+  sfxSlotDrag: 'Arrastre',
+  sfxSlotThrow: 'Lanzamiento',
+  sfxSlotFloor: 'Aterrizaje',
+  sfxSlotWall: 'Pared',
+  sfxSlotCeiling: 'Techo',
+  sfxSlotPet: 'Choque',
+  sfxSlotSleepStart: 'Dormirse',
+  sfxSlotSleepEnd: 'Despertar',
+  sfxOriginSkin: 'skin',
+  sfxOriginSound: 'carpeta de sonido',
+  sfxOriginAnimation: 'carpeta de animacion',
+  sfxOriginUser: 'compartido',
+  sfxOriginDefault: 'integrado',
+  sfxOriginConfig: 'configuracion',
+  sfxOriginNone: 'sin coincidencia',
+  sfxHooksTitle: 'Hooks propios',
+  sfxHooksHint:
+    'Nombres de sfx.hooks, o archivos hook-<nombre>.wav en las carpetas de sonido. Se disparan con POST /sfx/<nombre>?pet=<id>.',
+  sfxHookEmpty: 'Aun no hay hooks: agrega uno en sfx.hooks o coloca hook-<nombre>.wav.',
+  sfxHookCurlHint: 'Ejemplo: curl -X POST "http://127.0.0.1:3099/dsh-pet-7340/sfx/ding?pet=main"',
   whisperImageToggle: 'Imágenes en susurros',
   whisperImageToggleHint:
     'Adjunta un meme aleatorio del pool a cada susurro (el mapeo de imágenes está en el campo `memes` de la configuración de nivel superior). Tokens: un susurro ya llama al modelo en cada ciclo, así que la imagen solo añade el nombre + la descripción de ese meme (~100 caracteres / ~60 tokens) a la misma solicitud: insignificante.',
