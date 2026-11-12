@@ -5,6 +5,13 @@
 export const zh = {
   nav: '桌宠配置',
   intro: '管理多个桌宠：每个宠物可独立设置大小与位置（保存后即时生效）。',
+  // 分区标签条的标题（顺序见 ../tabs.ts）。
+  tabPet: '宠物',
+  tabGlobal: '全局',
+  tabLook: '外观',
+  tabVoice: '语音',
+  tabModel: '对话',
+  tabStorage: '存储',
   // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: '宠物配置',
   avatarLabel: '头像',

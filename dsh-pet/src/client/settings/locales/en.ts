@@ -6,6 +6,13 @@ import type { Key } from './zh.ts';
 export const en: Record<Key, string> = {
   nav: 'Pet Config',
   intro: 'Manage multiple pets: each pet has its own size and position (applies instantly after saving).',
+  // 分区标签条的标题（顺序见 ../tabs.ts）。
+  tabPet: 'Pets',
+  tabGlobal: 'General',
+  tabLook: 'Appearance',
+  tabVoice: 'Voice',
+  tabModel: 'Chat',
+  tabStorage: 'Storage',
   // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: 'Pet',
   avatarLabel: 'Avatar',

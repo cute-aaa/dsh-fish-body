@@ -7,6 +7,13 @@ export const es: Record<Key, string> = {
   nav: 'Configuración de mascotas',
   intro:
     'Gestiona varias mascotas: cada una tiene su propio tamaño y posición (se aplica al instante después de guardar).',
+  // 分区标签条的标题（顺序见 ../tabs.ts）。
+  tabPet: 'Mascotas',
+  tabGlobal: 'General',
+  tabLook: 'Apariencia',
+  tabVoice: 'Voz',
+  tabModel: 'Chat',
+  tabStorage: 'Almacenamiento',
   // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: 'Mascota',
   avatarLabel: 'Avatar',

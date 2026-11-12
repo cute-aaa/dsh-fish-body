@@ -7,6 +7,13 @@ export const fr: Record<Key, string> = {
   nav: 'Configuration des compagnons',
   intro:
     "Gérez plusieurs compagnons : chacun a sa taille et sa position (appliquées immédiatement après l'enregistrement).",
+  // 分区标签条的标题（顺序见 ../tabs.ts）。
+  tabPet: 'Compagnons',
+  tabGlobal: 'Général',
+  tabLook: 'Apparence',
+  tabVoice: 'Voix',
+  tabModel: 'Discussion',
+  tabStorage: 'Stockage',
   // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: 'Compagnon',
   avatarLabel: 'Avatar',

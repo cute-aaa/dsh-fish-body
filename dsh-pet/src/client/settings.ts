@@ -1,50 +1,41 @@
 /**
- * 「桌宠配置」设置页（`settings.section` 插槽，id 为 pet-config）：编辑 main 条目的宠物列表与全局默认值。
- * 本文件是装配根：持有表单状态、串起加载与写盘、把卡片拼成一页；卡片、字典、样式与 HTTP 都在 `settings/` 里。
- * 只读成品配置里可编辑的 main 条目，不自行拼条目级字段；文件宠物永不回写。
- * 保存与同步都全量写用户层，再把宿主返回的成品交给容器重渲染——两条路都无需刷新页面。
+ * 「桌宠配置」设置页（`settings.section` 插槽，id 为 pet-config）：按分区编辑宠物、全局、外观、语音、对话与存储。
+ *
+ * 本文件是装配根：分区表在 `settings/tabs.ts`，字段状态在 `settings/use-*.ts`，
+ * 分区到卡片的映射在 `settings/panels.ts`，写盘在 `settings/config/`。
+ * 这里只剩加载、写盘编排、快捷键与分区外壳，所以照旧不自己拼条目级字段；文件宠物永不回写。
+ * 保存与同步都全量写用户层，再把宿主返回的成品交给 `applyConfig`——两条路都无需刷新页面。
  * @module dsh-pet/src/client/settings
  */
-import { ROUTE_PATH } from '../shared/constants.ts';
 import { avatarUrl } from '../shared/avatar.ts';
-import { DEFAULT_FONT } from '../shared/fonts.ts';
-import { DEFAULT_PHYSICS } from '../shared/physics.ts';
-import type { FontConfig, ModelSelection, PhysicsParams, Weights } from '../shared/types.ts';
-import { readVoiceProviders, switchableProviders, type VoiceProviderView } from '../shared/voice-providers.ts';
 import type { FunctionComponent } from 'react';
-import { requestNotificationPermission } from './notify.ts';
-import { injectSettingsCss } from './settings/css.ts';
+import type { ShortcutHost } from './app-shortcut.ts';
 import { type Feedback, makeActions } from './settings/actions.ts';
 import { petBridge } from './settings/bridge.ts';
-import { type MergedConfig, readConfigEntries, readMainConfig } from './settings/config/index.ts';
-import { type DialogState, makeDialog } from './settings/dialog.ts';
-import { makeFontCard } from './settings/font-card.ts';
-import { makeGlobalCard, type GlobalFlagKey, type GlobalFlags } from './settings/global-card.ts';
+import {
+  createWriteFlow,
+  type MergedConfig,
+  readConfigEntries,
+  readMainConfig,
+  useConfigLoad,
+} from './settings/config/index.ts';
+import { injectSettingsCss } from './settings/css.ts';
+import { makeDialog, type DialogState } from './settings/dialog.ts';
 import { makeLoadStatus } from './settings/load-status.ts';
-import { makeModelCard, type ChatFlagKey, type ChatFlagValues, type ModelFieldKey } from './settings/model-card.ts';
-import { makeMobileCard } from './settings/mobile-card.ts';
-import { makeMotionCard } from './settings/motion-card.ts';
-import { makeModelPicker } from './settings/picker/index.ts';
-import { makeVoicePicker } from './settings/picker/voice-picker.ts';
-import { runNotificationTest } from './settings/notify-test.ts';
-import { makeKindTabs } from './settings/kind-tabs.ts';
-import { makePathsCards } from './settings/paths-cards.ts';
-import { makePetCard } from './settings/pet-card.ts';
-import { uploadPetAvatar } from './settings/avatar-upload.ts';
-import { makePetTabs } from './settings/pet-tabs.ts';
-import { createWriteFlow } from './settings/config/index.ts';
-import { makePhysicsCard } from './settings/physics-card.ts';
-import { makeShortcutsCard } from './settings/shortcuts-card.ts';
-import { attachTipLayer } from './settings/tip-layer.ts';
-import type { ShortcutHost } from './app-shortcut.ts';
+import { makeSettingsPanels, type SettingsPanelDeps } from './settings/panels.ts';
+import { useSaveHotkey } from './settings/save-hotkey.ts';
 import type { SettingsRuntime } from './settings/runtime.ts';
-import { useConfigLoad } from './settings/config/index.ts';
+import { DEFAULT_SETTINGS_TAB, makeTabBar, tabButtonId, tabPanelId, type SettingsTabId } from './settings/tabs.ts';
+import { attachTipLayer } from './settings/tip-layer.ts';
+import { makeUiKit } from './settings/ui.ts';
+import { useAppearanceSettings } from './settings/use-appearance-settings.ts';
+import { useAvatarUpload } from './settings/use-avatar-upload.ts';
+import { useGlobalSettings } from './settings/use-global-settings.ts';
+import { useModelSettings } from './settings/use-model-settings.ts';
+import { usePermissionTest } from './settings/use-permission-test.ts';
 import { usePetList } from './settings/use-pet-list.ts';
 import { useRemoteData } from './settings/use-remote-data.ts';
-import { makeUiKit } from './settings/ui.ts';
-import { makeVoiceCard, type VoiceOption } from './settings/voice-card.ts';
-import { makeVoiceProviderCard } from './settings/voice-provider-card.ts';
-import { DEFAULT_WEIGHTS } from '../shared/weights.ts';
+import { useVoiceSettings } from './settings/use-voice-settings.ts';
 
 // 字典与桥的真源都在 settings/ 里：宿主的 locale 注册、容器与测试夹具都经这里取，不各自深路径引用。
 export { dicts, NS } from './settings/locales/index.ts';
@@ -70,413 +61,91 @@ export function makePetConfigSection(
 
   const { q } = makeUiKit({ h, t });
 
-  // 卡片在 settings/ 里各自成文件，这里只造一次实例：组件类型必须跨渲染稳定，
-  // 否则选择器的浮层状态（打开 / 搜索词 / 高亮）每次渲染都会丢。
-  const ModelPicker = makeModelPicker({ h, useState, useEffect, useRef, t });
-  const VoicePicker = makeVoicePicker({ h, useState, useEffect, useRef });
-  const PetTabs = makePetTabs({ h, t });
-  const KindTabs = makeKindTabs({ h, t });
-  const PetCard = makePetCard(rt);
-  const GlobalCard = makeGlobalCard(rt);
-  const VoiceCard = makeVoiceCard(rt, VoicePicker);
-  const VoiceProviderCard = makeVoiceProviderCard(rt);
-  const FontCard = makeFontCard(rt);
-  const ModelCard = makeModelCard(rt, ModelPicker);
-  const PhysicsCard = makePhysicsCard(rt);
-  const MotionCard = makeMotionCard(rt);
-  const ShortcutsCard = makeShortcutsCard(rt, ctx);
-  const MobileCard = makeMobileCard(rt);
+  // 外壳部件与面板表在装配时各造一次：组件类型必须跨渲染稳定，
+  // 否则选择器与标签条的浮层 / 焦点状态每次渲染都会丢。
   const Actions = makeActions(rt);
-  const { ConfigMetaCard, StorageCard } = makePathsCards(rt);
   const SettingsDialog = makeDialog(rt);
   const LoadStatus = makeLoadStatus({ h, t });
+  const TabBar = makeTabBar({ h, t, useRef });
+  const panelsOf = makeSettingsPanels(rt, ctx);
 
   return function PetConfigSection() {
     const [saving, setBusy] = useState(false);
     const [msg, setMsg] = useState<Feedback>({ kind: '', text: '' });
-    // 权限申请的反馈，就地显示在按钮旁，与保存反馈分离。
-    const [permMsg, setPermMsg] = useState<Feedback>({ kind: '', text: '' });
-    // 设置页根节点：Ctrl+S 只在它可见时接管（DSH 若在别的设置页保持本组件挂载，不能把别人的快捷键抢走）
+    // 当前分区只是本地视图状态：不写盘，也不参与保存。
+    const [tab, setTab] = useState<SettingsTabId>(DEFAULT_SETTINGS_TAB);
+    // 设置页根节点：Ctrl+S 只在它可见时接管。
     const rootRef = useRef<HTMLElement | null>(null);
     // 确认 / 提示弹窗：remove 删除宠物、lastOne 只剩一只删不了、sync 同步覆盖、corrupt 用户配置已损坏。
     const [dialog, setDialog] = useState<DialogState>(null);
-    // 宠物列表的增删改与选中项都在 settings/use-pet-list.ts：列表覆盖全部条目（main + 文件宠物）。
-    const {
-      pets,
-      mainPets,
-      kinds,
-      kind,
-      visiblePets,
-      selId,
-      entryPrompt,
-      select,
-      selectKind,
-      update,
-      add,
-      requestRemove,
-      remove,
-      replace,
-      packWrites,
-    } = usePetList(rt, setDialog);
-    // 一次性拉取的宿主数据：落盘位置（两张路径卡）与候选模型清单（下拉框）。
-    const { paths, catalog, catalogFailed } = useRemoteData(rt);
 
-    // 说明气泡：挂 body 摆位（伪元素会被窗口边缘与滚动容器裁掉），随页面卸载一起拆。
-    useEffect(() => attachTipLayer(), []);
-
-    // 音色列表：与配置无关的一次性拉取，失败留空即可（下拉会只显示当前值）。
-    useEffect(() => {
-      let alive = true;
-      void fetch(ROUTE_PATH + '/voice/voices')
-        .then((response) => (response.ok ? response.json() : null))
-        .then((body: { voices?: VoiceOption[]; providers?: unknown } | null) => {
-          if (!alive || !body) return;
-          if (Array.isArray(body.voices)) setVoiceOptions(body.voices);
-          // 第三方实现的可切音色（GSV 本地音色包）：与 edge 白名单分开渲染，互不覆盖。
-          setProviderOptions(readVoiceProviders(body.providers));
-          // 接入配置（服务地址 / 目录）：有声明 fields 的实现才拉，值单独取一份（不回显在 voices 里）。
-          const form = readVoiceProviders(body.providers).find((item) => !item.builtin && item.fields.length > 0);
-          if (!form) return;
-          void fetch(ROUTE_PATH + '/voice/provider-config?provider=' + encodeURIComponent(form.id))
-            .then((response) => (response.ok ? response.json() : null))
-            .then((cfg: { values?: unknown } | null) => {
-              if (!alive || !cfg || typeof cfg.values !== 'object' || cfg.values === null) return;
-              const values: Record<string, string> = {};
-              for (const [key, value] of Object.entries(cfg.values as Record<string, unknown>)) {
-                if (typeof value === 'string') values[key] = value;
-              }
-              setProviderDraft(values);
-            })
-            .catch(() => undefined);
-        })
-        .catch(() => undefined);
-      return () => {
-        alive = false;
-      };
-    }, []);
-
-    // 本地音色（GSV）：一改就落盘，不随「保存」整包写——它是「换嗓子」而不是表单里的一份配置，
-    // 写的是 voice-providers.json（不重启 Helper、不重建窗口）。
-    const changeProviderVoice = useCallback((providerId: string, voice: string) => {
-      setProviderBusy(true);
-      void fetch(ROUTE_PATH + '/voice/provider-voice', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ provider: providerId, voice }),
-      })
-        .then(async (response) => {
-          const body = (await response.json().catch(() => null)) as { ok?: unknown; providers?: unknown } | null;
-          if (!response.ok || !body) throw new Error('voice/provider-voice HTTP ' + response.status);
-          if (body.ok === false) throw new Error('voice/provider-voice 被拒');
-          setProviderOptions(readVoiceProviders(body.providers));
-        })
-        .catch(() => undefined)
-        .finally(() => setProviderBusy(false));
-    }, []);
-
-    // 页面开着时每 30s 对一次可用性：服务可能被外部脚本启停（用户自己的 bat / 别的窗口），
-    // 「启动 / 停止」两个按钮的可用态必须跟着服务地址的真实状态走，不能停在打开页面那一刻。
-    useEffect(() => {
-      const timer = window.setInterval(() => {
-        void fetch(ROUTE_PATH + '/voice/voices')
-          .then((response) => (response.ok ? response.json() : null))
-          .then((body: { providers?: unknown } | null) => {
-            if (!body) return;
-            const next = readVoiceProviders(body.providers);
-            setProviderOptions(next);
-            if (next.some((item) => item.id === 'gsv' && item.available)) setProviderStarting(false);
-          })
-          .catch(() => undefined);
-      }, 30_000);
-      return () => window.clearInterval(timer);
-    }, []);
-
-    // 音色清单的重新拉取（启停后服务要几十秒才稳，单次刷新看不到变化）。
-    const pollProviders = useCallback((times: number) => {
-      let left = times;
-      const tick = (): void => {
-        if (left <= 0) return;
-        left -= 1;
-        void fetch(ROUTE_PATH + '/voice/voices')
-          .then((response) => (response.ok ? response.json() : null))
-          .then((body: { providers?: unknown } | null) => {
-            if (!body) return;
-            const next = readVoiceProviders(body.providers);
-            setProviderOptions(next);
-            // 服务真的起来了就解除「启动中」，按钮立刻翻成「停止」可点。
-            if (next.some((item) => item.id === 'gsv' && item.available)) setProviderStarting(false);
-          })
-          .catch(() => undefined)
-          .finally(() => {
-            if (left > 0) window.setTimeout(tick, 5000);
-          });
-      };
-      window.setTimeout(tick, 3000);
-    }, []);
-
-    // 启停：把用户填的脚本交给宿主执行，宿主只负责跑脚本（见 /voice/provider-process）。
-    const runProviderProcess = useCallback(
-      (providerId: string, action: 'start' | 'stop') => {
-        setProcessBusy(true);
-        setProcessMsg('');
-        void fetch(ROUTE_PATH + '/voice/provider-process', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ provider: providerId, action }),
-        })
-          .then(async (response) => {
-            const body = (await response.json().catch(() => null)) as { ok?: unknown; message?: unknown } | null;
-            if (!response.ok || !body) throw new Error('HTTP ' + response.status);
-            if (body.ok === false) throw new Error(typeof body.message === 'string' ? body.message : '脚本执行失败');
-            setProcessMsg(action === 'start' ? t('voiceProviderStarted') : t('voiceProviderStopped'));
-            if (action === 'start') {
-              setProviderStarting(true);
-              // 兜底：脚本存在但服务起不来时，90 秒后也要放开「启动」，否则只能刷新页面重试。
-              window.setTimeout(() => setProviderStarting(false), 90_000);
-            }
-            pollProviders(action === 'start' ? 12 : 3);
-          })
-          .catch((error: unknown) => setProcessMsg('!' + (error instanceof Error ? error.message : String(error))))
-          .finally(() => setProcessBusy(false));
-      },
-      [pollProviders],
-    );
-    // 不必等 provider 的 15s 软过期；失败时把原因原样显示在卡里（800 行的设置页不弹窗）。
-    // 接入配置保存（GSV 的服务地址与目录）：保存后立刻用宿主回的新状态刷新音色下拉，
-    // 不必等 provider 的 15s 软过期；失败时把原因原样显示在卡里（800 行的设置页不弹窗）。
-    const saveProviderConfig = useCallback((providerId: string, draft: Record<string, string>) => {
-      setProviderConfigBusy(true);
-      setProviderConfigMsg('');
-      void fetch(ROUTE_PATH + '/voice/provider-config', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ provider: providerId, patch: draft }),
-      })
-        .then(async (response) => {
-          const body = (await response.json().catch(() => null)) as {
-            ok?: unknown;
-            message?: unknown;
-            values?: unknown;
-            providers?: unknown;
-          } | null;
-          if (!response.ok || !body) throw new Error('HTTP ' + response.status);
-          if (body.ok === false) throw new Error(typeof body.message === 'string' ? body.message : '保存被拒');
-          if (body.providers) setProviderOptions(readVoiceProviders(body.providers));
-          if (body.values && typeof body.values === 'object') {
-            const values: Record<string, string> = {};
-            for (const [key, value] of Object.entries(body.values as Record<string, unknown>)) {
-              if (typeof value === 'string') values[key] = value;
-            }
-            setProviderDraft(values);
-          }
-          setProviderConfigMsg(t('voiceProviderSaved'));
-        })
-        .catch((error: unknown) => setProviderConfigMsg('!' + (error instanceof Error ? error.message : String(error))))
-        .finally(() => setProviderConfigBusy(false));
-    }, []);
-
-    // 系统通知总开关：与其余全局开关同构，切换只改本地状态、随「保存」整包写入。
-    // 不做即时写入：PUT /config 会重启桌面 Helper，全部桌面宠物窗口重建（拖拽落点清空、宠物跳回角落）。
-    // 引擎重读放在保存成功后（persist 里调 reloadNotifications），保存后即时生效、无需刷新。
-    const [notifyEnabled, setNotifyEnabled] = useState(true);
-    // 点击音效开关：同通知开关，随「保存」整包写入；初值 true 是内置默认，加载效应会用成品值覆盖。
-    const [clickSound, setClickSound] = useState(true);
-    // 表情包配图开关（全局）：切换只改本地状态，随「保存」一起提交。
-    const [whisperImage, setWhisperImage] = useState(false);
-    const [chatImage, setChatImage] = useState(false);
-    // 对话动作联动开关（全局）：同上，随「保存」一起提交；初值仅占位，加载成功后由成品值覆盖。
-    const [chatAnimation, setChatAnimation] = useState(true);
-    // 抛掷锁定开关（全局）：切换只改本地状态，随「保存」一起提交。
-    const [confineScreen, setConfineScreen] = useState(false);
-    // 系统托盘开关（全局）：随「保存」一起提交；宿主半侧据此决定建不建托盘、没桌面宠物时还值不值得常驻 Helper。
-    const [trayEnabled, setTrayEnabled] = useState(true);
-    // 语音播报开关与音色（全局默认）：随「保存」整包写入；初值即内置默认，加载后用成品值覆盖。
-    const [voiceEnabled, setVoiceEnabled] = useState(false);
-    const [voiceName, setVoiceName] = useState('zh-CN-XiaoyiNeural');
-    // 播放音量（全局系数 0–1）：初值 1 是内置默认（最大音量），加载后由成品值覆盖。
-    const [voiceVolume, setVoiceVolume] = useState(1);
-    // 另外三类语音开关（周期碎碎念 / 待办提醒 / 工作状态播报）：与语音播报平级，初值 false 是内置默认。
-    const [voiceWhisperEnabled, setVoiceWhisperEnabled] = useState(false);
-    const [voiceTodoEnabled, setVoiceTodoEnabled] = useState(false);
-    const [voiceNotifyEnabled, setVoiceNotifyEnabled] = useState(false);
-    // 可选音色：来自宿主 /voice/voices，拉不到就留空——下拉只显示当前值，绝不硬编码音色 id。
-    const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
-    // 第三方语音实现（GSV）：能切的音色与当前选中项；切换即时落盘，不随「保存」整包写入。
-    const [providerOptions, setProviderOptions] = useState<VoiceProviderView[]>([]);
-    const [providerBusy, setProviderBusy] = useState(false);
-    // 本地语音接入（GSV）的表单草稿与保存反馈：与「随保存整包写」的全局字段不同，这里单独提交。
-    const [providerDraft, setProviderDraft] = useState<Record<string, string>>({});
-    const [providerConfigBusy, setProviderConfigBusy] = useState(false);
-    const [providerConfigMsg, setProviderConfigMsg] = useState('');
-    // 启停（只跑用户填的脚本）：启动要几十秒，所以点完先回一句，再用探活把可用性翻过来。
-    const [processBusy, setProcessBusy] = useState(false);
-    const [processMsg, setProcessMsg] = useState('');
-    // 刚发过启动：服务加载要几十秒，这期间「启动」按住不放，避免连点起两份抢同一个端口。
-    const [providerStarting, setProviderStarting] = useState(false);
-    // 物理参数（全局）：只改本地状态，随「保存」整包写入；初值仅占位，成品加载成功后才允许编辑与保存。
-    const [physics, setPhysics] = useState<PhysicsParams>({ ...DEFAULT_PHYSICS });
-    // 字体（全局默认）：与 physics 同一套语义；初值仅占位，成品加载成功后才允许编辑与保存。
-    const [font, setFont] = useState<FontConfig>({ ...DEFAULT_FONT });
-    // 动作频率权重（main 条目）：三项合计 ≤ 100，随机动作是余量；随「保存」整包写入。
-    const [weights, setWeights] = useState<Weights>({ ...DEFAULT_WEIGHTS });
-    // AI 模型（条目级）：碎碎念 / 对话各自的服务商与模型，两者都留空 = 跟随当前对话；随「保存」整包写入。
-    const [whisperModel, setWhisperModel] = useState<ModelSelection>({ provider: '', model: '' });
-    const [chatModel, setChatModel] = useState<ModelSelection>({ provider: '', model: '' });
-    // 对话历史条数（全局默认）：初值 10 是内置默认，加载效应会用成品 main.chatMemoryRounds 覆盖。
-    const [chatMemory, setChatMemory] = useState(10);
-    // 对话配图张数上限（全局默认）：初值 20 是内置默认，加载后由成品值覆盖。
-    const [chatImageLimit, setChatImageLimit] = useState(20);
-    // 头像预览的破缓存版本号：上传成功后换一个，预览才会重新取图（同一 URL 会被浏览器记住）。
-    const [avatarVersion, setAvatarVersion] = useState(Date.now());
-    // 头像上传中：按钮禁用并换文案，与「保存」的 busy 分开——上传不写配置。
-    const [avatarBusy, setAvatarBusy] = useState(false);
+    // 各分区的字段状态各归各的文件；这里只按顺序取用，不碰它们的内部状态。
+    const list = usePetList(rt, setDialog);
+    const global = useGlobalSettings(rt);
+    const voice = useVoiceSettings(rt);
+    const model = useModelSettings(rt);
+    const look = useAppearanceSettings(rt);
+    // 一次性拉取的宿主数据：落盘位置（存储分区两张卡）与候选模型清单（对话分区的下拉框）。
+    const remote = useRemoteData(rt);
+    // 头像上传不走「保存」；测试通知的反馈与保存反馈分开放。
+    const current = list.pets.find((pet) => pet.id === list.selId) ?? null;
+    const avatar = useAvatarUpload(rt, { pet: current, report: setMsg, t });
+    const permission = usePermissionTest(rt);
 
     // 首次读取与恢复默认必须更新同一组控件，避免下一次保存回写过期值。
+    // 每个分区只认自己那几项，这里按分区派发，不逐字段 setState。
+    const { replace } = list;
+    const applyGlobal = global.apply;
+    const applyVoice = voice.apply;
+    const applyModel = model.apply;
+    const applyLook = look.apply;
     const applyConfig = useCallback(
-      (merged: MergedConfig) => {
-        // 条目列表与全局字段各取一份：前者给标签条与保存时的写回计划，后者给全局卡片。
+      (merged: MergedConfig): void => {
+        // 条目列表与全局字段各取一份：前者给标签条与保存时的写回计划，后者给各分区卡片。
         const entries = readConfigEntries(merged);
         const patch = readMainConfig(merged);
         if (entries === null || patch === null) throw new Error('Invalid config response');
         replace(entries);
-        if (patch.notificationsEnabled !== undefined) setNotifyEnabled(patch.notificationsEnabled);
-        if (patch.clickSoundEnabled !== undefined) setClickSound(patch.clickSoundEnabled);
-        if (patch.whisperImageEnabled !== undefined) setWhisperImage(patch.whisperImageEnabled);
-        if (patch.chatImageEnabled !== undefined) setChatImage(patch.chatImageEnabled);
-        if (patch.chatAnimationEnabled !== undefined) setChatAnimation(patch.chatAnimationEnabled);
-        if (patch.confineToScreen !== undefined) setConfineScreen(patch.confineToScreen);
-        if (patch.trayEnabled !== undefined) setTrayEnabled(patch.trayEnabled);
-        if (patch.voiceEnabled !== undefined) setVoiceEnabled(patch.voiceEnabled);
-        if (patch.voiceName !== undefined) setVoiceName(patch.voiceName);
-        if (patch.voiceVolume !== undefined) setVoiceVolume(patch.voiceVolume);
-        if (patch.voiceWhisperEnabled !== undefined) setVoiceWhisperEnabled(patch.voiceWhisperEnabled);
-        if (patch.voiceTodoEnabled !== undefined) setVoiceTodoEnabled(patch.voiceTodoEnabled);
-        if (patch.voiceNotifyEnabled !== undefined) setVoiceNotifyEnabled(patch.voiceNotifyEnabled);
-        if (patch.physics !== undefined) setPhysics(patch.physics);
-        if (patch.font !== undefined) setFont(patch.font);
-        if (patch.animationWeights !== undefined) setWeights(patch.animationWeights);
-        if (patch.whisperModel !== undefined) setWhisperModel(patch.whisperModel);
-        if (patch.chatModel !== undefined) setChatModel(patch.chatModel);
-        if (patch.chatMemoryRounds !== undefined) setChatMemory(patch.chatMemoryRounds);
-        if (patch.chatImageLimit !== undefined) setChatImageLimit(patch.chatImageLimit);
+        applyGlobal(patch);
+        applyVoice(patch);
+        applyModel(patch);
+        applyLook(patch);
       },
-      [replace],
+      [replace, applyGlobal, applyVoice, applyModel, applyLook],
     );
 
     // 配置没就绪（加载中 / 失败）时整页只读，避免在占位值上编辑再保存回去。
     const { loadState, retry } = useConfigLoad(rt, applyConfig);
     const busy = saving || loadState !== 'ready';
 
-    // 切换系统通知：只改本地状态（开启时顺带借这次用户手势申请权限），配置在点「保存」时整包写入。
-    const toggleNotify = async (v: boolean) => {
-      setNotifyEnabled(v);
-      // 开启时借用户手势申请系统通知权限（无手势的自动申请可能被浏览器静默压制）。
-      if (v) await requestNotificationPermission();
-    };
-
-    // 「测试弹窗」：先拿权限再发一条测试通知，理由与引导就地显示。
-    const testNotification = () => void runNotificationTest({ t, report: setPermMsg });
-
-    // 当前选中的宠物对象（表单数据源）；selId 由 add/remove/sync 同步维护，列表非空时恒有效
-    const cur = pets.find((p) => p.id === selId) ?? null;
-    // 头像只能属于 pet pack：main（含没有 assetRoot 的实例）用插件默认 logo，不给上传入口。
-    const avatarEditable = cur !== null && cur.assetRoot !== undefined && cur.assetRoot !== 'main';
-
-    /** 上传当前宠物的头像：直接落盘、不经过「保存」——头像不是配置字段，改完不必再点保存。
-     *  归属看素材根（文件宠物是目录前缀，同一素材根的多只实例共用一张）。 */
-    const uploadAvatar = (file: File): void => {
-      if (cur === null) return;
-      const assetRoot = cur.assetRoot ?? '';
-      setAvatarBusy(true);
-      void (async () => {
-        try {
-          const result = await uploadPetAvatar(assetRoot, file);
-          if (!result.ok) {
-            setMsg({ kind: 'err', text: result.message });
-            return;
-          }
-          // 换版本号让预览立刻重取，否则浏览器还拿缓存里的旧图。
-          setAvatarVersion(Date.now());
-          setMsg({ kind: 'ok', text: t('avatarUploaded') });
-        } catch (error) {
-          setMsg({ kind: 'err', text: error instanceof Error ? error.message : String(error) });
-        } finally {
-          setAvatarBusy(false);
-        }
-      })();
-    };
+    // 说明气泡：挂 body 摆位（伪元素会被窗口边缘与滚动容器裁掉），随页面卸载一起拆。
+    useEffect(() => attachTipLayer(), []);
 
     // 文件宠物条目数：只用于标题提示「另 n 只来自 pet/ 目录」。
-    const packCount = kinds.filter((item) => item.kind === 'pack').length;
+    const packCount = list.kinds.filter((item) => item.kind === 'pack').length;
 
-    // 七个顶层开关的当前值：卡片各认自己那几项，键名与成品配置字段同名。
-    const globalFlags: GlobalFlags = {
-      notificationsEnabled: notifyEnabled,
-      clickSoundEnabled: clickSound,
-      confineToScreen: confineScreen,
-      trayEnabled,
-    };
-    const chatFlags: ChatFlagValues = {
-      whisperImageEnabled: whisperImage,
-      chatImageEnabled: chatImage,
-      chatAnimationEnabled: chatAnimation,
-    };
-
-    // 通知开关要借用户手势申请权限，其余六个是纯 setState；统一成「键名 → setter」的查表，避免长 switch。
-    // 两束开关共用这张表：键名到 setter 的映射只写一遍，卡片只管回传键名。
-    const flagSetters: Record<GlobalFlagKey | ChatFlagKey, (value: boolean) => void> = {
-      notificationsEnabled: (value) => void toggleNotify(value),
-      clickSoundEnabled: setClickSound,
-      confineToScreen: setConfineScreen,
-      trayEnabled: setTrayEnabled,
-      whisperImageEnabled: setWhisperImage,
-      chatImageEnabled: setChatImage,
-      chatAnimationEnabled: setChatAnimation,
-    };
-    const setGlobalFlag = (key: GlobalFlagKey, value: boolean): void => flagSetters[key](value);
-    const setChatFlag = (key: ChatFlagKey, value: boolean): void => flagSetters[key](value);
-
-    /** 局部补丁写入：字体与物理参数都是「整段对象 + 改几个字段」。 */
-    const patchFont = (patch: Partial<FontConfig>): void => setFont((current) => ({ ...current, ...patch }));
-    const patchPhysics = (patch: Partial<PhysicsParams>): void => setPhysics((current) => ({ ...current, ...patch }));
-
-    // 本地音色那一格只列第一个「有音色可切」的实现（今天只有 GSV）；没有就不出现这一格。
-    const localProvider = switchableProviders(providerOptions)[0];
-    // 接入表单只跟「声明了 fields 的实现」走（内置 edge 没有），可用与否都显示——服务没起时更要能改地址。
-    const providerForm = providerOptions.find((item) => !item.builtin && item.fields.length > 0);
-
-    /** 两个模型字段各有一份状态，卡片只回传键名。 */
-    const setModel = (key: ModelFieldKey, value: ModelSelection): void => {
-      if (key === 'whisperModel') setWhisperModel(value);
-      else setChatModel(value);
-    };
-
-    // 写路径在 settings/write-flow.ts：保存、请求同步与「确认」派发都走同一条校验与落盘。
+    // 写路径在 settings/config/write-flow.ts：保存、请求同步与「确认」派发都走同一条校验与落盘。
     // 传的是回调而不是值——save 每次渲染重建，捕获状态会拿旧值存盘。
+    // 请求体按分区摊平：每个分区自己那几项，键名与成品配置字段同名。
     const write = createWriteFlow({
       fields: () => ({
         // PUT /config 只写用户主配置：只能提交 main 层实例，pack 实例走 POST /pet-config。
-        pets: mainPets,
-        notificationsEnabled: notifyEnabled,
-        clickSoundEnabled: clickSound,
-        whisperImageEnabled: whisperImage,
-        chatImageEnabled: chatImage,
-        chatAnimationEnabled: chatAnimation,
-        confineToScreen: confineScreen,
-        trayEnabled,
-        voiceEnabled,
-        voiceName,
-        voiceVolume,
-        voiceWhisperEnabled,
-        voiceTodoEnabled,
-        voiceNotifyEnabled,
-        physics,
-        whisperModel,
-        chatModel,
-        chatMemoryRounds: chatMemory,
-        chatImageLimit,
-        font,
-        animationWeights: weights,
+        pets: list.mainPets,
+        ...global.values,
+        ...model.chatFlags,
+        voiceEnabled: voice.enabled,
+        voiceName: voice.name,
+        voiceVolume: voice.volume,
+        voiceWhisperEnabled: voice.whisper,
+        voiceTodoEnabled: voice.todo,
+        voiceNotifyEnabled: voice.notify,
+        physics: look.physics,
+        whisperModel: model.whisperModel,
+        chatModel: model.chatModel,
+        chatMemoryRounds: model.chatMemory,
+        chatImageLimit: model.chatImageLimit,
+        font: look.font,
+        animationWeights: look.weights,
       }),
       busy: () => busy,
       setBusy,
@@ -484,35 +153,29 @@ export function makePetConfigSection(
       setDialog,
       dialog: () => dialog,
       applyConfig,
-      packWrites,
-      userFile: () => paths?.user ?? '',
+      packWrites: list.packWrites,
+      userFile: () => remote.paths?.user ?? '',
       t,
-      onRemove: remove,
+      onRemove: list.remove,
     });
 
-    // 快捷键必须用最新的 save：save 每次渲染都重建（闭包捕获 pets / physics 等状态），
-    // 直接塞进 useEffect([]) 会拿旧状态存盘；这里每次渲染转发一次。
-    const saveRef = useRef<() => void>(() => {});
-    useEffect(() => {
-      saveRef.current = () => void write.save();
-    });
+    useSaveHotkey(rt, rootRef, () => void write.save());
 
-    // Ctrl+S / Cmd+S 保存：页面很长，改完不必滚到底部找按钮。
-    // 只在本设置页可见时接管，且只在真要保存时 preventDefault，否则会拦掉浏览器的「保存网页」。
-    useEffect(() => {
-      const onKey = (e: KeyboardEvent): void => {
-        if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
-        if (e.key.toLowerCase() !== 's') return;
-        const root = rootRef.current;
-        if (!root || !root.isConnected || root.getClientRects().length === 0) return;
-        e.preventDefault();
-        saveRef.current();
-      };
-      document.addEventListener('keydown', onKey);
-      return () => document.removeEventListener('keydown', onKey);
-    }, []);
+    const deps: SettingsPanelDeps = {
+      busy,
+      list,
+      feedback: msg,
+      // 预览与聊天面板同一个地址：内置回默认 logo，所以无需区分「有没有头像」。
+      avatar: { src: avatarUrl(current?.assetRoot ?? '', avatar.version), busy: avatar.busy, onPick: avatar.upload },
+      onSave: () => void write.save(),
+      remote,
+      global,
+      voice,
+      model,
+      look,
+    };
+    const panels = panelsOf(deps);
 
-    // 卡片顺序即阅读顺序：先编辑宠物，再改全局默认，最后是落盘位置与弹窗。
     return h('section', {
       ref: rootRef,
       className: 'dsh-pet-cfg',
@@ -529,112 +192,33 @@ export function makePetConfigSection(
 
         h(LoadStatus, { loadState, onRetry: retry }),
 
-        h(KindTabs, { kinds, kind, busy, onSelect: selectKind }),
-        h(PetTabs, { pets: visiblePets, selId, busy, onSelect: select, onAdd: add }),
-        h(PetCard, {
-          pet: cur,
-          busy,
-          msg,
-          entryPrompt,
-          // 预览与聊天面板同一个地址：内置回默认 logo，所以无需区分「有没有头像」。
-          avatarSrc: avatarUrl(cur?.assetRoot ?? '', avatarVersion),
-          avatarBusy,
-          // 内置条目没有这个能力：不传 onAvatar，卡片就只渲染预览。
-          ...(avatarEditable ? { onAvatar: uploadAvatar } : {}),
-          onChange: update,
-          onSave: () => void write.save(),
-          onRemove: requestRemove,
+        // 只渲染当前分区：其余分区的卡片不构造节点（字段状态仍在各 hook 里，切回来不丢）。
+        h(TabBar, { active: tab, onSelect: setTab }),
+        h('div', {
+          role: 'tabpanel',
+          id: tabPanelId(tab),
+          'aria-labelledby': tabButtonId(tab),
+          className: 'dsh-pet-cfg__panel',
+          children: panels[tab](),
         }),
-        h(GlobalCard, { busy, values: globalFlags, onChange: setGlobalFlag }),
-        h(VoiceCard, {
-          busy,
-          enabled: voiceEnabled,
-          voiceName,
-          volume: voiceVolume,
-          voices: voiceOptions,
-          // 本地音色（GSV）：有可切音色才出现这一格；服务没起时置灰，说明写在 hint 里。
-          ...(localProvider === undefined
-            ? {}
-            : {
-                localVoices: localProvider.voices.map((voice) => ({
-                  id: voice.id,
-                  name: voice.name,
-                  tag: voice.tag ?? '',
-                })),
-                localVoice: localProvider.voice,
-                localAvailable: localProvider.available,
-                localReason: localProvider.reason ?? '',
-                localBusy: providerBusy,
-                onLocalVoiceChange: (id: string) => changeProviderVoice(localProvider.id, id),
-              }),
-          whisperEnabled: voiceWhisperEnabled,
-          todoEnabled: voiceTodoEnabled,
-          notifyEnabled: voiceNotifyEnabled,
-          onToggle: setVoiceEnabled,
-          onVoiceChange: setVoiceName,
-          onVolumeChange: setVoiceVolume,
-          onWhisperToggle: setVoiceWhisperEnabled,
-          onTodoToggle: setVoiceTodoEnabled,
-          onNotifyToggle: setVoiceNotifyEnabled,
-        }),
-        providerForm
-          ? h(VoiceProviderCard, {
-              busy: providerConfigBusy,
-              name: providerForm.name,
-              available: providerForm.available,
-              reason: providerForm.reason ?? '',
-              fields: providerForm.fields,
-              values: providerDraft,
-              message: providerConfigMsg,
-              onChange: (key: string, value: string) => setProviderDraft((draft) => ({ ...draft, [key]: value })),
-              onSave: () => saveProviderConfig(providerForm.id, providerDraft),
-              canStart: Boolean(providerDraft.startScript),
-              // 停止总有办法：配了脚本就跑脚本，没配就走 api_v2 的 /control?command=exit。
-              canStop: true,
-              running: providerForm.available,
-              starting: providerStarting,
-              processBusy,
-              processMessage: processMsg,
-              onStart: () => runProviderProcess(providerForm.id, 'start'),
-              onStop: () => runProviderProcess(providerForm.id, 'stop'),
-            })
-          : null,
-        h(FontCard, { busy, font, onChange: patchFont }),
-        h(ModelCard, {
-          busy,
-          catalog,
-          failed: catalogFailed,
-          whisperModel,
-          chatModel,
-          onModelChange: setModel,
-          chatMemory,
-          chatImageLimit,
-          onChatMemoryChange: setChatMemory,
-          onChatImageLimitChange: setChatImageLimit,
-          values: chatFlags,
-          onFlagChange: setChatFlag,
-        }),
-        h(PhysicsCard, { busy, physics, onChange: patchPhysics }),
-        h(MotionCard, { busy, weights, onChange: setWeights }),
-        h(MobileCard, { busy, physics, onChange: patchPhysics }),
+
+        // 操作区不属任何分区：保存按钮在任何分区里都在同一位置。
         h(Actions, {
           busy,
           msg,
-          permMsg,
+          permMsg: permission.message,
           onSave: () => void write.save(),
           onSync: write.requestSync,
-          onTestNotification: testNotification,
+          onTestNotification: permission.test,
         }),
 
-        // 保存按钮以下是参考类卡片：只读说明，改不改都不用点保存。
-        h(ShortcutsCard, {}),
-
-        // 落盘位置两张卡都靠 meta，读不到就整块不出现。
-        paths ? h(ConfigMetaCard, { paths }) : null,
-        paths ? h(StorageCard, { paths }) : null,
-
         dialog
-          ? h(SettingsDialog, { dialog, selId, onDismiss: () => setDialog(null), onConfirm: write.confirmDialog })
+          ? h(SettingsDialog, {
+              dialog,
+              selId: list.selId,
+              onDismiss: () => setDialog(null),
+              onConfirm: write.confirmDialog,
+            })
           : null,
       ],
     });

@@ -53,6 +53,17 @@ const SETTINGS_CSS = [
   '.dsh-pet-cfg{container-type:inline-size;display:flex;flex-direction:column;gap:12px;color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px}',
   '.dsh-pet-cfg__title{display:flex;align-items:center;gap:6px;margin:0;font-size:16px;font-weight:500;line-height:24px}',
 
+  // 分区标签条：只渲染当前分区的卡片，标签条本身常驻在标题下、操作区之上。
+  '.dsh-pet-cfg__nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--dsw-alias-border-l2)}',
+  '.dsh-pet-cfg__navItem{padding:3px 12px;border:1px solid transparent;border-radius:999px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;line-height:20px;cursor:pointer;white-space:nowrap}',
+  '.dsh-pet-cfg__navItem:hover:not(.is-active){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}',
+  '.dsh-pet-cfg__navItem:focus-visible{outline:none;box-shadow:0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}',
+  '.dsh-pet-cfg__navItem.is-active{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-primary)}',
+  // 分区容器：卡片的纵向节奏由这里给，卡片自己不再带外边距。
+  '.dsh-pet-cfg__panel{display:flex;flex-direction:column;gap:12px;min-width:0}',
+  // 多卡分区包一层的容器：display:contents 让它不出盒子，子卡直接吃上面的纵向 flex。
+  '.dsh-pet-cfg__group{display:contents}',
+
   '.dsh-pet-cfg__card{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px}',
   '.dsh-pet-cfg__cardHead{display:flex;align-items:center;gap:6px;min-height:20px}',
   '.dsh-pet-cfg__cardTitle{font-size:13px;font-weight:500;color:var(--dsw-alias-label-primary)}',

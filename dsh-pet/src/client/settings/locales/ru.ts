@@ -6,6 +6,13 @@ import type { Key } from './zh.ts';
 export const ru: Record<Key, string> = {
   nav: 'Настройки питомца',
   intro: 'Управляйте несколькими питомцами: у каждого свои размер и позиция (применяются сразу после сохранения).',
+  // 分区标签条的标题（顺序见 ../tabs.ts）。
+  tabPet: 'Питомцы',
+  tabGlobal: 'Общие',
+  tabLook: 'Внешний вид',
+  tabVoice: 'Голос',
+  tabModel: 'Чат',
+  tabStorage: 'Хранилище',
   // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: 'Питомец',
   avatarLabel: 'Аватар',
