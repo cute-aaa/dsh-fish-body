@@ -34,6 +34,8 @@ export interface ClickSfxOptions {
   readonly volume?: number;
   /** 连点节流窗口（毫秒），缺省 100。 */
   readonly throttleMs?: number;
+  /** 常驻预热：用一个听不见的极小音源一直占着输出流，首声不依赖设备重新开流。缺省 false。 */
+  readonly keepAlive?: boolean;
 }
 
 /** 生效中的参数：可选值已填默认，播放路径不必再兜。 */
@@ -41,6 +43,7 @@ interface ResolvedClickSfx {
   readonly url: string;
   readonly volume: number;
   readonly throttleMs: number;
+  readonly keepAlive: boolean;
 }
 
 /** 已经生效的播放参数；开关打开前为空，此时点击一律不响。 */
@@ -90,7 +93,9 @@ export function setClickSfxEnabled(enabled: boolean, nextOptions?: ClickSfxOptio
   // 第一个手势后才真正兑现。兑现前点击会走「先 resume 再起播」或回退路径，都不会静默丢声。
   if (audio.state !== 'running') void audio.resume().catch(() => {});
   if (options !== null) startDecode(audio, options.url);
-  startKeepalive(audio);
+  // 常驻预热是可选项：默认关着，设备闲置就让它歇着，代价是久不点之后的第一次可能缺音头。
+  if (options !== null && options.keepAlive) startKeepalive(audio);
+  else stopKeepalive();
   logPath('web-audio');
 }
 
@@ -121,14 +126,14 @@ export function playClickSfx(): boolean {
     void Promise.race([audio.resume(), wait(RESUME_WAIT_MS)])
       .then(() => {
         if (audio.state !== 'running') return playFallback(current);
-        startKeepalive(audio);
+        if (current.keepAlive) startKeepalive(audio);
         return startSource(audio, buffer, volume);
       })
       .catch(() => playFallback(current));
     return true;
   }
   logClick('web-audio');
-  startKeepalive(audio);
+  if (current.keepAlive) startKeepalive(audio);
   startSource(audio, buffer, volume);
   return true;
 }
@@ -149,7 +154,7 @@ function playWhileDecoding(audio: AudioContext, current: ResolvedClickSfx): bool
     .then(() => {
       const ready = decoded;
       if (ready === null) return playFallback(current);
-      startKeepalive(audio);
+      if (current.keepAlive) startKeepalive(audio);
       return startSource(audio, ready, current.volume);
     })
     .catch(() => playFallback(current));
@@ -190,8 +195,9 @@ function applyOptions(next: ClickSfxOptions): void {
   const url = next.url;
   const volume = next.volume ?? DEFAULT_VOLUME;
   const throttleMs = next.throttleMs ?? DEFAULT_THROTTLE_MS;
+  const keepAlive = next.keepAlive === true;
   const isNewUrl = options !== null && options.url !== url;
-  const resolved: ResolvedClickSfx = { url, volume, throttleMs };
+  const resolved: ResolvedClickSfx = { url, volume, throttleMs, keepAlive };
   options = resolved;
   if (!isNewUrl) return;
   decoded = null;
@@ -225,7 +231,7 @@ function bindAutoResume(audio: AudioContext): void {
   audio.addEventListener('statechange', () => {
     if (!sfxEnabled) return;
     if (audio.state === 'running') {
-      startKeepalive(audio);
+      if (options !== null && options.keepAlive) startKeepalive(audio);
       return;
     }
     if (audio.state === 'suspended') void audio.resume().catch(() => {});

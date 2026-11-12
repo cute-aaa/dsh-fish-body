@@ -20,6 +20,8 @@ export interface MainConfigPatch {
   entryPrompt?: string;
   notificationsEnabled?: boolean;
   clickSoundEnabled?: boolean;
+  /** 点击音效的常驻预热；缺省表示这次响应里没有可信值。 */
+  clickSoundKeepAlive?: boolean;
   whisperImageEnabled?: boolean;
   chatImageEnabled?: boolean;
   /** 对话动作联动开关；缺省表示这次响应里没有可信值。 */
@@ -80,6 +82,7 @@ export function readMainConfig(merged: MergedConfig): MainConfigPatch | null {
   if (typeof main.whisperPrompt === 'string') patch.entryPrompt = main.whisperPrompt;
   if (typeof main.notificationsEnabled === 'boolean') patch.notificationsEnabled = main.notificationsEnabled;
   if (typeof main.clickSoundEnabled === 'boolean') patch.clickSoundEnabled = main.clickSoundEnabled;
+  if (typeof main.clickSoundKeepAlive === 'boolean') patch.clickSoundKeepAlive = main.clickSoundKeepAlive;
   if (typeof main.whisperImageEnabled === 'boolean') patch.whisperImageEnabled = main.whisperImageEnabled;
   if (typeof main.chatImageEnabled === 'boolean') patch.chatImageEnabled = main.chatImageEnabled;
   if (typeof main.chatAnimationEnabled === 'boolean') patch.chatAnimationEnabled = main.chatAnimationEnabled;

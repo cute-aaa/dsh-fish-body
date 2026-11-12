@@ -14,9 +14,10 @@ const CLICK_SOUND_URL = ROUTE_PATH + '/sound/click-duck.wav';
  * 打开或关闭点击音效。
  *
  * @param enabled - 成品配置里的 `clickSoundEnabled`。
+ * @param keepAlive - 成品配置里的 `clickSoundKeepAlive`：常驻预热，默认关。
  */
-export function setClickSoundEnabled(enabled: boolean): void {
-  setClickSfxEnabled(enabled, { url: CLICK_SOUND_URL });
+export function setClickSoundEnabled(enabled: boolean, keepAlive = false): void {
+  setClickSfxEnabled(enabled, { url: CLICK_SOUND_URL, keepAlive });
 }
 
 /** 播放点击音效；开关关闭、节流中或音频不可用时静默返回。 */

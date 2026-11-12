@@ -232,6 +232,9 @@ export interface ClientConfig {
   /** 点击音效开关：true = 点击宠物时播放内置 click-duck.wav（音量 0.5、100ms 内去重），false = 静音。
    *  内置默认 false（默认静音，不突袭既有用户）。只读 main 条目这一份，pet pack 不单独覆盖。 */
   clickSoundEnabled: boolean;
+  /** 点击音效的常驻预热：true = 开着音效期间用一个听不见的极小音源一直占着音频设备，久不点之后
+   *  的第一次点击也不会缺音头；false = 设备闲置即释放。内置默认 false（不替用户常占设备）。 */
+  clickSoundKeepAlive: boolean;
   /** 桌面模式系统托盘开关：true = 桌面端启动后在通知区域（macOS 为菜单栏）建托盘，列出配置里全部宠物
    *  （含 display 为 web/none 的），勾选即可切回桌面；false = 不建。
    *  缺失默认 true。关掉后「把不在桌面的宠物叫回桌面」在桌面侧没有入口，只能走设置页或网页端右键菜单。 */

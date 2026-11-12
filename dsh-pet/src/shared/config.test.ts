@@ -212,7 +212,7 @@ describe('flattenConfigPets —— 成品 → 渲染列表的唯一填充点', (
     //    即时写盘会让宿主重启桌面 Helper（全部桌面宠物窗口重建：拖拽落点清空、宠物跳回配置角落）。
     //    这条已换成行为测试，不再读源码：
     //      · 切开关不发请求 → client/settings/use-global-settings.test.ts
-    //      · 请求体带四个全局开关（含通知）→ client/settings/save-fields.test.ts
+    //      · 请求体带五个全局开关（含通知与点击音效常驻预热）→ client/settings/save-fields.test.ts
     // ⑧ 物理参数（设置页「物理」区）必须真的提交：physics 必须在白名单里（只在 existing 里
     //    透传时，前端就算把输入框画出来、改了值，写盘时也会被丢弃）。守卫两侧：
     //    「保存」请求体必须带 physics；宿主必须用同一份 physicsValid 整段校验它。

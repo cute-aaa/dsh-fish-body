@@ -19,7 +19,7 @@ import type { VoiceSettings } from './use-voice-settings.ts';
 export interface SaveFieldParts {
   /** main 层实例：`PUT /config` 只写用户主配置，pack 实例走 `POST /pet-config`。 */
   readonly pets: readonly Pet[];
-  /** 四个全局开关，键名即成品字段名。 */
+  /** 五个全局开关，键名即成品字段名。 */
   readonly global: GlobalFlags;
   /** 三个对话开关，键名即成品字段名。 */
   readonly chat: ChatFlagValues;

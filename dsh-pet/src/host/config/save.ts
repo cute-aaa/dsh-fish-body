@@ -135,6 +135,9 @@ export function saveUserConfig(
   // 点击音效开关（全局布尔，与 notificationsEnabled 同语义）：传了必须是布尔，没传走透传保留
   const cse = o.clickSoundEnabled;
   if (cse !== undefined && typeof cse !== 'boolean') return null;
+  // 点击音效的常驻预热（全局布尔）：同一套语义——传了必须是布尔，没传走透传保留
+  const csk = o.clickSoundKeepAlive;
+  if (csk !== undefined && typeof csk !== 'boolean') return null;
   const wie = o.whisperImageEnabled;
   if (wie !== undefined && typeof wie !== 'boolean') return null;
   const cie = o.chatImageEnabled;
@@ -204,11 +207,12 @@ export function saveUserConfig(
     turn: Number(v.turn),
     move: Number(v.move),
   });
-  // 白名单可编辑字段：pets 来自请求体，其余（四个全局开关 / physics / 两个模型 /
+  // 白名单可编辑字段：pets 来自请求体，其余（五个全局开关 / physics / 两个模型 /
   // 对话历史条数）同样只在请求体真的传了时才写（未传则走下面的透传保留，不凭空造值）
   const outConfig: { pets: unknown[]; [key: string]: unknown } = { pets: out };
   if (ne !== undefined) outConfig.notificationsEnabled = ne;
   if (cse !== undefined) outConfig.clickSoundEnabled = cse;
+  if (csk !== undefined) outConfig.clickSoundKeepAlive = csk;
   if (wie !== undefined) outConfig.whisperImageEnabled = wie;
   if (cie !== undefined) outConfig.chatImageEnabled = cie;
   if (cae !== undefined) outConfig.chatAnimationEnabled = cae;
@@ -235,6 +239,7 @@ export function saveUserConfig(
   const bodyOwned = new Set(['pets']);
   if (ne !== undefined) bodyOwned.add('notificationsEnabled');
   if (cse !== undefined) bodyOwned.add('clickSoundEnabled');
+  if (csk !== undefined) bodyOwned.add('clickSoundKeepAlive');
   if (wie !== undefined) bodyOwned.add('whisperImageEnabled');
   if (cie !== undefined) bodyOwned.add('chatImageEnabled');
   if (cae !== undefined) bodyOwned.add('chatAnimationEnabled');

@@ -65,8 +65,11 @@ describe('readMainConfig —— 成品聚合 → 表单补丁', () => {
     const patch = readMainConfig({ main: { pets: [] } });
     assert.equal('notificationsEnabled' in (patch ?? {}), false);
     assert.equal('trayEnabled' in (patch ?? {}), false);
+    assert.equal('clickSoundKeepAlive' in (patch ?? {}), false);
     const withFlag = readMainConfig({ main: { pets: [], trayEnabled: false } });
     assert.equal(withFlag?.trayEnabled, false);
+    const keepAlive = readMainConfig({ main: { pets: [], clickSoundKeepAlive: true } });
+    assert.equal(keepAlive?.clickSoundKeepAlive, true, 'true 是合法值，要带出来');
   });
 
   test('语音细分开关：布尔原样带出，缺失或非布尔不进补丁', () => {

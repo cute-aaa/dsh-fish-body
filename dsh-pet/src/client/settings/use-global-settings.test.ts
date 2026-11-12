@@ -65,6 +65,19 @@ describe('useGlobalSettings —— 切开关只改本地状态', () => {
     assert.equal(spy.calls.length, 0, '切开关不得即时写盘（会重启桌面 Helper）');
   });
 
+  test('常驻预热：默认关，切一下只写本地值', () => {
+    const { rt, writes } = fakeRuntime();
+    const spy = spyFetch();
+    spies.push(spy.restore);
+    const flags = useGlobalSettings(rt);
+
+    assert.deepEqual(flags.values.clickSoundKeepAlive, false, '常驻预热默认不勾（不替用户常占音频设备）');
+    flags.setFlag('clickSoundKeepAlive', true);
+
+    assert.deepEqual(writes, [true]);
+    assert.equal(spy.calls.length, 0, '切开关不得即时写盘');
+  });
+
   test('通知开关：同样只写本地值（权限申请由浏览器处理，不是写配置）', () => {
     const { rt, writes } = fakeRuntime();
     const spy = spyFetch();
@@ -92,8 +105,14 @@ describe('useGlobalSettings —— apply 只覆盖响应里出现的键', () => 
     const { rt, writes } = fakeRuntime();
     const flags = useGlobalSettings(rt);
 
-    flags.apply({ notificationsEnabled: false, clickSoundEnabled: false, confineToScreen: true, trayEnabled: false });
+    flags.apply({
+      notificationsEnabled: false,
+      clickSoundEnabled: false,
+      clickSoundKeepAlive: true,
+      confineToScreen: true,
+      trayEnabled: false,
+    });
 
-    assert.deepEqual(writes, [false, false, true, false]);
+    assert.deepEqual(writes, [false, false, true, true, false]);
   });
 });

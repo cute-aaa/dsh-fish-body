@@ -156,6 +156,9 @@ export const ja: Record<Key, string> = {
   clickSoundToggle: 'クリック音',
   clickSoundToggleHint:
     'ペットをクリックすると内蔵の効果音（assets/sound/click-duck.wav、音量 0.5）が一度鳴ります。100ms 以内の連続クリックは1回だけ鳴り、複数起動しても重なりません。オフにすると完全に無音になります。「保存」と一緒にユーザー設定へ書き込まれます。',
+  clickSoundKeepAliveToggle: 'クリック音を常時ウォーム',
+  clickSoundKeepAliveToggleHint:
+    '聴こえない微小な音で音声出力を開いたままにし、しばらく触っていない後の最初のクリックでもアタックが欠けないようにします。代わりに出力デバイスは空かず（ミキサーに常に表示されます）、ノート PC は電池を多く使います。既定はオフ。',
   whisperImageToggle: 'ひとりごとの画像',
   whisperImageToggleHint:
     'ひとりごとのとき、ミーム画像プールからランダムに1枚を選び、その一言と一緒に表示します（画像のマッピングは設定ファイルのトップレベル memes）。トークン：ひとりごとは元々毎回モデルを呼ぶので、選んだ画像の名前 + 説明（約100文字 / ≈60トークン）を同じリクエストに加えるだけで、増分はごくわずかです。',

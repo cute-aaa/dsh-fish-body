@@ -147,6 +147,9 @@ export const zh = {
   clickSoundToggle: '点击音效',
   clickSoundToggleHint:
     '点一下宠物播一声内置音效（assets/sound/click-duck.wav，音量 0.5；100ms 内的连续点击只响一次，多开也不会叠音）。关掉即完全静音。随「保存」写入用户配置。',
+  clickSoundKeepAliveToggle: '点击音效常驻预热',
+  clickSoundKeepAliveToggleHint:
+    '勾上后用一个听不见的极小音源一直占着音频设备：隔很久再点，第一声也不会缺音头。代价是输出设备不会闲置（音量混音器里一直有它），笔记本更费电。默认关闭。',
   whisperImageToggle: '碎碎念配图',
   whisperImageToggleHint:
     '碎碎念时从表情包池随机抽一张，连同那句话一起显示（图片映射在配置文件顶层 memes）。token：碎碎念本来就每次生成都要调一次模型，配图只是把抽中那张的名称+描述（约 100 字符 / ≈60 token）加进同一次请求，增量可忽略。',

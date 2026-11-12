@@ -31,6 +31,8 @@ export interface SaveFields {
   pets: readonly Pet[];
   notificationsEnabled: boolean;
   clickSoundEnabled: boolean;
+  /** 点击音效的常驻预热（默认关）。 */
+  clickSoundKeepAlive: boolean;
   whisperImageEnabled: boolean;
   chatImageEnabled: boolean;
   /** 对话动作联动开关。 */
@@ -77,6 +79,7 @@ export function buildSaveBody(fields: SaveFields): Record<string, unknown> {
     pets: fields.pets,
     notificationsEnabled: fields.notificationsEnabled,
     clickSoundEnabled: fields.clickSoundEnabled,
+    clickSoundKeepAlive: fields.clickSoundKeepAlive,
     whisperImageEnabled: fields.whisperImageEnabled,
     chatImageEnabled: fields.chatImageEnabled,
     chatAnimationEnabled: fields.chatAnimationEnabled,

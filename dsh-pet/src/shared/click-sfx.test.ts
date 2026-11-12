@@ -175,15 +175,23 @@ describe('setClickSfxEnabled —— 预热', () => {
     assert.equal(FakeContext.instances.length, 1, '挂起不等于销毁，下次打开要能立刻用');
   });
 
-  test('预热后常驻一条循环保活源：输出流不会因为全零被判静音而关掉', async () => {
+  test('常驻预热默认关：不启动保活源，设备闲置就释放', async () => {
     setClickSfxEnabled(true, { url: 'sfx.wav' });
+    await whenClickSfxReady();
+    playClickSfx();
+    assert.equal(keepalives().length, 0, '默认不勾选，不该常占音频设备');
+    assert.equal(attacks().length, 1, '不预热也要照常出声');
+  });
+
+  test('勾上常驻预热：起一条循环保活源，输出流不会因为全零被判静音而关掉', async () => {
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: true });
     await whenClickSfxReady();
     assert.equal(keepalives().length, 1, '应该有一条循环源一直在跑');
     assert.equal(keepalives()[0].started, 1);
   });
 
   test('关闭开关：保活源停下，不再占音频设备', async () => {
-    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: true });
     await whenClickSfxReady();
     setClickSfxEnabled(false);
     await setImmediate();

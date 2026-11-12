@@ -20,7 +20,7 @@
 | `src/client/settings/model-tab.ts`               | 对话分区：模型卡                                               |
 | `src/client/settings/use-voice-settings.ts`      | 语音状态：六个随保存写入的字段 + 拉取、轮询、启停的节奏        |
 | `src/client/settings/voice-api.ts`               | `/voice/*` 三个接口的请求与解析（读失败回 `null`，写失败抛错） |
-| `src/client/settings/use-global-settings.ts`     | 四个全局开关与通知权限申请                                     |
+| `src/client/settings/use-global-settings.ts`     | 五个全局开关与通知权限申请                                     |
 | `src/client/settings/use-model-settings.ts`      | 对话状态：两个模型、历史条数、配图上限、三个对话开关           |
 | `src/client/settings/use-appearance-settings.ts` | 字体 / 物理 / 动作权重                                         |
 | `src/client/settings/use-avatar-upload.ts`       | 头像上传：破缓存版本号与上传中标志                             |

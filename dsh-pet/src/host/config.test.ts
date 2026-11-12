@@ -445,6 +445,28 @@ describe('saveUserConfig —— 系统托盘开关（trayEnabled）', () => {
   });
 });
 
+describe('saveUserConfig —— 点击音效常驻预热（clickSoundKeepAlive）', () => {
+  test('非法值整包拒绝（与其它全局布尔同口径，不静默丢用户输入）', () => {
+    assert.equal(saveUserConfig({ pets: PETS, clickSoundKeepAlive: 'true' }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, clickSoundKeepAlive: 1 }, undefined), null);
+  });
+
+  test('请求体没带 → 透传磁盘旧值（不得把用户勾上的预热悄悄关掉）', () => {
+    const out = saveUserConfig({ pets: PETS }, { clickSoundKeepAlive: true }) as Record<string, unknown>;
+    assert.equal(out.clickSoundKeepAlive, true);
+  });
+
+  test('请求体带了 → 以请求体为准', () => {
+    const out = saveUserConfig(
+      { pets: PETS, clickSoundKeepAlive: false },
+      {
+        clickSoundKeepAlive: true,
+      },
+    ) as Record<string, unknown>;
+    assert.equal(out.clickSoundKeepAlive, false);
+  });
+});
+
 describe('JSONC 配置读取：字符串中的注释标记与转义', () => {
   const prompts = [
     '请原样解释 // 示例 这段文字',

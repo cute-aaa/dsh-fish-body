@@ -82,7 +82,7 @@ export function makeSettingsPanels(
         busy: deps.busy,
         onSave: deps.onSave,
       }),
-    // 全局：四个开关 + 快捷键说明。快捷键卡只读，与开关是否禁用无关，所以不吃 busy。
+    // 全局：五个开关 + 快捷键说明。快捷键卡只读，与开关是否禁用无关，所以不吃 busy。
     global: () =>
       h('div', {
         className: 'dsh-pet-cfg__group',

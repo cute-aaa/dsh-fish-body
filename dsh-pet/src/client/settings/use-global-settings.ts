@@ -1,7 +1,7 @@
 /**
  * 设置页的全局开关状态：系统通知、点击音效、锁定在当前屏幕、系统托盘。
  *
- * 四个开关都只改本地状态、随「保存」整包写入——即时写盘会重启桌面 Helper、重建全部桌面宠物窗口。
+ * 五个开关都只改本地状态、随「保存」整包写入——即时写盘会重启桌面 Helper、重建全部桌面宠物窗口。
  * 通知开关比其余三个多一步：开启时借用户手势申请权限，所以「键名 → setter」的查表也放在这里，
  * 卡片只回传键名，权限申请不外泄到卡片里。
  * owns only 这四个布尔值与通知权限申请，never 保存、加载与其它分区字段。
@@ -14,7 +14,7 @@ import type { SettingsRuntime } from './runtime.ts';
 
 /** 全局分区的状态与回调。 */
 export interface GlobalSettings {
-  /** 四个开关的当前值（键名即成品配置字段名）。 */
+  /** 五个开关的当前值（键名即成品配置字段名）。 */
   readonly values: GlobalFlags;
   /** 切一个开关；通知开关会顺带申请权限。 */
   setFlag(key: GlobalFlagKey, value: boolean): void;
@@ -23,7 +23,7 @@ export interface GlobalSettings {
 }
 
 /**
- * 管理四个全局开关。
+ * 管理五个全局开关。
  *
  * @param rt - 只用到 `useState` 与 `useCallback`。
  * @returns 当前值与改值入口。
@@ -33,6 +33,7 @@ export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCal
   // 初值都是内置默认：加载成功后由成品值覆盖，未就绪期间整页只读，存不出去。
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [clickSoundEnabled, setClickSoundEnabled] = useState(true);
+  const [clickSoundKeepAlive, setClickSoundKeepAlive] = useState(false);
   const [confineToScreen, setConfineToScreen] = useState(false);
   const [trayEnabled, setTrayEnabled] = useState(true);
 
@@ -41,6 +42,7 @@ export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCal
     (key: GlobalFlagKey, value: boolean): void => {
       if (key !== 'notificationsEnabled') {
         if (key === 'clickSoundEnabled') setClickSoundEnabled(value);
+        else if (key === 'clickSoundKeepAlive') setClickSoundKeepAlive(value);
         else if (key === 'confineToScreen') setConfineToScreen(value);
         else setTrayEnabled(value);
         return;
@@ -49,19 +51,20 @@ export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCal
       // 只在开启时申请：无手势的自动申请可能被浏览器静默压制。
       if (value) void requestNotificationPermission();
     },
-    [setClickSoundEnabled, setConfineToScreen, setNotificationsEnabled, setTrayEnabled],
+    [setClickSoundEnabled, setClickSoundKeepAlive, setConfineToScreen, setNotificationsEnabled, setTrayEnabled],
   );
 
   // 只有 setState，跨渲染稳定：放进设置页 applyConfig 的依赖里不会让配置反复重拉。
   const apply = useCallback((patch: MainConfigPatch): void => {
     if (patch.notificationsEnabled !== undefined) setNotificationsEnabled(patch.notificationsEnabled);
     if (patch.clickSoundEnabled !== undefined) setClickSoundEnabled(patch.clickSoundEnabled);
+    if (patch.clickSoundKeepAlive !== undefined) setClickSoundKeepAlive(patch.clickSoundKeepAlive);
     if (patch.confineToScreen !== undefined) setConfineToScreen(patch.confineToScreen);
     if (patch.trayEnabled !== undefined) setTrayEnabled(patch.trayEnabled);
   }, []);
 
   return {
-    values: { notificationsEnabled, clickSoundEnabled, confineToScreen, trayEnabled },
+    values: { notificationsEnabled, clickSoundEnabled, clickSoundKeepAlive, confineToScreen, trayEnabled },
     setFlag,
     apply,
   };

@@ -2,7 +2,7 @@
  * 保存请求体摊平（src/client/settings/save-fields.ts）的契约测试。
  *
  * 三条契约（对应曾经的源码守卫 ⑦ 与请求体契约）：
- *   1. 四个全局开关（含系统通知）必须原样进请求体——漏一个键等于「切了开关点保存也不生效」；
+ *   1. 五个全局开关（含系统通知与点击音效常驻预热）必须原样进请求体——漏一个键等于「切了开关点保存也不生效」；
  *   2. 语音的六个字段与 UI 的字段名一一对应（whisper/todo/notify 要翻成 voiceXxxEnabled）；
  *   3. 远端音色与接入配置不进请求体：它们即时落盘，混进来会被宿主当成配置字段。
  */
@@ -34,6 +34,7 @@ const parts = (): SaveFieldParts => ({
   global: {
     notificationsEnabled: false,
     clickSoundEnabled: false,
+    clickSoundKeepAlive: true,
     confineToScreen: true,
     trayEnabled: false,
   },
@@ -53,10 +54,11 @@ const parts = (): SaveFieldParts => ({
 });
 
 describe('buildSaveFields —— 保存请求体的摊平', () => {
-  test('四个全局开关原样进请求体（含系统通知）', () => {
+  test('五个全局开关原样进请求体（含系统通知）', () => {
     const fields = buildSaveFields(parts());
     assert.equal(fields.notificationsEnabled, false, '通知开关必须在请求体里，否则切了也不生效');
     assert.equal(fields.clickSoundEnabled, false);
+    assert.equal(fields.clickSoundKeepAlive, true, '常驻预热也要进请求体，漏了就永远勾不上');
     assert.equal(fields.confineToScreen, true);
     assert.equal(fields.trayEnabled, false);
   });
