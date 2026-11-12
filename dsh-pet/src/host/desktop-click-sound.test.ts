@@ -1,87 +1,59 @@
+/**
+ * 桌面 Helper 的点击音效接线（runtime/electron-helper/sprite.js）：
+ * 开关只认成品配置 main.clickSoundEnabled 的布尔 true，其余一律静音；放行时委托给共享播放器。
+ * 播放器本身（预热、节流、回退）由 shared/click-sfx.test.ts 覆盖。
+ */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { setImmediate } from 'node:timers/promises';
 import { runInNewContext } from 'node:vm';
 import { test } from 'node:test';
 
 const sprite = readFileSync(new URL('../../runtime/electron-helper/sprite.js', import.meta.url), 'utf8');
 
-function fixture(base: string, enabled: boolean | undefined = true, failure?: 'construct' | 'play' | 'reject') {
-  let now = 1000;
-  const sounds: Array<{ url: string; plays: number; currentTime: number; volume: number }> = [];
+/**
+ * 在 vm 里跑 sprite.js，注入一只假 PetShared。
+ *
+ * @param enabled - 成品配置里的 `clickSoundEnabled`。
+ * @returns 点击入口与共享播放器的调用计数。
+ */
+function fixture(enabled: boolean | undefined) {
+  const calls = { play: 0 };
   const config: { clickSoundEnabled: boolean | undefined } = { clickSoundEnabled: enabled };
   const controls = runInNewContext(sprite + '\n({ play: playClickSound })', {
-    BASE: base,
+    BASE: 'dsh-pet-bridge://dsh-pet/dsh-pet-7340',
     ORIGIN: 'http://127.0.0.1:3080',
     config,
+    S: {
+      playClickSfx: () => {
+        calls.play += 1;
+        return true;
+      },
+    },
     navigator: { platform: 'Win32' },
-    Date: { now: () => now },
-    Audio: class {
-      url: string;
-      plays = 0;
-      currentTime = 10;
-      volume = 1;
-      constructor(url: string) {
-        this.url = url;
-        if (failure === 'construct') throw new Error('audio unavailable');
-        sounds.push(this);
-      }
-      play() {
-        this.plays++;
-        if (failure === 'play') throw new Error('play unavailable');
-        return failure === 'reject' ? Promise.reject(new Error('autoplay rejected')) : Promise.resolve();
-      }
-    },
+    Date: { now: () => 1000 },
   }) as { play(): void };
-  return {
-    ...controls,
-    sounds,
-    config,
-    advance: (ms: number) => {
-      now += ms;
-    },
-  };
+  return { ...controls, calls, config };
 }
 
-test('desktop click sound uses the bridge asset channel in bridge mode', () => {
-  const audio = fixture('dsh-pet-bridge://dsh-pet/dsh-pet-7340');
+test('开关打开：点击委托给共享播放器', () => {
+  const audio = fixture(true);
   audio.play();
-  assert.equal(audio.sounds[0].url, 'dsh-pet-bridge://dsh-pet/dsh-pet-7340/sound/click-duck.wav');
+  assert.equal(audio.calls.play, 1);
 });
 
-test('desktop click sound retains direct HTTP in legacy mode', () => {
-  const audio = fixture('http://127.0.0.1:3080/dsh-pet-7340');
-  audio.play();
-  assert.equal(audio.sounds[0].url, 'http://127.0.0.1:3080/dsh-pet-7340/sound/click-duck.wav');
+test('开关关闭或缺失：一律静音', () => {
+  const off = fixture(false);
+  off.play();
+  assert.equal(off.calls.play, 0);
+  const absent = fixture(undefined);
+  absent.play();
+  assert.equal(absent.calls.play, 0);
 });
 
-test('disabled or absent click-sound settings never create an audio request', () => {
-  const audio = fixture('dsh-pet-bridge://dsh-pet/dsh-pet-7340', false);
+test('配置从静音改成打开：之后点击立刻生效', () => {
+  const audio = fixture(undefined);
   audio.play();
-  audio.config.clickSoundEnabled = undefined;
-  audio.advance(100);
+  audio.config.clickSoundEnabled = true;
   audio.play();
-  assert.equal(audio.sounds.length, 0);
+  assert.equal(audio.calls.play, 1);
 });
-
-test('click sound reuses its audio element and throttles rapid clicks', () => {
-  const audio = fixture('dsh-pet-bridge://dsh-pet/dsh-pet-7340');
-  audio.play();
-  audio.advance(99);
-  audio.play();
-  assert.equal(audio.sounds[0].plays, 1);
-  audio.advance(1);
-  audio.play();
-  assert.equal(audio.sounds.length, 1);
-  assert.equal(audio.sounds[0].plays, 2);
-  assert.equal(audio.sounds[0].currentTime, 0);
-  assert.equal(audio.sounds[0].volume, 0.5);
-});
-
-for (const failure of ['construct', 'play', 'reject'] as const) {
-  test(`audio ${failure} failures do not escape the click handler`, async () => {
-    const audio = fixture('dsh-pet-bridge://dsh-pet/dsh-pet-7340', true, failure);
-    assert.doesNotThrow(audio.play);
-    await setImmediate();
-  });
-}

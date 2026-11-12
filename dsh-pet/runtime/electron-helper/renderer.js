@@ -62,6 +62,9 @@ async function boot() {
   try {
     const cfg = await loadConfig();
     config = cfg;
+    // 点击音效：开关一开就在配置到手时预热共享播放器（常热 AudioContext + 预解码素材），
+    // 首次点击才不会把输出流冷启动的时间吃进音头。关着就挂起，不占音频设备。
+    S.setClickSfxEnabled(cfg.clickSoundEnabled === true, { url: BASE + '/sound/click-duck.wav' });
     // 语音：本窗口固定是桌面端；音色、总开关与音量直接取成品配置，不走懒加载——
     // 懒加载要等第一次播放才去拉 /config，撞上 bridge 起步竞态就永远读不到开关（读失败只试一次）。
     S.setVoiceBase(BASE);

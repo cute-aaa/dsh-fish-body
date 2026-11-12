@@ -37,4 +37,5 @@ export * from './todo/index.ts';
 export * from './tooltip.ts';
 export * from './voice.ts';
 export * from './voice-providers.ts';
+export * from './click-sfx.ts';
 export * from './pet-config-actions.ts';

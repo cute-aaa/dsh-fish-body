@@ -1,98 +1,94 @@
 /**
- * 点击音效（src/client/pet/click-sound.ts）的契约测试：开关关闭时不构造不播放；
- * 打开后播放一次、节流窗口内连点只响一次；音频构造或播放失败都不外抛。
- * 用假的 Audio 与假时钟，不碰真实设备。
+ * 点击音效网页端入口（src/client/pet/click-sound.ts）的接线测试：
+ * 开关透传到共享播放器、素材地址按挂载前缀拼对。
+ * 播放、节流与回退的行为由 shared/click-sfx.test.ts 覆盖，这里只钉 Wiring。
  */
-import { describe, test } from 'node:test';
+import { afterEach, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { setImmediate } from 'node:timers/promises';
 
+import { ROUTE_PATH } from '../../shared/constants.ts';
+import { whenClickSfxReady, resetClickSfx } from '../../shared/click-sfx.ts';
 import { playClickSound, setClickSoundEnabled } from './click-sound.ts';
 
-/** 假 Audio：记录构造与播放次数。 */
-class FakeAudio {
-  static constructed = 0;
-  static plays = 0;
-  volume = 0;
-  currentTime = 0;
-
-  constructor() {
-    FakeAudio.constructed += 1;
-  }
-
-  play(): Promise<void> {
-    FakeAudio.plays += 1;
+/** 假 AudioContext：够让共享层走 WebAudio 路径即可。 */
+class FakeContext {
+  static sources = 0;
+  state = 'running';
+  destination = { connect: () => undefined };
+  resume(): Promise<void> {
     return Promise.resolve();
   }
-}
-
-/** 假时钟；用例直接改 `now` 推进时间。 */
-interface Clock {
-  now: number;
-}
-
-/** 换掉 Audio 与 Date.now，跑一段用例后还原（包括把开关关回去）。 */
-function withFakeAudio(run: (clock: Clock) => void): void {
-  const previousAudio = globalThis.Audio;
-  const previousNow = Date.now;
-  const clock: Clock = { now: 10_000 };
-  FakeAudio.constructed = 0;
-  FakeAudio.plays = 0;
-  (globalThis as { Audio?: unknown }).Audio = FakeAudio;
-  Date.now = () => clock.now;
-  try {
-    run(clock);
-  } finally {
-    (globalThis as { Audio?: unknown }).Audio = previousAudio;
-    Date.now = previousNow;
-    setClickSoundEnabled(false);
+  suspend(): Promise<void> {
+    this.state = 'suspended';
+    return Promise.resolve();
+  }
+  createGain(): { gain: { value: number }; connect: () => void } {
+    return { gain: { value: 0 }, connect: () => undefined };
+  }
+  createBufferSource(): { buffer: unknown; connect: () => void; start: () => void } {
+    return {
+      buffer: null,
+      connect: () => undefined,
+      start: () => {
+        FakeContext.sources += 1;
+      },
+    };
+  }
+  decodeAudioData(): Promise<unknown> {
+    return Promise.resolve({ duration: 0.35 });
+  }
+  addEventListener(): void {
+    /* 自愈监听在单测里不触发 */
   }
 }
 
-describe('playClickSound —— 点击音效', () => {
-  test('开关关闭：不构造、不播放', () => {
-    withFakeAudio(() => {
-      setClickSoundEnabled(false);
-      playClickSound();
-      assert.equal(FakeAudio.constructed, 0);
-      assert.equal(FakeAudio.plays, 0);
-    });
+const originalFetch = globalThis.fetch;
+const originalAudioContext = (globalThis as { AudioContext?: unknown }).AudioContext;
+const originalInfo = console.info;
+let fetched: string[] = [];
+
+beforeEach(() => {
+  FakeContext.sources = 0;
+  fetched = [];
+  resetClickSfx();
+  (globalThis as { AudioContext?: unknown }).AudioContext = FakeContext;
+  globalThis.fetch = (async (url: string) => {
+    fetched.push(url);
+    return new Response(new Uint8Array(64));
+  }) as unknown as typeof fetch;
+  console.info = () => {
+    /* 路径日志不打扰测试输出 */
+  };
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  (globalThis as { AudioContext?: unknown }).AudioContext = originalAudioContext;
+  console.info = originalInfo;
+  resetClickSfx();
+});
+
+describe('setClickSoundEnabled —— 接线', () => {
+  test('打开开关：按挂载前缀预热点击音效素材', async () => {
+    setClickSoundEnabled(true);
+    await whenClickSfxReady();
+    assert.deepEqual(fetched, [ROUTE_PATH + '/sound/click-duck.wav'], '素材地址要带上挂载前缀');
   });
 
-  test('开关打开：播放一次，节流窗口内连点只响一次，audio 实例复用', () => {
-    withFakeAudio((clock) => {
-      setClickSoundEnabled(true);
-      playClickSound();
-      assert.equal(FakeAudio.plays, 1, '第一次要响');
-      clock.now += 50;
-      playClickSound();
-      assert.equal(FakeAudio.plays, 1, '节流窗口内连点不重复响');
-      clock.now += 200;
-      playClickSound();
-      assert.equal(FakeAudio.plays, 2, '超过节流窗口后恢复');
-      assert.equal(FakeAudio.constructed, 1, 'audio 实例复用，不重复构造');
-    });
+  test('关闭开关：后续点击不出声', async () => {
+    setClickSoundEnabled(true);
+    await whenClickSfxReady();
+    setClickSoundEnabled(false);
+    await setImmediate();
+    playClickSound();
+    assert.equal(FakeContext.sources, 0, '开关关掉后不该再起播');
   });
 
-  test('音频不可用：不抛（没有声音不该变成报错）', () => {
-    const previousAudio = globalThis.Audio;
-    const previousNow = Date.now;
-    const clock: Clock = { now: 30_000 };
-    (globalThis as { Audio?: unknown }).Audio = class {
-      volume = 0;
-      currentTime = 0;
-
-      play(): Promise<void> {
-        throw new Error('设备不可用');
-      }
-    };
-    Date.now = () => clock.now;
-    try {
-      setClickSoundEnabled(true);
-      assert.doesNotThrow(() => playClickSound());
-    } finally {
-      (globalThis as { Audio?: unknown }).Audio = previousAudio;
-      Date.now = previousNow;
-      setClickSoundEnabled(false);
-    }
+  test('打开后点击：这一声交给共享播放器', async () => {
+    setClickSoundEnabled(true);
+    await whenClickSfxReady();
+    playClickSound();
+    assert.equal(FakeContext.sources, 1);
   });
 });
