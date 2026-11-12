@@ -231,7 +231,7 @@ describe('createChatMemory —— 指定配图的碎碎念', () => {
       rmSync(ws.dir, { recursive: true, force: true });
     }
   });
-  test('四类语音各由自己的开关决定：周期碎碎念看 voiceWhisperEnabled，手动触发看 voiceEnabled', async () => {
+  test('碎碎念这一类看 voiceWhisperEnabled，手动点碎碎念两者任一即可；对话回复只认 voiceEnabled', async () => {
     const off = tempWorkspace();
     const offRecords: Array<{ petId: string; leaf: string; data: Record<string, unknown> }> = [];
     try {
@@ -244,9 +244,23 @@ describe('createChatMemory —— 指定配图的碎碎念', () => {
       assert.equal('voiceTo' in (offRecords[0]?.data ?? {}), false, '开关关着时周期碎碎念不该写 voiceTo');
 
       await createMemory('一句', off, off.memeDir, { records: offRecords }).publishWhisper('main');
-      assert.equal('voiceTo' in (offRecords[1]?.data ?? {}), false, '手动播报开关关着时手动触发也不该写 voiceTo');
+      assert.equal('voiceTo' in (offRecords[1]?.data ?? {}), false, '两个开关都关着时手动触发也不该写 voiceTo');
     } finally {
       rmSync(off.dir, { recursive: true, force: true });
+    }
+
+    // 只开「碎碎念播报」：右键点的那句碎碎念也该出声——它念的就是碎碎念这一类。
+    const whisperOnly = tempWorkspace({ voiceWhisperEnabled: true, voiceEnabled: false });
+    const whisperOnlyRecords: Array<{ petId: string; leaf: string; data: Record<string, unknown> }> = [];
+    try {
+      await createMemory('一句', whisperOnly, undefined, { records: whisperOnlyRecords }).publishWhisper('main');
+      assert.equal(
+        whisperOnlyRecords[0]?.data.voiceTo,
+        'desktop',
+        '碎碎念播报开着时，手动点的碎碎念必须出声（否则右键只有气泡）',
+      );
+    } finally {
+      rmSync(whisperOnly.dir, { recursive: true, force: true });
     }
 
     const on = tempWorkspace({ voiceWhisperEnabled: true, voiceEnabled: true });

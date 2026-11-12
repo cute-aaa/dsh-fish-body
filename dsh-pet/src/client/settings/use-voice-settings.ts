@@ -13,13 +13,14 @@ import { readVoiceProviders, switchableProviders, type VoiceProviderView } from 
 import { speakText, type SpeakPhase } from '../../shared/voice.ts';
 import type { MainConfigPatch } from './config/index.ts';
 import type { VoiceOption } from './picker/voice-picker.ts';
+import type { VoicePreviewProps } from './voice-card.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { fetchProviderConfig, fetchVoices, postJson, readStringRecord } from './voice-api.ts';
 
 /** 语音分区的状态与回调。 */
 export interface VoiceSettings {
   /** 试听：用当前选中的音色与音量合成一句示例。 */
-  readonly preview: VoicePreview;
+  readonly preview: VoicePreviewProps;
   /** 手动播报开关（右键 / 斜杠命令 / 对话回复）。 */
   readonly enabled: boolean;
   /** 内置实现的音色 id；本地音色可用时它只是回落值。 */
@@ -96,15 +97,8 @@ const messageOf = (error: unknown): string => (error instanceof Error ? error.me
  */
 const VOICE_PREVIEW_TEXT = '你好呀，我是你的桌宠，随便说一句给你听。';
 
-/** 试听的状态与入口。 */
-export interface VoicePreview {
-  /** 当前阶段：合成中 / 播放中 / 空闲或失败。 */
-  readonly phase: SpeakPhase;
-  /** 失败时的一句说明（成功与播放中为空串）。 */
-  readonly message: string;
-  /** 用当前选中的音色与音量试听一句。 */
-  test(): void;
-}
+// 试听的形状只定义一处（voice-card.ts）：h(...) 不做 props 类型检查，
+// 名字漂了不会报错、只会得到一个点了没反应的按钮——所以两边必须共用同一个类型。
 
 /**
  * 挑出要单列「本地音色」那一格的实现。

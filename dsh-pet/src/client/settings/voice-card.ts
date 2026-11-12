@@ -20,7 +20,7 @@ export interface VoicePreviewProps {
   /** 失败时的一句说明（其余阶段为空串）。 */
   readonly message: string;
   /** 用当前选中的音色与音量试听一句。 */
-  onTest(): void;
+  test(): void;
 }
 
 /** 语音卡的输入。 */
@@ -166,7 +166,7 @@ export function makeVoiceCard(
               className: 'dsh-pet-cfg__btn is-sm',
               // 合成中禁掉：再点一次只会顶掉正在合成的那一句，用户以为按钮没响应。
               disabled: props.busy || props.preview.phase === 'loading',
-              onClick: props.preview.onTest,
+              onClick: props.preview.test,
               children: props.preview.phase === 'loading' ? t('voicePreviewLoading') : t('voicePreview'),
             }),
             props.preview.phase === 'playing'

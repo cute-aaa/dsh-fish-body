@@ -219,12 +219,13 @@ export function createChatMemory(deps: ChatMemoryInput) {
     // 宠物可能在「校验那次读」与这里之间被删（配置随时会变，两次读之间就是窗口）：
     // 明确失败、不生成不写 S——写下去就是一只已不存在宠物的幽灵叶子（常驻到进程重启）。
     if (!found) return { ok: false, reason: 'unknown-pet', message: '没有这只桌宠：' + petId };
-    // 每一类语音由自己的开关决定：周期调度看 voiceWhisperEnabled，手动触发（右键菜单、
-    // 斜杠命令）看 voiceEnabled。叶子不带 voiceTo = 谁都不念，气泡照旧弹。
+    // 每一类语音由自己的开关决定：`voiceWhisperEnabled` 管「碎碎念这一类」出不出声（周期与手动点的
+    // 都是碎碎念），`voiceEnabled` 管对话回复与其它手动点播。手动点碎碎念时两者**任一**打开就念：
+    // 否则「碎碎念播报」开着、右键点碎碎念却只有气泡没声音，用户会以为坏了（真实反馈）。
     const whisperVoiceOn = cfg.main?.voiceWhisperEnabled === true;
     const manualVoiceOn = cfg.main?.voiceEnabled === true;
-    const voiceOff = kind === 'whisper' ? !whisperVoiceOn : !manualVoiceOn;
-    const target = voiceOff ? undefined : (voiceTo ?? voiceTargetFor(found.pet));
+    const voiceOn = kind === 'whisper' ? whisperVoiceOn : whisperVoiceOn || manualVoiceOn;
+    const target = voiceOn ? (voiceTo ?? voiceTargetFor(found.pet)) : undefined;
     const system = petSystemPrompt(found);
     // 池只算一次：点名的图与随机抽图共用同一份（含文件存在性判定）。
     const pool = readMemePool(found.conf.memes, memeDirsFor(found.entry));
