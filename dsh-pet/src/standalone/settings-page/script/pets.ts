@@ -34,7 +34,7 @@ function pickGlobals(main) {
   return {
     notificationsEnabled: source.notificationsEnabled !== false,
     clickSoundEnabled: source.clickSoundEnabled !== false,
-    clickSoundKeepAlive: source.clickSoundKeepAlive === true,
+    clickSoundKeepAlive: source.clickSoundKeepAlive !== false,
     whisperImageEnabled: source.whisperImageEnabled === true,
     chatImageEnabled: source.chatImageEnabled === true,
     chatAnimationEnabled: source.chatAnimationEnabled === true,

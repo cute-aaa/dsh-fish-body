@@ -34,8 +34,8 @@ export interface ClickSfxOptions {
   readonly volume?: number;
   /** 连点节流窗口（毫秒），缺省 100。 */
   readonly throttleMs?: number;
-  /** 常驻预热：用一个听不见的极小音源一直占着输出流，首声不依赖设备重新开流。缺省 false。 */
-  readonly keepAlive?: boolean;
+  /** 常驻预热：用一个听不见的极小音源一直占着输出流，首声不依赖设备重新开流。没有缺省值。 */
+  readonly keepAlive: boolean;
 }
 
 /** 生效中的参数：可选值已填默认，播放路径不必再兜。 */
@@ -195,7 +195,7 @@ function applyOptions(next: ClickSfxOptions): void {
   const url = next.url;
   const volume = next.volume ?? DEFAULT_VOLUME;
   const throttleMs = next.throttleMs ?? DEFAULT_THROTTLE_MS;
-  const keepAlive = next.keepAlive === true;
+  const keepAlive = next.keepAlive;
   const isNewUrl = options !== null && options.url !== url;
   const resolved: ResolvedClickSfx = { url, volume, throttleMs, keepAlive };
   options = resolved;

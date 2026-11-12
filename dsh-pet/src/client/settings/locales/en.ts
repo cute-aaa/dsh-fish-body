@@ -159,7 +159,7 @@ export const en: Record<Key, string> = {
     'Plays the built-in click sound (assets/sound/click-duck.wav, volume 0.5) when a pet is clicked; repeated clicks within 100ms play only once, so multiple pets never stack up. Turn it off for silence. Written to the user config together with Save.',
   clickSoundKeepAliveToggle: 'Keep click audio warm',
   clickSoundKeepAliveToggleHint:
-    'Holds the audio output open with an inaudible tone so the first click after a long pause keeps its attack. Cost: the output device never idles (the pet stays in the volume mixer) and laptops drain faster. Off by default.',
+    'Holds the audio output open with an inaudible tone so the first click after a long pause keeps its attack. It also keeps an "Electron" entry in the system volume mixer, handy for one overall volume/mute (voices included). Cost: the output device never idles, laptops drain faster, and Windows usually will not sleep while an audio stream stays active. On by default.',
   whisperImageToggle: 'Whisper images',
   whisperImageToggleHint:
     'Attach one random meme from the pool to each whisper line (image mapping lives in the top-level `memes` config field). Tokens: a whisper already calls the model every cycle, so the image only appends the name + description of that one meme (~100 chars / ~60 tokens) to the same request — negligible.',

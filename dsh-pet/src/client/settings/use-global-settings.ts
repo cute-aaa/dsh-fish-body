@@ -33,7 +33,7 @@ export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCal
   // 初值都是内置默认：加载成功后由成品值覆盖，未就绪期间整页只读，存不出去。
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [clickSoundEnabled, setClickSoundEnabled] = useState(true);
-  const [clickSoundKeepAlive, setClickSoundKeepAlive] = useState(false);
+  const [clickSoundKeepAlive, setClickSoundKeepAlive] = useState(true);
   const [confineToScreen, setConfineToScreen] = useState(false);
   const [trayEnabled, setTrayEnabled] = useState(true);
 

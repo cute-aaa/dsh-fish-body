@@ -48,8 +48,8 @@ async function loadConfig() {
     confineToScreen: (merged && merged.main && merged.main.confineToScreen) === true,
     // 点击音效开关（全局一份，只读 main 条目；合并器已填内置默认 false = 静音）
     clickSoundEnabled: (merged && merged.main && merged.main.clickSoundEnabled) === true,
-    // 点击音效的常驻预热（全局一份，内置默认 false = 不占音频设备）
-    clickSoundKeepAlive: (merged && merged.main && merged.main.clickSoundKeepAlive) === true,
+    // 点击音效的常驻预热（全局一份；内置默认开，只有显式 false 才关）
+    clickSoundKeepAlive: !(merged && merged.main && merged.main.clickSoundKeepAlive === false),
     // 字体（全局一份，合并器已填内置默认）：字体族在此注入全局变量，字号由每只宠物按自己的尺寸算
     font: (merged && merged.main && merged.main.font) || S.DEFAULT_FONT,
     // 语音：音色与音量（缺省由共享层按默认音色 / 最大音量处理）
@@ -68,7 +68,7 @@ async function boot() {
     // 首次点击才不会把输出流冷启动的时间吃进音头。关着就挂起，不占音频设备。
     S.setClickSfxEnabled(cfg.clickSoundEnabled === true, {
       url: BASE + '/sound/click-duck.wav',
-      keepAlive: cfg.clickSoundKeepAlive === true,
+      keepAlive: cfg.clickSoundKeepAlive !== false,
     });
     // 语音：本窗口固定是桌面端；音色、总开关与音量直接取成品配置，不走懒加载——
     // 懒加载要等第一次播放才去拉 /config，撞上 bridge 起步竞态就永远读不到开关（读失败只试一次）。

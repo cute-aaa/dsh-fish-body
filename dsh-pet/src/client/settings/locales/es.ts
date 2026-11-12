@@ -164,7 +164,7 @@ export const es: Record<Key, string> = {
     'Reproduce el sonido de clic integrado (assets/sound/click-duck.wav, volumen 0.5) al hacer clic en una mascota; los clics repetidos en menos de 100 ms solo suenan una vez, así que varias mascotas nunca se superponen. Desactívalo para silencio total. Se escribe en la configuración del usuario al Guardar.',
   clickSoundKeepAliveToggle: 'Mantener el audio listo',
   clickSoundKeepAliveToggleHint:
-    'Mantiene la salida de audio abierta con un tono inaudible para que el primer clic tras una pausa larga conserve su ataque. Coste: el dispositivo de salida nunca queda libre (sigue en el mezclador) y la batería dura menos. Desactivado por defecto.',
+    'Mantiene la salida de audio abierta con un tono inaudible: el primer clic tras una pausa larga conserva su ataque y el mezclador del sistema muestra siempre una entrada «Electron» para ajustar el volumen total (voces incluidas). Coste: la salida nunca queda libre, la batería dura menos y Windows suele no suspenderse mientras hay audio activo. Activado por defecto.',
   whisperImageToggle: 'Imágenes en susurros',
   whisperImageToggleHint:
     'Adjunta un meme aleatorio del pool a cada susurro (el mapeo de imágenes está en el campo `memes` de la configuración de nivel superior). Tokens: un susurro ya llama al modelo en cada ciclo, así que la imagen solo añade el nombre + la descripción de ese meme (~100 caracteres / ~60 tokens) a la misma solicitud: insignificante.',

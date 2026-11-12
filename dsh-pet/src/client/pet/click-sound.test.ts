@@ -87,22 +87,22 @@ afterEach(() => {
 
 describe('setClickSoundEnabled —— 接线', () => {
   test('打开开关：按挂载前缀预热点击音效素材', async () => {
-    setClickSoundEnabled(true);
+    setClickSoundEnabled(true, false);
     await whenClickSfxReady();
     assert.deepEqual(fetched, [ROUTE_PATH + '/sound/click-duck.wav'], '素材地址要带上挂载前缀');
   });
 
   test('关闭开关：后续点击不出声', async () => {
-    setClickSoundEnabled(true);
+    setClickSoundEnabled(true, false);
     await whenClickSfxReady();
-    setClickSoundEnabled(false);
+    setClickSoundEnabled(false, false);
     await setImmediate();
     playClickSound();
     assert.equal(FakeContext.sources, 0, '开关关掉后不该再起播');
   });
 
   test('打开后点击：这一声交给共享播放器', async () => {
-    setClickSoundEnabled(true);
+    setClickSoundEnabled(true, false);
     await whenClickSfxReady();
     playClickSound();
     assert.equal(FakeContext.sources, 1);

@@ -157,9 +157,9 @@ afterEach(() => {
 
 describe('setClickSfxEnabled —— 预热', () => {
   test('配置反复刷新：只建一个上下文、只取一次素材、只解码一次', async () => {
-    setClickSfxEnabled(true, { url: '/dsh-pet-7340/sound/click-duck.wav' });
-    setClickSfxEnabled(true, { url: '/dsh-pet-7340/sound/click-duck.wav' });
-    setClickSfxEnabled(true, { url: '/dsh-pet-7340/sound/click-duck.wav' });
+    setClickSfxEnabled(true, { url: '/dsh-pet-7340/sound/click-duck.wav', keepAlive: false });
+    setClickSfxEnabled(true, { url: '/dsh-pet-7340/sound/click-duck.wav', keepAlive: false });
+    setClickSfxEnabled(true, { url: '/dsh-pet-7340/sound/click-duck.wav', keepAlive: false });
     await whenClickSfxReady();
     assert.equal(FakeContext.instances.length, 1, '上下文应该复用，不是每次开关都新建');
     assert.deepEqual(fetched, ['/dsh-pet-7340/sound/click-duck.wav'], '素材只该取一次');
@@ -167,7 +167,7 @@ describe('setClickSfxEnabled —— 预热', () => {
   });
 
   test('关闭开关：挂起上下文，但不销毁它', async () => {
-    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: false });
     await whenClickSfxReady();
     setClickSfxEnabled(false);
     await setImmediate();
@@ -175,11 +175,11 @@ describe('setClickSfxEnabled —— 预热', () => {
     assert.equal(FakeContext.instances.length, 1, '挂起不等于销毁，下次打开要能立刻用');
   });
 
-  test('常驻预热默认关：不启动保活源，设备闲置就释放', async () => {
-    setClickSfxEnabled(true, { url: 'sfx.wav' });
+  test('常驻预热关掉：不启动保活源，设备闲置就释放', async () => {
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: false });
     await whenClickSfxReady();
     playClickSfx();
-    assert.equal(keepalives().length, 0, '默认不勾选，不该常占音频设备');
+    assert.equal(keepalives().length, 0, '关掉预热就不该常占音频设备');
     assert.equal(attacks().length, 1, '不预热也要照常出声');
   });
 
@@ -201,7 +201,7 @@ describe('setClickSfxEnabled —— 预热', () => {
 
 describe('playClickSfx —— 播放', () => {
   test('预热完成后：一次点击起一个 BufferSource', async () => {
-    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: false });
     await whenClickSfxReady();
     assert.equal(playClickSfx(), true, '开关打开且素材就绪时应发起播放');
     assert.equal(attacks().length, 1);
@@ -209,7 +209,7 @@ describe('playClickSfx —— 播放', () => {
   });
 
   test('默认节流：100ms 内的第二次点击不再起播', async () => {
-    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: false });
     await whenClickSfxReady();
     playClickSfx();
     assert.equal(playClickSfx(), false, '节流窗口内的连点应被吃掉');
@@ -217,7 +217,7 @@ describe('playClickSfx —— 播放', () => {
   });
 
   test('节流窗口配成 0：每次都起播（连点不丢声）', async () => {
-    setClickSfxEnabled(true, { url: 'sfx.wav', throttleMs: 0 });
+    setClickSfxEnabled(true, { url: 'sfx.wav', throttleMs: 0, keepAlive: false });
     await whenClickSfxReady();
     playClickSfx();
     playClickSfx();
@@ -225,7 +225,7 @@ describe('playClickSfx —— 播放', () => {
   });
 
   test('上下文被系统挂断：先恢复再起播，这一声不丢', async () => {
-    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: false });
     await whenClickSfxReady();
     const audio = FakeContext.instances[0];
     audio.state = 'suspended';
@@ -253,7 +253,7 @@ describe('playClickSfx —— 播放', () => {
       return new Response(new Uint8Array(64));
     }) as unknown as typeof fetch;
 
-    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: false });
     assert.equal(playClickSfx(), true);
     assert.equal(FakeAudio.plays, 0, '解码没完也不该退回 <audio>');
     release();
@@ -265,7 +265,7 @@ describe('playClickSfx —— 播放', () => {
 describe('playClickSfx —— 回退', () => {
   test('解码失败：退回 <audio>，不外抛', async () => {
     FakeContext.failDecode = true;
-    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: false });
     await whenClickSfxReady();
     assert.doesNotThrow(() => playClickSfx());
     assert.equal(FakeAudio.plays, 1, '解码不成也要能出声');
@@ -274,7 +274,7 @@ describe('playClickSfx —— 回退', () => {
 
   test('环境没有 WebAudio：整链走 <audio>', () => {
     (globalThis as { AudioContext?: unknown }).AudioContext = undefined;
-    setClickSfxEnabled(true, { url: 'sfx.wav' });
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: false });
     assert.equal(playClickSfx(), true);
     assert.equal(FakeAudio.plays, 1);
   });

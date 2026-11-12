@@ -65,16 +65,16 @@ describe('useGlobalSettings —— 切开关只改本地状态', () => {
     assert.equal(spy.calls.length, 0, '切开关不得即时写盘（会重启桌面 Helper）');
   });
 
-  test('常驻预热：默认关，切一下只写本地值', () => {
+  test('常驻预热：默认勾选，切一下只写本地值', () => {
     const { rt, writes } = fakeRuntime();
     const spy = spyFetch();
     spies.push(spy.restore);
     const flags = useGlobalSettings(rt);
 
-    assert.deepEqual(flags.values.clickSoundKeepAlive, false, '常驻预热默认不勾（不替用户常占音频设备）');
-    flags.setFlag('clickSoundKeepAlive', true);
+    assert.deepEqual(flags.values.clickSoundKeepAlive, true, '常驻预热默认勾上（首声完整 + 混音器里可整体调音量）');
+    flags.setFlag('clickSoundKeepAlive', false);
 
-    assert.deepEqual(writes, [true]);
+    assert.deepEqual(writes, [false]);
     assert.equal(spy.calls.length, 0, '切开关不得即时写盘');
   });
 

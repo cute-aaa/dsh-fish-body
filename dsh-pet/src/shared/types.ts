@@ -233,7 +233,8 @@ export interface ClientConfig {
    *  内置默认 false（默认静音，不突袭既有用户）。只读 main 条目这一份，pet pack 不单独覆盖。 */
   clickSoundEnabled: boolean;
   /** 点击音效的常驻预热：true = 开着音效期间用一个听不见的极小音源一直占着音频设备，久不点之后
-   *  的第一次点击也不会缺音头；false = 设备闲置即释放。内置默认 false（不替用户常占设备）。 */
+   *  的第一次点击也不会缺音头，且系统混音器里常驻一项「Electron」可整体调音量；false = 设备闲置即释放。
+   *  内置默认 true；只有用户显式关掉或字段为 false 才关。 */
   clickSoundKeepAlive: boolean;
   /** 桌面模式系统托盘开关：true = 桌面端启动后在通知区域（macOS 为菜单栏）建托盘，列出配置里全部宠物
    *  （含 display 为 web/none 的），勾选即可切回桌面；false = 不建。

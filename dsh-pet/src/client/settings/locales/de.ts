@@ -160,7 +160,7 @@ export const de: Record<Key, string> = {
     'Beim Klick auf ein Pet ertönt der integrierte Klick-Sound (assets/sound/click-duck.wav, Lautstärke 0.5); Klicks innerhalb von 100 ms werden nur einmal abgespielt, auch bei mehreren Pets überlagert sich nichts. Aus = völlig stumm. Wird beim „Speichern" in die Benutzerkonfiguration geschrieben.',
   clickSoundKeepAliveToggle: 'Klick-Audio warm halten',
   clickSoundKeepAliveToggleHint:
-    'Hält die Audioausgabe mit einem unhörbaren Ton offen, damit der erste Klick nach langer Pause seinen Anschlag behält. Preis: das Ausgabegerät bleibt belegt (der Mixer zeigt den Begleiter dauerhaft) und Akkus halten kürzer. Standard: aus.',
+    'Hält die Audioausgabe mit einem unhörbaren Ton offen: der erste Klick nach langer Pause behält seinen Anschlag, und im Lautstärkemixer bleibt dauerhaft ein Eintrag „Electron“ für eine Gesamtlautstärke (Stimmen inklusive). Preis: das Ausgabegerät bleibt belegt, Akkus halten kürzer, und Windows schläft bei aktiver Audiospur meist nicht ein. Standard: an.',
   whisperImageToggle: 'Flüstern-Bilder',
   whisperImageToggleHint:
     'Hängt an jede Flüstern-Zeile ein zufälliges Meme aus dem Pool (Bildzuordnung im Top-Level-Feld `memes` der Konfiguration). Token: Flüstern ruft ohnehin pro Zyklus das Modell auf, das Bild fügt nur Name + Beschreibung des gezogenen Memes (ca. 100 Zeichen / ≈60 Token) an dieselbe Anfrage an – vernachlässigbar.',
