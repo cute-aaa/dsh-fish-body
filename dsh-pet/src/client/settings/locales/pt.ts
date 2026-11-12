@@ -162,6 +162,9 @@ export const pt: Record<Key, string> = {
   clickSoundKeepAliveToggle: 'Manter o áudio pronto',
   clickSoundKeepAliveToggleHint:
     'Mantém a saída de áudio aberta com um tom inaudível: o primeiro clique depois de uma longa pausa preserva o ataque e o mixer do sistema mostra sempre uma entrada «Electron» para ajustar o volume geral (vozes incluídas). Custo: a saída nunca fica livre, a bateria dura menos e o Windows costuma não suspender enquanto houver áudio ativo. Ativado por padrão.',
+  clickSoundVolumeLabel: 'Volume do som de clique',
+  clickSoundVolumeHint:
+    'Afeta só o som de clique: 0 silencia o clique (as vozes continuam), 1 é o máximo. O controle «Electron» no mixer do sistema é o volume geral; os dois se multiplicam.',
   whisperImageToggle: 'Imagens no sussurro',
   whisperImageToggleHint:
     'Anexa um meme aleatório do pool a cada sussurro (o mapeamento de imagens fica no campo de topo memes). Tokens: o sussurro já chama o modelo a cada ciclo, então a imagem só acrescenta o nome + a descrição daquele meme (~100 caracteres / ~60 tokens) ao mesmo pedido — desprezível.',

@@ -78,6 +78,15 @@ describe('useGlobalSettings —— 切开关只改本地状态', () => {
     assert.equal(spy.calls.length, 0, '切开关不得即时写盘');
   });
 
+  test('音效音量：默认 0.5，apply 把响应里的值写进状态', () => {
+    const { rt, writes } = fakeRuntime();
+    const flags = useGlobalSettings(rt);
+
+    assert.equal(flags.soundVolume, 0.5, '内置默认 0.5（与其余提示音同一档）');
+    flags.apply({ clickSoundVolume: 0.3 });
+    assert.deepEqual(writes, [0.3], '音量补丁走 setState，不进开关的写入序列');
+  });
+
   test('通知开关：同样只写本地值（权限申请由浏览器处理，不是写配置）', () => {
     const { rt, writes } = fakeRuntime();
     const spy = spyFetch();

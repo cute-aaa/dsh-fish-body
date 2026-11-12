@@ -21,6 +21,8 @@ export interface SaveFieldParts {
   readonly pets: readonly Pet[];
   /** 五个全局开关，键名即成品字段名。 */
   readonly global: GlobalFlags;
+  /** 点击音效音量（0–1）；与语音音量分开，混音器那条是进程级总闸。 */
+  readonly clickSoundVolume: number;
   /** 三个对话开关，键名即成品字段名。 */
   readonly chat: ChatFlagValues;
   /** 语音分区里随「保存」写入的六个字段（远端音色与接入配置不在此列）。 */
@@ -42,6 +44,7 @@ export function buildSaveFields(parts: SaveFieldParts): SaveFields {
     pets: parts.pets,
     // 两个开关组各自就是成品字段名的一份映射，摊平即可：漏键会被类型检查逮住。
     ...parts.global,
+    clickSoundVolume: parts.clickSoundVolume,
     ...parts.chat,
     voiceEnabled: parts.voice.enabled,
     voiceName: parts.voice.name,

@@ -22,6 +22,8 @@ export interface MainConfigPatch {
   clickSoundEnabled?: boolean;
   /** 点击音效的常驻预热；缺省表示这次响应里没有可信值。 */
   clickSoundKeepAlive?: boolean;
+  /** 点击音效音量系数（0–1）；缺省表示这次响应里没有可信值。 */
+  clickSoundVolume?: number;
   whisperImageEnabled?: boolean;
   chatImageEnabled?: boolean;
   /** 对话动作联动开关；缺省表示这次响应里没有可信值。 */
@@ -112,6 +114,8 @@ export function readMainConfig(merged: MergedConfig): MainConfigPatch | null {
   // 上界在宿主侧已经把关，这里补一次跨进程读回的判定：脏值只影响显示，不让它流到播放端
   const volume = nonNegative(main.voiceVolume);
   if (volume !== undefined && volume <= 1) patch.voiceVolume = volume;
+  const clickVolume = nonNegative(main.clickSoundVolume);
+  if (clickVolume !== undefined && clickVolume <= 1) patch.clickSoundVolume = clickVolume;
   return patch;
 }
 

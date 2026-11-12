@@ -23,6 +23,10 @@ export interface GlobalCardProps {
   values: GlobalFlags;
   /** 某个开关被切换；通知开关的权限申请由外壳处理。 */
   onChange: (key: GlobalFlagKey, value: boolean) => void;
+  /** 点击音效音量（0–1）：与语音音量各管各的，宿主给的成品值。 */
+  volume: number;
+  /** 点击音效音量被拖动。 */
+  onVolumeChange: (value: number) => void;
 }
 
 /** 开关的展示顺序与文案键。 */
@@ -42,7 +46,7 @@ const TOGGLES: Array<{ key: GlobalFlagKey; label: string }> = [
  */
 export function makeGlobalCard(rt: SettingsRuntime): FunctionComponent<GlobalCardProps> {
   const { h, t } = rt;
-  const { cardHead, toggleCell } = makeUiKit({ h, t });
+  const { cardHead, toggleCell, field } = makeUiKit({ h, t });
 
   return function GlobalCard(props: GlobalCardProps) {
     return h('div', {
@@ -56,6 +60,29 @@ export function makeGlobalCard(rt: SettingsRuntime): FunctionComponent<GlobalCar
               props.onChange(toggle.key, value),
             ),
           ),
+        }),
+        // 音效音量独立于语音音量：混音器里那条是进程级总闸，这里才是「点击这一声多响」的分项旋钮。
+        h('div', {
+          className: 'dsh-pet-cfg__grid4',
+          children: [
+            field(
+              `${t('clickSoundVolumeLabel')}（${Math.round(props.volume * 100)}%）`,
+              h('input', {
+                type: 'range',
+                className: 'dsh-pet-cfg__range',
+                min: '0',
+                max: '1',
+                step: '0.05',
+                value: String(props.volume),
+                disabled: props.busy,
+                onChange: (event: { target: { value: string } }) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) props.onVolumeChange(next);
+                },
+              }),
+              t('clickSoundVolumeHint'),
+            ),
+          ],
         }),
       ],
     });

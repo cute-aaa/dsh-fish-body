@@ -52,16 +52,25 @@ class FakeContext {
   static instances: FakeContext[] = [];
   static decodeCalls = 0;
   static failDecode = false;
+  /** 模拟浏览器在用户手势前不给恢复：构造后是 suspended，resume() 一直不兑现。 */
+  static startSuspended = false;
   state = 'running';
   sampleRate = 8000;
   destination = new FakeGain();
   sources: FakeSource[] = [];
+  listeners: Array<() => void> = [];
   constructor() {
+    if (FakeContext.startSuspended) this.state = 'suspended';
     FakeContext.instances.push(this);
   }
   resume(): Promise<void> {
+    if (this.state === 'suspended' && FakeContext.startSuspended) return new Promise<void>(() => {});
     this.state = 'running';
     return Promise.resolve();
+  }
+  /** 触发一次 statechange：浏览器那边恢复上下文后就会来这一下。 */
+  emitStateChange(): void {
+    for (const listener of this.listeners) listener();
   }
   suspend(): Promise<void> {
     this.state = 'suspended';
@@ -83,8 +92,8 @@ class FakeContext {
     if (FakeContext.failDecode) return Promise.reject(new Error('decode failed'));
     return Promise.resolve({ duration: 0.35 });
   }
-  addEventListener(): void {
-    /* 自愈监听在单测里不触发 */
+  addEventListener(type: string, listener: () => void): void {
+    if (type === 'statechange') this.listeners.push(listener);
   }
 }
 
@@ -128,6 +137,7 @@ beforeEach(() => {
   FakeContext.instances = [];
   FakeContext.decodeCalls = 0;
   FakeContext.failDecode = false;
+  FakeContext.startSuspended = false;
   FakeAudio.plays = 0;
   FakeSource.stops = 0;
   fetched = [];
@@ -188,6 +198,21 @@ describe('setClickSfxEnabled —— 预热', () => {
     await whenClickSfxReady();
     assert.equal(keepalives().length, 1, '应该有一条循环源一直在跑');
     assert.equal(keepalives()[0].started, 1);
+  });
+
+  test('浏览器里上下文先挂起：保活源已排队，恢复后不重复起，点击照常出声', async () => {
+    FakeContext.startSuspended = true;
+    setClickSfxEnabled(true, { url: 'sfx.wav', keepAlive: true });
+    await whenClickSfxReady();
+    const audio = FakeContext.instances[0];
+    assert.equal(keepalives().length, 1, '挂起时源已排队，context 一恢复就开播');
+
+    audio.state = 'running';
+    audio.emitStateChange();
+    assert.equal(keepalives().length, 1, 'statechange 不该再起第二条保活源');
+
+    playClickSfx();
+    assert.equal(attacks().length, 1, '恢复后的点击走 WebAudio');
   });
 
   test('关闭开关：保活源停下，不再占音频设备', async () => {

@@ -150,6 +150,9 @@ export const zh = {
   clickSoundKeepAliveToggle: '点击音效常驻预热',
   clickSoundKeepAliveToggleHint:
     '用一个听不见的极小音源一直占着音频输出：隔很久再点，第一声也不缺音头；顺带让系统音量混音器里一直有「Electron」这一项，可以在那里整体调音量或静音（连语音一起）。代价：音频设备不空闲、笔记本更费电，音频流持续活跃期间系统一般不会自动睡眠。默认勾选。',
+  clickSoundVolumeLabel: '点击音效音量',
+  clickSoundVolumeHint:
+    '只作用于点击音效，0 = 静音点击声（语音照旧），1 = 最大。系统音量混音器里那条「Electron」是整体总闸，两者叠乘。',
   whisperImageToggle: '碎碎念配图',
   whisperImageToggleHint:
     '碎碎念时从表情包池随机抽一张，连同那句话一起显示（图片映射在配置文件顶层 memes）。token：碎碎念本来就每次生成都要调一次模型，配图只是把抽中那张的名称+描述（约 100 字符 / ≈60 token）加进同一次请求，增量可忽略。',

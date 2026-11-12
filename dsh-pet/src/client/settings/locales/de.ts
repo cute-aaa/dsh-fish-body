@@ -161,6 +161,9 @@ export const de: Record<Key, string> = {
   clickSoundKeepAliveToggle: 'Klick-Audio warm halten',
   clickSoundKeepAliveToggleHint:
     'Hält die Audioausgabe mit einem unhörbaren Ton offen: der erste Klick nach langer Pause behält seinen Anschlag, und im Lautstärkemixer bleibt dauerhaft ein Eintrag „Electron“ für eine Gesamtlautstärke (Stimmen inklusive). Preis: das Ausgabegerät bleibt belegt, Akkus halten kürzer, und Windows schläft bei aktiver Audiospur meist nicht ein. Standard: an.',
+  clickSoundVolumeLabel: 'Lautstärke des Klick-Sounds',
+  clickSoundVolumeHint:
+    'Gilt nur für den Klick-Sound: 0 schaltet ihn stumm (Stimmen bleiben), 1 ist volle Lautstärke. Der Regler „Electron“ im Systemmixer ist die Gesamtlautstärke; beide multiplizieren sich.',
   whisperImageToggle: 'Flüstern-Bilder',
   whisperImageToggleHint:
     'Hängt an jede Flüstern-Zeile ein zufälliges Meme aus dem Pool (Bildzuordnung im Top-Level-Feld `memes` der Konfiguration). Token: Flüstern ruft ohnehin pro Zyklus das Modell auf, das Bild fügt nur Name + Beschreibung des gezogenen Memes (ca. 100 Zeichen / ≈60 Token) an dieselbe Anfrage an – vernachlässigbar.',

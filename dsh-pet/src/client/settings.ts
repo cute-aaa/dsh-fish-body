@@ -134,7 +134,15 @@ export function makePetConfigSection(
     // 请求体由 save-fields.ts 摊平：每个分区贡献自己那几项，键名与成品配置字段同名。
     const write = createWriteFlow({
       fields: () =>
-        buildSaveFields({ pets: list.mainPets, global: global.values, chat: model.chatFlags, voice, model, look }),
+        buildSaveFields({
+          pets: list.mainPets,
+          global: global.values,
+          clickSoundVolume: global.soundVolume,
+          chat: model.chatFlags,
+          voice,
+          model,
+          look,
+        }),
       busy: () => busy,
       setBusy,
       setMsg,

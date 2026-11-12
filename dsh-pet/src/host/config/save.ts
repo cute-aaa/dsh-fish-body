@@ -138,6 +138,9 @@ export function saveUserConfig(
   // 点击音效的常驻预热（全局布尔）：同一套语义——传了必须是布尔，没传走透传保留
   const csk = o.clickSoundKeepAlive;
   if (csk !== undefined && typeof csk !== 'boolean') return null;
+  // 点击音效音量（全局系数 0–1）：与 voiceVolume 同一套规则，校验复用读取侧的 topFieldValid
+  const csv = o.clickSoundVolume;
+  if (csv !== undefined && !topFieldValid('clickSoundVolume', csv)) return null;
   const wie = o.whisperImageEnabled;
   if (wie !== undefined && typeof wie !== 'boolean') return null;
   const cie = o.chatImageEnabled;
@@ -213,6 +216,7 @@ export function saveUserConfig(
   if (ne !== undefined) outConfig.notificationsEnabled = ne;
   if (cse !== undefined) outConfig.clickSoundEnabled = cse;
   if (csk !== undefined) outConfig.clickSoundKeepAlive = csk;
+  if (csv !== undefined) outConfig.clickSoundVolume = csv;
   if (wie !== undefined) outConfig.whisperImageEnabled = wie;
   if (cie !== undefined) outConfig.chatImageEnabled = cie;
   if (cae !== undefined) outConfig.chatAnimationEnabled = cae;
@@ -240,6 +244,7 @@ export function saveUserConfig(
   if (ne !== undefined) bodyOwned.add('notificationsEnabled');
   if (cse !== undefined) bodyOwned.add('clickSoundEnabled');
   if (csk !== undefined) bodyOwned.add('clickSoundKeepAlive');
+  if (csv !== undefined) bodyOwned.add('clickSoundVolume');
   if (wie !== undefined) bodyOwned.add('whisperImageEnabled');
   if (cie !== undefined) bodyOwned.add('chatImageEnabled');
   if (cae !== undefined) bodyOwned.add('chatAnimationEnabled');

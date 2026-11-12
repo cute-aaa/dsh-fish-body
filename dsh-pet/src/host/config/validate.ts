@@ -198,8 +198,11 @@ export function topFieldValid(key: string, value: unknown): boolean {
       // 点击音效开关（全局布尔，只读 main 条目）：与 notificationsEnabled 同一套校验
       return typeof value === 'boolean';
     case 'clickSoundKeepAlive':
-      // 点击音效的常驻预热（全局布尔）：只影响首声保真与设备占用，缺省关
+      // 点击音效的常驻预热（全局布尔）：只影响首声保真与设备占用，缺省开
       return typeof value === 'boolean';
+    case 'clickSoundVolume':
+      // 点击音效音量系数：0–1 的有限数，与 voiceVolume 同量纲；越界即非法
+      return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
     case 'whisperImageEnabled':
       return typeof value === 'boolean';
     case 'voiceEnabled':

@@ -16,8 +16,12 @@ import type { SettingsRuntime } from './runtime.ts';
 export interface GlobalSettings {
   /** 五个开关的当前值（键名即成品配置字段名）。 */
   readonly values: GlobalFlags;
+  /** 点击音效音量（0–1）；与语音音量各管各的。 */
+  readonly soundVolume: number;
   /** 切一个开关；通知开关会顺带申请权限。 */
   setFlag(key: GlobalFlagKey, value: boolean): void;
+  /** 改点击音效音量（0–1，前端已夹取）。 */
+  setSoundVolume(value: number): void;
   /** 用成品配置覆盖能信的字段。 */
   apply(patch: MainConfigPatch): void;
 }
@@ -36,6 +40,7 @@ export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCal
   const [clickSoundKeepAlive, setClickSoundKeepAlive] = useState(true);
   const [confineToScreen, setConfineToScreen] = useState(false);
   const [trayEnabled, setTrayEnabled] = useState(true);
+  const [soundVolume, setSoundVolume] = useState(0.5);
 
   // 键名到 setter 的映射只写一遍，避免长 switch；通知开关的权限申请走同一条入口。
   const setFlag = useCallback(
@@ -61,11 +66,14 @@ export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCal
     if (patch.clickSoundKeepAlive !== undefined) setClickSoundKeepAlive(patch.clickSoundKeepAlive);
     if (patch.confineToScreen !== undefined) setConfineToScreen(patch.confineToScreen);
     if (patch.trayEnabled !== undefined) setTrayEnabled(patch.trayEnabled);
+    if (patch.clickSoundVolume !== undefined) setSoundVolume(patch.clickSoundVolume);
   }, []);
 
   return {
     values: { notificationsEnabled, clickSoundEnabled, clickSoundKeepAlive, confineToScreen, trayEnabled },
+    soundVolume,
     setFlag,
+    setSoundVolume,
     apply,
   };
 }

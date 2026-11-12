@@ -34,16 +34,23 @@ const allOff: GlobalFlags = {
   trayEnabled: false,
 };
 
-/** 五个开关的框，顺序即展示顺序。 */
-const boxes = (tree: unknown): Node[] => flatten(tree).filter((node) => node.tag === 'input');
+/** 五个开关的框，顺序即展示顺序（音量滑块也是 input，按 type=checkbox 挑出来）。 */
+const boxes = (tree: unknown): Node[] =>
+  flatten(tree).filter((node) => node.tag === 'input' && node.props.type === 'checkbox');
+
+/** 音量滑块。 */
+const slider = (tree: unknown): Node | undefined =>
+  flatten(tree).find((node) => node.tag === 'input' && node.props.type === 'range');
+
+/** 卡的固定输入：音量与回调按默认值给。 */
+const baseProps = (extra: Record<string, unknown>): never =>
+  ({ busy: false, volume: 0.5, onVolumeChange: () => {}, ...extra }) as never;
 
 describe('GlobalCard —— 全局开关卡', () => {
   test('五个开关都在，勾选态来自 values', () => {
-    const tree = GlobalCard({
-      busy: false,
-      values: { ...allOff, notificationsEnabled: true, trayEnabled: true },
-      onChange: () => {},
-    } as never);
+    const tree = GlobalCard(
+      baseProps({ values: { ...allOff, notificationsEnabled: true, trayEnabled: true }, onChange: () => {} }),
+    );
     const found = boxes(tree);
     assert.equal(found.length, 5);
     assert.deepEqual(
@@ -54,11 +61,9 @@ describe('GlobalCard —— 全局开关卡', () => {
 
   test('每个开关回传自己的配置字段名', () => {
     const seen: Array<[string, boolean]> = [];
-    const tree = GlobalCard({
-      busy: false,
-      values: allOff,
-      onChange: (key: string, value: boolean) => seen.push([key, value]),
-    } as never);
+    const tree = GlobalCard(
+      baseProps({ values: allOff, onChange: (key: string, value: boolean) => seen.push([key, value]) }),
+    );
     for (const box of boxes(tree)) {
       (box.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } });
     }
@@ -72,8 +77,22 @@ describe('GlobalCard —— 全局开关卡', () => {
     );
   });
 
+  test('音量滑块：读成品值，拖动回传 0–1 的数字', () => {
+    const seen: number[] = [];
+    const tree = GlobalCard(
+      baseProps({ values: allOff, onChange: () => {}, volume: 0.35, onVolumeChange: (v: number) => seen.push(v) }),
+    );
+    const range = slider(tree);
+    assert.ok(range, '全局卡里应有音量滑块');
+    assert.equal(range.props.min, '0');
+    assert.equal(range.props.max, '1');
+    assert.equal(range.props.value, '0.35', '滑块显示成品音量');
+    (range.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '0.8' } });
+    assert.deepEqual(seen, [0.8], '回传的是数字，不是字符串');
+  });
+
   test('忙时全部禁用', () => {
-    const tree = GlobalCard({ busy: true, values: allOff, onChange: () => {} } as never);
+    const tree = GlobalCard(baseProps({ busy: true, values: allOff, onChange: () => {} }));
     for (const box of boxes(tree)) assert.equal(box.props.disabled, true);
   });
 });

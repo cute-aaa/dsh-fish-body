@@ -87,7 +87,14 @@ export function makeSettingsPanels(
       h('div', {
         className: 'dsh-pet-cfg__group',
         children: [
-          h(GlobalCard, { key: 'flags', busy: deps.busy, values: deps.global.values, onChange: deps.global.setFlag }),
+          h(GlobalCard, {
+            key: 'flags',
+            busy: deps.busy,
+            values: deps.global.values,
+            onChange: deps.global.setFlag,
+            volume: deps.global.soundVolume,
+            onVolumeChange: deps.global.setSoundVolume,
+          }),
           h(ShortcutsCard, { key: 'shortcuts' }),
         ],
       }),

@@ -119,7 +119,11 @@ export function createPetMulti(
           throw new Error('配置响应不是成品聚合（host 版本不匹配？）');
         }
         // 点击音效开关只读 main 条目，非 true 一律静音；常驻预热缺字段按勾选处理（内置默认是勾上）。
-        setClickSoundEnabled(main.clickSoundEnabled === true, main.clickSoundKeepAlive !== false);
+        setClickSoundEnabled(
+          main.clickSoundEnabled === true,
+          main.clickSoundKeepAlive !== false,
+          main.clickSoundVolume as number | undefined,
+        );
         // 本页就是网页端：按叶子播放时只认 voiceTo='web' 的那一句。
         setSurface('web');
         // 音色与音量同源：缺字段即「用默认音色 / 最大音量」，不在端上兜默认值。

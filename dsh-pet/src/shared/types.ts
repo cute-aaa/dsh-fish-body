@@ -236,6 +236,8 @@ export interface ClientConfig {
    *  的第一次点击也不会缺音头，且系统混音器里常驻一项「Electron」可整体调音量；false = 设备闲置即释放。
    *  内置默认 true；只有用户显式关掉或字段为 false 才关。 */
   clickSoundKeepAlive: boolean;
+  /** 点击音效音量系数（0–1）：只作用于点击音效，与 voiceVolume 分开；内置默认 0.5。 */
+  clickSoundVolume: number;
   /** 桌面模式系统托盘开关：true = 桌面端启动后在通知区域（macOS 为菜单栏）建托盘，列出配置里全部宠物
    *  （含 display 为 web/none 的），勾选即可切回桌面；false = 不建。
    *  缺失默认 true。关掉后「把不在桌面的宠物叫回桌面」在桌面侧没有入口，只能走设置页或网页端右键菜单。 */

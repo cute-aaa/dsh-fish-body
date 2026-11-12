@@ -38,6 +38,7 @@ const parts = (): SaveFieldParts => ({
     confineToScreen: true,
     trayEnabled: false,
   },
+  clickSoundVolume: 0.25,
   chat: { whisperImageEnabled: true, chatImageEnabled: false, chatAnimationEnabled: false },
   voice: { enabled: true, name: 'zh-CN-YunxiNeural', volume: 0.4, whisper: true, todo: false, notify: true },
   model: {
@@ -59,6 +60,7 @@ describe('buildSaveFields —— 保存请求体的摊平', () => {
     assert.equal(fields.notificationsEnabled, false, '通知开关必须在请求体里，否则切了也不生效');
     assert.equal(fields.clickSoundEnabled, false);
     assert.equal(fields.clickSoundKeepAlive, true, '常驻预热也要进请求体，漏了就永远勾不上');
+    assert.equal(fields.clickSoundVolume, 0.25, '音效音量要与语音音量分开带走');
     assert.equal(fields.confineToScreen, true);
     assert.equal(fields.trayEnabled, false);
   });

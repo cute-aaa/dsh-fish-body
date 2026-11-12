@@ -467,6 +467,25 @@ describe('saveUserConfig —— 点击音效常驻预热（clickSoundKeepAlive�
   });
 });
 
+describe('saveUserConfig —— 点击音效音量（clickSoundVolume）', () => {
+  test('越界或非数字整包拒绝（与 voiceVolume 同口径）', () => {
+    assert.equal(saveUserConfig({ pets: PETS, clickSoundVolume: 1.5 }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, clickSoundVolume: -0.1 }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, clickSoundVolume: '0.5' }, undefined), null);
+  });
+
+  test('请求体没带 → 透传磁盘旧值', () => {
+    const out = saveUserConfig({ pets: PETS }, { clickSoundVolume: 0.3 }) as Record<string, unknown>;
+    assert.equal(out.clickSoundVolume, 0.3);
+  });
+
+  test('请求体带了 → 以请求体为准（0 是合法值，不能当作没写）', () => {
+    const body = { pets: PETS, clickSoundVolume: 0 };
+    const out = saveUserConfig(body, { clickSoundVolume: 1 }) as Record<string, unknown>;
+    assert.equal(out.clickSoundVolume, 0);
+  });
+});
+
 describe('JSONC 配置读取：字符串中的注释标记与转义', () => {
   const prompts = [
     '请原样解释 // 示例 这段文字',

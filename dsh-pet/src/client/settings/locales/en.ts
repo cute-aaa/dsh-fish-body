@@ -160,6 +160,9 @@ export const en: Record<Key, string> = {
   clickSoundKeepAliveToggle: 'Keep click audio warm',
   clickSoundKeepAliveToggleHint:
     'Holds the audio output open with an inaudible tone so the first click after a long pause keeps its attack. It also keeps an "Electron" entry in the system volume mixer, handy for one overall volume/mute (voices included). Cost: the output device never idles, laptops drain faster, and Windows usually will not sleep while an audio stream stays active. On by default.',
+  clickSoundVolumeLabel: 'Click sound volume',
+  clickSoundVolumeHint:
+    'Applies to the click sound only: 0 mutes clicks (voices unaffected), 1 is full volume. The "Electron" slider in the system mixer is the overall volume, and the two multiply.',
   whisperImageToggle: 'Whisper images',
   whisperImageToggleHint:
     'Attach one random meme from the pool to each whisper line (image mapping lives in the top-level `memes` config field). Tokens: a whisper already calls the model every cycle, so the image only appends the name + description of that one meme (~100 chars / ~60 tokens) to the same request — negligible.',

@@ -163,6 +163,9 @@ export const fr: Record<Key, string> = {
   clickSoundKeepAliveToggle: "Maintenir l'audio prêt",
   clickSoundKeepAliveToggleHint:
     "Garde la sortie audio ouverte avec un son inaudible : le premier clic après une longue pause conserve son attaque, et le mixeur système affiche toujours une entrée « Electron » pour régler le volume global (voix comprises). Coût : la sortie reste occupée, la batterie se vide plus vite, et Windows ne se met généralement pas en veille tant qu'un flux audio est actif. Activé par défaut.",
+  clickSoundVolumeLabel: 'Volume du son au clic',
+  clickSoundVolumeHint:
+    'Ne concerne que le son du clic : 0 le coupe (les voix restent), 1 est le maximum. Le curseur « Electron » du mixeur système est le volume global ; les deux se multiplient.',
   whisperImageToggle: 'Images des murmures',
   whisperImageToggleHint:
     "Joindre un mème tiré au hasard dans le pool à chaque murmure (la correspondance des images se trouve dans le champ memes, au niveau supérieur de la configuration). Tokens : un murmure appelle déjà le modèle à chaque cycle ; l'image ajoute seulement le nom + la description de ce mème (environ 100 caractères / ~60 tokens) à la même requête — négligeable.",
