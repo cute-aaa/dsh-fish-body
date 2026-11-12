@@ -209,19 +209,10 @@ describe('flattenConfigPets —— 成品 → 渲染列表的唯一填充点', (
       'force 必须严格比较 true（真值判断会让任何实参都开启强行覆盖）',
     );
     // ⑦ 系统通知开关必须与其余三个全局开关同构：只改本地状态、随「保存」写入。
-    //    即时写盘会让宿主重启桌面 Helper（全部桌面宠物窗口重建：拖拽落点清空、宠物跳回配置角落）——
-    //    "改个通知开关，桌面被重置"，与其它开关行为不一致。写盘只允许出现在 save() 里。
-    //    开关的键名映射与权限申请搬到了 settings/use-global-settings.ts：路径搬迁不该让守卫失效，故按文件全读进来。
-    const globalSettings = readSource('../client/settings/use-global-settings.ts');
-    assert.ok(/requestNotificationPermission/.test(globalSettings), '设置页必须有通知开关（系统通知权限申请）');
-    assert.ok(
-      !/fetch\(|method: 'PUT'/.test(globalSettings),
-      '系统通知开关不得即时写盘：切换只改本地状态，随「保存」写入（否则会重启桌面 Helper）',
-    );
-    assert.ok(
-      /\.\.\.global\.values/.test(clientSettings),
-      '「保存」的请求体必须摊平四个全局开关（含通知；否则切了开关点保存也不生效）',
-    );
+    //    即时写盘会让宿主重启桌面 Helper（全部桌面宠物窗口重建：拖拽落点清空、宠物跳回配置角落）。
+    //    这条已换成行为测试，不再读源码：
+    //      · 切开关不发请求 → client/settings/use-global-settings.test.ts
+    //      · 请求体带四个全局开关（含通知）→ client/settings/save-fields.test.ts
     // ⑧ 物理参数（设置页「物理」区）必须真的提交：physics 必须在白名单里（只在 existing 里
     //    透传时，前端就算把输入框画出来、改了值，写盘时也会被丢弃）。守卫两侧：
     //    「保存」请求体必须带 physics；宿主必须用同一份 physicsValid 整段校验它。

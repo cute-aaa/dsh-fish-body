@@ -26,6 +26,8 @@
 | `src/client/settings/use-avatar-upload.ts`       | 头像上传：破缓存版本号与上传中标志                             |
 | `src/client/settings/use-permission-test.ts`     | 「测试弹窗」的就地反馈                                         |
 | `src/client/settings/save-hotkey.ts`             | Ctrl+S / Cmd+S：本页可见时才接管                               |
+| `src/client/settings/tab-memory.ts`              | 分区记忆：上次停留的分区存在 `localStorage`                    |
+| `src/client/settings/save-fields.ts`             | 保存请求体的摊平：每个分区贡献哪几个键                         |
 | `src/client/settings/use-pet-list.ts`            | 宠物列表：种类条、实例增删与选中                               |
 | `src/client/settings/use-remote-data.ts`         | 页面级一次性拉取：落盘位置与候选模型清单                       |
 | `src/client/settings/config/`                    | 成品读取、HTTP 契约、保存与同步编排、表单校验                  |

@@ -23,7 +23,9 @@ import { injectSettingsCss } from './settings/css.ts';
 import { makeDialog, type DialogState } from './settings/dialog.ts';
 import { makeLoadStatus } from './settings/load-status.ts';
 import { makeSettingsPanels, type SettingsPanelDeps } from './settings/panels.ts';
+import { buildSaveFields } from './settings/save-fields.ts';
 import { useSaveHotkey } from './settings/save-hotkey.ts';
+import { readSavedTab, saveTab, settingsTabStorage } from './settings/tab-memory.ts';
 import type { SettingsRuntime } from './settings/runtime.ts';
 import { DEFAULT_SETTINGS_TAB, makeTabBar, tabButtonId, tabPanelId, type SettingsTabId } from './settings/tabs.ts';
 import { attachTipLayer } from './settings/tip-layer.ts';
@@ -68,12 +70,15 @@ export function makePetConfigSection(
   const LoadStatus = makeLoadStatus({ h, t });
   const TabBar = makeTabBar({ h, t, useRef });
   const panelsOf = makeSettingsPanels(rt, ctx);
+  // 分区记忆：装配时读一次（渲染期不再碰存储），初始分区取上次停留的那一页。
+  const tabStorage = settingsTabStorage();
+  const firstTab: SettingsTabId = readSavedTab(tabStorage) ?? DEFAULT_SETTINGS_TAB;
 
   return function PetConfigSection() {
     const [saving, setBusy] = useState(false);
     const [msg, setMsg] = useState<Feedback>({ kind: '', text: '' });
-    // 当前分区只是本地视图状态：不写盘，也不参与保存。
-    const [tab, setTab] = useState<SettingsTabId>(DEFAULT_SETTINGS_TAB);
+    // 当前分区只是本地视图状态：不写配置，只在 localStorage 里记一笔「上次看到哪」。
+    const [tab, setTab] = useState<SettingsTabId>(firstTab);
     // 设置页根节点：Ctrl+S 只在它可见时接管。
     const rootRef = useRef<HTMLElement | null>(null);
     // 确认 / 提示弹窗：remove 删除宠物、lastOne 只剩一只删不了、sync 同步覆盖、corrupt 用户配置已损坏。
@@ -126,27 +131,10 @@ export function makePetConfigSection(
 
     // 写路径在 settings/config/write-flow.ts：保存、请求同步与「确认」派发都走同一条校验与落盘。
     // 传的是回调而不是值——save 每次渲染重建，捕获状态会拿旧值存盘。
-    // 请求体按分区摊平：每个分区自己那几项，键名与成品配置字段同名。
+    // 请求体由 save-fields.ts 摊平：每个分区贡献自己那几项，键名与成品配置字段同名。
     const write = createWriteFlow({
-      fields: () => ({
-        // PUT /config 只写用户主配置：只能提交 main 层实例，pack 实例走 POST /pet-config。
-        pets: list.mainPets,
-        ...global.values,
-        ...model.chatFlags,
-        voiceEnabled: voice.enabled,
-        voiceName: voice.name,
-        voiceVolume: voice.volume,
-        voiceWhisperEnabled: voice.whisper,
-        voiceTodoEnabled: voice.todo,
-        voiceNotifyEnabled: voice.notify,
-        physics: look.physics,
-        whisperModel: model.whisperModel,
-        chatModel: model.chatModel,
-        chatMemoryRounds: model.chatMemory,
-        chatImageLimit: model.chatImageLimit,
-        font: look.font,
-        animationWeights: look.weights,
-      }),
+      fields: () =>
+        buildSaveFields({ pets: list.mainPets, global: global.values, chat: model.chatFlags, voice, model, look }),
       busy: () => busy,
       setBusy,
       setMsg,
@@ -160,6 +148,12 @@ export function makePetConfigSection(
     });
 
     useSaveHotkey(rt, rootRef, () => void write.save());
+
+    /** 切分区：本地状态立刻生效，同时记一笔「上次看到哪」（记不住也不影响切换）。 */
+    const selectTab = (id: SettingsTabId): void => {
+      setTab(id);
+      saveTab(tabStorage, id);
+    };
 
     const deps: SettingsPanelDeps = {
       busy,
@@ -193,7 +187,7 @@ export function makePetConfigSection(
         h(LoadStatus, { loadState, onRetry: retry }),
 
         // 只渲染当前分区：其余分区的卡片不构造节点（字段状态仍在各 hook 里，切回来不丢）。
-        h(TabBar, { active: tab, onSelect: setTab }),
+        h(TabBar, { active: tab, onSelect: selectTab }),
         h('div', {
           role: 'tabpanel',
           id: tabPanelId(tab),
