@@ -10,7 +10,7 @@
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { jsx } from 'react/jsx-runtime';
+import type { H } from '../runtime.ts';
 
 import { buildModelRows } from './model-rows.ts';
 import { buildModelPanel, type ModelPanelView } from './model-picker-panel.ts';
@@ -21,7 +21,7 @@ interface Node {
   props: Record<string, unknown>;
 }
 
-const h = ((tag: string, props: Record<string, unknown>) => ({ tag, props })) as unknown as typeof jsx;
+const h = ((tag: string, props: Record<string, unknown>) => ({ tag, props })) as unknown as H;
 
 /** 把整棵树摊平成节点数组，便于按标签或类名找。 */
 function flatten(node: unknown): Node[] {

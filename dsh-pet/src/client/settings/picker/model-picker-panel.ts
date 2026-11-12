@@ -6,13 +6,14 @@
  */
 import type * as ReactNS from 'react';
 import type { jsx } from 'react/jsx-runtime';
+import type { H } from '../runtime.ts';
 import type { ModelSelection } from '../../../shared/types.ts';
 import type { ModelCatalogGroup, ModelRow } from './model-rows.ts';
 import type { PanelPosition } from '../panel/placement.ts';
 
 /** 浮层渲染所需的一切；每次渲染现算一份，不跨渲染保存。 */
 export interface ModelPanelView {
-  h: typeof jsx;
+  h: H;
   t: (key: string) => string;
   /** 触发器上方的字段标签，给浮层当无障碍名。 */
   label: string;
@@ -83,7 +84,7 @@ export function buildModelPanel(view: ModelPanelView): ReturnType<typeof jsx> {
 }
 
 /** 三态提示行：加载中 / 失败 / 空结果。 */
-function statusNode(h: typeof jsx, key: string, text: string, live: boolean): ReturnType<typeof jsx> {
+function statusNode(h: H, key: string, text: string, live: boolean): ReturnType<typeof jsx> {
   return h('div', {
     key,
     className: 'dsh-pet-mp__status',

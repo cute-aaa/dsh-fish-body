@@ -10,7 +10,7 @@
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { jsx } from 'react/jsx-runtime';
+import type { H } from './runtime.ts';
 
 import { makeUiKit } from './ui.ts';
 
@@ -19,7 +19,7 @@ interface Node {
   props: Record<string, unknown>;
 }
 
-const h = ((tag: string, props: Record<string, unknown>) => ({ tag, props })) as unknown as typeof jsx;
+const h = ((tag: string, props: Record<string, unknown>) => ({ tag, props })) as unknown as H;
 
 const ui = makeUiKit({ h, t: (key) => key });
 
