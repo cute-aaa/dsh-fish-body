@@ -177,6 +177,11 @@ export const pt: Record<Key, string> = {
   voiceTitle: 'Voz',
   voiceHint:
     'Quatro interruptores e uma voz: cada tipo de fala tem o próprio interruptor e nenhum depende de outro. Tudo desligado por padrão; gravado na configuração do usuário ao "Salvar" (nunca na hora).',
+  voicePreview: 'Ouvir',
+  voicePreviewLoading: 'Sintetizando…',
+  voicePreviewPlaying: 'Reproduzindo',
+  voicePreviewFailed: 'Falha ao ouvir: serviço de voz ou rede indisponível',
+
   voiceEnabled: 'Falar sussurros manuais',
   voiceEnabledHint:
     'Fala os sussurros disparados pelo menu de contexto ou por um comando de barra, e também as respostas da conversa. O botão de alto-falante do painel de conversa fala uma única frase assim que você o aperta. Só decide se sai som: balões, memória da conversa e pop-ups de notificação do sistema não mudam; falha na síntese só gera log e nunca interrompe a conversa.',

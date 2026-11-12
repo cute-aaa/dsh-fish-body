@@ -180,6 +180,11 @@ export const es: Record<Key, string> = {
   voiceTitle: 'Voz',
   voiceHint:
     'Cuatro interruptores y una voz: cada tipo de locución tiene su propio interruptor y ninguno depende de otro. Todo desactivado por defecto; se escribe en la configuración del usuario al "Guardar" (nunca al instante).',
+  voicePreview: 'Escuchar',
+  voicePreviewLoading: 'Sintetizando…',
+  voicePreviewPlaying: 'Reproduciendo',
+  voicePreviewFailed: 'No se pudo escuchar: el servicio de voz o la red no están disponibles',
+
   voiceEnabled: 'Locutar susurros manuales',
   voiceEnabledHint:
     'Locuta los susurros lanzados desde el menú contextual o un comando de barra, y también las respuestas del chat. El botón de altavoz del panel de chat locuta una sola frase en cuanto lo pulsas. Solo afecta a si se produce sonido: los globos, la memoria del chat y las notificaciones emergentes del sistema no cambian; un fallo de síntesis se registra y nunca interrumpe la conversación.',

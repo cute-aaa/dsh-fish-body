@@ -14,11 +14,13 @@ import assert from 'node:assert/strict';
 
 import {
   PLAYBACK_WAIT_MAX_MS,
+  buildSilentWav,
   getVoiceState,
   playSayVoice,
   setSurface,
   setVoiceConfig,
   speakNotice,
+  speakText,
   subscribeVoiceUtterance,
   type VoiceUtteranceEvent,
 } from './voice.ts';
@@ -59,6 +61,8 @@ function stubFetch(options: { ok?: boolean; hold?: boolean } = {}): {
 interface FakeAudio {
   /** 与真实 Audio 同名的音量字段。 */
   volume: number;
+  /** 预热静音会把它设成 true：正片开播前一直循环。 */
+  loop?: boolean;
   onended: (() => void) | null;
   onerror: (() => void) | null;
   onpause: (() => void) | null;
@@ -529,6 +533,109 @@ describe('speakNotice —— 通知类播报允许后台出声', () => {
       await flush();
       assert.equal(fetchStub.calls.length, 0, '空串没有可念的内容');
     } finally {
+      browser.restore();
+      fetchStub.restore();
+    }
+  });
+});
+
+describe('句首保护 —— 冷启动丢掉的那一段必须落在静音上', () => {
+  /** 只补一个 AudioContext 标识：预热逻辑据它判断「这是真浏览器」。 */
+  function withWebAudio(): () => void {
+    const previous = (globalThis as { AudioContext?: unknown }).AudioContext;
+    (globalThis as { AudioContext?: unknown }).AudioContext = class {};
+    return () => {
+      (globalThis as { AudioContext?: unknown }).AudioContext = previous;
+    };
+  }
+
+  test('先起一段静音预热，再播正片；正片音量不变，播完停掉预热', async () => {
+    const fetchStub = stubFetch();
+    const volumes: number[] = [];
+    const browser = stubBrowser({ volumes });
+    const restoreWebAudio = withWebAudio();
+    try {
+      setSurface('web');
+      setVoiceConfig('zh-CN-XiaoyiNeural', 0.6);
+      playSayVoice({ text: '句首不能少字', voiceTo: 'web' });
+      await flush();
+      assert.equal(browser.audios.length, 2, '先一段预热静音，再一段正片');
+      assert.equal(browser.audios[0].volume, 0, '预热必须静音，否则会多出声音');
+      assert.equal(browser.audios[0].loop, true, '预热要循环到正片开播，中途断掉等于没热');
+      assert.deepEqual(volumes, [0, 0.6], '正片照旧按配置音量播');
+      assert.equal(browser.audios[0].paused, true, '正片播完要停掉预热，不让静音一直响');
+    } finally {
+      restoreWebAudio();
+      browser.restore();
+      fetchStub.restore();
+    }
+  });
+
+  test('没有 WebAudio（单测 / 非浏览器）时不预热，直接播正片', async () => {
+    const fetchStub = stubFetch();
+    const volumes: number[] = [];
+    const browser = stubBrowser({ volumes });
+    try {
+      setSurface('web');
+      setVoiceConfig('', 1);
+      playSayVoice({ text: '普通一句', voiceTo: 'web' });
+      await flush();
+      assert.equal(browser.audios.length, 1, '没有预热能力时不该多出一段音频');
+      assert.deepEqual(volumes, [1]);
+    } finally {
+      browser.restore();
+      fetchStub.restore();
+    }
+  });
+});
+
+describe('buildSilentWav —— 预热用的静音片段', () => {
+  test('是一段合法的 8 kHz / 8 bit / 单声道 WAV', () => {
+    const bytes = buildSilentWav(400);
+    const view = new DataView(bytes.buffer);
+    const text = (offset: number, length: number): string =>
+      String.fromCharCode(...Array.from({ length }, (_, index) => view.getUint8(offset + index)));
+    assert.equal(text(0, 4), 'RIFF');
+    assert.equal(text(8, 4), 'WAVE');
+    assert.equal(text(12, 4), 'fmt ');
+    assert.equal(view.getUint32(16, true), 16, 'fmt chunk 长度固定 16');
+    assert.equal(view.getUint16(20, true), 1, 'PCM');
+    assert.equal(view.getUint16(22, true), 1, '单声道');
+    assert.equal(view.getUint32(24, true), 8000, '采样率');
+    assert.equal(view.getUint16(34, true), 8, '位深');
+    assert.equal(text(36, 4), 'data');
+    assert.equal(bytes.length, 44 + 3200, '400ms × 8000 Hz');
+    assert.equal(view.getUint32(40, true), 3200, 'data 长度要与实际字节一致');
+    assert.equal(bytes[44], 0x80, '8 bit PCM 的静音是 0x80');
+    assert.equal(bytes[bytes.length - 1], 0x80);
+  });
+
+  test('时长非法也至少给一个采样，不产生空文件', () => {
+    assert.equal(buildSilentWav(0).length, 45);
+  });
+});
+
+describe('speakText —— 设置页试听的覆盖项', () => {
+  test('音色与音量取覆盖值，不拿配置里的旧值', async () => {
+    const fetchStub = stubFetch();
+    const volumes: number[] = [];
+    const browser = stubBrowser({ volumes });
+    let body: { text?: string; voice?: string } = {};
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = ((_url: string, init?: { body?: string }) => {
+      body = JSON.parse(init?.body ?? '{}') as { text?: string; voice?: string };
+      return previousFetch(_url, init);
+    }) as typeof fetch;
+    try {
+      setSurface('web');
+      setVoiceConfig('zh-CN-XiaoxiaoNeural', 0.2);
+      speakText('试听一句', undefined, { voice: 'zh-CN-YunxiNeural', volume: 0.9 });
+      await flush();
+      assert.equal(body.voice, 'zh-CN-YunxiNeural', '试听要用当前选中（可能还没保存）的音色');
+      assert.equal(body.text, '试听一句');
+      assert.deepEqual(volumes, [0.9], '音量也要跟着覆盖值，否则试听音量与实际不符');
+    } finally {
+      globalThis.fetch = previousFetch;
       browser.restore();
       fetchStub.restore();
     }

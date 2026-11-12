@@ -10,9 +10,10 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { localProviderOf, providerFormOf } from './use-voice-settings.ts';
+import { localProviderOf, providerFormOf, useVoiceSettings } from './use-voice-settings.ts';
 import { readStringRecord } from './voice-api.ts';
 import type { VoiceProviderView } from '../../shared/voice-providers.ts';
+import type { SettingsRuntime } from './runtime.ts';
 
 /** 造一个最小实现视图；默认非内置、无音色、无配置项。 */
 const provider = (id: string, patch: Partial<VoiceProviderView> = {}): VoiceProviderView => ({
@@ -65,5 +66,96 @@ describe('providerFormOf —— 接入表单的数据源', () => {
 
   test('只有内置实现时不出表单', () => {
     assert.equal(providerFormOf([provider('edge', { builtin: true })]), undefined);
+  });
+});
+
+describe('useVoiceSettings —— 试听', () => {
+  /** 最小运行时：`useState` 独立一格并记录写入，`useEffect` 不跑（副作用另有专测），`useCallback` 直通。 */
+  function fakeRuntime(): { rt: SettingsRuntime; writes: unknown[] } {
+    const writes: unknown[] = [];
+    const rt = {
+      h: (() => null) as unknown as SettingsRuntime['h'],
+      useState: ((init: unknown) => [
+        init,
+        (value: unknown) => {
+          writes.push(value);
+        },
+      ]) as SettingsRuntime['useState'],
+      useEffect: (() => undefined) as unknown as SettingsRuntime['useEffect'],
+      useRef: ((init: unknown) => ({ current: init })) as unknown as SettingsRuntime['useRef'],
+      useCallback: ((callback: unknown) => callback) as SettingsRuntime['useCallback'],
+      t: (key: string) => key,
+    } as SettingsRuntime;
+    return { rt, writes };
+  }
+
+  /** 合成端点 + /config：记录请求体，`/voice/speak` 回一段「音频」。 */
+  function stubVoiceFetch(): { bodies: Array<Record<string, unknown>>; restore: () => void } {
+    const previous = globalThis.fetch;
+    const bodies: Array<Record<string, unknown>> = [];
+    globalThis.fetch = ((url: string, init?: { body?: string }) => {
+      if (url.includes('/voice/speak')) {
+        bodies.push(JSON.parse(init?.body ?? '{}') as Record<string, unknown>);
+        return Promise.resolve({
+          ok: true,
+          headers: { get: () => 'audio/mpeg' },
+          // 必须是真 Blob：URL.createObjectURL 不吃形状相同的替身。
+          blob: async () => new Blob([new Uint8Array([1])], { type: 'audio/mpeg' }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ main: {} }) });
+    }) as typeof fetch;
+    return {
+      bodies,
+      restore: () => {
+        globalThis.fetch = previous;
+      },
+    };
+  }
+
+  /** 假音频：开播即成功，收尾由测试自己决定（这里不需要）。 */
+  function stubAudio(): () => void {
+    const previous = (globalThis as { Audio?: unknown }).Audio;
+    (globalThis as { Audio?: unknown }).Audio = class {
+      volume = 1;
+      loop = false;
+      onended: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onpause: (() => void) | null = null;
+      play(): Promise<void> {
+        return Promise.resolve();
+      }
+      pause(): void {
+        this.onpause?.();
+      }
+    };
+    return () => {
+      (globalThis as { Audio?: unknown }).Audio = previous;
+    };
+  }
+
+  /** 等异步旁路跑完。 */
+  async function flush(): Promise<void> {
+    for (let round = 0; round < 20; round++) await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  test('用当前选中的音色与音量合成一句示例并播放', async () => {
+    const { rt, writes } = fakeRuntime();
+    const fetchStub = stubVoiceFetch();
+    const restoreAudio = stubAudio();
+    try {
+      const voice = useVoiceSettings(rt);
+      voice.preview.test();
+      await flush();
+      assert.equal(fetchStub.bodies.length, 1, '试听要发一次合成请求');
+      assert.equal(fetchStub.bodies[0].voice, 'zh-CN-XiaoyiNeural', '用当前音色（默认晓伊）');
+      assert.equal(typeof fetchStub.bodies[0].text, 'string', '示例台词随请求送出去');
+      assert.ok(String(fetchStub.bodies[0].text).length > 0);
+      assert.ok(writes.includes('loading'), '合成期间按钮要能显示「合成中…」');
+      assert.ok(writes.includes('playing'), '开播后要能显示「正在播放」');
+    } finally {
+      restoreAudio();
+      fetchStub.restore();
+    }
   });
 });

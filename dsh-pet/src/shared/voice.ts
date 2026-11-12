@@ -251,6 +251,7 @@ function waitForPlaybackEnd(audio: HTMLAudioElement, objectUrl: string): Promise
       settled = true;
       if (timer !== null) clearTimeout(timer);
       URL.revokeObjectURL(objectUrl);
+      stopWarmAudio(); // 正片收尾：预热静音也没必要再响着
       resolve();
     };
     timer = setTimeout(finish, PLAYBACK_WAIT_MAX_MS);
@@ -268,6 +269,99 @@ let autoSeq = 0;
 
 /** 当前这句是否允许页面隐藏时继续播；跟随 autoAudio 一起换，不做成全局开关。 */
 let autoAudioCanPlayHidden = false;
+
+/**
+ * 预热用的静音元素：**它才是句首少字的解法**。
+ *
+ * 一句语音前面通常是几十秒甚至几分钟的静默，浏览器的音频输出流这时候已经关掉了。新开一段音频时，
+ * 输出设备要重新拉起来（Windows 上尤其慢），`play()` 之后最先到达的那一小段会被丢掉——
+ * 而 edge / GSV 的音频开头恰好就是第一个字的气声，于是听起来「开口少了一个字」。
+ * 碎碎念之所以最明显：它是唯一没有用户手势、又隔很久才响一次的自动播报。
+ *
+ * 这里先起一段音量 0、无限循环的静音，等它真的开始放（输出流热起来）再去播正片，
+ * 被丢掉的那一段落在静音上，第一个字完整保留。播完（或被顶掉）时停掉它。
+ */
+let warmAudio: HTMLAudioElement | null = null;
+
+/** 预热静音的长度：够把输出流拉起来即可，循环播放，所以不必很长。 */
+const WARMUP_SILENCE_MS = 400;
+/** 等预热开播的上限：设备拉不起来时不能把正片也一起卡住。 */
+const WARMUP_WAIT_MS = 400;
+
+/** 浏览器里才有 WebAudio：用它判断「这是真浏览器」，顺带让单测里的假 Audio 走原路径。 */
+function hasWebAudio(): boolean {
+  const scope = globalThis as { AudioContext?: unknown; webkitAudioContext?: unknown };
+  return typeof scope.AudioContext === 'function' || typeof scope.webkitAudioContext === 'function';
+}
+
+/**
+ * 造一段静音 WAV（8 kHz / 8 bit / 单声道）：数据全为 0x80，就是 8 bit PCM 的静音。
+ *
+ * 自己拼而不内嵌 base64：几十个字节的构造函数可测、也不会在源码里塞一长串常量。
+ *
+ * @param durationMs - 时长（毫秒）。
+ * @returns 完整的 WAV 文件字节。
+ */
+export function buildSilentWav(durationMs: number): Uint8Array {
+  const sampleRate = 8000;
+  const samples = Math.max(1, Math.round((sampleRate * durationMs) / 1000));
+  const bytes = new Uint8Array(44 + samples);
+  const view = new DataView(bytes.buffer);
+  const ascii = (offset: number, text: string): void => {
+    for (let index = 0; index < text.length; index += 1) view.setUint8(offset + index, text.charCodeAt(index));
+  };
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + samples, true);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, 16, true); // fmt chunk 长度
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // 单声道
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate, true); // 字节率 = 采样率 × 1 声道 × 1 字节
+  view.setUint16(32, 1, true); // 块对齐
+  view.setUint16(34, 8, true); // 位深
+  ascii(36, 'data');
+  view.setUint32(40, samples, true);
+  bytes.fill(0x80, 44); // 8 bit PCM 的静音是 0x80（无符号，中点）
+  return bytes;
+}
+
+/**
+ * 把音频输出流热起来；已经在热就不重复起。
+ *
+ * @returns 预热开始播放（或确认起不来）时 resolve；正片随后再开播，句首丢帧落在静音上。
+ */
+async function warmAudioSink(): Promise<void> {
+  if (!hasWebAudio() || warmAudio !== null) return;
+  try {
+    const url = URL.createObjectURL(new Blob([buildSilentWav(WARMUP_SILENCE_MS)], { type: 'audio/wav' }));
+    const audio = new Audio(url);
+    audio.loop = true;
+    audio.volume = 0;
+    warmAudio = audio;
+    // play() 的 Promise 在「真正开播」时 resolve：拿它当「输出流已热」的信号。
+    // 起不来（自动播放被拦 / 设备不可用）就直接往下走：宁可按原样播，也不要卡住正片。
+    await Promise.race([
+      audio.play().catch(() => undefined),
+      new Promise<void>((resolve) => setTimeout(resolve, WARMUP_WAIT_MS)),
+    ]).finally(() => URL.revokeObjectURL(url));
+  } catch {
+    warmAudio = null;
+  }
+}
+
+/** 停掉预热静音；正片播完或被顶掉时调用，免得静音一直在放。 */
+function stopWarmAudio(): void {
+  const audio = warmAudio;
+  warmAudio = null;
+  if (audio === null) return;
+  try {
+    audio.pause();
+  } catch {
+    /* 播放器已销毁：忽略 */
+  }
+}
 
 /**
  * 掐掉当前自动播报。
@@ -321,14 +415,16 @@ async function speak(text: string, canPlayHidden = false): Promise<void> {
       URL.revokeObjectURL(objectUrl);
       return;
     }
-    const audio = new Audio(objectUrl);
-    audio.volume = voiceVolume;
     // 合成期间页面被藏起来：这一句不补播，直接丢掉——除非这句自带后台许可（通知类）。
     if (!canPlayHidden && typeof document !== 'undefined' && document.hidden) {
       URL.revokeObjectURL(objectUrl);
       setVoiceState('idle');
       return;
     }
+    // 先把输出流热起来再建正片：冷启动丢掉的那一段落在静音上，句首的字才不会被啃掉。
+    await warmAudioSink();
+    const audio = new Audio(objectUrl);
+    audio.volume = voiceVolume;
     // 音频就绪即置 ready：喇叭表示「这句有语音」，不跟播放进度绑定
     setVoiceState('ready');
     autoAudioCanPlayHidden = canPlayHidden;
@@ -337,6 +433,7 @@ async function speak(text: string, canPlayHidden = false): Promise<void> {
       await audio.play(); // 只代表开播：开播就失败要落到 failed，也不必再等收尾
     } catch {
       URL.revokeObjectURL(objectUrl);
+      stopWarmAudio();
       if (autoAudio === audio) {
         autoAudio = null;
         autoAudioCanPlayHidden = false;
@@ -370,14 +467,27 @@ let manualSeq = 0;
  *
  * @param text - 要念的正文。
  * @param onPhase - 阶段回调：请求合成时 `loading`、音频就绪开始播时 `playing`、播完 `idle`、失败或超时 `failed`。
+ * @param options - 覆盖音色与音量：设置页「试听」要用还没保存的那一格，不能拿配置里的旧值。
  */
-export function speakText(text: string, onPhase?: (phase: SpeakPhase) => void): void {
+export function speakText(text: string, onPhase?: (phase: SpeakPhase) => void, options: SpeakOptions = {}): void {
   if (!text) return;
-  void playManual(text, onPhase);
+  void playManual(text, onPhase, options);
+}
+
+/** 手动点播的覆盖项；缺省一律取已加载的配置值。 */
+export interface SpeakOptions {
+  /** 覆盖音色 id（设置页试听：当前选中的那一格，可能还没保存）。 */
+  readonly voice?: string;
+  /** 覆盖播放音量（0–1）。 */
+  readonly volume?: number;
 }
 
 /** 请求合成并播放手动点播；失败静默，不打断面板交互。 */
-async function playManual(text: string, onPhase?: (phase: SpeakPhase) => void): Promise<void> {
+async function playManual(
+  text: string,
+  onPhase?: (phase: SpeakPhase) => void,
+  options: SpeakOptions = {},
+): Promise<void> {
   const token = ++manualSeq;
   await loadConfigOnce();
   if (manualAudio) {
@@ -386,11 +496,13 @@ async function playManual(text: string, onPhase?: (phase: SpeakPhase) => void): 
   }
   if (token !== manualSeq) return; // 等配置期间又被点了一次：这次直接让位
   onPhase?.('loading');
+  const voice = options.voice ?? voiceName;
+  const volume = options.volume === undefined ? voiceVolume : clampVolume(options.volume);
   try {
     const response = await fetch(voiceBase + '/voice/speak', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text, ...(voiceName ? { voice: voiceName } : {}) }),
+      body: JSON.stringify({ text, ...(voice ? { voice } : {}) }),
       signal: speakSignal(),
     });
     if (token !== manualSeq) return;
@@ -401,20 +513,27 @@ async function playManual(text: string, onPhase?: (phase: SpeakPhase) => void): 
     const objectUrl = URL.createObjectURL(await response.blob());
     if (token !== manualSeq) return;
     const audio = new Audio(objectUrl);
-    audio.volume = voiceVolume;
+    audio.volume = volume;
     audio.onended = () => {
       URL.revokeObjectURL(objectUrl);
+      stopWarmAudio();
       if (manualAudio === audio) {
         manualAudio = null;
         onPhase?.('idle');
       }
     };
-    audio.onerror = () => URL.revokeObjectURL(objectUrl);
+    audio.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      stopWarmAudio();
+    };
     manualAudio = audio;
+    // 与自动播报同一条保护：试听也要能听到第一个字，否则按钮验不出真问题。
+    await warmAudioSink();
     onPhase?.('playing');
     await audio.play();
   } catch {
     /* 含超时：面板里还有文字，不弹错误打断阅读，只把按钮换成失败态 */
+    stopWarmAudio();
     if (token === manualSeq) onPhase?.('failed');
   }
 }

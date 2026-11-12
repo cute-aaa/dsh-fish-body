@@ -10,6 +10,7 @@
  * @module dsh-pet/src/client/settings/use-voice-settings
  */
 import { readVoiceProviders, switchableProviders, type VoiceProviderView } from '../../shared/voice-providers.ts';
+import { speakText, type SpeakPhase } from '../../shared/voice.ts';
 import type { MainConfigPatch } from './config/index.ts';
 import type { VoiceOption } from './picker/voice-picker.ts';
 import type { SettingsRuntime } from './runtime.ts';
@@ -17,6 +18,8 @@ import { fetchProviderConfig, fetchVoices, postJson, readStringRecord } from './
 
 /** 语音分区的状态与回调。 */
 export interface VoiceSettings {
+  /** 试听：用当前选中的音色与音量合成一句示例。 */
+  readonly preview: VoicePreview;
   /** 手动播报开关（右键 / 斜杠命令 / 对话回复）。 */
   readonly enabled: boolean;
   /** 内置实现的音色 id；本地音色可用时它只是回落值。 */
@@ -86,6 +89,24 @@ const POLL_FIRST_DELAY_MS = 3_000;
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
+ * 试听的示例台词。
+ *
+ * 固定一句而不是让用户填：试听要能横向比较音色，台词一变就没法比；也不走模型，点一下就响。
+ * 用中文是因为内置四个 edge 音色全是中文嗓子；本地实现（GSV）读同一句也无妨，反正只为听音色。
+ */
+const VOICE_PREVIEW_TEXT = '你好呀，我是你的桌宠，随便说一句给你听。';
+
+/** 试听的状态与入口。 */
+export interface VoicePreview {
+  /** 当前阶段：合成中 / 播放中 / 空闲或失败。 */
+  readonly phase: SpeakPhase;
+  /** 失败时的一句说明（成功与播放中为空串）。 */
+  readonly message: string;
+  /** 用当前选中的音色与音量试听一句。 */
+  test(): void;
+}
+
+/**
  * 挑出要单列「本地音色」那一格的实现。
  *
  * @param providers - 已解析的实现列表。
@@ -132,6 +153,23 @@ export function useVoiceSettings(
   const [processBusy, setProcessBusy] = useState(false);
   const [processMessage, setProcessMessage] = useState('');
   const [starting, setStarting] = useState(false);
+  // 试听：与真实播报同一条播放链路（合成 → 预热 → 播放），所以它验的就是用户会听到的东西。
+  const [previewPhase, setPreviewPhase] = useState<SpeakPhase>('idle');
+  const [previewMessage, setPreviewMessage] = useState('');
+
+  const testPreview = useCallback((): void => {
+    setPreviewMessage('');
+    speakText(
+      VOICE_PREVIEW_TEXT,
+      (phase) => {
+        setPreviewPhase(phase);
+        // 失败原因就地显示在按钮旁：这一格最可能就是「服务没起 / 没网」。
+        setPreviewMessage(phase === 'failed' ? t('voicePreviewFailed') : '');
+      },
+      // 用还没保存的那一格：试听要跟着当前选择走，否则改了音色点试听却还是旧嗓子。
+      { voice: name, volume },
+    );
+  }, [name, volume, t]);
 
   // 一份新列表就到手就刷新；服务真的起来了就解除「启动中」，按钮立刻翻成「停止」可点。
   const adoptProviders = useCallback((raw: unknown): void => {
@@ -251,6 +289,7 @@ export function useVoiceSettings(
   }, []);
 
   return {
+    preview: { phase: previewPhase, message: previewMessage, test: testPreview },
     enabled,
     name,
     volume,

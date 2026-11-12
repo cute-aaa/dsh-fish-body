@@ -70,6 +70,8 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
           onWhisperToggle: (value: boolean) => voice.setWhisper(value),
           onTodoToggle: (value: boolean) => voice.setTodo(value),
           onNotifyToggle: (value: boolean) => voice.setNotify(value),
+          // 试听走与真实播报同一条链路（合成 → 预热 → 播放），所以它验的就是用户会听到的东西。
+          preview: voice.preview,
         }),
         form
           ? h(VoiceProviderCard, {

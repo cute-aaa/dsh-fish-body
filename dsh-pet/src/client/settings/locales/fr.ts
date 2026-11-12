@@ -178,6 +178,11 @@ export const fr: Record<Key, string> = {
   voiceTitle: 'Synthèse vocale',
   voiceHint:
     "Quatre interrupteurs et une voix : chaque type de parole a son propre interrupteur, aucun ne dépend d'un autre. Tout est désactivé par défaut et écrit dans la configuration utilisateur lors de l'enregistrement (jamais immédiatement).",
+  voicePreview: 'Écouter',
+  voicePreviewLoading: 'Synthèse…',
+  voicePreviewPlaying: 'Lecture en cours',
+  voicePreviewFailed: "Échec de l'écoute : service vocal ou réseau indisponible",
+
   voiceEnabled: 'Lire les murmures manuels',
   voiceEnabledHint:
     "Lit les murmures déclenchés par le clic droit ou une commande slash, ainsi que les réponses de discussion. Le bouton haut-parleur du panneau de discussion lit une seule réplique dès que vous appuyez. Cela ne décide que du son émis : bulles, mémoire de discussion et pop-ups de notification système restent intacts ; un échec de synthèse est seulement journalisé et n'interrompt jamais la conversation.",

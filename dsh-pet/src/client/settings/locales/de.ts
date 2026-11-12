@@ -176,6 +176,11 @@ export const de: Record<Key, string> = {
   voiceTitle: 'Sprachausgabe',
   voiceHint:
     'Vier Schalter und eine Stimme: Jede Art von Sprachausgabe hat ihren eigenen Schalter, keiner hängt von einem anderen ab. Standardmäßig alle aus; wird beim „Speichern" in die Benutzerkonfiguration geschrieben (kein sofortiges Schreiben).',
+  voicePreview: 'Anhören',
+  voicePreviewLoading: 'Wird synthetisiert…',
+  voicePreviewPlaying: 'Wird abgespielt',
+  voicePreviewFailed: 'Anhören fehlgeschlagen: Sprachdienst oder Netzwerk nicht verfügbar',
+
   voiceEnabled: 'Manuelles Flüstern sprechen',
   voiceEnabledHint:
     'Spricht Flüstern-Sätze, die über das Kontextmenü oder einen Slash-Befehl ausgelöst werden, sowie Chat-Antworten. Die Lautsprecher-Schaltfläche im Chat-Panel spricht einen einzelnen Satz, sobald Sie sie drücken. Es betrifft nur das Sprechen: Blasen, Chat-Gedächtnis und Systembenachrichtigungs-Popups bleiben unberührt; eine fehlgeschlagene Synthese wird nur protokolliert und unterbricht den Chat nicht.',

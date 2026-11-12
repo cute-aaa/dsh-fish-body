@@ -165,6 +165,12 @@ export const zh = {
   voiceTitle: '语音播报',
   voiceHint:
     '桌宠出声的四个开关与音色：每类语音各一个开关，互不从属。默认全关，随「保存」写入用户配置（不做即时写入）。',
+  // 试听：用当前选中的音色合成一句示例。
+  voicePreview: '试听',
+  voicePreviewLoading: '合成中…',
+  voicePreviewPlaying: '正在播放',
+  voicePreviewFailed: '试听失败：语音服务或网络不可用（本地实现请检查下方接入配置）',
+
   voiceEnabled: '手动播报',
   voiceEnabledHint:
     '右键菜单、斜杠命令触发的碎碎念，以及对话回复念出来。对话面板的喇叭按钮是单句点播，随时可点。只影响「说不说」：气泡、对话记忆与系统通知弹窗都不受影响；合成失败只留日志，不打断对话。',

@@ -175,6 +175,11 @@ export const en: Record<Key, string> = {
   voiceTitle: 'Voice',
   voiceHint:
     'Four switches plus a voice: each kind of speech has its own switch and none of them depends on another. All off by default; written to the user config on "Save" (never written immediately).',
+  voicePreview: 'Preview',
+  voicePreviewLoading: 'Synthesizing…',
+  voicePreviewPlaying: 'Playing',
+  voicePreviewFailed: 'Preview failed: the speech service or network is unavailable',
+
   voiceEnabled: 'Speak manual whispers',
   voiceEnabledHint:
     'Speaks whispers triggered from the context menu or a slash command, plus chat replies. The speaker button in the chat panel speaks a single line whenever you press it. It only affects whether sound is produced — bubbles, chat memory and system notification pop-ups are untouched; a failed synthesis is logged and never interrupts the conversation.',

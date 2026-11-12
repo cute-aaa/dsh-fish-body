@@ -6,11 +6,22 @@
  * @module dsh-pet/src/client/settings/voice-card
  */
 import type { FunctionComponent } from 'react';
+import type { SpeakPhase } from '../../shared/voice.ts';
 import type { VoiceOption, VoicePickerProps } from './picker/voice-picker.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit } from './ui.ts';
 
 export type { VoiceOption } from './picker/voice-picker.ts';
+
+/** 试听这一格的状态与入口。 */
+export interface VoicePreviewProps {
+  /** 当前阶段：合成中 / 播放中 / 空闲或失败。 */
+  readonly phase: SpeakPhase;
+  /** 失败时的一句说明（其余阶段为空串）。 */
+  readonly message: string;
+  /** 用当前选中的音色与音量试听一句。 */
+  onTest(): void;
+}
 
 /** 语音卡的输入。 */
 export interface VoiceCardProps {
@@ -54,6 +65,8 @@ export interface VoiceCardProps {
   readonly localBusy?: boolean;
   /** 选择本地音色（即时落盘，不随「保存」）。 */
   readonly onLocalVoiceChange?: (voice: string) => void;
+  /** 试听：用当前音色（本地可用时是本地那一格）合成一句示例。 */
+  readonly preview: VoicePreviewProps;
 }
 
 /**
@@ -140,6 +153,28 @@ export function makeVoiceCard(
                   ),
                 ]
               : []),
+          ],
+        }),
+        // 试听：不放音色格里是因为它属于「这一嗓子听起来怎么样」，跟选哪个音色是两件事；
+        // 单独一行也让失败原因有地方落地（服务没起时点下去只会静默）。
+        h('div', {
+          className: 'dsh-pet-cfg__actions',
+          children: [
+            h('button', {
+              key: 'preview',
+              type: 'button',
+              className: 'dsh-pet-cfg__btn is-sm',
+              // 合成中禁掉：再点一次只会顶掉正在合成的那一句，用户以为按钮没响应。
+              disabled: props.busy || props.preview.phase === 'loading',
+              onClick: props.preview.onTest,
+              children: props.preview.phase === 'loading' ? t('voicePreviewLoading') : t('voicePreview'),
+            }),
+            props.preview.phase === 'playing'
+              ? h('span', { key: 'playing', className: 'dsh-pet-cfg__msg', children: t('voicePreviewPlaying') })
+              : null,
+            props.preview.message
+              ? h('span', { key: 'msg', className: 'dsh-pet-cfg__msg is-err', children: props.preview.message })
+              : null,
           ],
         }),
       ],
