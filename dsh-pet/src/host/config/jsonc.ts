@@ -39,6 +39,26 @@ function stripJsonc(src: string): string {
   return out.trim();
 }
 
+/**
+ * 解析一段 JSONC 文本（去注释后按 JSON 解析）。
+ *
+ * 恢复设置备份时用：备份里存的是原文，写盘前必须先确认它真的能解析成对象，否则会把
+ * 「一份坏文件」原样盖到能用的配置上，插件下次读取直接回落到内置默认。
+ *
+ * @param text - 文件原文（可带 `//` 与块注释）。
+ * @returns 解析出的对象；语法错误、非对象、空串都是 `undefined`。
+ */
+export function parseJsoncText(text: string): Record<string, unknown> | undefined {
+  try {
+    const parsed = JSON.parse(stripJsonc(text)) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** 读取并解析 JSONC 文件；不存在/解析失败 → undefined（调用方决定处理） */
 export function readJsonc(path: string): Record<string, unknown> | undefined {
   try {

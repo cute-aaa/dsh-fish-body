@@ -5,16 +5,7 @@ import type { Key } from './zh.ts';
 
 export const de: Record<Key, string> = {
   nav: 'Desktop-Pet-Konfiguration',
-  intro: 'Mehrere Pets verwalten: Jedes Pet hat eigene Größe und Position (gilt sofort nach dem Speichern).',
-  // 分区标签条的标题（顺序见 ../tabs.ts）。
-  tabPet: 'Pets',
-  tabGlobal: 'Allgemein',
   tabLook: 'Aussehen',
-  tabSfx: 'Ton',
-  tabVoice: 'Stimme',
-  tabModel: 'Chat',
-  tabStorage: 'Speicher',
-  // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: 'Pet-Konfiguration',
   avatarLabel: 'Avatar',
   avatarHint:
@@ -23,8 +14,6 @@ export const de: Record<Key, string> = {
   avatarChange: 'Ändern',
   avatarUploading: 'Wird hochgeladen…',
   avatarUploaded: 'Avatar aktualisiert',
-  petCardHint:
-    'Einstellungen pro Pet: Name / Größe / Anzeige / Position / Offsets / die vier Funktionsschalter. Nach dem Ändern unten auf „Speichern" klicken – gilt sofort.',
   globalTitle: 'Globale Schalter',
   globalHint:
     'Gilt für alle Pets (ein Pet-Pack kann dies in seiner Art-Datei überschreiben). Diese Schalter ändern nur den lokalen Zustand und werden beim „Speichern" mit in die Benutzerkonfiguration geschrieben (kein sofortiges Schreiben); Systembenachrichtigungen werden nach dem Speichern sofort neu eingelesen, ohne Neuladen der Seite.',
@@ -112,17 +101,11 @@ export const de: Record<Key, string> = {
   'corner.bottom-right': 'Unten rechts',
   marginX: 'Horizontaler Versatz',
   marginY: 'Vertikaler Versatz',
-  save: 'Speichern',
   saveHotkey: 'Ctrl+S / Cmd+S',
-  sync: 'Synchronisieren',
-  confirmSync:
-    'Wirklich synchronisieren? Die mitgelieferte Standardkonfiguration (alle Felder + Kommentare) überschreibt die Benutzerkonfiguration; Ihre aktuellen Anpassungen gehen verloren.',
   corruptTitle: 'Benutzerkonfiguration beschädigt – nicht gespeichert',
   corruptConfirm: 'Trotzdem speichern',
   corruptBody:
     'Die Benutzerkonfigurationsdatei ist nicht lesbar (beschädigt, kein gültiges JSON/JSONC): {path}. Beim Weiterspeichern wird die Datei anhand der Whitelist neu aufgebaut – alle aktuellen Inhalte (animations / physics / memes und weitere eigene Felder) gehen verloren. Abbrechen = Datei unverändert lassen (zuerst die Konfiguration reparieren, dann speichern); Bestätigen = trotzdem speichern (vorhandene Inhalte verwerfen).',
-  syncHint:
-    '„Synchronisieren" schreibt die mitgelieferte Standardkonfiguration (inkl. Kommentare und aller erweiterten Felder) in die Benutzerkonfigurationsdatei und überschreibt die aktuellen Anpassungen; danach ist die Datei direkt bearbeitbar. Zwei Hinweise: (1) Sobald die Datei existiert, ist sie eine explizite Override-Schicht – spätere Änderungen an den mitgelieferten Standards greifen nicht automatisch (außer bei erneuter Synchronisierung oder Löschen der Datei); (2) „Speichern" auf dieser Seite schreibt die Datei anhand der Whitelist neu (Feldwerte bleiben, Kommentare entfallen).',
   configMeta: 'Erweitert (Dateien)',
   configMetaHint:
     'Die Benutzerkonfiguration kann Pet-Liste / Animationspools / Wiedergabegewichtung überschreiben; Änderungen greifen nach Aktualisieren oder Neustart: im Browser die Seite neu laden, im Desktop-Modus Rechtsklick auf das Pet → „Konfiguration neu laden" (lädt alle Desktop-Pet-Fenster neu); die Standardkonfiguration ist die vollständige Referenz.',
@@ -140,12 +123,9 @@ export const de: Record<Key, string> = {
   saveError:
     'Konfiguration konnte nicht gespeichert werden. Bitte Serververbindung, Schreibrechte im Konfigurationsverzeichnis und Serverprotokoll prüfen.',
   saveInvalid: 'Konfiguration konnte nicht gespeichert werden: Inhalt ungültig. Bitte prüfen und erneut versuchen.',
-  syncError:
-    'Synchronisieren fehlgeschlagen. Bitte Serververbindung und Schreibrechte im Konfigurationsverzeichnis prüfen.',
   loading: 'Konfiguration wird geladen…',
   retry: 'Erneut versuchen',
   invalid: 'Bitte Eingaben prüfen: Größe muss positiv sein, Ränder dürfen beliebige Zahlen sein.',
-  busy: 'Wird gespeichert…',
   extraPetsHint:
     'Weitere {n} Art(en) stammen aus Dateien im Verzeichnis pet/ (<Name>-config.json + <Name>-animation/); oben in der Zeile „Arten" umschalten und bearbeiten. Speichern schreibt jeweils in die eigene Paketkonfiguration, nie in main-config.jsonc.',
   kindLabel: 'Arten',
@@ -381,4 +361,108 @@ export const de: Record<Key, string> = {
   'motion.move': 'Bewegen',
   'motion.action': 'Zufallsaktion',
   uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
+  'fish.intro':
+    'Jede neue, laufende oder gerade beendete Sitzung bekommt eine kleine „Code schreiben“-Animation. Ziehen zum Verschieben, Klick zum Öffnen, × zum Ausblenden.',
+  'fish.enabled': 'Sitzungsfische aktivieren',
+  'fish.enabledHint':
+    'Beim Ausschalten verschwinden die aktuellen Fische und die Ebene wird ausgeblendet; nach dem Einschalten kommen sie bei der nächsten Aktivität zurück.',
+  'fish.size': 'Animationsgröße',
+  'fish.sizeHint': 'Anzeigebreite (px); Höhe folgt dem Skin-Verhältnis (0,5–2× Breite).',
+  'fish.skin': 'Skin',
+  'fish.skinHint':
+    'Die eingebauten Animationen sind sofort nutzbar; eigenes Bild / GIF / webm in den Skin-Ordner legen und „Neu scannen“ drücken.',
+  'fish.skinDefault': 'Standard (Code schreiben)',
+  'fish.skinDefaultName': 'Standard-Skin',
+  'fish.skinBuiltin': 'Eingebaut',
+  'fish.skinMine': 'Eigene',
+  'fish.skinMissing': '(Datei fehlt)',
+  'fish.skinRescan': 'Neu scannen',
+  'fish.skinRescanned': 'Scan fertig: ',
+  'fish.skinRescanFailed': 'Scan fehlgeschlagen: Skin-Liste nicht lesbar',
+  'fish.openSkinFolder': 'Skin-Ordner öffnen',
+  'fish.followPet': 'Um das Tier kreisen',
+  'fish.followPetHint':
+    'Aus: Fische stapeln sich wieder unten rechts. Ein: sie kreisen um das Tier, folgen ihm und werden weggeschoben; nach dem Ziehen fliegen sie kurz und kehren an ihren Platz zurück.',
+  'fish.maxCount': 'Maximale Anzahl',
+  'fish.maxCountHint': 'Überzählige Fische werden zuerst die ältesten beendeten entfernt; laufende Sitzungen bleiben.',
+  'fish.bubbleSec': 'Blasendauer',
+  'fish.bubbleSecHint':
+    'Sekunden, die eine Zeile in der Blase bleibt. Beendete Fische bleiben bis zum Öffnen ihrer Sitzung.',
+  'fish.progressGapSec': 'Fortschrittsintervall',
+  'fish.progressGapSecHint':
+    'Mindestsekunden zwischen zwei Fortschrittsansagen einer Sitzung. Rundenenden sind ausgenommen.',
+  'fish.speakEnabled': 'Sprachansagen',
+  'fish.speakEnabledHint':
+    'Hauptschalter: aus bedeutet keine Ansagen zu Fortschritt, Rundenende oder Warten, die Blase bleibt sichtbar. Die drei Einzelschalter unten gelten, solange er an ist.',
+  'fish.speakProgress': 'Fortschritt vorlesen',
+  'fish.speakProgressHint': 'Beim Denken, Arbeiten und Aufräumen die letzte Zeile vorlesen.',
+  'fish.speakTurnEnd': 'Rundenende vorlesen',
+  'fish.speakTurnEndHint': 'Bei jedem Rundenende vorlesen (fertig, Fehler oder Zwischenrunde eines Ziels).',
+  'fish.speakWaiting': 'Wartezeiten vorlesen',
+  'fish.speakWaitingHint': 'Vorlesen, wenn Freigaben, Fragen oder Planprüfungen auf dich warten.',
+  'fish.resetPositions': 'Fischpositionen zurücksetzen',
+  'fish.positionsReset': 'Positionen zurückgesetzt; Fische erscheinen wieder neben dem Tier.',
+  'fish.preview': 'Vorschau',
+  // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
+  tabPet: 'Begleiter',
+  intro:
+    'Alles nach Funktion gruppiert: Begleiter, Sitzungsfische, Verhalten, Aussehen, Ton, Dialog und System. Ändern, dann unten Übernehmen / OK nutzen – ein Punkt markiert Einstellungen und Tabs mit ungespeicherten Änderungen.',
+  petCardHint:
+    'Einstellungen pro Begleiter: Name / Größe / Anzeige / Position / Versätze / fünf Funktionsschalter. Zum Speichern unten Übernehmen oder OK drücken.',
+  tabFish: 'Sitzungsfische',
+  tabBehavior: 'Verhalten',
+  tabAudio: 'Ton',
+  tabChat: 'Dialog',
+  tabSystem: 'System',
+  barGroup: 'Einstellungsaktionen',
+  barConfirm: 'OK',
+  barCancel: 'Abbrechen',
+  barApply: 'Übernehmen',
+  barRestart: 'Neu starten',
+  barConfirmHint: 'Alle Änderungen speichern und die Einstellungen schließen.',
+  barCancelHint:
+    'Einstellungen schließen und nicht gespeicherte Änderungen verwerfen (beim nächsten Öffnen wird die Konfiguration neu gelesen).',
+  barApplyHint: 'Alle Änderungen speichern, ohne zu schließen.',
+  barRestartHint:
+    'Erst speichern, dann den Host das Plugin neu zusammensetzen und das Desktop-Fenster neu aufbauen lassen.',
+  restarting: 'Plugin wird neu gestartet…',
+  restartHmr: 'Plugin neu gestartet; die Seite wird gleich neu geladen.',
+  restartHelper:
+    'HMR ist nicht aktiv: Das Desktop-Fenster wurde neu aufgebaut, Host-Änderungen brauchen aber weiterhin einen Profil-Neustart.',
+  restartFailed: 'Plugin-Neustart fehlgeschlagen; siehe Plugin-Log.',
+  resetSettings: 'Einstellungen zurücksetzen',
+  resetHint:
+    'Setzt alle Einstellungen auf die Projektstandardwerte zurück (Begleiter, Personas, Physik, Schrift, Ton, Stimme, Modelle und Sitzungsfische). Nach der Bestätigung wird sofort geschrieben.',
+  confirmReset:
+    'Alles zurücksetzen? Die eingebaute Standardkonfiguration überschreibt deine Konfiguration: Begleiter, eigene Personas, Ton / Physik / Schrift und alles Weitere werden auf die Standardwerte zurückgesetzt, auch Kommentare in der Datei werden neu geschrieben. Die Sitzungsfisch-Einstellungen werden ebenfalls zurückgesetzt. Das lässt sich nicht rückgängig machen.',
+  resetDone: 'Auf die eingebauten Standardwerte zurückgesetzt.',
+  resetError:
+    'Zurücksetzen fehlgeschlagen. Prüfe die Serververbindung und die Schreibrechte des Konfigurationsordners.',
+  resetPartial:
+    'Die Hauptkonfiguration wurde zurückgesetzt, die Sitzungsfisch-Einstellungen aber nicht geschrieben: Prüfe, ob der Datenordner beschreibbar ist.',
+  unsaved: 'Nicht gespeicherte Änderungen',
+  sfxMasterTitle: 'Ton-Hauptschalter',
+  sfxMasterHint:
+    'Hauptschalter, Vorwärmen und Gesamtlautstärke gelten für alle Effekte; welcher Slot welche Datei spielt, bestimmt „Ereignistöne“ unten.',
+  systemTitle: 'System und Desktop',
+  systemHint:
+    'Diese Schalter ändern nur, wie dieser Rechner benachrichtigt und wie sich das Fenster verhält; Aktionen und Stimme des Begleiters bleiben unberührt.',
+  'fish.cardTitle': 'Sitzungsfische',
+  // 设置备份与恢复（系统分区）；两份原文 + 每个种类配置，恢复前留 .bak。
+  backupTitle: 'Sicherung und Wiederherstellung',
+  backupHint:
+    'Sichert den Originaltext von drei editierbaren Einstellungen: Hauptkonfiguration (Begleiter und globale Vorgaben), die Konfiguration jedes Datei-Begleiters und die Sitzungsfisch-Einstellungen. Kommentare und Feldreihenfolge bleiben beim Hin und Zurück erhalten. Nicht enthalten: Avatar-Bilder, Gesprächsverlauf, To-dos, Logs und die Positionserinnerung des Browsers. Die Wiederherstellung überschreibt dieselben Dateien (vorher wird eine .bak angelegt); Art-Dateien, die nicht in der Sicherung sind, bleiben unangetastet.',
+  backupExport: 'Sicherung exportieren',
+  backupRestore: 'Aus Sicherung wiederherstellen',
+  backupDone: 'Sicherung exportiert.',
+  backupExportFailed: 'Export fehlgeschlagen: Der Host hat nicht geantwortet.',
+  backupReadFailed: 'Diese Datei ist keine Einstellungssicherung dieses Plugins.',
+  backupUnsupported: 'Die Sicherung stammt aus einer neueren Plugin-Version – bitte zuerst das Plugin aktualisieren.',
+  backupTooLarge: 'Die Sicherung ist zu groß oder enthält zu viele Einträge; sie wurde abgelehnt.',
+  restoreDone: 'Aus der Sicherung wiederhergestellt; die Einstellungen sind aktiv.',
+  restoreFailed: 'Wiederherstellung fehlgeschlagen: {message}',
+  confirmRestore:
+    'Aktuelle Einstellungen mit „{name}“ überschreiben? Die drei Konfigurationsdateien werden unverändert zurückgeschrieben (vorhandene Dateien werden vorher als .bak gesichert). Nicht rückgängig zu machen.',
+  restoreConfirm: 'Wiederherstellen',
 };

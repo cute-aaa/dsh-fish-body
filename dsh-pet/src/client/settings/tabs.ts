@@ -4,6 +4,7 @@
  * 这张表是「增减分区」的唯一改动点：加一行就多一个分区（面板装配在 `../panels.ts` 里对应补一项），
  * 删一行就少一个，入口不写 if。分区是本页最外层的信息架构，所以 id 用字面量联合类型钉住，
  * 面板表按它 `Record<>` 展开——少接一个分区在类型检查期就报错。
+ * 分区按功能归类：个体（桌宠 / 会话鱼）→ 手感（行为 / 外观）→ 声音 → 智能（对话）→ 系统。
  * owns only 分区的名字、顺序与标签条交互，never 任何字段状态。
  * @module dsh-pet/src/client/settings/tabs
  */
@@ -19,21 +20,21 @@ export interface SettingsTabDef {
   readonly titleKey: Key;
 }
 
-/** 分区顺序即阅读顺序：先编辑宠物，再改全局与外观，最后是音效、语音、对话与落盘位置。 */
+/** 分区顺序即阅读顺序。 */
 export const SETTINGS_TABS = [
   { id: 'pet', titleKey: 'tabPet' },
-  { id: 'global', titleKey: 'tabGlobal' },
+  { id: 'fish', titleKey: 'tabFish' },
+  { id: 'behavior', titleKey: 'tabBehavior' },
   { id: 'look', titleKey: 'tabLook' },
-  { id: 'sfx', titleKey: 'tabSfx' },
-  { id: 'voice', titleKey: 'tabVoice' },
-  { id: 'model', titleKey: 'tabModel' },
-  { id: 'storage', titleKey: 'tabStorage' },
+  { id: 'audio', titleKey: 'tabAudio' },
+  { id: 'chat', titleKey: 'tabChat' },
+  { id: 'system', titleKey: 'tabSystem' },
 ] as const satisfies readonly SettingsTabDef[];
 
-/** 分区标识符；由表推导，新增一行自动扩union。 */
+/** 分区标识符；由表推导，新增一行自动扩 union。 */
 export type SettingsTabId = (typeof SETTINGS_TABS)[number]['id'];
 
-/** 默认分区：打开设置页先看宠物，这是本页最常改的东西。 */
+/** 默认分区：打开设置页先看桌宠，这是本页最常改的东西。 */
 export const DEFAULT_SETTINGS_TAB: SettingsTabId = 'pet';
 
 /** 面板与标签按钮的 id 前缀（`aria-controls` / `aria-labelledby` 两边共用，避免字面量散落）。 */
@@ -61,6 +62,8 @@ export interface TabBarProps {
   readonly active: SettingsTabId;
   /** 切到另一个分区。 */
   onSelect(id: SettingsTabId): void;
+  /** 每个分区是否有未保存改动；为 true 的标签右侧画一个圆点。 */
+  readonly dirty: Record<SettingsTabId, boolean>;
 }
 
 /**
@@ -68,6 +71,7 @@ export interface TabBarProps {
  *
  * 键盘按 ARIA tabs 的惯例：左右方向键在分区之间移动并跟着切换（自动激活），Home / End 跳到首尾。
  * 切换是纯本地状态，所以加载中也不禁用——看别的分区不该等网络。
+ * 圆点只表达「这一页有未保存改动」，点击行为与无障碍名都不变（圆点自带 `aria-label`，会并进按钮名）。
  *
  * @param rt - 注入的节点工厂、`useRef` 与翻译函数。
  * @returns 标签条组件。
@@ -107,7 +111,18 @@ export function makeTabBar(rt: Pick<SettingsRuntime, 'h' | 't' | 'useRef'>): Fun
           tabIndex: tab.id === props.active ? 0 : -1,
           className: 'dsh-pet-cfg__navItem' + (tab.id === props.active ? ' is-active' : ''),
           onClick: () => props.onSelect(tab.id),
-          children: t(tab.titleKey),
+          children: [
+            t(tab.titleKey),
+            props.dirty[tab.id]
+              ? h('i', {
+                  key: 'dot',
+                  className: 'dsh-pet-cfg__dot',
+                  role: 'img',
+                  'aria-label': t('unsaved'),
+                  title: t('unsaved'),
+                })
+              : null,
+          ],
         }),
       ),
     });

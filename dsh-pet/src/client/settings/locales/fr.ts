@@ -5,17 +5,7 @@ import type { Key } from './zh.ts';
 
 export const fr: Record<Key, string> = {
   nav: 'Configuration des compagnons',
-  intro:
-    "Gérez plusieurs compagnons : chacun a sa taille et sa position (appliquées immédiatement après l'enregistrement).",
-  // 分区标签条的标题（顺序见 ../tabs.ts）。
-  tabPet: 'Compagnons',
-  tabGlobal: 'Général',
   tabLook: 'Apparence',
-  tabSfx: 'Son',
-  tabVoice: 'Voix',
-  tabModel: 'Discussion',
-  tabStorage: 'Stockage',
-  // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: 'Compagnon',
   avatarLabel: 'Avatar',
   avatarHint:
@@ -24,8 +14,6 @@ export const fr: Record<Key, string> = {
   avatarChange: 'Changer',
   avatarUploading: 'Envoi…',
   avatarUploaded: 'Avatar mis à jour',
-  petCardHint:
-    'Réglages par compagnon : nom / taille / affichage / coin / décalages / les quatre interrupteurs de fonctionnalités. Cliquez sur « Enregistrer » en bas pour appliquer immédiatement.',
   globalTitle: 'Interrupteurs globaux',
   globalHint:
     "Partagés par tous les compagnons (un pet pack peut les remplacer dans son propre fichier de type). Ces interrupteurs ne modifient que l'état local et sont écrits dans la configuration utilisateur lors de l'enregistrement (jamais immédiatement) ; les notifications système sont relues juste après l'enregistrement, sans rafraîchir la page.",
@@ -114,17 +102,11 @@ export const fr: Record<Key, string> = {
   'corner.bottom-right': 'En bas à droite',
   marginX: 'Décalage horizontal',
   marginY: 'Décalage vertical',
-  save: 'Enregistrer',
   saveHotkey: 'Ctrl+S / Cmd+S',
-  sync: 'Synchroniser',
-  confirmSync:
-    'Synchroniser ? La configuration par défaut intégrée (tous les champs + commentaires) remplacera la configuration utilisateur ; vos personnalisations actuelles seront perdues.',
   corruptTitle: 'Configuration utilisateur corrompue — non enregistrée',
   corruptConfirm: 'Enregistrer quand même',
   corruptBody:
     'Le fichier de configuration utilisateur est illisible (corrompu, JSON/JSONC invalide) : {path}. Enregistrer maintenant le reconstruit à partir de la liste blanche — tout son contenu actuel (animations / physics / memes, etc.) sera perdu. Annuler = ne pas toucher au fichier (corrigez-le puis enregistrez) ; Confirmer = enregistrer quand même (le contenu actuel du fichier est abandonné).',
-  syncHint:
-    "« Synchroniser » écrit la configuration par défaut intégrée (commentaires et tous les champs avancés compris) dans le fichier de configuration utilisateur, en écrasant vos personnalisations ; le fichier est ensuite modifiable directement. Deux réserves : (1) une fois créé, ce fichier est une couche de remplacement explicite — les changements ultérieurs des valeurs par défaut intégrées ne s'appliquent pas automatiquement (sauf nouvelle synchronisation ou suppression du fichier) ; (2) cliquer sur « Enregistrer » sur cette page réécrit le fichier à partir d'une liste blanche — les valeurs sont conservées, les commentaires disparaissent.",
   configMeta: 'Configuration avancée (fichiers)',
   configMetaHint:
     "La configuration utilisateur peut remplacer la liste des compagnons / les pools d'animation / les poids ; rechargez la page ou redémarrez pour appliquer : rafraîchissez la page dans le navigateur, ou sur le bureau, clic droit sur un compagnon → « Recharger la configuration » (reconstruit toutes les fenêtres de compagnons). La configuration par défaut est la référence complète.",
@@ -142,12 +124,9 @@ export const fr: Record<Key, string> = {
   saveError:
     "Échec de l'enregistrement de la configuration. Vérifiez la connexion au serveur, les droits d'écriture du dossier de configuration et le journal du serveur.",
   saveInvalid: "Échec de l'enregistrement : configuration invalide. Vérifiez les valeurs et réessayez.",
-  syncError:
-    "Échec de la synchronisation. Vérifiez la connexion au serveur et les droits d'écriture du dossier de configuration.",
   loading: 'Chargement de la configuration…',
   retry: 'Réessayer',
   invalid: "Vérifiez votre saisie : la taille doit être positive ; les marges peuvent être n'importe quel nombre.",
-  busy: 'Enregistrement…',
   extraPetsHint:
     "{n} autre(s) type(s) proviennent de fichiers du dossier pet/ (<nom>-config.json + <nom>-animation/) ; basculez dessus dans la ligne « Types » ci-dessus. L'enregistrement écrit dans la configuration propre à chaque pack, jamais dans main-config.jsonc.",
   kindLabel: 'Types',
@@ -388,4 +367,110 @@ export const fr: Record<Key, string> = {
   'motion.move': 'Déplacement',
   'motion.action': 'Action aléatoire',
   uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
+  'fish.intro':
+    'Chaque session nouvelle, en cours ou tout juste terminée reçoit une petite animation « écrire du code ». Glissez pour déplacer, cliquez pour ouvrir, × pour retirer.',
+  'fish.enabled': 'Activer les poissons de session',
+  'fish.enabledHint':
+    'Désactiver retire les poissons actuels et masque la couche ; ils reviennent à la prochaine activité après réactivation.',
+  'fish.size': "Taille de l'animation",
+  'fish.sizeHint': "Largeur (px) ; la hauteur suit le ratio de l'apparence (0,5–2× la largeur).",
+  'fish.skin': 'Apparence',
+  'fish.skinHint':
+    'Les animations intégrées sont prêtes ; déposez votre image / GIF / webm dans le dossier des apparences puis cliquez sur « Rescanner ».',
+  'fish.skinDefault': 'Par défaut (écrire du code)',
+  'fish.skinDefaultName': 'Apparence par défaut',
+  'fish.skinBuiltin': 'Intégrées',
+  'fish.skinMine': 'Les miennes',
+  'fish.skinMissing': '(fichier introuvable)',
+  'fish.skinRescan': 'Rescanner',
+  'fish.skinRescanned': 'Analyse terminée : ',
+  'fish.skinRescanFailed': "Échec de l'analyse : liste indisponible",
+  'fish.openSkinFolder': 'Ouvrir le dossier des apparences',
+  'fish.followPet': 'Tourner autour du compagnon',
+  'fish.followPetHint':
+    "Désactivé, les poissons s'empilent de nouveau en bas à droite. Activé, ils orbitent autour du compagnon, le suivent et sont bousculés ; après un glisser, ils sont projetés puis reviennent à leur place.",
+  'fish.maxCount': 'Nombre maximal',
+  'fish.maxCountHint':
+    'Les poissons en trop sont retirés en commençant par les plus anciens terminés ; les sessions actives restent.',
+  'fish.bubbleSec': 'Durée de la bulle',
+  'fish.bubbleSecHint':
+    'Secondes pendant lesquelles une phrase reste affichée. Les poissons terminés attendent l’ouverture de leur session.',
+  'fish.progressGapSec': 'Intervalle de progression',
+  'fish.progressGapSecHint':
+    'Secondes minimales entre deux annonces de progression. Les fins de tour ne sont pas limitées.',
+  'fish.speakEnabled': 'Annonces vocales',
+  'fish.speakEnabledHint':
+    'Interrupteur principal : désactivé, progression, fin de tour et attente restent muettes, la bulle s’affiche toujours. Les trois interrupteurs par type ci-dessous s’appliquent quand il est actif.',
+  'fish.speakProgress': 'Lire la progression',
+  'fish.speakProgressHint': 'Lire la dernière phrase pendant la réflexion, le travail ou le rangement.',
+  'fish.speakTurnEnd': 'Lire la fin de tour',
+  'fish.speakTurnEndHint': 'Lire à chaque fin de tour (terminé, erreur ou tour intermédiaire d’objectif).',
+  'fish.speakWaiting': 'Lire les attentes',
+  'fish.speakWaitingHint': 'Lire quand une approbation, une question ou une revue de plan attend votre réponse.',
+  'fish.resetPositions': 'Réinitialiser les positions',
+  'fish.positionsReset': 'Positions réinitialisées ; les poissons reviennent près du compagnon.',
+  'fish.preview': 'Aperçu',
+  // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
+  tabPet: 'Compagnon',
+  intro:
+    "Tout est groupé par fonction : compagnons, poissons de session, comportement, apparence, son, dialogue et système. Modifiez ce qu'il faut puis utilisez Appliquer / OK en bas ; un point signale les réglages et onglets non enregistrés.",
+  petCardHint:
+    'Réglages par compagnon : nom / taille / affichage / position / décalages / cinq interrupteurs. Utilisez Appliquer ou OK en bas pour enregistrer.',
+  tabFish: 'Poissons de session',
+  tabBehavior: 'Comportement',
+  tabAudio: 'Son',
+  tabChat: 'Dialogue',
+  tabSystem: 'Système',
+  barGroup: 'Actions des réglages',
+  barConfirm: 'OK',
+  barCancel: 'Annuler',
+  barApply: 'Appliquer',
+  barRestart: 'Redémarrer',
+  barConfirmHint: 'Enregistrer toutes les modifications et fermer les réglages.',
+  barCancelHint:
+    'Fermer les réglages et abandonner les modifications non enregistrées (la configuration est relue à la prochaine ouverture).',
+  barApplyHint: 'Enregistrer toutes les modifications sans fermer.',
+  barRestartHint:
+    "Enregistrer d'abord, puis demander à l'hôte de recomposer le plugin et de reconstruire la fenêtre de bureau.",
+  restarting: 'Redémarrage du plugin…',
+  restartHmr: 'Plugin redémarré ; la page va se recharger.',
+  restartHelper:
+    'HMR indisponible : la fenêtre de bureau a été reconstruite, mais les modifications côté hôte nécessitent un redémarrage du profil.',
+  restartFailed: 'Échec du redémarrage du plugin ; consultez le journal du plugin.',
+  resetSettings: 'Réinitialiser les réglages',
+  resetHint:
+    'Restaure tous les réglages aux valeurs par défaut du projet (compagnons, personas, physique, police, son, voix, modèles et poissons de session). La confirmation écrit immédiatement.',
+  confirmReset:
+    'Tout réinitialiser ? La configuration par défaut intégrée écrasera la vôtre : compagnons, personas personnalisés, son / physique / police et le reste reviennent aux valeurs par défaut, et les commentaires du fichier sont réécrits. Les poissons de session sont aussi réinitialisés. Cette action est irréversible.',
+  resetDone: 'Réinitialisé aux valeurs par défaut.',
+  resetError:
+    "Échec de la réinitialisation. Vérifiez la connexion au serveur et les droits d'écriture du répertoire de configuration.",
+  resetPartial:
+    "La configuration principale a été réinitialisée, mais les réglages des poissons de session n'ont pas été écrits : vérifiez que le répertoire de données est accessible en écriture.",
+  unsaved: 'Modifications non enregistrées',
+  sfxMasterTitle: 'Son global',
+  sfxMasterHint:
+    "L'interrupteur principal, le préchauffage et le volume global s'appliquent à tous les effets ; le fichier joué par chaque emplacement se règle dans « Effets par événement ».",
+  systemTitle: 'Système et bureau',
+  systemHint:
+    'Ces interrupteurs ne changent que la façon dont cet ordinateur vous prévient et le comportement de la fenêtre ; les actions et la voix du compagnon ne changent pas.',
+  'fish.cardTitle': 'Poissons de session',
+  // 设置备份与恢复（系统分区）；两份原文 + 每个种类配置，恢复前留 .bak。
+  backupTitle: 'Sauvegarde et restauration',
+  backupHint:
+    "Sauvegarde le texte brut de trois réglages modifiables : la configuration principale (compagnons et préférences globales), la configuration de chaque compagnon fichier et les réglages des poissons de session. Les commentaires et l'ordre des champs survivent à l'aller-retour. Non inclus : images d'avatar, mémoire de conversation, tâches, journaux et mémoire de position du navigateur. La restauration écrase les mêmes fichiers (un .bak est conservé avant) ; les fichiers de type absents de la sauvegarde ne sont pas touchés.",
+  backupExport: 'Exporter la sauvegarde',
+  backupRestore: 'Restaurer depuis une sauvegarde',
+  backupDone: 'Sauvegarde exportée.',
+  backupExportFailed: "Échec de l'export : l'hôte n'a pas répondu.",
+  backupReadFailed: "Ce fichier n'est pas une sauvegarde de réglages de ce plugin.",
+  backupUnsupported:
+    'La sauvegarde vient d’une version plus récente du plugin ; mettez le plugin à jour avant de restaurer.',
+  backupTooLarge: 'La sauvegarde est trop volumineuse ou contient trop d’entrées ; elle a été refusée.',
+  restoreDone: 'Restauré depuis la sauvegarde ; les réglages sont actifs.',
+  restoreFailed: 'Échec de la restauration : {message}',
+  confirmRestore:
+    'Écraser les réglages actuels avec « {name} » ? Les trois fichiers de configuration sont réécrits tels quels (les fichiers existants sont d’abord conservés en .bak). Action irréversible.',
+  restoreConfirm: 'Restaurer',
 };

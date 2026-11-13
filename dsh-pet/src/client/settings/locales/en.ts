@@ -5,16 +5,7 @@ import type { Key } from './zh.ts';
 
 export const en: Record<Key, string> = {
   nav: 'Pet Config',
-  intro: 'Manage multiple pets: each pet has its own size and position (applies instantly after saving).',
-  // 分区标签条的标题（顺序见 ../tabs.ts）。
-  tabPet: 'Pets',
-  tabGlobal: 'General',
   tabLook: 'Appearance',
-  tabSfx: 'Sound',
-  tabVoice: 'Voice',
-  tabModel: 'Chat',
-  tabStorage: 'Storage',
-  // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: 'Pet',
   avatarLabel: 'Avatar',
   avatarHint:
@@ -23,8 +14,6 @@ export const en: Record<Key, string> = {
   avatarChange: 'Change',
   avatarUploading: 'Uploading…',
   avatarUploaded: 'Avatar updated',
-  petCardHint:
-    'Per-pet settings: name / size / display / corner / offsets / the four feature switches. Click "Save" at the bottom to apply instantly.',
   globalTitle: 'Global switches',
   globalHint:
     'Shared by every pet (a pet pack may override them in its own kind file). These switches only change local state and are written to the user config on "Save" (never written immediately); system notifications re-read right after saving, no page refresh needed.',
@@ -112,17 +101,11 @@ export const en: Record<Key, string> = {
   'corner.bottom-right': 'Bottom-right',
   marginX: 'Horizontal offset',
   marginY: 'Vertical offset',
-  save: 'Save',
   saveHotkey: 'Ctrl+S / Cmd+S',
-  sync: 'Sync',
-  confirmSync:
-    'Sync? This overwrites the user config with the bundled default config (all fields + comments); current customizations are lost.',
   corruptTitle: 'User config is corrupted — not saved',
   corruptConfirm: 'Save anyway',
   corruptBody:
     'The user config file cannot be parsed (corrupted, not valid JSON/JSONC): {path}. Saving now rebuilds it from the whitelist — everything currently in that file (animations / physics / memes …) will be lost. Cancel = leave the file untouched (fix it and save again); Confirm = save anyway (discard what is in the file).',
-  syncHint:
-    '"Sync" writes the bundled default config (comments + every advanced field included) to the user config file, overwriting your current customizations; the file is then directly editable. Two caveats: (1) once created, that file is an explicit override layer — later changes to the bundled defaults will not take effect automatically (until you sync again or delete the file); (2) clicking "Save" on this page rewrites the file from a whitelist — field values are kept, comments are dropped.',
   configMeta: 'Advanced (files)',
   configMetaHint:
     'User config may override pets / animation pools / weights — refresh or restart to apply: refresh the page in the browser, or right-click a desktop pet → "Reload config" (rebuilds every desktop pet window). The default config is the complete reference.',
@@ -140,11 +123,9 @@ export const en: Record<Key, string> = {
   saveError:
     'Failed to save config. Check the server connection, configuration directory write permissions and server log.',
   saveInvalid: 'Failed to save config: invalid configuration. Check the values and try again.',
-  syncError: 'Failed to sync config. Check the server connection and configuration directory write permissions.',
   loading: 'Loading config…',
   retry: 'Retry',
   invalid: 'Check your input: size must be positive; margins can be any number.',
-  busy: 'Saving…',
   extraPetsHint:
     "{n} more kind(s) come from files in the pet/ directory (<name>-config.json + <name>-animation/). Switch to them in the Kinds row above; Save writes back to each pack's own config, never into main-config.jsonc.",
   kindLabel: 'Kinds',
@@ -379,4 +360,103 @@ export const en: Record<Key, string> = {
   'motion.move': 'Move',
   'motion.action': 'Random action',
   uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
+  'fish.intro':
+    'Every new, running, or just-finished session gets a small "writing code" animation. Drag it to move, click to open its session, × to dismiss it.',
+  'fish.enabled': 'Enable session fish',
+  'fish.enabledHint':
+    'Turning it off clears the current fish and hides the layer; a session gets a fish again on its next activity after you turn it back on.',
+  'fish.size': 'Animation size',
+  'fish.sizeHint': 'Display width (px); height follows the skin ratio, clamped to 0.5–2× the width.',
+  'fish.skin': 'Skin',
+  'fish.skinHint':
+    'Built-in animations are ready to use; drop your own image / GIF / webm into the skin folder, then hit Rescan.',
+  'fish.skinDefault': 'Default (writing code)',
+  'fish.skinDefaultName': 'Default skin',
+  'fish.skinBuiltin': 'Built-in',
+  'fish.skinMine': 'Mine',
+  'fish.skinMissing': '(file missing)',
+  'fish.skinRescan': 'Rescan',
+  'fish.skinRescanned': 'Scan finished: ',
+  'fish.skinRescanFailed': 'Scan failed: skin list unavailable',
+  'fish.openSkinFolder': 'Open skin folder',
+  'fish.followPet': 'Circle the pet',
+  'fish.followPetHint':
+    'Turn it off to stack fish in the bottom-right corner again. While on, fish orbit the pet, follow it, and get pushed aside; after a drag they fling and settle back into their own spot.',
+  'fish.maxCount': 'Maximum fish',
+  'fish.maxCountHint': 'Extra fish are evicted oldest-finished first; running sessions are kept.',
+  'fish.bubbleSec': 'Bubble duration',
+  'fish.bubbleSecHint': 'Seconds a line stays in the bubble. Finished fish stay until you open their session.',
+  'fish.progressGapSec': 'Progress interval',
+  'fish.progressGapSecHint': 'Minimum seconds between spoken progress lines in one session. Turn endings are exempt.',
+  'fish.speakEnabled': 'Voice announcements',
+  'fish.speakEnabledHint':
+    'Master switch: when off, progress, turn and waiting lines stay silent while bubbles still show. The three per-kind switches below apply while it is on.',
+  'fish.speakProgress': 'Speak task progress',
+  'fish.speakProgressHint': 'Speak the latest line while thinking, working, or tidying up.',
+  'fish.speakTurnEnd': 'Speak turn endings',
+  'fish.speakTurnEndHint': 'Speak once at every turn end (completed, failed, or an intermediate goal round).',
+  'fish.speakWaiting': 'Speak waiting states',
+  'fish.speakWaitingHint': 'Speak when approvals, questions, or plan reviews are waiting for you.',
+  'fish.resetPositions': 'Reset fish positions',
+  'fish.positionsReset': 'Positions reset; fish return beside the pet.',
+  'fish.preview': 'Preview',
+  // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
+  tabPet: 'Pet',
+  intro:
+    'Everything is grouped by function: pets, session fish, behavior, appearance, sound, chat and system. Change what you need, then use Apply or OK at the bottom — a dot marks settings and tabs with unsaved changes.',
+  petCardHint:
+    'Per-pet configuration: name / size / display / corner / offsets / five feature switches. Use Apply or OK at the bottom to save.',
+  tabFish: 'Session fish',
+  tabBehavior: 'Behavior',
+  tabAudio: 'Sound',
+  tabChat: 'Chat',
+  tabSystem: 'System',
+  barGroup: 'Settings actions',
+  barConfirm: 'OK',
+  barCancel: 'Cancel',
+  barApply: 'Apply',
+  barRestart: 'Restart',
+  barConfirmHint: 'Save all changes and close the settings page.',
+  barCancelHint: 'Close the settings page and discard unsaved changes (the next visit reloads the configuration).',
+  barApplyHint: 'Save all changes without closing.',
+  barRestartHint: 'Save first, then let the host recompose this plugin and rebuild the desktop window.',
+  restarting: 'Restarting the plugin…',
+  restartHmr: 'Plugin restarted; the page will reload shortly.',
+  restartHelper:
+    'HMR is unavailable: the desktop window was rebuilt, but host code changes still need a profile restart.',
+  restartFailed: 'Could not restart the plugin — check the plugin log.',
+  resetSettings: 'Reset settings',
+  resetHint:
+    'Restore every setting to the project defaults (pets, personas, physics, font, sound, voice, models and session fish). Confirming writes immediately.',
+  confirmReset:
+    'Reset everything? The built-in default configuration will overwrite yours: pets, custom personas, sound / physics / font and everything else return to defaults, and comments in the configuration file are rewritten. Session fish settings are reset as well. This cannot be undone.',
+  resetDone: 'Reset to the built-in defaults.',
+  resetError: 'Reset failed. Check the server connection and write permissions for the configuration directory.',
+  resetPartial:
+    'The main configuration was reset, but the session fish settings were not written: check that the data directory is writable.',
+  unsaved: 'Unsaved changes',
+  sfxMasterTitle: 'Sound master',
+  sfxMasterHint:
+    'The master switch, keep-alive warm-up and master volume apply to every effect; which slot plays which file is decided by “Event sounds” below.',
+  systemTitle: 'System and desktop',
+  systemHint:
+    'These switches only change how this machine notifies you and how the window behaves; pet actions and voice are unaffected.',
+  'fish.cardTitle': 'Session fish',
+  // 设置备份与恢复（系统分区）；两份原文 + 每个种类配置，恢复前留 .bak。
+  backupTitle: 'Backup and restore',
+  backupHint:
+    "Backs up the raw text of three editable settings: the main config (pets and global preferences), each file pet's kind config, and the session fish settings. Comments and field order survive a round trip. Not included: avatar images, chat memory, todos, logs, or browser position memory. Restoring overwrites the same files (a .bak is kept first); kind files missing from the backup are left alone.",
+  backupExport: 'Export backup',
+  backupRestore: 'Restore from backup',
+  backupDone: 'Backup exported.',
+  backupExportFailed: 'Export failed: the host did not respond.',
+  backupReadFailed: 'This file is not a settings backup for this plugin.',
+  backupUnsupported: 'The backup comes from a newer plugin version — update the plugin before restoring.',
+  backupTooLarge: 'The backup is too large or has too many entries; it was rejected.',
+  restoreDone: 'Restored from backup; settings are live.',
+  restoreFailed: 'Restore failed: {message}',
+  confirmRestore:
+    'Overwrite the current settings with “{name}”? The three configuration files are written back verbatim (existing files get a .bak first). This cannot be undone.',
+  restoreConfirm: 'Restore',
 };

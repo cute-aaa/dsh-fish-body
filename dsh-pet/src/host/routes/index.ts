@@ -23,6 +23,7 @@ import { handlePlaybackRoutes } from './playback.ts';
 import { handlePluginRestart } from './plugin-restart.ts';
 import { handleSessionRoutes } from './session.ts';
 import { handleSessionFishRoutes } from './session-fish.ts';
+import { handleSettingsBackupRoutes } from './settings-backup.ts';
 import { handleSfxRoutes } from './sfx.ts';
 import { handleSoundRoutes } from './sound.ts';
 import { handleStateRoutes } from './state.ts';
@@ -39,6 +40,7 @@ const HANDLERS: readonly RouteHandler[] = [
   handleStateRoutes,
   handleSessionRoutes,
   handleSessionFishRoutes,
+  handleSettingsBackupRoutes,
   handleBalanceRoutes,
   handleInteractionRoutes,
   handleMotionRoutes,

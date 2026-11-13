@@ -7,6 +7,7 @@
  * @module dsh-pet/src/client/settings/voice-tab
  */
 import type { FunctionComponent } from 'react';
+import type { DirtyQuery } from './dirty.ts';
 import { makeVoicePicker } from './picker/voice-picker.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeVoiceCard } from './voice-card.ts';
@@ -19,6 +20,8 @@ export interface VoiceTabProps {
   readonly busy: boolean;
   /** 语音分区的全部状态与提交入口。 */
   readonly voice: VoiceSettings;
+  /** 未保存改动查询口。 */
+  readonly dirty: DirtyQuery;
 }
 
 /**
@@ -34,7 +37,7 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
   const VoiceProviderCard = makeVoiceProviderCard(rt);
 
   return function VoiceTab(props: VoiceTabProps) {
-    const { busy, voice } = props;
+    const { busy, voice, dirty } = props;
     const { local, form } = voice;
     return h('div', {
       className: 'dsh-pet-cfg__group',
@@ -42,6 +45,7 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
         h(VoiceCard, {
           key: 'voice',
           busy,
+          dirty,
           enabled: voice.enabled,
           voiceName: voice.name,
           volume: voice.volume,

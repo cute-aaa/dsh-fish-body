@@ -1,7 +1,7 @@
 /**
  * 确认 / 提示弹窗（仿官方视觉：遮罩 + 居中卡片 + 按钮）。
- * 五种场景各有自己的按钮组合：删除要确认、只剩一只（main / 某个种类）只能「知道了」、
- * 同步要确认、配置损坏要确认强行重建。
+ * 六种场景各有自己的按钮组合：删除要确认、只剩一只（main / 某个种类）只能「知道了」、
+ * 重置与「从备份恢复」要确认（都会写盘且不可撤销）、配置损坏要确认强行重建。
  * 确认后的动作由设置页外壳执行（它才知道怎么删、怎么带 force 存盘），这里只负责问与答。
  * @module dsh-pet/src/client/settings/dialog
  */
@@ -15,7 +15,8 @@ export type DialogState =
   | { kind: 'remove' }
   | { kind: 'lastOne' }
   | { kind: 'lastOfKind'; entry: string }
-  | { kind: 'sync' }
+  | { kind: 'reset' }
+  | { kind: 'restore'; name: string }
   | { kind: 'corrupt'; path: string };
 
 /** 弹窗的输入。 */
@@ -35,15 +36,17 @@ function bodyText(dialog: Exclude<DialogState, null>, t: (key: string) => string
   if (dialog.kind === 'remove') return t('confirmRemove').replace('{id}', selId);
   if (dialog.kind === 'lastOne') return t('atLeastOne');
   if (dialog.kind === 'lastOfKind') return t('lastOfKind').replace('{entry}', dialog.entry);
+  if (dialog.kind === 'restore') return t('confirmRestore').replace('{name}', dialog.name);
   if (dialog.kind === 'corrupt') return t('corruptBody').replace('{path}', dialog.path);
-  return t('confirmSync');
+  return t('confirmReset');
 }
 
 /** 确认按钮文案：三个可确认场景各一句。 */
-function confirmLabel(kind: 'remove' | 'sync' | 'corrupt', t: (key: string) => string): string {
+function confirmLabel(kind: 'remove' | 'reset' | 'restore' | 'corrupt', t: (key: string) => string): string {
   if (kind === 'remove') return t('remove');
   if (kind === 'corrupt') return t('corruptConfirm');
-  return t('sync');
+  if (kind === 'restore') return t('restoreConfirm');
+  return t('resetSettings');
 }
 
 /**
@@ -119,7 +122,8 @@ export function makeDialog(rt: SettingsRuntime): FunctionComponent<DialogProps> 
                       key: 'confirm',
                       type: 'button',
                       onClick: props.onConfirm,
-                      className: 'dsh-pet-cfg__btn ' + (confirmable.kind === 'sync' ? 'is-primary' : 'is-danger'),
+                      // 三个可确认场景都会丢东西：删除、重置、强行重建一律走危险样式。
+                      className: 'dsh-pet-cfg__btn is-danger',
                       children: confirmLabel(confirmable.kind, t),
                     }),
                   ],

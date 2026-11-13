@@ -100,6 +100,9 @@ describe('injectSettingsCss —— 设置页样式注入', () => {
       assert.equal(tag.dataset.pluginCss, 'dsh-pet/settings.css');
       assert.ok(tag.textContent.includes('.dsh-pet-mp__trigger'), '模型选择器的样式必须在');
       assert.ok(tag.textContent.includes('.dsh-pet-cfg__inp'), '配置卡片表单的样式必须在');
+      assert.ok(tag.textContent.includes('.dsh-pet-cfg__bar{'), '底部操作栏必须贴底常显');
+      assert.ok(tag.textContent.includes('.dsh-pet-cfg__resetRow{'), '重置行的样式必须在');
+      assert.ok(tag.textContent.includes('.dsh-pet-cfg__dot{'), '未保存改动的圆点样式必须在');
     } finally {
       restore();
     }

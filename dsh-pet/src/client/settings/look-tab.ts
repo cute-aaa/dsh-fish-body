@@ -1,16 +1,14 @@
 /**
- * 「外观」分区：字体、物理（拖拽抛掷）、动作频率与移动端效果四张卡。
+ * 「外观」分区：字体种类、字号与字号是否跟随宠物大小。
  *
- * 四张卡都是「改本地 → 随保存整包写」，所以整块只吃同一个 `AppearanceSettings`。
- * 卡之间没有联动：物理卡与移动端卡读写同一份 `physics`，但互不认识。
- * owns only 这一块的装配，never 字段的编辑态。
+ * 原先和物理、动作频率、移动端挤在一个分区里；那三项是手感、这项是排版，按功能拆开后
+ * 「外观」只剩字，改字体的人不用再滚过一堆物理参数。
+ * 只改本地状态，随「保存」整包写入。
  * @module dsh-pet/src/client/settings/look-tab
  */
 import type { FunctionComponent } from 'react';
+import type { DirtyQuery } from './dirty.ts';
 import { makeFontCard } from './font-card.ts';
-import { makeMobileCard } from './mobile-card.ts';
-import { makeMotionCard } from './motion-card.ts';
-import { makePhysicsCard } from './physics-card.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import type { AppearanceSettings } from './use-appearance-settings.ts';
 
@@ -18,8 +16,10 @@ import type { AppearanceSettings } from './use-appearance-settings.ts';
 export interface LookTabProps {
   /** 表单是否禁用（保存中或配置还没加载好）。 */
   readonly busy: boolean;
-  /** 外观与手感分区的全部状态与改值入口。 */
+  /** 外观与手感状态（本分区只读字体）。 */
   readonly look: AppearanceSettings;
+  /** 未保存改动查询口。 */
+  readonly dirty: DirtyQuery;
 }
 
 /**
@@ -31,20 +31,9 @@ export interface LookTabProps {
 export function makeLookTab(rt: SettingsRuntime): FunctionComponent<LookTabProps> {
   const { h } = rt;
   const FontCard = makeFontCard(rt);
-  const PhysicsCard = makePhysicsCard(rt);
-  const MotionCard = makeMotionCard(rt);
-  const MobileCard = makeMobileCard(rt);
 
   return function LookTab(props: LookTabProps) {
-    const { busy, look } = props;
-    return h('div', {
-      className: 'dsh-pet-cfg__group',
-      children: [
-        h(FontCard, { key: 'font', busy, font: look.font, onChange: look.patchFont }),
-        h(PhysicsCard, { key: 'physics', busy, physics: look.physics, onChange: look.patchPhysics }),
-        h(MotionCard, { key: 'motion', busy, weights: look.weights, onChange: look.setWeights }),
-        h(MobileCard, { key: 'mobile', busy, physics: look.physics, onChange: look.patchPhysics }),
-      ],
-    });
+    const { busy, look, dirty } = props;
+    return h(FontCard, { busy, font: look.font, onChange: look.patchFont, dirty });
   };
 }

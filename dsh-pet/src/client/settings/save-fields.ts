@@ -9,7 +9,7 @@
  */
 import type { Pet, SfxConfig } from '../../shared/types.ts';
 import type { SaveFields } from './config/index.ts';
-import type { GlobalFlags } from './global-card.ts';
+import type { GlobalFlags } from './global-flags.ts';
 import type { ChatFlagValues } from './model-card.ts';
 import type { AppearanceSettings } from './use-appearance-settings.ts';
 import type { ModelSettings } from './use-model-settings.ts';

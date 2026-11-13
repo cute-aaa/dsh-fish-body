@@ -73,11 +73,12 @@ describe('SettingsDialog —— 确认弹窗', () => {
     assert.ok(texts(tree).includes('lastOfKind'), '文案走 lastOfKind（内含 {entry} 占位）');
   });
 
-  test('同步：确认按钮是主色（不是危险色）', () => {
-    const { tree } = render({ kind: 'sync' });
+  test('重置：正文走 confirmReset，确认按钮是危险色（会覆盖用户配置）', () => {
+    const { tree } = render({ kind: 'reset' });
     const all = buttons(tree);
-    assert.equal(all[1].props.className, 'dsh-pet-cfg__btn is-primary');
-    assert.equal(all[1].props.children, 'sync');
+    assert.equal(all[1].props.className, 'dsh-pet-cfg__btn is-danger');
+    assert.equal(all[1].props.children, 'resetSettings');
+    assert.ok(texts(tree).includes('confirmReset'), '正文走 confirmReset（写明会覆盖用户配置）');
   });
 
   test('损坏：标题与正文都换成损坏那套，正文里带真实路径', () => {

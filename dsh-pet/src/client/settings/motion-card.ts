@@ -6,6 +6,7 @@
  */
 import type { FunctionComponent } from 'react';
 import type { Weights } from '../../shared/types.ts';
+import type { DirtyQuery } from './dirty.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit, numberInputProps } from './ui.ts';
 import { actionPercent, WEIGHT_KEYS, withWeight } from '../../shared/weights.ts';
@@ -18,6 +19,8 @@ export interface MotionCardProps {
   weights: Weights;
   /** 改其中一项后的完整权重。 */
   onChange: (weights: Weights) => void;
+  /** 未保存改动查询口。 */
+  dirty: DirtyQuery;
 }
 
 /**
@@ -28,10 +31,10 @@ export interface MotionCardProps {
  */
 export function makeMotionCard(rt: SettingsRuntime): FunctionComponent<MotionCardProps> {
   const { h, t } = rt;
-  const { cardHead, field } = makeUiKit({ h, t });
 
   return function MotionCard(props: MotionCardProps) {
-    const { busy, weights } = props;
+    const { busy, weights, dirty } = props;
+    const { cardHead, field } = makeUiKit({ h, t }, dirty);
     // 三个可编辑权重：改一项时另两项不动，夹取规则在 weights.withWeight。
     const weightFields = WEIGHT_KEYS.map((key) =>
       field(
@@ -45,9 +48,11 @@ export function makeMotionCard(rt: SettingsRuntime): FunctionComponent<MotionCar
             disabled: busy,
           }),
         ),
+        undefined,
+        'look.weights.' + key,
       ),
     );
-    // 随机动作只读：由 100 − 三项之和算出，不给输入入口。
+    // 随机动作只读：由 100 − 三项之和算出，不给输入入口，因此也没有改动圆点。
     const actionField = field(
       t('motion.action'),
       h('input', {
@@ -62,7 +67,7 @@ export function makeMotionCard(rt: SettingsRuntime): FunctionComponent<MotionCar
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
-        cardHead(t('motionTitle'), t('motionHint')),
+        cardHead(t('motionTitle'), t('motionHint'), 'look.weights'),
         h('div', { className: 'dsh-pet-cfg__grid4', children: [...weightFields, actionField] }),
       ],
     });

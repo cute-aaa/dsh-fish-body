@@ -1,5 +1,5 @@
 /**
- * 设置页的写路径：把表单整包存进用户层，或把内置默认整份同步过去。
+ * 设置页的写路径：把表单整包存进用户层，或把内置默认整份写回去（重置设置）。
  *
  * 保存是两层写入：先 PUT /config（main 实例 + 全局字段），再逐个 POST /pet-config（有改动的
  * 种类层）。写完必须立刻把成品交给容器（`petBridge.reload`）并让通知引擎重读——两条都是
@@ -52,11 +52,14 @@ export async function persistSettings(
 }
 
 /**
- * 把内置默认配置整份同步到用户层。
+ * 把内置默认配置整份写回用户层（「重置设置」的后端动作）。
  *
- * @returns 写入后的成品聚合（调用方还要用它刷新表单）；失败返回 `null`。
+ * 与「保存」不同：这一条不经过表单，直接用项目内置的默认配置（含注释）覆盖用户配置，
+ * 所以宠物列表、自定义人设与文件里的注释都会回到默认值。调用方必须先让用户确认。
+ *
+ * @returns 写入后的成品聚合（调用方还要用它刷新表单与基线）；失败返回 `null`。
  */
-export async function syncSettings(): Promise<MergedConfig | null> {
+export async function restoreDefaults(): Promise<MergedConfig | null> {
   const merged = await syncConfig();
   if (merged === null) return null;
   petBridge.reload(merged);

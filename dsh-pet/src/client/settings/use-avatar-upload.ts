@@ -7,7 +7,7 @@
  * @module dsh-pet/src/client/settings/use-avatar-upload
  */
 import type { Pet } from '../../shared/types.ts';
-import type { Feedback } from './actions.ts';
+import type { Feedback } from './feedback.ts';
 import { uploadPetAvatar } from './avatar-upload.ts';
 import type { SettingsRuntime } from './runtime.ts';
 

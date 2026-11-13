@@ -100,3 +100,51 @@ describe('cardHead —— 卡片头', () => {
     assert.deepEqual(byClass(without, 'dsh-pet-cfg__q'), []);
   });
 });
+
+describe('dot —— 未保存改动的圆点', () => {
+  /** 只认这几条路径的查询口。 */
+  const dirty = {
+    count: 2,
+    has: (prefix: string) =>
+      prefix === 'look.physics' ||
+      prefix.startsWith('look.physics.') ||
+      prefix === 'model' ||
+      prefix.startsWith('model.'),
+  };
+
+  test('不传查询口：一个圆点都不画', () => {
+    const field = ui.field('大小', h('input', {}), '说明');
+    assert.deepEqual(byClass(field, 'dsh-pet-cfg__dot'), []);
+  });
+
+  test('命中路径：字段、开关、卡头与折叠卡都带一个可读的圆点', () => {
+    const withDirty = makeUiKit({ h, t: (key) => key }, dirty);
+    const field = withDirty.field('大小', h('input', {}), '说明', 'look.physics.gravity');
+    const [fieldDot] = byClass(field, 'dsh-pet-cfg__dot');
+    assert.equal(fieldDot.props['aria-label'], 'unsaved');
+    assert.equal(fieldDot.props.role, 'img');
+
+    const cell = withDirty.toggleCell('x', false, false, () => {}, 'look.physics.hapticEnabled');
+    assert.equal(byClass(cell, 'dsh-pet-cfg__dot').length, 1);
+
+    const head = withDirty.cardHead('物理', '说明', 'look.physics');
+    assert.equal(byClass(head, 'dsh-pet-cfg__dot').length, 1, '卡片级前缀要能问整块');
+
+    const fold = withDirty.foldCard({
+      id: 'x',
+      title: '标题',
+      hint: '说明',
+      body: [],
+      open: false,
+      onToggle: () => {},
+      scope: 'model',
+    });
+    assert.equal(byClass(fold, 'dsh-pet-cfg__dot').length, 1);
+  });
+
+  test('没命中的路径不画点', () => {
+    const withDirty = makeUiKit({ h, t: (key) => key }, dirty);
+    const field = withDirty.field('字体', h('input', {}), undefined, 'look.font.size');
+    assert.deepEqual(byClass(field, 'dsh-pet-cfg__dot'), []);
+  });
+});

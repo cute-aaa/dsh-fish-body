@@ -1,5 +1,5 @@
 /**
- * 外观与字体卡（全局默认）：字体种类、字号、是否跟随宠物说话。
+ * 外观与字体卡（全局默认）：字体种类、字号、是否跟随宠物大小缩放。
  * 字体种类作用于现在用软糖体的全部文字；字号只作用于气泡与悬浮提示，对话窗与得分弹窗不变。
  * 与其余全局默认同语义：只改本地状态，随「保存」整包写入。
  * @module dsh-pet/src/client/settings/font-card
@@ -7,6 +7,7 @@
 import type { FunctionComponent } from 'react';
 import type { FontConfig, FontFamilyId } from '../../shared/types.ts';
 import { FONT_PRESETS, FONT_SIZE_MAX, FONT_SIZE_MIN } from '../../shared/fonts.ts';
+import type { DirtyQuery } from './dirty.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit, numberInputProps } from './ui.ts';
 import { makeSelect } from './panel/select.ts';
@@ -19,6 +20,8 @@ export interface FontCardProps {
   font: FontConfig;
   /** 改字体配置的若干字段。 */
   onChange: (patch: Partial<FontConfig>) => void;
+  /** 未保存改动查询口。 */
+  dirty: DirtyQuery;
 }
 
 /**
@@ -29,15 +32,15 @@ export interface FontCardProps {
  */
 export function makeFontCard(rt: SettingsRuntime): FunctionComponent<FontCardProps> {
   const { h, t } = rt;
-  const { cardHead, field, toggleCell } = makeUiKit({ h, t });
   const Select = makeSelect(rt);
 
   return function FontCard(props: FontCardProps) {
-    const { busy, font } = props;
+    const { busy, font, dirty } = props;
+    const { cardHead, field, toggleCell } = makeUiKit({ h, t }, dirty);
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
-        cardHead(t('fontTitle'), t('fontHint')),
+        cardHead(t('fontTitle'), t('fontHint'), 'look.font'),
         h('div', {
           className: 'dsh-pet-cfg__grid2',
           children: [
@@ -51,6 +54,7 @@ export function makeFontCard(rt: SettingsRuntime): FunctionComponent<FontCardPro
                 onChange: (id: string) => props.onChange({ family: id as FontFamilyId }),
               }),
               t('fontFamilyHint'),
+              'look.font.family',
             ),
             field(
               t('fontSizeLabel'),
@@ -64,12 +68,21 @@ export function makeFontCard(rt: SettingsRuntime): FunctionComponent<FontCardPro
                 }),
               ),
               t('fontSizeHint'),
+              'look.font.size',
             ),
           ],
         }),
         h('div', {
           className: 'dsh-pet-cfg__grid2',
-          children: [toggleCell('fontFollowToggle', font.followPet, busy, (v) => props.onChange({ followPet: v }))],
+          children: [
+            toggleCell(
+              'fontFollowToggle',
+              font.followPet,
+              busy,
+              (v) => props.onChange({ followPet: v }),
+              'look.font.followPet',
+            ),
+          ],
         }),
       ],
     });

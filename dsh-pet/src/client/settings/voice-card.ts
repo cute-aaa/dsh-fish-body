@@ -9,6 +9,7 @@ import type { FunctionComponent } from 'react';
 import type { SpeakPhase } from '../../shared/voice.ts';
 import type { VoiceOption, VoicePickerProps } from './picker/voice-picker.ts';
 import type { SettingsRuntime } from './runtime.ts';
+import type { DirtyQuery } from './dirty.ts';
 import { makeUiKit } from './ui.ts';
 
 export type { VoiceOption } from './picker/voice-picker.ts';
@@ -71,6 +72,8 @@ export interface VoiceCardProps {
   readonly onLocalVoiceChange?: (voice: string) => void;
   /** 试听：用当前音色（本地可用时是本地那一格）合成一句示例。 */
   readonly preview: VoicePreviewProps;
+  /** 未保存改动查询口。 */
+  readonly dirty: DirtyQuery;
 }
 
 /**
@@ -85,26 +88,26 @@ export function makeVoiceCard(
   picker: FunctionComponent<VoicePickerProps>,
 ): FunctionComponent<VoiceCardProps> {
   const { h, t } = rt;
-  const { cardHead, field, toggleCell } = makeUiKit({ h, t });
 
   return function VoiceCard(props: VoiceCardProps) {
+    const { cardHead, field, toggleCell } = makeUiKit({ h, t }, props.dirty);
     // 本地实现（GSV）此刻可用且有音色可切：edge 那一格只是兜底，置灰并说明。
     const localActive = props.localAvailable === true && (props.localVoices?.length ?? 0) > 0;
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
-        cardHead(t('voiceTitle'), t('voiceHint')),
+        cardHead(t('voiceTitle'), t('voiceHint'), 'voice'),
         // 第一行开关：四类语音各一个，必须相邻，读得出是「同一类」；第二行两个输入：音色与音量。
         // 音色不挂文字标签也不挂问号：下拉当前值「晓伊（女·活泼）」自己就说明了它是什么。
         h('div', {
           className: 'dsh-pet-cfg__grid4',
           children: [
-            toggleCell('voiceEnabled', props.enabled, props.busy, props.onToggle),
-            toggleCell('voiceWhisperEnabled', props.whisperEnabled, props.busy, props.onWhisperToggle),
-            toggleCell('voiceTodoEnabled', props.todoEnabled, props.busy, props.onTodoToggle),
-            toggleCell('voiceNotifyEnabled', props.notifyEnabled, props.busy, props.onNotifyToggle),
+            toggleCell('voiceEnabled', props.enabled, props.busy, props.onToggle, 'voice.enabled'),
+            toggleCell('voiceWhisperEnabled', props.whisperEnabled, props.busy, props.onWhisperToggle, 'voice.whisper'),
+            toggleCell('voiceTodoEnabled', props.todoEnabled, props.busy, props.onTodoToggle, 'voice.todo'),
+            toggleCell('voiceNotifyEnabled', props.notifyEnabled, props.busy, props.onNotifyToggle, 'voice.notify'),
             // 播报侧开关：合成前清洗文本，与上面四个「说不说」不是一回事，所以排在后面单独一格。
-            toggleCell('speakStripEmoji', props.stripEmoji, props.busy, props.onStripEmojiToggle),
+            toggleCell('speakStripEmoji', props.stripEmoji, props.busy, props.onStripEmojiToggle, 'voice.stripEmoji'),
           ],
         }),
         h('div', {
@@ -122,6 +125,7 @@ export function makeVoiceCard(
                 onChange: props.onVoiceChange,
               }),
               localActive ? t('voiceNameFallbackHint') : undefined,
+              'voice.name',
             ),
             // 音量：播放端系数（0–1）。用滑块 + 百分比读数而不是裸小数——「0.65」没人看得出是多大，
             // 而且 GSV 与 edge 的响度本来就不同，用户需要边放边拖。落盘仍是 0–1（配置校验不变）。
@@ -141,6 +145,7 @@ export function makeVoiceCard(
                 },
               }),
               t('voiceVolumeHint'),
+              'voice.volume',
             ),
             // 本地音色（GSV）：与 edge 白名单并列但互不覆盖——上面那格是「云端换声线」，
             // 这格是「本机音色包」。没有可切音色时整格不出现，不留一个空下拉。

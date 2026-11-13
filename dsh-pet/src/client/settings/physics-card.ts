@@ -7,6 +7,7 @@
  */
 import type { FunctionComponent } from 'react';
 import type { PhysicsParams } from '../../shared/types.ts';
+import type { DirtyQuery } from './dirty.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit, numberInputProps } from './ui.ts';
 
@@ -18,6 +19,8 @@ export interface PhysicsCardProps {
   physics: PhysicsParams;
   /** 改物理参数的若干字段。 */
   onChange: (patch: Partial<PhysicsParams>) => void;
+  /** 未保存改动查询口。 */
+  dirty: DirtyQuery;
 }
 
 /**
@@ -28,10 +31,10 @@ export interface PhysicsCardProps {
  */
 export function makePhysicsCard(rt: SettingsRuntime): FunctionComponent<PhysicsCardProps> {
   const { h, t } = rt;
-  const { cardHead, field, toggleCell } = makeUiKit({ h, t });
 
   return function PhysicsCard(props: PhysicsCardProps) {
-    const { busy, physics } = props;
+    const { busy, physics, dirty } = props;
+    const { cardHead, field, toggleCell } = makeUiKit({ h, t }, dirty);
 
     /** 物理参数的一格：标签与问号在上、数字输入在下。 */
     const physField = (key: 'gravity' | 'restitution' | 'groundFriction' | 'throwPower', step: string, min: string) =>
@@ -42,12 +45,13 @@ export function makePhysicsCard(rt: SettingsRuntime): FunctionComponent<PhysicsC
           numberInputProps(physics[key], (v) => props.onChange({ [key]: v }), { step, min, disabled: busy }),
         ),
         t('physics.' + key + 'Hint'),
+        'look.physics.' + key,
       );
 
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
-        cardHead(t('physicsTitle'), t('physicsHint')),
+        cardHead(t('physicsTitle'), t('physicsHint'), 'look.physics'),
         h('div', {
           className: 'dsh-pet-cfg__grid4',
           children: [
@@ -60,10 +64,20 @@ export function makePhysicsCard(rt: SettingsRuntime): FunctionComponent<PhysicsC
         h('div', {
           className: 'dsh-pet-cfg__grid2',
           children: [
-            toggleCell('physicsCeilingBounce', physics.ceilingBounce, busy, (v) =>
-              props.onChange({ ceilingBounce: v }),
+            toggleCell(
+              'physicsCeilingBounce',
+              physics.ceilingBounce,
+              busy,
+              (v) => props.onChange({ ceilingBounce: v }),
+              'look.physics.ceilingBounce',
             ),
-            toggleCell('physicsPetCollision', physics.petCollision, busy, (v) => props.onChange({ petCollision: v })),
+            toggleCell(
+              'physicsPetCollision',
+              physics.petCollision,
+              busy,
+              (v) => props.onChange({ petCollision: v }),
+              'look.physics.petCollision',
+            ),
           ],
         }),
       ],

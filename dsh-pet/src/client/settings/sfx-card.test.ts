@@ -7,6 +7,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { jsx } from 'react/jsx-runtime';
 
+import { NO_DIRTY } from './dirty.ts';
 import { makeSfxCard } from './sfx-card.ts';
 import { SFX_EVENT_SLOTS } from '../../shared/sfx/types.ts';
 import type { SfxSettings, SfxSlotView } from './use-sfx-settings.ts';
@@ -64,6 +65,7 @@ const render = (settings: SfxSettings): Node[] =>
     makeSfxCard(runtime as never)({
       busy: false,
       sfx: settings,
+      dirty: NO_DIRTY,
     }),
   );
 

@@ -4,16 +4,7 @@
 
 export const zh = {
   nav: '桌宠配置',
-  intro: '管理多个桌宠：每个宠物可独立设置大小与位置（保存后即时生效）。',
-  // 分区标签条的标题（顺序见 ../tabs.ts）。
-  tabPet: '宠物',
-  tabGlobal: '全局',
   tabLook: '外观',
-  tabSfx: '音效',
-  tabVoice: '语音',
-  tabModel: '对话',
-  tabStorage: '存储',
-  // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: '宠物配置',
   avatarLabel: '头像',
   avatarHint:
@@ -22,8 +13,6 @@ export const zh = {
   avatarChange: '更换',
   avatarUploading: '上传中…',
   avatarUploaded: '头像已更新',
-  petCardHint:
-    '每只宠物独立配置：名字 / 大小 / 显示位置 / 位置 / 偏移 / 四个功能开关。改完点最下面的「保存」即时生效。',
   globalTitle: '全局开关',
   globalHint:
     '所有宠物共用（pet pack 可在自己种类文件里单独覆盖）。这几个开关只改本地状态，随「保存」整包写入用户配置（不做即时写入）；系统通知在保存后即时重读，无需刷新页面。',
@@ -107,16 +96,11 @@ export const zh = {
   'corner.bottom-right': '右下角',
   marginX: '水平偏移',
   marginY: '垂直偏移',
-  save: '保存',
   saveHotkey: 'Ctrl+S / Cmd+S',
-  sync: '同步',
-  confirmSync: '确定同步吗？将用项目内置的默认配置（完整字段 + 注释）覆盖用户配置，当前的自定义内容会丢失。',
   corruptTitle: '用户配置已损坏，未保存',
   corruptConfirm: '强行保存',
   corruptBody:
     '用户配置文件解析不了（内容已损坏，不是合法 JSON/JSONC）：{path}。继续保存会按白名单重建这个文件——它里面现有的内容（animations / physics / memes 等自定义字段）会全部丢失。取消 = 不动文件（先去把配置改回合法再保存）；确认 = 强行保存（丢弃文件里现有的内容）。',
-  syncHint:
-    '「同步」会把项目内置的默认配置（含注释与全部高级字段）写入用户配置文件，覆盖当前自定义内容；之后可直接编辑该文件。注意两点：① 文件一旦生成即为显式覆盖层——插件升级后内置默认的变化不会自动生效（除非再次同步或删除该文件）；② 在本页点「保存」会按白名单重写该文件（字段值保留，但注释会被去掉）。',
   configMeta: '高级配置（文件）',
   configMetaHint:
     '用户配置可覆盖宠物列表 / 动画池 / 播放权重，修改后刷新或重启生效：浏览器端刷新页面，桌面端右键宠物 →「重载配置」（重载全部桌面宠物窗口）；默认配置为完整参考。',
@@ -133,11 +117,9 @@ export const zh = {
   loadError: '加载配置失败',
   saveError: '保存配置失败，请检查服务连接、配置目录的写入权限或服务日志。',
   saveInvalid: '保存配置失败：配置内容无效，请检查后重试。',
-  syncError: '同步配置失败，请检查服务连接和配置目录的写入权限。',
   loading: '正在加载配置…',
   retry: '重试',
   invalid: '请检查输入：大小需为正数，边距可为任意数字。',
-  busy: '保存中…',
   extraPetsHint:
     '另 {n} 个种类来自 pet/ 目录文件（<名>-config.json + <名>-animation/），在上方「种类」条里切换即可修改；保存会写回各自的角色包配置，不混进 main-config.jsonc。',
   kindLabel: '种类',
@@ -351,6 +333,98 @@ export const zh = {
   'motion.move': '移动',
   'motion.action': '随机动作',
   uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
+  'fish.intro':
+    '每个新建 / 进行中 / 刚结束还没点开的会话，都会派一个「写代码」的小动画跟着；按住拖动可挪位置，点一下开会话，点 × 让这条先走。',
+  'fish.enabled': '启用会话鱼',
+  'fish.enabledHint':
+    '关掉后不再新建鱼，浮层立即收起；已存在的鱼会被清空。重新打开后，当前会话下一次活动（或切进来）时会再派鱼。',
+  'fish.size': '小动画大小',
+  'fish.sizeHint': '小动画的显示宽度（px，高度按素材比例自动算，夹在 0.5–2 倍宽之间）。',
+  'fish.skin': '皮肤',
+  'fish.skinHint': '内置动画直接用；自己的图片 / 动图（gif / webp）/ webm 放进皮肤文件夹后点「重新扫描」。',
+  'fish.skinDefault': '默认（写代码）',
+  'fish.skinDefaultName': '默认皮肤',
+  'fish.skinBuiltin': '内置动画',
+  'fish.skinMine': '我自己的',
+  'fish.skinMissing': '（文件已失效）',
+  'fish.skinRescan': '重新扫描',
+  'fish.skinRescanned': '扫描完成，共',
+  'fish.skinRescanFailed': '扫描失败：读不到皮肤清单',
+  'fish.openSkinFolder': '打开皮肤文件夹',
+  'fish.followPet': '围着桌宠转',
+  'fish.followPetHint':
+    '关掉后鱼回到右下角竖排。开着时鱼绕着桌宠排布，跟着它走、被它挤开；拖完松手会甩一下再回到自己的位置。',
+  'fish.maxCount': '最多同时几条',
+  'fish.maxCountHint': '超出的鱼会先淘汰最早完成的；正在跑的会话优先保留。',
+  'fish.bubbleSec': '气泡停留',
+  'fish.bubbleSecHint': '一条播报在气泡里停留多少秒；完成态的鱼会一直挂着，直到你点进那个会话。',
+  'fish.progressGapSec': '进度播报间隔',
+  'fish.progressGapSecHint': '同一会话两条进度播报至少隔多少秒，避免工具连跑时一直念。轮次结束不受此限制。',
+  'fish.speakEnabled': '语音播报',
+  'fish.speakEnabledHint': '总开关：关掉后进度 / 轮次 / 等待都不出声，气泡照常显示。开着时还能分别关掉下面三类。',
+  'fish.speakProgress': '播报任务进度',
+  'fish.speakProgressHint': '思考、干活、整理时把最新一句念出来。',
+  'fish.speakTurnEnd': '播报轮次结束',
+  'fish.speakTurnEndHint': '每一轮结束（完成 / 出错 / 目标续跑的中间轮）都念一句。',
+  'fish.speakWaiting': '等待确认时播报',
+  'fish.speakWaitingHint': '权限申请、选择题、计划审查这些「等你拍板」的时刻念一句。',
+  'fish.resetPositions': '重置鱼的位置',
+  'fish.positionsReset': '位置已重置，鱼回到桌宠旁边。',
+  'fish.preview': '预览',
+
+  // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
+  tabPet: '桌宠',
+  intro:
+    '全部设置按功能分区：桌宠个体、会话鱼、行为手感、外观、声音、对话与系统。改完点底部「应用」或「确定」；有未保存改动的设置项与分区会亮起小圆点。',
+  petCardHint:
+    '每只宠物独立配置：名字 / 大小 / 显示位置 / 位置 / 偏移 / 五个功能开关。改完点底部「应用」或「确定」保存。',
+  tabFish: '会话鱼',
+  tabBehavior: '行为',
+  tabAudio: '声音',
+  tabChat: '对话',
+  tabSystem: '系统',
+  barGroup: '设置操作',
+  barConfirm: '确定',
+  barCancel: '取消',
+  barApply: '应用',
+  barRestart: '重启',
+  barConfirmHint: '保存全部改动并关闭设置页。',
+  barCancelHint: '关闭设置页；没保存的改动会被丢弃（下次进来重新读配置）。',
+  barApplyHint: '保存全部改动但不关闭。',
+  barRestartHint: '先保存，再让宿主重新组合本插件并重建桌面窗口。',
+  restarting: '正在重启插件…',
+  restartHmr: '插件已重启，页面即将刷新。',
+  restartHelper: '宿主未启用 HMR：桌面窗口已重建，宿主代码改动仍需重启 profile。',
+  restartFailed: '重启插件失败，详见插件日志。',
+  resetSettings: '重置设置',
+  resetHint: '把全部设置恢复为项目内置默认（含宠物列表、人设、物理、字体、音效、语音、模型与会话鱼），确认后立即写盘。',
+  confirmReset:
+    '确定重置吗？将用项目内置默认配置覆盖用户配置：宠物列表、自定义人设、音效 / 物理 / 字体等全部回到默认值，配置文件里的注释也会被重写；会话鱼设置同时恢复默认。此操作不可撤销。',
+  resetDone: '已重置为内置默认。',
+  resetError: '重置失败，请检查服务连接与配置目录写入权限。',
+  resetPartial: '主配置已恢复默认，但会话鱼设置没写成功：检查数据目录是否可写。',
+  unsaved: '有未保存改动',
+  sfxMasterTitle: '音效总闸',
+  sfxMasterHint: '总开关、常驻预热与总音量对所有音效生效；文件放哪、哪个槽位响什么，由下面的「事件音效」决定。',
+  systemTitle: '系统与桌面',
+  systemHint: '这些开关只影响本机的提醒方式与窗口行为，与桌宠的动作、语音无关。',
+  'fish.cardTitle': '会话鱼',
+  // 设置备份与恢复（系统分区）；两份原文 + 每个种类配置，恢复前留 .bak。
+  backupTitle: '备份与恢复',
+  backupHint:
+    '备份三份可编辑设置的原文：主配置（含宠物列表与全局偏好）、每个文件宠物的种类配置、会话鱼设置。导出再恢复之后，注释与字段顺序都不变。不含头像图片、对话记忆、待办、日志与浏览器里的位置记忆；恢复会覆盖同名文件（覆盖前自动留一份 .bak），备份里没有的种类文件不会被删除。',
+  backupExport: '导出备份',
+  backupRestore: '从备份恢复',
+  backupDone: '备份已导出。',
+  backupExportFailed: '导出失败：宿主没有回话。',
+  backupReadFailed: '这个文件不是本插件的设置备份。',
+  backupUnsupported: '备份来自更新的插件版本，先升级插件再恢复。',
+  backupTooLarge: '备份太大或条目太多，已拒绝。',
+  restoreDone: '已从备份恢复，设置即时生效。',
+  restoreFailed: '恢复失败：{message}',
+  confirmRestore: '确定用「{name}」覆盖当前设置吗？三份配置文件会被原样写回（现有文件先留一份 .bak），不可撤销。',
+  restoreConfirm: '恢复',
 };
 
 /** 文案键；zh 的键集即全集。 */

@@ -16,6 +16,7 @@ import { makePetCard } from './pet-card.ts';
 import type { PetPatch } from './pet-card-parts.ts';
 import { PET_DISPLAYS } from '../../shared/config.ts';
 import { ROUTE_PATH } from '../../shared/constants.ts';
+import { NO_DIRTY } from './dirty.ts';
 import type { Pet } from '../../shared/types.ts';
 
 interface Node {
@@ -74,18 +75,17 @@ function picker(tree: unknown, value: string): Node {
 }
 
 const render = (onChange: (patch: PetPatch) => void, extra: Record<string, unknown> = {}) =>
-  PetCard({ pet, busy: false, msg: { kind: '', text: '' }, entryPrompt: '条目人设', onChange, ...extra } as never);
+  PetCard({ pet, busy: false, entryPrompt: '条目人设', onChange, dirty: NO_DIRTY, ...extra } as never);
 
 describe('PetCard —— 宠物配置卡', () => {
   test('没有选中宠物：只给「暂无宠物」提示', () => {
     const tree = PetCard({
       pet: null,
       busy: false,
-      msg: { kind: '', text: '' },
       entryPrompt: '',
       onChange: () => {},
-      onSave: () => {},
       onRemove: () => {},
+      dirty: NO_DIRTY,
     } as never);
     assert.equal(flatten(tree).length, 1);
     assert.equal(flatten(tree)[0].props.children, 'emptyPets');
@@ -169,15 +169,14 @@ describe('PetCard —— 宠物配置卡', () => {
     assert.ok(flatten(tree).some((node) => node.props.children === 'personaCount'));
   });
 
-  test('忙时全部控件禁用；保存结果就近显示', () => {
+  test('忙时全部控件禁用；卡片上不再有第二个保存入口', () => {
     const tree = PetCard({
       pet,
       busy: true,
-      msg: { kind: 'err', text: '保存失败' },
       entryPrompt: '',
       onChange: () => {},
-      onSave: () => {},
       onRemove: () => {},
+      dirty: NO_DIRTY,
     } as never);
     const controls = flatten(tree).filter((node) => node.tag === 'input' || node.tag === 'textarea');
     assert.ok(controls.length > 0);
@@ -185,11 +184,10 @@ describe('PetCard —— 宠物配置卡', () => {
     const pickers = flatten(tree).filter((node) => Array.isArray(node.props.options));
     assert.equal(pickers.length, 3, '显示位置 / 渲染方式 / 角落三个下拉都要渲染');
     for (const node of pickers) assert.equal(node.props.disabled, true, '下拉应被禁用');
-    assert.ok(
-      flatten(tree).some(
-        (node) => node.props.children === '保存失败' && String(node.props.className).includes('is-err'),
-      ),
-      '错误反馈要带 is-err（红字）',
+    assert.equal(
+      flatten(tree).filter((node) => node.tag === 'button' && node.props.children === 'save').length,
+      0,
+      '保存已收进底部操作栏，卡片里不该再有保存按钮',
     );
   });
 });

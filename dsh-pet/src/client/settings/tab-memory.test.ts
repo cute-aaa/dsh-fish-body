@@ -34,7 +34,7 @@ const storage = (
 
 describe('parseTabId —— 存储值 → 分区 id', () => {
   test('表里的 id 原样返回', () => {
-    assert.equal(parseTabId('voice'), 'voice');
+    assert.equal(parseTabId('audio'), 'audio');
     assert.equal(parseTabId('pet'), 'pet');
   });
 
@@ -47,7 +47,7 @@ describe('parseTabId —— 存储值 → 分区 id', () => {
 
 describe('readSavedTab —— 读上次停留的分区', () => {
   test('记过就回到那一页', () => {
-    assert.equal(readSavedTab(storage({ [TAB_STORAGE_KEY]: 'model' })), 'model');
+    assert.equal(readSavedTab(storage({ [TAB_STORAGE_KEY]: 'chat' })), 'chat');
   });
 
   test('没记过、值为失效 id 时都是 null', () => {
@@ -57,19 +57,19 @@ describe('readSavedTab —— 读上次停留的分区', () => {
 
   test('没有存储或存储抛错时同样 null', () => {
     assert.equal(readSavedTab(null), null);
-    assert.equal(readSavedTab(storage({ [TAB_STORAGE_KEY]: 'voice' }, { fail: true })), null);
+    assert.equal(readSavedTab(storage({ [TAB_STORAGE_KEY]: 'audio' }, { fail: true })), null);
   });
 });
 
 describe('saveTab —— 记住当前分区', () => {
   test('写进约定的键', () => {
     const fake = storage();
-    saveTab(fake, 'storage');
-    assert.equal(fake.data.get(TAB_STORAGE_KEY), 'storage');
+    saveTab(fake, 'system');
+    assert.equal(fake.data.get(TAB_STORAGE_KEY), 'system');
   });
 
   test('没有存储或写入抛错时静默跳过：切换分区不能因此失败', () => {
-    assert.doesNotThrow(() => saveTab(null, 'voice'));
-    assert.doesNotThrow(() => saveTab(storage({}, { fail: true }), 'voice'));
+    assert.doesNotThrow(() => saveTab(null, 'audio'));
+    assert.doesNotThrow(() => saveTab(storage({}, { fail: true }), 'audio'));
   });
 });

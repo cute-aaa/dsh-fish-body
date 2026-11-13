@@ -9,7 +9,7 @@
  */
 import { requestNotificationPermission } from '../notify.ts';
 import type { MainConfigPatch } from './config/index.ts';
-import type { GlobalFlagKey, GlobalFlags } from './global-card.ts';
+import type { GlobalFlagKey, GlobalFlags } from './global-flags.ts';
 import type { SettingsRuntime } from './runtime.ts';
 
 /** 全局分区的状态与回调。 */

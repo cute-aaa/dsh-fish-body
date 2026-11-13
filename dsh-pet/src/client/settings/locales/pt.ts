@@ -5,16 +5,7 @@ import type { Key } from './zh.ts';
 
 export const pt: Record<Key, string> = {
   nav: 'Configuração do pet',
-  intro: 'Gerencie vários pets: cada um tem tamanho e posição próprios (aplicado na hora após salvar).',
-  // 分区标签条的标题（顺序见 ../tabs.ts）。
-  tabPet: 'Pets',
-  tabGlobal: 'Geral',
   tabLook: 'Aparência',
-  tabSfx: 'Som',
-  tabVoice: 'Voz',
-  tabModel: 'Conversa',
-  tabStorage: 'Armazenamento',
-  // 卡片标题与卡片级说明；说明统一进问号气泡。
   petCardTitle: 'Pet',
   avatarLabel: 'Avatar',
   avatarHint:
@@ -23,8 +14,6 @@ export const pt: Record<Key, string> = {
   avatarChange: 'Trocar',
   avatarUploading: 'Enviando…',
   avatarUploaded: 'Avatar atualizado',
-  petCardHint:
-    'Ajustes por pet: nome / tamanho / exibição / posição / deslocamentos / os quatro interruptores. Clique em "Salvar" no fim para aplicar na hora.',
   globalTitle: 'Interruptores globais',
   globalHint:
     'Compartilhados por todos os pets (um pet pack pode sobrescrevê-los no arquivo do próprio tipo). Estes interruptores só mudam o estado local e são gravados na configuração do usuário ao "Salvar" (nunca na hora); as notificações do sistema são relidas logo após salvar, sem recarregar a página.',
@@ -113,17 +102,11 @@ export const pt: Record<Key, string> = {
   'corner.bottom-right': 'Canto inferior direito',
   marginX: 'Deslocamento horizontal',
   marginY: 'Deslocamento vertical',
-  save: 'Salvar',
   saveHotkey: 'Ctrl+S / Cmd+S',
-  sync: 'Sincronizar',
-  confirmSync:
-    'Sincronizar? Isso sobrescreve a configuração do usuário com a configuração padrão incluída no projeto (todos os campos + comentários); as personalizações atuais serão perdidas.',
   corruptTitle: 'A configuração do usuário está corrompida — não salva',
   corruptConfirm: 'Salvar mesmo assim',
   corruptBody:
     'Não foi possível ler a configuração do usuário (conteúdo corrompido, não é JSON/JSONC válido): {path}. Salvar agora recria o arquivo a partir da lista branca — tudo o que está nele hoje (animações / física / memes etc.) será perdido. Cancelar = não mexe no arquivo (corrija e salve de novo); Confirmar = salva mesmo assim (descarta o conteúdo atual do arquivo).',
-  syncHint:
-    '"Sincronizar" grava a configuração padrão incluída no projeto (com comentários e todos os campos avançados) no arquivo do usuário, sobrescrevendo suas personalizações; depois disso o arquivo já pode ser editado direto. Dois avisos: (1) uma vez criado, o arquivo é uma camada de sobrescrita explícita — mudanças nos padrões do projeto não passam a valer sozinhas (só sincronizando de novo ou apagando o arquivo); (2) clicar em "Salvar" nesta página reescreve o arquivo pela lista branca — os valores são mantidos, os comentários são removidos.',
   configMeta: 'Configuração avançada (arquivos)',
   configMetaHint:
     'A configuração do usuário pode sobrescrever a lista de pets / pools de animação / pesos — recarregue ou reinicie para aplicar: no navegador atualize a página, no desktop clique com o botão direito no pet → "Recarregar configuração" (recria todas as janelas de pet do desktop); a configuração padrão é a referência completa.',
@@ -141,12 +124,9 @@ export const pt: Record<Key, string> = {
   saveError:
     'Falha ao salvar a configuração. Verifique a conexão com o servidor, a permissão de escrita na pasta de configuração e o log do servidor.',
   saveInvalid: 'Falha ao salvar a configuração: conteúdo inválido. Revise os valores e tente de novo.',
-  syncError:
-    'Falha ao sincronizar a configuração. Verifique a conexão com o servidor e a permissão de escrita na pasta de configuração.',
   loading: 'Carregando configuração…',
   retry: 'Tentar de novo',
   invalid: 'Revise os valores: o tamanho precisa ser positivo; as margens podem ser qualquer número.',
-  busy: 'Salvando…',
   extraPetsHint:
     'Mais {n} tipo(s) vêm de arquivos na pasta pet/ (<nome>-config.json + <nome>-animation/). Troque para eles na linha "Tipos" acima; salvar grava no config de cada pacote, nunca no main-config.jsonc.',
   kindLabel: 'Tipos',
@@ -382,4 +362,107 @@ export const pt: Record<Key, string> = {
   'motion.move': 'Movimento',
   'motion.action': 'Ação aleatória',
   uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
+  'fish.intro':
+    'Cada sessão nova, em andamento ou recém-concluída recebe uma pequena animação de «escrever código». Arraste para mover, clique para abrir, × para descartar.',
+  'fish.enabled': 'Ativar peixes de sessão',
+  'fish.enabledHint':
+    'Ao desativar, os peixes atuais somem e a camada é ocultada; eles voltam na próxima atividade depois de reativar.',
+  'fish.size': 'Tamanho da animação',
+  'fish.sizeHint': 'Largura (px); a altura segue a proporção da aparência (0,5–2× a largura).',
+  'fish.skin': 'Aparência',
+  'fish.skinHint':
+    'As animações integradas já funcionam; coloque sua imagem / GIF / webm na pasta de aparências e pressione «Reescanear».',
+  'fish.skinDefault': 'Padrão (escrever código)',
+  'fish.skinDefaultName': 'Aparência padrão',
+  'fish.skinBuiltin': 'Integradas',
+  'fish.skinMine': 'Minhas',
+  'fish.skinMissing': '(arquivo não encontrado)',
+  'fish.skinRescan': 'Reescanear',
+  'fish.skinRescanned': 'Varredura concluída: ',
+  'fish.skinRescanFailed': 'Falha na varredura: lista indisponível',
+  'fish.openSkinFolder': 'Abrir pasta de aparências',
+  'fish.followPet': 'Girar em volta do pet',
+  'fish.followPetHint':
+    'Desligado, os peixes voltam a empilhar no canto inferior direito. Ligado, eles orbitam o pet, o seguem e são empurrados; depois de arrastar, voam e retornam ao seu lugar.',
+  'fish.maxCount': 'Máximo de peixes',
+  'fish.maxCountHint': 'Os excedentes saem primeiro os concluídos mais antigos; sessões em andamento ficam.',
+  'fish.bubbleSec': 'Duração do balão',
+  'fish.bubbleSecHint': 'Segundos que uma frase fica no balão. Peixes concluídos esperam até você abrir a sessão.',
+  'fish.progressGapSec': 'Intervalo de progresso',
+  'fish.progressGapSecHint':
+    'Segundos mínimos entre falas de progresso de uma sessão. Fins de turno não entram no limite.',
+  'fish.speakEnabled': 'Anúncios de voz',
+  'fish.speakEnabledHint':
+    'Interruptor mestre: desligado, progresso, fim de turno e espera ficam mudos (o balão continua). Os três interruptores por tipo abaixo valem enquanto estiver ligado.',
+  'fish.speakProgress': 'Falar o progresso',
+  'fish.speakProgressHint': 'Falar a última frase ao pensar, trabalhar ou organizar.',
+  'fish.speakTurnEnd': 'Falar o fim do turno',
+  'fish.speakTurnEndHint': 'Falar ao fim de cada turno (concluído, erro ou rodada intermediária de um objetivo).',
+  'fish.speakWaiting': 'Falar as esperas',
+  'fish.speakWaitingHint': 'Falar quando uma aprovação, pergunta ou revisão de plano espera sua resposta.',
+  'fish.resetPositions': 'Redefinir posições',
+  'fish.positionsReset': 'Posições redefinidas; os peixes voltam ao lado do pet.',
+  'fish.preview': 'Prévia',
+  // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
+  tabPet: 'Pet',
+  intro:
+    'Tudo agrupado por função: pets, peixes de sessão, comportamento, aparência, som, diálogo e sistema. Altere o que precisar e use Aplicar / OK no rodapé; um ponto marca ajustes e abas com alterações não salvas.',
+  petCardHint:
+    'Configuração por pet: nome / tamanho / exibição / posição / deslocamentos / cinco interruptores. Use Aplicar ou OK no rodapé para salvar.',
+  tabFish: 'Peixes de sessão',
+  tabBehavior: 'Comportamento',
+  tabAudio: 'Som',
+  tabChat: 'Diálogo',
+  tabSystem: 'Sistema',
+  barGroup: 'Ações das configurações',
+  barConfirm: 'OK',
+  barCancel: 'Cancelar',
+  barApply: 'Aplicar',
+  barRestart: 'Reiniciar',
+  barConfirmHint: 'Salvar todas as alterações e fechar as configurações.',
+  barCancelHint:
+    'Fechar as configurações e descartar as alterações não salvas (na próxima abertura a configuração é relida).',
+  barApplyHint: 'Salvar todas as alterações sem fechar.',
+  barRestartHint:
+    'Salvar primeiro e depois pedir ao host para recompor o plugin e reconstruir a janela da área de trabalho.',
+  restarting: 'Reiniciando o plugin…',
+  restartHmr: 'Plugin reiniciado; a página será recarregada em instantes.',
+  restartHelper:
+    'HMR indisponível: a janela da área de trabalho foi reconstruída, mas alterações no host ainda exigem reiniciar o perfil.',
+  restartFailed: 'Falha ao reiniciar o plugin; veja o log do plugin.',
+  resetSettings: 'Redefinir configurações',
+  resetHint:
+    'Restaura todas as configurações para os padrões do projeto (pets, personas, física, fonte, som, voz, modelos e peixes de sessão). Ao confirmar, grava imediatamente.',
+  confirmReset:
+    'Redefinir tudo? A configuração padrão embutida substituirá a sua: pets, personas personalizadas, som / física / fonte e todo o resto voltam aos padrões, e os comentários do arquivo são reescritos. As configurações dos peixes de sessão também são redefinidas. Não é possível desfazer.',
+  resetDone: 'Redefinido para os padrões embutidos.',
+  resetError:
+    'Falha ao redefinir. Verifique a conexão com o servidor e as permissões de escrita do diretório de configuração.',
+  resetPartial:
+    'A configuração principal foi redefinida, mas as configurações dos peixes de sessão não foram gravadas: verifique se o diretório de dados é gravável.',
+  unsaved: 'Alterações não salvas',
+  sfxMasterTitle: 'Som geral',
+  sfxMasterHint:
+    'O interruptor geral, o pré-aquecimento e o volume geral valem para todos os efeitos; qual arquivo toca em cada slot é definido em «Sons por evento» abaixo.',
+  systemTitle: 'Sistema e área de trabalho',
+  systemHint:
+    'Estes interruptores mudam apenas como esta máquina avisa e como a janela se comporta; as ações e a voz do pet não mudam.',
+  'fish.cardTitle': 'Peixes de sessão',
+  // 设置备份与恢复（系统分区）；两份原文 + 每个种类配置，恢复前留 .bak。
+  backupTitle: 'Backup e restauração',
+  backupHint:
+    'Salva o texto original de três configurações editáveis: a configuração principal (pets e preferências globais), a configuração de cada pet de arquivo e as configurações dos peixes de sessão. Comentários e ordem dos campos sobrevivem à ida e volta. Não inclui: imagens de avatar, memória de conversa, tarefas, logs ou a memória de posições do navegador. A restauração sobrescreve os mesmos arquivos (um .bak é guardado antes); arquivos de tipo ausentes do backup não são tocados.',
+  backupExport: 'Exportar backup',
+  backupRestore: 'Restaurar do backup',
+  backupDone: 'Backup exportado.',
+  backupExportFailed: 'Falha ao exportar: o host não respondeu.',
+  backupReadFailed: 'Este arquivo não é um backup de configurações deste plugin.',
+  backupUnsupported: 'O backup veio de uma versão mais nova do plugin; atualize o plugin antes de restaurar.',
+  backupTooLarge: 'O backup é grande demais ou tem entradas demais; foi recusado.',
+  restoreDone: 'Restaurado do backup; as configurações já valem.',
+  restoreFailed: 'Falha ao restaurar: {message}',
+  confirmRestore:
+    'Sobrescrever as configurações atuais com «{name}»? Os três arquivos de configuração são reescritos como estão (os existentes são guardados antes como .bak). Não dá para desfazer.',
+  restoreConfirm: 'Restaurar',
 };

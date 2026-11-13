@@ -16,7 +16,7 @@ describe('SETTINGS_TABS —— 设置页分区表', () => {
   test('id 唯一，且顺序即展示顺序', () => {
     const ids = SETTINGS_TABS.map((tab) => tab.id);
     assert.equal(new Set(ids).size, ids.length, '分区 id 必须唯一');
-    assert.deepEqual(ids, ['pet', 'global', 'look', 'sfx', 'voice', 'model', 'storage']);
+    assert.deepEqual(ids, ['pet', 'fish', 'behavior', 'look', 'audio', 'chat', 'system']);
   });
 
   test('默认分区在表里', () => {

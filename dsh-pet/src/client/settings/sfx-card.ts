@@ -16,6 +16,7 @@ import { makeFolderButton } from './folder-button.ts';
 import type { SfxEventSlot, SfxFolderTarget } from '../../shared/types.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import type { SfxHookView, SfxSettings, SfxSlotView } from './use-sfx-settings.ts';
+import type { DirtyQuery } from './dirty.ts';
 import { makeUiKit } from './ui.ts';
 
 /**
@@ -38,6 +39,8 @@ export interface SfxCardProps {
   busy: boolean;
   /** 分区状态与试听入口。 */
   sfx: SfxSettings;
+  /** 未保存改动查询口（本卡按「音效段整体」画一个点）。 */
+  dirty: DirtyQuery;
 }
 
 /** 槽位 → 文案键（`sfxSlot<Name>`）；顺序与 SFX_EVENT_SLOTS 一致。 */
@@ -74,12 +77,12 @@ const ORIGIN_LABEL: Record<SfxSlotView['origin'], string> = {
  */
 export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps> {
   const { h, t, useState, useEffect, useRef } = rt;
-  const { q } = makeUiKit({ h, t });
   // 每行一个「打开文件夹」：类别由行自己的来源/建议落点决定（use-sfx-settings 算好）。
   const FolderButton = makeFolderButton(rt);
 
   return function SfxCard(props: SfxCardProps) {
     const { busy, sfx } = props;
+    const { q, dot } = makeUiKit({ h, t }, props.dirty);
     const [draft, setDraft] = useState('');
     const [error, setError] = useState('');
     /** 按钮旁的小气泡：问「是否创建」或报一次失败。 */
@@ -153,6 +156,7 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
         children: [
           h('span', { key: 't', className: 'dsh-pet-cfg__cardTitle', children: title }),
           q(hint),
+          dot('sfx'),
           h('button', {
             key: 'b',
             type: 'button',

@@ -11,6 +11,7 @@ import type { Animations } from '../../shared/types.ts';
 import { postAction } from '../../shared/state.ts';
 import { postPetConfig, type PetConfigIntent } from '../../shared/pet-config-actions.ts';
 import { setMenuClick } from '../menu-service.ts';
+import { requestPluginRestart, schedulePageReload } from '../plugin-restart.ts';
 
 /** 菜单派发的依赖。 */
 export interface MenuActionDeps {
@@ -97,20 +98,17 @@ async function applyPetConfig(deps: MenuActionDeps, intent: PetConfigIntent, lab
  * 没有 HMR 时进程内换不掉已加载的 ESM，只有桌面窗口会重建——如实提示，不假装成功。
  */
 async function restartPlugin(deps: MenuActionDeps): Promise<void> {
-  try {
-    const response = await fetch(ROUTE_PATH + '/plugin-restart', { method: 'POST' });
-    const body = (await response.json()) as { ok?: unknown; mode?: unknown };
-    if (!response.ok || body.ok === false) throw new Error('plugin-restart HTTP ' + response.status);
-    const mode = body.mode === 'hmr' ? 'hmr' : 'helper';
-    console.info('[dsh-pet] 插件重启已触发 pet=' + deps.petId + ' mode=' + mode);
-    if (mode === 'hmr') {
-      if (typeof window !== 'undefined') window.setTimeout(() => window.location.reload(), 1200);
-      return;
-    }
-    deps.warn('[dsh-pet] 宿主未启用 HMR：宿主代码改动仍需重启 profile，桌面窗口已重建');
-  } catch (error) {
-    deps.warn('[dsh-pet] 插件重启失败 ' + (error instanceof Error ? error.message : String(error)));
+  const mode = await requestPluginRestart();
+  if (mode === null) {
+    deps.warn('[dsh-pet] 插件重启失败');
+    return;
   }
+  console.info('[dsh-pet] 插件重启已触发 pet=' + deps.petId + ' mode=' + mode);
+  if (mode === 'hmr') {
+    schedulePageReload();
+    return;
+  }
+  deps.warn('[dsh-pet] 宿主未启用 HMR：宿主代码改动仍需重启 profile，桌面窗口已重建');
 }
 
 /**

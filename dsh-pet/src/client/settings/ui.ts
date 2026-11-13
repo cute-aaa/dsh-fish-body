@@ -1,13 +1,15 @@
 /**
- * 设置页共用的小件：字段、问号说明、卡片头、开关格，以及输入框与等宽字体的共享常量。
+ * 设置页共用的小件：字段、问号说明、卡片头、开关格、改动圆点，以及输入框与等宽字体的共享常量。
  * 全部只是造节点，不含状态也不读翻译以外的全局——样式规则在 `css.ts`，文案键在 `locales.ts`。
  * 说明统一走 `data-tip` 属性（气泡由 `./tip-layer` 挂到 body 上摆位），不额外包一层 DOM，避免打乱外层 flex 的间距与对齐。
+ * 圆点由注入的 {@link DirtyQuery} 决定：不传或路径没改动就一个节点都不多渲染。
  * @module dsh-pet/src/client/settings/ui
  */
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import type * as ReactNS from 'react';
 import type { jsx } from 'react/jsx-runtime';
 import { SIZE_MAX, SIZE_MIN, SIZE_STEP } from '../../shared/pet-size.ts';
+import { NO_DIRTY, type DirtyQuery } from './dirty.ts';
 import type { SettingsRuntime } from './runtime.ts';
 
 /** 输入框与下拉框共用的类名。 */
@@ -53,6 +55,9 @@ export function numberInputProps(
 /** 等宽字体栈（路径与命令展示用），走系统栈以免多拉一份资源。 */
 export const MONO_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace';
 
+/** 圆点的作用域：一个路径前缀，或一组前缀（同一张卡里几个不连续的路径）。 */
+export type DirtyScope = string | readonly string[];
+
 /** 折叠卡的输入：标题行常驻，正文收进裁剪层。 */
 export interface FoldCardOptions {
   /** 正文 id，同时是标题按钮的 `aria-controls` 目标。 */
@@ -65,6 +70,8 @@ export interface FoldCardOptions {
   /** 当前是否展开；开合状态由调用方用 `useState` 持有，钩子顺序才稳定。 */
   readonly open: boolean;
   readonly onToggle: () => void;
+  /** 改动路径前缀（可给一组）：该前缀下有未保存改动就在标题后画点。 */
+  readonly scope?: DirtyScope;
 }
 
 /** 设置页的共用小件；由 {@link makeUiKit} 一次造好，各卡片共享同一套翻译与节点工厂。 */
@@ -73,16 +80,19 @@ export interface SettingsUiKit {
   tip: (text: string) => Record<string, string>;
   /** 问号说明入口：气泡的圆形触发元素。 */
   q: (text: string) => ReturnType<typeof jsx>;
-  /** 卡片头：标题与问号说明；右侧动作由调用方自行追加。 */
-  cardHead: (title: string, hint?: string) => ReturnType<typeof jsx>;
-  /** 一个字段：标签（可带问号）在上、控件在下。 */
-  field: (label: string, control: ReturnType<typeof jsx>, hint?: string) => ReturnType<typeof jsx>;
+  /** 未保存改动的圆点；自己拼卡头的卡片用它，作用域没改动时返回 `null`。 */
+  dot: (scope?: DirtyScope) => ReturnType<typeof jsx> | null;
+  /** 卡片头：标题与问号说明；右侧动作由调用方自行追加，`scope` 处有改动时画点。 */
+  cardHead: (title: string, hint?: string, scope?: DirtyScope) => ReturnType<typeof jsx>;
+  /** 一个字段：标签（可带问号与改动点）在上、控件在下。 */
+  field: (label: string, control: ReturnType<typeof jsx>, hint?: string, scope?: DirtyScope) => ReturnType<typeof jsx>;
   /** 开关的一格：勾选框、标题与问号；说明挂在问号上，点标题只切开关。 */
   toggleCell: (
     label: string,
     value: boolean,
     disabled: boolean,
     onToggle: (value: boolean) => void,
+    scope?: DirtyScope,
   ) => ReturnType<typeof jsx>;
   /**
    * 折叠卡骨架：标题行常驻且整行可点，正文收进裁剪层。
@@ -113,9 +123,10 @@ export interface SettingsUiKit {
  * 造设置页的共用小件。
  *
  * @param rt - 只用到节点工厂 `h` 与翻译 `t`。
+ * @param dirty - 未保存改动的查询口；缺省时所有圆点都不渲染（单测与独立渲染零负担）。
  * @returns 各卡片共享的小件集合。
  */
-export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>): SettingsUiKit {
+export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>, dirty: DirtyQuery = NO_DIRTY): SettingsUiKit {
   const { h, t } = rt;
 
   /**
@@ -129,30 +140,50 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>): SettingsUiKit {
   const q = (text: string): ReturnType<typeof jsx> =>
     h('i', { className: 'dsh-pet-cfg__q', ...tip(text), 'aria-label': text, role: 'img', children: '?' });
 
+  /** 这组前缀里是否至少有一条改动。 */
+  const changedUnder = (scope: DirtyScope): boolean =>
+    (typeof scope === 'string' ? [scope] : scope).some((prefix) => dirty.has(prefix));
+
+  /** 未保存改动的圆点；`scope` 缺省或没改动时返回 null，调用方直接塞进 children 即可。 */
+  const dot = (scope?: DirtyScope): ReturnType<typeof jsx> | null =>
+    scope !== undefined && changedUnder(scope)
+      ? h('i', {
+          className: 'dsh-pet-cfg__dot',
+          role: 'img',
+          'aria-label': t('unsaved'),
+          title: t('unsaved'),
+        })
+      : null;
+
   return {
     tip,
     q,
-    cardHead: (title, hint) =>
+    dot,
+    cardHead: (title, hint, scope) =>
       h('div', {
         className: 'dsh-pet-cfg__cardHead',
         children: [
           h('span', { key: 't', className: 'dsh-pet-cfg__cardTitle', children: title }),
           hint ? q(hint) : null,
+          dot(scope),
         ],
       }),
-    field: (label, control, hint) =>
-      h('div', {
+    field: (label, control, hint, scope) => {
+      // 标签行只在真的多出东西时才变成数组：没有问号也没有圆点时保持原来的纯文本子节点。
+      const labelParts = [label, hint ? q(hint) : null, dot(scope)].filter((part) => part !== null);
+      return h('div', {
         className: 'dsh-pet-cfg__field',
         children: [
           h('span', {
             key: 'l',
             className: 'dsh-pet-cfg__flabel',
-            children: hint ? [label, q(hint)] : label,
+            children: labelParts.length === 1 ? labelParts[0] : labelParts,
           }),
           control,
         ],
-      }),
-    toggleCell: (label, value, disabled, onToggle) =>
+      });
+    },
+    toggleCell: (label, value, disabled, onToggle, scope) =>
       h('div', {
         className: 'dsh-pet-cfg__toggle',
         children: [
@@ -170,6 +201,7 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>): SettingsUiKit {
             ],
           }),
           q(t(label + 'Hint')),
+          dot(scope),
         ],
       }),
     foldCard: (options) =>
@@ -186,6 +218,7 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>): SettingsUiKit {
             onClick: options.onToggle,
             children: [
               h('span', { key: 't', className: 'dsh-pet-cfg__cardTitle', children: options.title }),
+              dot(options.scope),
               h('span', {
                 key: 'q',
                 className: 'dsh-pet-cfg__qWrap',

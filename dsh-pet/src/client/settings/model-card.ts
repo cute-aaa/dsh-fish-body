@@ -7,6 +7,7 @@
  */
 import type { FunctionComponent } from 'react';
 import type { ModelSelection } from '../../shared/types.ts';
+import type { DirtyQuery } from './dirty.ts';
 import type { ModelCatalogGroup } from './picker/index.ts';
 import type { ModelPickerProps } from './picker/index.ts';
 import type { SettingsRuntime } from './runtime.ts';
@@ -54,6 +55,8 @@ export interface ModelCardProps {
   values: ChatFlagValues;
   /** 某个对话开关被切换。 */
   onFlagChange: (key: ChatFlagKey, value: boolean) => void;
+  /** 未保存改动查询口。 */
+  dirty: DirtyQuery;
 }
 
 /**
@@ -68,17 +71,18 @@ export function makeModelCard(
   picker: FunctionComponent<ModelPickerProps>,
 ): FunctionComponent<ModelCardProps> {
   const { h, t } = rt;
-  const { cardHead, field, toggleCell } = makeUiKit({ h, t });
 
   return function ModelCard(props: ModelCardProps) {
-    const { busy, catalog, failed } = props;
+    const { busy, catalog, failed, dirty } = props;
+    const { cardHead, field, toggleCell } = makeUiKit({ h, t }, dirty);
 
     /** 「全局默认」的数字格：标签与问号在上、数字输入在下。 */
-    const numField = (label: string, value: number, setter: (v: number) => void) =>
+    const numField = (label: string, value: number, setter: (v: number) => void, key: string) =>
       field(
         t(label),
         h('input', numberInputProps(value, setter, { step: '1', min: '0', disabled: busy })),
         t(label + 'Hint'),
+        key,
       );
 
     /** 「AI 模型」的一格：标签与问号在上、单下拉选择器在下。 */
@@ -95,13 +99,14 @@ export function makeModelCard(
           onChange: (next: ModelSelection) => props.onModelChange(key, next),
         }),
         t('modelFieldHint'),
+        'model.' + key,
       );
     };
 
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
-        cardHead(t('modelTitle'), t('modelHint')),
+        cardHead(t('modelTitle'), t('modelHint'), 'model'),
         failed
           ? h('p', {
               className: 'dsh-pet-cfg__note',
@@ -116,14 +121,20 @@ export function makeModelCard(
         h('div', {
           className: 'dsh-pet-cfg__grid4',
           children: [
-            numField('chatMemory', props.chatMemory, props.onChatMemoryChange),
-            numField('chatImageLimit', props.chatImageLimit, props.onChatImageLimitChange),
+            numField('chatMemory', props.chatMemory, props.onChatMemoryChange, 'model.chatMemory'),
+            numField('chatImageLimit', props.chatImageLimit, props.onChatImageLimitChange, 'model.chatImageLimit'),
           ],
         }),
         h('div', {
           className: 'dsh-pet-cfg__grid3',
           children: CHAT_TOGGLES.map((toggle) =>
-            toggleCell(toggle.label, props.values[toggle.key], busy, (value) => props.onFlagChange(toggle.key, value)),
+            toggleCell(
+              toggle.label,
+              props.values[toggle.key],
+              busy,
+              (value) => props.onFlagChange(toggle.key, value),
+              'model.' + toggle.key,
+            ),
           ),
         }),
       ],

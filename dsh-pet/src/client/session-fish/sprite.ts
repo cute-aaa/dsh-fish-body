@@ -58,33 +58,3 @@ export function renderFishSprite(h: H, props: FishSpriteProps): ReturnType<typeo
     ],
   });
 }
-
-/**
- * 造设置页导航用的图标（尺寸由 owner 给）。
- *
- * @param h - 节点工厂。
- * @param props - 边长与是否选中。
- * @returns 一个小鱼 `<svg>`。
- */
-export function renderSessionFishIcon(
-  h: H,
-  props: { readonly size: number; readonly active?: boolean },
-): ReturnType<typeof jsx> {
-  const size = Number.isFinite(props.size) ? Math.max(12, Math.round(props.size * 0.92)) : 16;
-  return h('span', {
-    className: 'dsh-session-fish__icon' + (props.active === true ? ' is-active' : ''),
-    children: renderFishSprite(h, { size, still: true }),
-  });
-}
-
-/**
- * 造 `settings.section.icon` 的图标组件（owner 只传 size / active）。
- *
- * @param rt - 只需节点工厂。
- * @returns 图标组件。
- */
-export function makeSessionFishIcon(rt: { readonly h: H }) {
-  return function SessionFishIcon(props: { readonly size: number; readonly active?: boolean }): ReturnType<typeof jsx> {
-    return renderSessionFishIcon(rt.h, props);
-  };
-}

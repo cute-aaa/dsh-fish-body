@@ -7,6 +7,7 @@
  * @module dsh-pet/src/client/settings/model-tab
  */
 import type { FunctionComponent } from 'react';
+import type { DirtyQuery } from './dirty.ts';
 import { makeModelCard } from './model-card.ts';
 import { makeModelPicker } from './picker/index.ts';
 import type { SettingsRuntime } from './runtime.ts';
@@ -21,6 +22,8 @@ export interface ModelTabProps {
   readonly model: ModelSettings;
   /** 页面级一次性拉取的结果：候选模型清单与它的失败标志。 */
   readonly remote: RemoteData;
+  /** 未保存改动查询口。 */
+  readonly dirty: DirtyQuery;
 }
 
 /**
@@ -35,7 +38,7 @@ export function makeModelTab(rt: SettingsRuntime): FunctionComponent<ModelTabPro
   const ModelCard = makeModelCard(rt, ModelPicker);
 
   return function ModelTab(props: ModelTabProps) {
-    const { busy, model, remote } = props;
+    const { busy, model, remote, dirty } = props;
     return h(ModelCard, {
       busy,
       catalog: remote.catalog,
@@ -49,6 +52,7 @@ export function makeModelTab(rt: SettingsRuntime): FunctionComponent<ModelTabPro
       onChatImageLimitChange: model.setChatImageLimit,
       values: model.chatFlags,
       onFlagChange: model.setChatFlag,
+      dirty,
     });
   };
 }

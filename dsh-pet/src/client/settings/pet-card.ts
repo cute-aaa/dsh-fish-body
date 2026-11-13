@@ -7,6 +7,7 @@
  */
 import type { ChangeEvent, FunctionComponent } from 'react';
 import type { Pet } from '../../shared/types.ts';
+import type { DirtyQuery } from './dirty.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit } from './ui.ts';
 import {
@@ -23,8 +24,6 @@ export interface PetCardProps {
   pet: Pet | null;
   /** 表单是否禁用（保存中或配置还没加载好）。 */
   busy: boolean;
-  /** 保存 / 同步的最近一次反馈，就近显示在卡片右上角。 */
-  msg: { kind: 'ok' | 'err' | ''; text: string };
   /** 条目级人设正文，作为实例人设输入框的 placeholder。 */
   entryPrompt: string;
   /** 头像预览地址（已带破缓存版本号）；没上传过时宿主回的就是默认 logo。 */
@@ -35,10 +34,10 @@ export interface PetCardProps {
   onAvatar?: (file: File) => void;
   /** 改选中宠物的字段。 */
   onChange: (patch: PetPatch) => void;
-  /** 就近保存。 */
-  onSave: () => void;
   /** 删除当前宠物（先弹确认）。 */
   onRemove: () => void;
+  /** 未保存改动查询口（整只宠物算一条路径）。 */
+  dirty: DirtyQuery;
 }
 
 /**
@@ -49,7 +48,6 @@ export interface PetCardProps {
  */
 export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps> {
   const { h, t } = rt;
-  const { tip, q, field, toggleCell } = makeUiKit({ h, t });
   // 部件工厂在装配时各调一次：组件类型跨渲染稳定，卡片重渲染不会重建它们。
   const AvatarCell = makePetAvatarCell(rt);
   const IdentityFields = makePetIdentityFields(rt);
@@ -57,7 +55,8 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
   const SizeFields = makePetSizeFields(rt);
 
   return function PetCard(props: PetCardProps) {
-    const { pet, busy, msg } = props;
+    const { pet, busy, dirty } = props;
+    const { q, field, toggleCell, dot } = makeUiKit({ h, t }, dirty);
     if (pet === null) return h('p', { className: 'dsh-pet-cfg__note', children: t('emptyPets') });
     return h('div', {
       className: 'dsh-pet-cfg__card',
@@ -67,29 +66,12 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
           children: [
             h('span', { key: 't', className: 'dsh-pet-cfg__cardTitle', children: t('petCardTitle') }),
             q(t('petCardHint')),
-            // 右侧动作组：auto margin 挂在这层 wrapper 上，保存结果出现 / 消失时按钮位置不会跳。
+            dot('pets'),
+            // 右侧只剩删除：保存已收进底部操作栏，卡片上不再有第二个保存入口。
             h('div', {
               key: 'acts',
               style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' },
               children: [
-                // 保存结果就近反馈（与页面底部同一份 msg 状态），否则在卡片上点保存看不到结果。
-                msg.text
-                  ? h('span', {
-                      key: 'msg',
-                      className: 'dsh-pet-cfg__msg' + (msg.kind === 'err' ? ' is-err' : ''),
-                      children: msg.text,
-                    })
-                  : null,
-                // 就近保存：宠物这一块改完就地存盘，不必滚到底部的「保存」；悬浮按钮即出快捷键气泡。
-                h('button', {
-                  key: 'sv',
-                  type: 'button',
-                  onClick: props.onSave,
-                  disabled: busy,
-                  className: 'dsh-pet-cfg__btn is-primary is-sm',
-                  ...tip(t('saveHotkey')),
-                  children: t('save'),
-                }),
                 h('button', {
                   key: 'rm',
                   type: 'button',

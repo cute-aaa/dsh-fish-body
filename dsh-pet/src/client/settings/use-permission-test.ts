@@ -5,7 +5,7 @@
  * owns only 这一句反馈，never 权限本身与通知的构造（那是 `./notify-test.ts` 的纯动作）。
  * @module dsh-pet/src/client/settings/use-permission-test
  */
-import type { Feedback } from './actions.ts';
+import type { Feedback } from './feedback.ts';
 import { runNotificationTest } from './notify-test.ts';
 import type { SettingsRuntime } from './runtime.ts';
 

@@ -5,7 +5,7 @@
  * @module dsh-pet/src/client/settings/notify-test
  */
 import { NOTIFY_ICONS, requestNotificationPermission, wireNotificationClick } from '../notify.ts';
-import type { Feedback } from './actions.ts';
+import type { Feedback } from './feedback.ts';
 
 /** {@link runNotificationTest} 的依赖。 */
 export interface NotificationTestDeps {

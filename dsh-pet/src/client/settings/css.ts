@@ -192,6 +192,16 @@ const SETTINGS_CSS = [
   '.dsh-pet-cfg__tab.is-ghost{border-style:dashed;color:var(--dsw-alias-label-secondary)}',
 
   '.dsh-pet-cfg__actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}',
+  // 底部常驻操作栏：贴住滚动容器（设置面板的 options 列）底边，背景取面板同款 layer-2，
+  // 否则滚上去的卡片会从字缝里透出来。
+  '.dsh-pet-cfg__bar{position:sticky;bottom:0;z-index:2;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px;padding:8px 0 4px;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2)}',
+  '.dsh-pet-cfg__barSpacer{flex:1 1 auto;min-width:8px}',
+  // 重置行：设置项最底部的一条虚线区，和上面的卡片拉开层次、降低误点。
+  '.dsh-pet-cfg__resetRow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:4px;padding:10px 0 0;border-top:1px dashed var(--dsw-alias-border-l2)}',
+  '.dsh-pet-cfg__resetRow>.dsh-pet-cfg__note{flex:1 1 260px;min-width:0}',
+  // 未保存改动的圆点：跟着字段标签、卡片标题或分区标签走，只占 6px，不换行。
+  '.dsh-pet-cfg__dot{display:inline-block;flex:none;width:6px;height:6px;margin-left:4px;border-radius:50%;background:var(--dsw-alias-state-business-primary);vertical-align:middle}',
+  '@container (max-width:400px){.dsh-pet-cfg__bar{gap:6px}.dsh-pet-cfg__bar .dsh-pet-cfg__btn{flex:1 1 auto}}',
   '.dsh-pet-cfg__msg{margin-left:4px;font-size:12px;color:var(--dsw-alias-state-success-primary)}',
   '.dsh-pet-cfg__msg.is-err{color:var(--dsw-alias-state-error-primary)}',
   '.dsh-pet-cfg__note{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',

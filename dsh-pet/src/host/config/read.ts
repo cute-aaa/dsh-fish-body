@@ -64,6 +64,19 @@ function scanPetFiles(petDir: string): PetFileEntry[] {
 }
 
 /**
+ * 列出磁盘上的全部文件宠物配置文件（条目名 + 真实路径，按文件名排序）。
+ *
+ * 备份要原样收走这些文件，扫描规则（`<名>-config.json(c)`、保留字 `pool` 跳过、排序）必须与
+ * 读取侧同一份，否则备份会漏掉或多收一个条目。
+ *
+ * @param paths - 配置路径集。
+ * @returns 条目名（文件名前缀）与绝对路径；`pet/` 不存在时为空数组。
+ */
+export function listPetConfigFiles(paths: ConfigPaths): Array<{ entry: string; path: string }> {
+  return scanPetFiles(paths.petDir).map((file) => ({ entry: file.prefix, path: file.path }));
+}
+
+/**
  * 按条目 key（= 文件名前缀 = 素材根）定位文件宠物的实际文件与磁盘原对象。
  * 写路径（POST /pet-display）改文件宠物的 display 时，既要写回它自己的配置文件，也要拿该文件的
  * existing 做透传保留，否则手改的 whisperPrompt / animations / memes 会被白名单重建抹掉。
