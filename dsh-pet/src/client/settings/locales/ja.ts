@@ -476,4 +476,5 @@ export const ja: Record<Key, string> = {
   secSpeak: '読み上げ',
   secTiming: 'テンポ',
   sizesTitle: 'レンダラーごとのサイズ',
+  extraPetsShort: '他に {n} 種類は pet/ ディレクトリにあります',
 };

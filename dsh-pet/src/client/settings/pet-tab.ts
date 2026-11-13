@@ -48,7 +48,7 @@ export function makePetTab(rt: SettingsRuntime): FunctionComponent<PetTabProps> 
   const { h, t } = rt;
   const Select = makeSelect(rt);
   const PetCard = makePetCard(rt);
-  const { note } = makeUiKit({ h, t });
+  const { tip } = makeUiKit({ h, t });
 
   return function PetTab(props: PetTabProps) {
     const { list, busy, avatar, dirty } = props;
@@ -106,7 +106,16 @@ export function makePetTab(rt: SettingsRuntime): FunctionComponent<PetTabProps> 
             }),
           ],
         }),
-        packCount > 0 ? note(t('extraPetsHint').replace('{n}', String(packCount)), true) : null,
+        // 一行短提示 + 悬浮看全文：长版本（哪种文件、保存会写回哪里）挂进气泡，
+        // 常显只留「还有几个种类、它们在哪里」，否则在窄面板里它会自己占两行。
+        packCount > 0
+          ? h('p', {
+              key: 'packNote',
+              className: 'dsh-pet-cfg__note is-tight',
+              ...tip(t('extraPetsHint')),
+              children: t('extraPetsShort').replace('{n}', String(packCount)),
+            })
+          : null,
         h(PetCard, {
           key: 'card',
           pet: current,

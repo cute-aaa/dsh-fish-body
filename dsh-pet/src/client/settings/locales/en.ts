@@ -479,4 +479,5 @@ export const en: Record<Key, string> = {
   secSpeak: 'Speech',
   secTiming: 'Timing',
   sizesTitle: 'Size per renderer',
+  extraPetsShort: '{n} more kinds come from the pet/ folder',
 };

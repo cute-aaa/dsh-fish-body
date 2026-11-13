@@ -482,4 +482,5 @@ export const ru: Record<Key, string> = {
   secSpeak: 'Озвучивание',
   secTiming: 'Темп',
   sizesTitle: 'Размер для каждого рендерера',
+  extraPetsShort: 'Ещё {n} вида лежат в папке pet/',
 };

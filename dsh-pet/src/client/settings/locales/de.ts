@@ -485,4 +485,5 @@ export const de: Record<Key, string> = {
   secSpeak: 'Sprachausgabe',
   secTiming: 'Taktung',
   sizesTitle: 'Größe je Renderer',
+  extraPetsShort: '{n} weitere Arten liegen im pet/-Ordner',
 };

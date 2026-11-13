@@ -485,4 +485,5 @@ export const pt: Record<Key, string> = {
   secSpeak: 'Leitura',
   secTiming: 'Ritmo',
   sizesTitle: 'Tamanho por renderizador',
+  extraPetsShort: 'Há mais {n} tipos na pasta pet/',
 };

@@ -83,8 +83,10 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;user-select:text}',
   '.dsh-pet-cfg__hookRow{display:flex;align-items:center;gap:6px;min-width:0;padding:5px 8px;border-radius:var(--pcg-radius-sm)}',
 
-  // 会话鱼预览：媒体框 + 一行尺寸/皮肤说明。媒体框沿用 `.dsh-session-fish-preview`（与浮层同一套外观）。
+  // 会话鱼预览：媒体框 + 一行尺寸/皮肤说明。媒体框沿用 `.dsh-session-fish-preview`（与浮层同一套外观），
+  // 但设置页里它独占一格，所以收窄到内容宽度——否则虚线框会横着铺满、右半边空着。
   '.dsh-pet-cfg__preview{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:0;max-width:240px}',
+  '.dsh-pet-cfg__preview>.dsh-session-fish-preview{width:fit-content}',
   // 会话鱼顶部：预览在左，两个「长什么样 / 在哪跑」的开关在右。
   '.dsh-pet-cfg__fishTop{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;min-width:0}',
   '.dsh-pet-cfg__fishTop>.dsh-pet-cfg__switchGrid{flex:1 1 240px;min-width:0}',
@@ -103,7 +105,9 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-business-primary);vertical-align:middle}',
 
   // 底部常驻操作栏：贴住设置面板的滚动容器底边；背景取面板同款 layer-2，滚上去的卡片不会透出来。
-  '.dsh-pet-cfg__bar{position:sticky;bottom:0;z-index:2;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0 4px;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2)}',
+  // 宿主的选项列底部留了 24px 内边距，而 sticky 的 `bottom:0` 只贴到滚动内容盒的底边——
+  // 滚动时卡片会从那条 24px 的缝里露出来。用一块同色的阴影把缝补上（被子面板裁掉也不留痕迹）。
+  '.dsh-pet-cfg__bar{position:sticky;bottom:0;z-index:2;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0 4px;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);box-shadow:0 24px 0 0 var(--dsw-alias-bg-layer-2)}',
   '.dsh-pet-cfg__barState{display:inline-flex;align-items:center;gap:6px;min-width:0;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-label-secondary)}',
   '.dsh-pet-cfg__barSpacer{flex:1 1 auto;min-width:8px}',
   '.dsh-pet-cfg__msg{margin-left:4px;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-state-success-primary)}',

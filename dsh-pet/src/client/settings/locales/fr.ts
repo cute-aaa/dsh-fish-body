@@ -493,4 +493,5 @@ export const fr: Record<Key, string> = {
   secSpeak: 'Lecture vocale',
   secTiming: 'Rythme',
   sizesTitle: 'Taille par moteur de rendu',
+  extraPetsShort: '{n} autres types viennent du dossier pet/',
 };

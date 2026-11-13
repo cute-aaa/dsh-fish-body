@@ -443,6 +443,7 @@ export const zh = {
   secSpeak: '播报',
   secTiming: '节奏',
   sizesTitle: '每种渲染方式的大小',
+  extraPetsShort: '另 {n} 个种类来自 pet/ 目录',
 };
 
 /** 文案键；zh 的键集即全集。 */
