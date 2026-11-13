@@ -101,8 +101,16 @@ test('飞行逐帧更新窗口并捎带速度', () => {
   const context = {
     PetSprite: Sprite,
     S: {
-      throwSubsteps: () => 1,
-      throwStepRegion: (s) => ({ ...s, x: s.x + 10, atRest: false, bounced: false, screen: 0 }),
+      // 抛掷每帧走一次多屏积分（sprite/motion.js 的 startThrow）。
+      // 这里只需要「一帧走一步、速度原样带过去」，真实物理由 shared/physics 的用例覆盖。
+      integrateRegion: (s) => ({
+        ...s,
+        x: s.x + 10,
+        atRest: false,
+        bounced: false,
+        hit: null,
+        screen: 0,
+      }),
     },
     performance: { now: () => now },
     requestAnimationFrame: (fn) => ((callback = fn), 1),

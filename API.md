@@ -151,8 +151,11 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 - **网页**：`shell.overlay` 浮层，围着 `.dsh-pet-stage` 排布，拖拽位置以「相对槽位的偏移」记在
   `localStorage`（`dsh-pet:session-fish-offsets`）。
 - **桌面**：画在桌宠**自己的那个窗口**里——不新增窗口、不新增渲染进程、不新增第二条 `/state` 轮询。
-  鱼层全程 `pointer-events: none`（点击穿透到下层应用），窗口只在真有鱼时按环位把透明余量撑大，
-  鱼全没了立刻收回。桌面端鱼不可点、也不带气泡；运动与碰撞复用同一份 `shared/session-fish/roam`。
+  鱼**可拖、可关、带播报气泡**：悬停到某条鱼时窗口才翻成可交互（`fishBusy` + 控件矩形经
+  `pet:set-input-*` 上报，其余区域继续点击穿透）；拖动位置记在桌面窗口自己的 `localStorage`
+  （`file://` 与网页不同源，两份互不覆盖）；右上角 × 发 `POST /session-fish {action:'close'}`。
+  窗口只在真有鱼时按环位把透明余量撑大，鱼全没了立刻收回；运动与碰撞复用同一份
+  `shared/session-fish/roam`。桌面没有「右下角竖排」，`followPet` 只影响网页端。
 
 ### 播报：全机器只念一次
 

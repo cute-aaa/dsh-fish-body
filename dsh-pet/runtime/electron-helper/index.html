@@ -78,8 +78,15 @@
         position: absolute;
         left: 0;
         top: 0;
-        pointer-events: none;
+        /* 盒子本身可交互：只有窗口被翻成可交互时（悬停这条鱼 / 正在拖它）才真的收得到事件，
+           其余时刻整窗穿透，事件落到下面的应用（见 sprite/input.js 的 fishBusy 与控件矩形）。 */
+        pointer-events: auto;
+        cursor: grab;
         will-change: transform;
+      }
+      .pet-fish.is-dragging {
+        cursor: grabbing;
+        z-index: 2;
       }
       .pet-fish__media {
         display: block;
@@ -87,12 +94,61 @@
         height: 100%;
         object-fit: contain;
         pointer-events: none;
+        -webkit-user-drag: none;
         /* 挤压用独立的 scale 属性，不碰 transform —— 位置是每帧写进 transform 的 */
         scale: 1;
         transition: scale 120ms ease-out;
       }
       .pet-fish.is-bumping .pet-fish__media {
         scale: 1.08 0.92;
+      }
+      /* 关闭按钮：悬停这条鱼才出现（与网页端一致的 × 语义） */
+      .pet-fish__close {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: rgba(20, 22, 26, 0.72);
+        color: #fff;
+        font-size: 12px;
+        line-height: 14px;
+        text-align: center;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 120ms ease;
+        pointer-events: none;
+      }
+      .pet-fish:hover .pet-fish__close,
+      .pet-fish.is-dragging .pet-fish__close {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      /* 播报气泡：这一条鱼最近一句播报；完成态常驻，其余停留 bubbleMs（规则在 shared/session-fish） */
+      .pet-fish__bubble {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translate(-50%, -4px);
+        max-width: 150px;
+        padding: 3px 6px;
+        border: 1px solid var(--dsw-alias-border-l2, rgba(255, 255, 255, 0.18));
+        border-radius: 6px;
+        background: rgba(20, 22, 26, 0.82);
+        color: #fff;
+        font-size: 11px;
+        line-height: 1.35;
+        white-space: normal;
+        word-break: break-word;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 160ms ease;
+      }
+      .pet-fish.is-talking .pet-fish__bubble {
+        opacity: 1;
       }
       .pet-hit {
         position: absolute;

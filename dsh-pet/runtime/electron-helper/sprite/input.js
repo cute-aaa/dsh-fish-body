@@ -243,13 +243,15 @@ Object.assign(PetSprite.prototype, {
   inputBusy() {
     // 可点的气泡（余额翻页、工作气泡跳会话）同样是来源：它们长在窗口里、靠窗口级 click 触发，
     // 却悬在平时穿透的余量区，正需要借 busy + 控件矩形把它们圈出来。
+    // 会话鱼同理：鱼画在余量区，悬停/拖动时也要借 busy + 控件矩形才能被点到（见 sprite/fish.js）。
     return (
       this.dragState.active ||
       this.menuOpen ||
       this.chatOpen ||
       this.todoOpen ||
       this.balanceClickable() ||
-      this.workClickable()
+      this.workClickable() ||
+      (typeof this.fishBusy === 'function' && this.fishBusy())
     );
   },
 
@@ -308,7 +310,13 @@ Object.assign(PetSprite.prototype, {
         rects.push({ x: toScreen(r.x), y: toScreen(r.y), width: toScreen(r.width), height: toScreen(r.height) });
       }
     }
-    const input = { dragging: this.dragState.active, rects };
+    // 会话鱼：盒子自己算（它逐帧被 transform 移动，用 ResizeObserver 观察没有意义），
+    // 只在悬停/拖动时登记——否则鱼群会把整个余量区变成可点击，桌面就没法点穿了。
+    if (typeof this.fishBusy === 'function' && this.fishBusy() && typeof this.fishRects === 'function') {
+      rects.push(...this.fishRects());
+    }
+    // 拖鱼与拖宠物一样要租约：主进程只会把它当成「正在用输入」才不去按余量区超时翻转。
+    const input = { dragging: this.dragState.active || this.fishDrag !== null, rects };
     const key = JSON.stringify(input);
     if (key === this._inputRegions) return;
     this._inputRegions = key;
@@ -373,6 +381,11 @@ Object.assign(PetSprite.prototype, {
       this.setInteractive(true);
       return;
     }
+    // 拖一条会话鱼同理：窗口这一刻不能翻回穿透，否则 pointermove 断链、鱼会脱手
+    if (this.fishDrag) {
+      this.setInteractive(true);
+      return;
+    }
     // 右键菜单/对话弹窗/待办面板开启：整窗保持可交互，关闭后恢复命中区判定
     if (this.menuOpen || this.chatOpen || this.todoOpen) {
       this.syncInputRegions(); // 级联菜单按悬停增减面板，及时更新占用区域
@@ -388,12 +401,20 @@ Object.assign(PetSprite.prototype, {
     const px = wx - this.winOffset.x;
     const py = wy - this.winOffset.y;
     const inBody = px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+    // 会话鱼：鱼画在余量区，光靠「光标在身体上」永远翻不回来。
+    // 悬停某条鱼时把它算作「正在用输入」（busy + 控件矩形），主进程才不会按余量区超时把它翻回穿透。
+    // 只在悬停对象变化时上报，避免每次 mousemove 都发 IPC。
+    const overFish = typeof this.fishAt === 'function' ? this.fishAt(wx, wy) : null;
+    if (overFish !== this.fishHover) {
+      this.fishHover = overFish;
+      if (typeof this.syncInputBusy === 'function') this.syncInputBusy();
+    }
     // 快捷键与拖拽都只在"光标在身体上"时生效，与提示/穿透同源，避免另一套判定
     this.hoverBody = inBody;
     // 光标存视口坐标（窗口原点 + 窗口内坐标）：窗口随宠物移动时贴光标不会漂。必须在 setTip 之前
     // 更新——setTip 变显隐时会立刻渲染一次，晚一步就会用上一次的光标摆位。
     if (inBody) this.tipCursor = { x: this.pos.x - this.winOffset.x + wx, y: this.pos.y - this.winOffset.y + wy };
-    this.setInteractive(inBody);
+    this.setInteractive(inBody || overFish !== null);
     // 悬浮提示与可交互判定同源（同一个 inBody）：进身体出现，离开收起
     this.setTip(inBody);
     // 跟随光标：位置依赖光标，每次移动都要重摆（setTip 只在显隐变化时渲染）
