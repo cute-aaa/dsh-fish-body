@@ -111,6 +111,21 @@ test('状态表：第三方在前、内置 edge 收尾，字段带 fields', () =
   assert.deepEqual(statuses[1]?.fields, []);
 });
 
+test('状态表：合成失败原因单独报（lastError），与 available 分开', () => {
+  registerVoiceProvider({ ...provider('gsv'), lastError: () => '/tts 返回 400：tts failed' });
+  registerVoiceProvider({
+    ...provider('quiet'),
+    lastError: () => {
+      throw new Error('取失败原因也炸了');
+    },
+  });
+  const statuses = voiceProviderStatuses();
+  assert.equal(statuses[0]?.available, true, '通着但念不出来：可用性不受影响，链照旧重试');
+  assert.equal(statuses[0]?.lastError, '/tts 返回 400：tts failed');
+  assert.equal(statuses[1]?.lastError, undefined, '实现自己抛错只当「没有」，不能把状态表带崩');
+  assert.equal(statuses[2]?.lastError, undefined, '内置实现没有这一项');
+});
+
 test('非法定义一律抛 TypeError', () => {
   assert.throws(() => registerVoiceProvider(null as never), TypeError, '非对象');
   assert.throws(() => registerVoiceProvider({ id: '', name: 'x' } as never), TypeError, '空 id');

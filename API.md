@@ -119,9 +119,21 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 | 接口                             | 功能                                                                         |
 | -------------------------------- | ---------------------------------------------------------------------------- |
-| `POST /dsh-pet-7340/voice/speak` | 合成并返回 mp3：`{ text, voice?, rate? }`；同一输入命中缓存，队列最多排 3 个 |
+| `POST /dsh-pet-7340/voice/speak` | 合成并返回音频：`{ text, voice?, rate? }`；同一输入命中缓存，队列最多排 3 个 |
 | `POST /dsh-pet-7340/voice/hear`  | 识别音频回文字：`{ audio }`，16kHz/单声道/PCM16 WAV 的 base64                |
-| `GET /dsh-pet-7340/voice/voices` | 可用音色列表；前端拿它渲染选择器，不要硬编码 id                              |
+| `GET /dsh-pet-7340/voice/voices` | 可用音色列表 + 合成链状态；前端拿它渲染选择器，不要硬编码 id                 |
+
+合成链是「注册的第三方在前、内置 edge 收尾」，任一环失败就**静默**落到下一环（用户只会听到换了嗓子）。
+`/voice/voices` 的 `providers[]` 因此有两个互不替代的字段：`reason` 是「这一环现在能不能用」，
+`lastError` 是「通着但上一句念失败了」（参考音频坏了、上游 `/tts` 报错…，合成成功即消失）——
+后者是「本地音色其实没用上」唯一可见的线索，设置页的接入卡把它当警告显示。
+
+`POST /voice/provider-process` 只跑 `voice-providers.json` 里填的启停脚本，**不建控制台窗口**：
+脚本的 stdout/stderr 追加到 `<DSH_HOME>/dsh-pet/logs/gsv/<provider>-start.log`。这不是风格问题——
+`api_v2` 的 `/tts` 在合成前有一句 `print()`，而「窗口被关掉、进程还活着」的 stdout 已失效，
+`print` 会抛 `OSError: [Errno 22] Invalid argument`，于是每句合成都 400、整条链静默落到 edge。
+手工双击 `gsv.bat` 时同理：脚本自己把 python 的输出重定向进 `logs\gsv\api-v2.log`，关窗口只会停服务，
+不会再留下一个「stdout 已死」的孤儿。
 
 ## 十、待办事项
 

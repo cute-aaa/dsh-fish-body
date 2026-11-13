@@ -1,15 +1,16 @@
 /**
  * GSV 启停脚本的测试（src/host/voice/gsv/process.ts）。
  *
- * 钉三件事：脚本不存在就拒绝（不猜路径）、停止脚本缺席时明确说「请先配置」（不按端口扫进程）、
- * 配好的脚本真的被跑起来（用临时脚本验证，不碰本机 GSV）。
+ * 钉四件事：脚本不存在就拒绝（不猜路径）、停止脚本缺席时明确说「请先配置」（不按端口扫进程）、
+ * 配好的脚本真的被跑起来（用临时脚本验证，不碰本机 GSV）、
+ * 启动的输出接到日志文件而不是控制台（控制台被关掉就没人接 `print`，`/tts` 会整片 400）。
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, test } from 'node:test';
-import { startService, stopService } from './process.ts';
+import { startLogPath, startService, stopService } from './process.ts';
 
 const roots: string[] = [];
 
@@ -20,6 +21,20 @@ function scriptFile(name: string, content: string): string {
   const file = join(root, name);
   writeFileSync(file, content);
   return file;
+}
+
+/** 等日志里出现某段文本（子进程是异步写文件的）。 */
+async function waitForText(file: string, needle: string, timeoutMs = 5000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      if (readFileSync(file, 'utf8').includes(needle)) return true;
+    } catch {
+      // 还没建出来：继续等
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return false;
 }
 
 afterEach(() => {
@@ -46,6 +61,29 @@ test('启动：配好的脚本会被跑起来（powershell 隐藏窗口执行）
   const result = startService(script);
   assert.deepEqual(result, { ok: true });
 });
+
+test('启动：日志路径按 userRoot 固定（排障时知道去哪儿看）', () => {
+  const root = join(tmpdir(), 'dsh-home');
+  assert.equal(startLogPath(root, 'gsv'), join(root, 'logs', 'gsv', 'gsv-start.log'));
+});
+
+test('启动：给了日志就把输出接过去（fd 打开即建文件，输出不落控制台）', () => {
+  const script = scriptFile('silent.bat', '@echo off\r\nexit /b 0\r\n');
+  const log = join(dirname(script), 'logs', 'gsv-start.log');
+  assert.deepEqual(startService(script, log), { ok: true });
+  assert.equal(existsSync(log), true, '日志文件应立刻被建出来（说明 stdio 指向文件而不是控制台）');
+});
+
+test(
+  '启动：脚本的 stdout 真的写进日志文件（不再建可被关掉的控制台）',
+  { skip: process.platform !== 'win32' },
+  async () => {
+    const script = scriptFile('speak.bat', '@echo off\r\necho gsv-started-marker\r\n');
+    const log = join(dirname(script), 'speak.log');
+    assert.deepEqual(startService(script, log), { ok: true });
+    assert.equal(await waitForText(log, 'gsv-started-marker'), true, '脚本输出应出现在日志里');
+  },
+);
 
 test('停止：没有停止脚本 → 明确要求先配置（不按端口扫进程）', async () => {
   const result = await stopService('');

@@ -33,6 +33,13 @@ export interface VoiceProviderView {
   readonly available: boolean;
   /** 不可用原因（服务没起、没配音色目录…），直接显示给用户。 */
   readonly reason?: string;
+  /**
+   * 最近一次合成失败的原因（服务通着却念不出来）。
+   *
+   * 与 `reason` 分开：`reason` 是「这一环现在能不能用」，这一项是「刚才念失败了」。
+   * 回退链会静默换到 edge，所以这是用户唯一能看到「本地音色其实没用上」的地方。
+   */
+  readonly lastError?: string;
   readonly voices: readonly VoiceChoice[];
   /** 当前选中的音色 id；空串 = 没选。 */
   readonly voice: string;
@@ -106,6 +113,7 @@ function parseProvider(raw: unknown): VoiceProviderView | undefined {
     ? entry.fields.map(parseField).filter((item): item is VoiceFieldView => item !== undefined)
     : [];
   const reason = str(entry.reason).trim();
+  const lastError = str(entry.lastError).trim();
   return {
     id,
     name: str(entry.name).trim() || id,
@@ -113,6 +121,7 @@ function parseProvider(raw: unknown): VoiceProviderView | undefined {
     // 老宿主没有 available 字段：按可用处理（那时也还没有 provider，等于不会用到）
     available: entry.available !== false,
     ...(reason ? { reason } : {}),
+    ...(lastError ? { lastError } : {}),
     voices,
     voice: str(entry.voice).trim(),
     fields,

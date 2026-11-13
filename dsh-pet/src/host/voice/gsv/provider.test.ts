@@ -1,8 +1,9 @@
 /**
  * GSV provider 的时序测试（src/host/voice/gsv/provider.ts）。
  *
- * 钉四件事：探活结论是缓存的（availability 同步可读）、权重只在新音色时切一次、
- * 合成参数照 `voice.json` 走（切句法/采样/语速）、失败会把这一环标成不可用并抛出。
+ * 钉五件事：探活结论是缓存的（availability 同步可读）、权重只在新音色时切一次、
+ * 合成参数照 `voice.json` 走（切句法/采样/语速）、失败会把这一环标成不可用并抛出、
+ * 失败原因留在 `lastError` 里直到这次成功（探活通着也要留着，那是唯一能看见「念不出来」的地方）。
  */
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -60,7 +61,7 @@ function makeSettings(root: string): GsvSettings {
   };
 }
 
-/** 桩 HTTP：记录调用，可指定探活结果与合成失败。 */
+/** 桩 HTTP：记录调用；`options` 可被就地改，用来单独打断某一轮探活或某一次合成。 */
 function stubHttp(options: { alive?: boolean; ttsError?: Error } = {}) {
   const calls = { probe: 0, weights: [] as string[], tts: [] as GsvTtsRequest[] };
   const http: GsvHttp = {
@@ -77,7 +78,7 @@ function stubHttp(options: { alive?: boolean; ttsError?: Error } = {}) {
       return { data: new Uint8Array([82, 73, 70, 70]), mime: 'audio/wav' };
     },
   };
-  return { http, calls };
+  return { http, calls, options };
 }
 
 /** 造 provider 并登记到 afterEach 收尾（后台探活定时器不该留在测试进程里）。 */
@@ -171,6 +172,51 @@ test('合成失败：这一环标成不可用（下次链会跳过它），错�
   const verdict = provider.availability();
   assert.equal(verdict.ok, false);
   assert.match(verdict.ok === false ? verdict.reason : '', /CUDA/);
+});
+
+test('合成失败：原因留下来给设置页看，探活一直通也不擦掉', async () => {
+  const root = workRoot();
+  const { http, options } = stubHttp({ alive: true, ttsError: new Error('/tts 返回 400：tts failed') });
+  const provider = makeProvider(makeSettings(root), http);
+  await provider.refresh();
+  assert.equal(provider.lastError(), undefined, '还没念过就没有失败原因');
+
+  await assert.rejects(() => provider.synthesize({ text: '你好', rate: '+0%' }), /400/);
+  assert.match(provider.lastError() ?? '', /tts failed/);
+
+  // 这正是 2026-11-14 那次事故的形状：服务活着（探活 200），但每句合成都是 400。
+  // 探活不能把这句话擦掉，否则用户永远看不到「本地音色其实没用上」。
+  options.alive = true;
+  assert.equal(await provider.refresh(), true);
+  assert.match(provider.lastError() ?? '', /tts failed/);
+});
+
+test('合成成功后失败原因清空', async () => {
+  const root = workRoot();
+  const { http, options } = stubHttp({ alive: true, ttsError: new Error('/tts 返回 500：CUDA out of memory') });
+  const provider = makeProvider(makeSettings(root), http);
+  await assert.rejects(() => provider.synthesize({ text: '你好', rate: '+0%' }), /CUDA/);
+  assert.match(provider.lastError() ?? '', /CUDA/);
+
+  options.ttsError = undefined;
+  await provider.synthesize({ text: '再来一句', rate: '+0%' });
+  assert.equal(provider.lastError(), undefined);
+});
+
+test('服务被重起（探活由不通回到通）：旧的合成失败理由不再作数', async () => {
+  const root = workRoot();
+  const { http, options } = stubHttp({ alive: true, ttsError: new Error('/tts 返回 400：tts failed') });
+  const provider = makeProvider(makeSettings(root), http);
+  await provider.refresh();
+  await assert.rejects(() => provider.synthesize({ text: '你好', rate: '+0%' }));
+
+  options.alive = false;
+  assert.equal(await provider.refresh(), false);
+  assert.notEqual(provider.lastError(), undefined, '刚下线不算重起，理由先留着');
+
+  options.alive = true;
+  assert.equal(await provider.refresh(), true);
+  assert.equal(provider.lastError(), undefined, '换了进程：上一轮的失败不该继续挂着');
 });
 
 test('音色清单与当前音色：id/描述/activeVoice 都来自扫描', async () => {

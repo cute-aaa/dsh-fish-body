@@ -7,6 +7,9 @@
  * 2. 权重是**服务端全局状态**：只在新音色的权重与「当前已加载」不同时才调 `/set_*_weights`，
  *    并且切换过程串行化——两条语句同时合成时不能让 A 切到一半被 B 抢走。
  * 3. 产出是 wav 字节，扩展名与 Content-Type 由 speak/audio 那套表推出来，这里不转码。
+ *
+ * 另外记一件事：合成失败的原因留在 `lastError()` 里。回退链的设计是「静默落到 edge」，
+ * 用户只会觉得「换了个嗓子」，所以「服务通着却念不出来」必须有一处能看见（设置页接入卡显示它）。
  * @module dsh-pet/src/host/voice/gsv/provider
  */
 import type { AudioClip } from '../audio.ts';
@@ -52,6 +55,13 @@ export interface GsvProvider extends VoiceProvider {
   dispose(): void;
   /** 当前音色的缓存指纹（换音色/换 epoch 换缓存键）。 */
   cacheTag(): string;
+  /**
+   * 最近一次合成失败的原因；合成成功即清空。
+   *
+   * 「连得通但念不出来」（参考音频坏了、服务端 stdout 失效让 `/tts` 400）在回退链里只会表现为
+   * 「换了嗓子」——这句话是唯一能让人看见它出在哪的地方。
+   */
+  lastError(): string | undefined;
 }
 
 /** 语速表达式 `+20%` → `speed_factor` 1.2；解析不了按 1.0（不改速）。 */
@@ -78,6 +88,10 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
   const scanTtlMs = options.scanTtlMs ?? SCAN_TTL_MS;
   /** 最近一次探活结论（`availability()` 只能同步读它）。 */
   let verdict: VoiceProviderAvailability = { ok: false, reason: 'GSV 尚未探测' };
+  /** 上一轮**探活**是否通过：用来区分「探活失败」与「探活通着但合成失败」，两者的清理条件不同。 */
+  let probedOk = false;
+  /** 最近一次合成失败的原因（给设置页看的警告）；合成成功即清空。 */
+  let lastError: string | undefined;
   /** 音色扫描缓存。 */
   let scan: { key: string; at: number; voices: readonly GsvVoice[] } | undefined;
   /** 服务端当前已加载的权重（进程内记录：换音色才切，同一音色连说多句不重复切）。 */
@@ -109,9 +123,15 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
     const missing = gsvMissingFields(settings);
     if (missing.length > 0) {
       verdict = { ok: false, reason: `GSV 未配置：${missing.join(' / ')}` };
+      probedOk = false;
       return false;
     }
     const alive = await http.probe(settings.baseURL, PROBE_TIMEOUT_MS);
+    // 探活从「不通」回到「通」= 服务被重起过，上一轮合成失败的理由（进程状态）不再作数。
+    // 反过来「探活一直通着、只是合不出来」（例如服务端 stdout 失效让 /tts 400）**不能**清——
+    // 那句话正是要给用户看的，探活永远通也修不好它。
+    if (alive && !probedOk) lastError = undefined;
+    probedOk = alive;
     verdict = alive ? { ok: true } : { ok: false, reason: `连不上 ${settings.baseURL}` };
     return alive;
   }
@@ -166,10 +186,14 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
     try {
       const clip = await http.tts(settings.baseURL, request, TTS_TIMEOUT_MS);
       verdict = { ok: true };
+      lastError = undefined;
       return clip;
     } catch (error) {
-      verdict = { ok: false, reason: error instanceof Error ? error.message : String(error) };
-      throw error instanceof VoiceSynthError ? error : new VoiceSynthError(String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      verdict = { ok: false, reason: message };
+      // 记下来给设置页看：链会自动重试（20s 后探活翻回来），用户耳朵里只会听到换了嗓子。
+      lastError = message;
+      throw error instanceof VoiceSynthError ? error : new VoiceSynthError(message);
     }
   }
 
@@ -204,6 +228,7 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
     fields,
     availability: () => verdict,
     synthesize,
+    lastError: () => lastError,
     voices: currentVoices,
     refresh,
     cacheTag: () => {

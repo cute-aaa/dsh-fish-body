@@ -21,6 +21,13 @@ export interface VoiceProviderCardProps {
   readonly available: boolean;
   /** 不可用原因。 */
   readonly reason: string;
+  /**
+   * 最近一次合成失败的原因（服务通着却念不出来）。
+   *
+   * 与 `reason` 分开传：可用时这张卡本来只剩一句「就绪」，可「通着但念不出来」正是最难被发现的状态
+   * ——回退链会静默换嗓子，不写出来用户只会以为音色变了。
+   */
+  readonly lastError: string;
   /** 宿主声明的配置项。 */
   readonly fields: readonly VoiceFieldView[];
   /** 当前值（键 = `fields[].key`）。 */
@@ -60,7 +67,8 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
 
   return function VoiceProviderCard(props: VoiceProviderCardProps) {
     if (props.fields.length === 0) return null;
-    const status = props.available ? '' : props.reason;
+    // 不可用优先（连都连不上），其次「通着但上一句合成失败」，都没有才是就绪。
+    const status = props.available ? props.lastError : props.reason;
     // 两个按钮互斥，且都看「服务地址此刻通不通」：通了只该停，不通只该启；
     // 刚发过启动时按住「启动」——服务要几十秒才起来，连点会起出两份抢同一个端口。
     const startDisabled = props.busy || props.processBusy || !props.canStart || props.running || props.starting;
@@ -69,7 +77,7 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
       className: 'dsh-pet-cfg__card',
       children: [
         cardHead(t('voiceProviderTitle'), t('voiceProviderHint')),
-        // 不可用时把原因摆在最上面：先让人知道「服务没起/目录没配」，再去改下面的路径。
+        // 出问题时把原因摆在最上面：先让人知道「服务没起/目录没配/念不出来」，再去改下面的路径。
         status
           ? h('div', { className: 'dsh-pet-cfg__msg is-err', children: [props.name + '：' + status] })
           : h('div', { className: 'dsh-pet-cfg__msg', children: [props.name + '：' + t('voiceProviderReady')] }),

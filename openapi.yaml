@@ -3039,6 +3039,10 @@ paths:
         `providers` 是**合成链**的声明式清单：数组顺序就是回退顺序（注册的第三方在前、内置 edge 收尾）。
         每一环带 `available` / `reason` 与 `fields`（这实现需要哪些配置项），设置页据此生成控件并标出
         「注册了但没起来」的原因；`available` 现在只是快照，每次 `/voice/speak` 都会重新探一次。
+
+        `lastError` 与 `reason` 是两件事：`reason` 说「这一环现在能不能用」，`lastError` 说
+        「通着但上一句念失败了」（参考音频坏了、上游 `/tts` 报错…）。回退链会**静默**落到 edge，
+        用户只会听到换了嗓子，所以这一个字段是「本地音色其实没用上」唯一可见的线索；合成成功即消失。
       responses:
         "200":
           description: 音色列表与实现状态。
@@ -3085,6 +3089,11 @@ paths:
                         reason:
                           type: string
                           description: 不可用原因（服务没起、没配必填项…），直接显示给用户。
+                        lastError:
+                          type: string
+                          description: |
+                            最近一次合成失败的原因（服务通着却念不出来）；合成成功即不再出现。
+                            与 `available` 无关：这一环仍会按探活结论继续被重试。
                         voices:
                           type: array
                           description: |
@@ -3345,6 +3354,12 @@ paths:
 
         启动立刻返回（服务加载约 40 秒，可用性由 20s 的探活翻牌）；停止最多等 20 秒。
         插件**不会**自动启动它：GPU 加载会拖慢 profile 启动，失败还要退避重试。
+
+        启动**不建控制台窗口**：脚本的 stdout/stderr 追加到 `<DSH_HOME>/dsh-pet/logs/gsv/<provider>-start.log`。
+        这条不是风格问题——`api_v2` 的 `/tts` 在合成前会 `print()`，而一个「窗口被关掉、服务还活着」的进程
+        stdout 已失效，`print` 会抛 `OSError: [Errno 22] Invalid argument`，于是每句合成都 400、
+        整条链静默落到 edge（本机真实事故）。没有窗口可关，这个状态就不存在了；
+        合成失败本身则从 `/voice/voices` 的 `providers[].lastError` 上看得见。
       requestBody:
         required: true
         content:

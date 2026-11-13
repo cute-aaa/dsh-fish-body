@@ -88,6 +88,15 @@ export interface VoiceProvider {
    */
   refresh?(): Promise<boolean>;
   /**
+   * 最近一次合成失败的原因（可选）。
+   *
+   * 与 `availability` 分开：可用性只管「连不连得通」，而这一项记的是「通着却念不出来」
+   * （参考音频坏了、服务端 stdout 失效导致 `/tts` 400…）。链会一直重试，用户只听到换了嗓子，
+   * 所以必须有一处能看见这句话——设置页的接入卡把它当警告显示。
+   * 合成成功即清空；同步返回。
+   */
+  lastError?(): string | undefined;
+  /**
    * 把一段文本合成为音频。
    *
    * 失败必须抛错——宿主会记日志并落到下一环；自己吞掉会让上层以为成功。
@@ -179,6 +188,8 @@ export interface VoiceProviderStatus {
   readonly available: boolean;
   /** 不可用原因（含「没配必填项」）。 */
   readonly reason?: string;
+  /** 最近一次合成失败的原因（服务通着但念不出来）；合成成功即消失。 */
+  readonly lastError?: string;
   /** 声明式配置项（内置实现为空数组）。 */
   readonly fields: readonly VoiceField[];
   /** 能念的音色（内置实现为空数组：它的音色走请求里的 `voiceName` 白名单）。 */
@@ -193,17 +204,21 @@ export interface VoiceProviderStatus {
  * @returns 第三方按注册顺序在前，内置 edge 收尾。
  */
 export function voiceProviderStatuses(): VoiceProviderStatus[] {
-  const external = voiceProviderEntries().map((entry) => ({
-    id: entry.provider.id,
-    name: entry.provider.name,
-    builtin: false,
-    available: entry.available,
-    ...(entry.reason === undefined ? {} : { reason: entry.reason }),
-    fields: entry.provider.fields ?? [],
-    // 音色扫描失败（目录没配、磁盘抽风）不该让整条链不可用：空数组就是「暂时列不出音色」
-    voices: safely(() => entry.provider.listVoices?.() ?? []),
-    voice: safelyText(() => entry.provider.activeVoice?.() ?? ''),
-  }));
+  const external = voiceProviderEntries().map((entry) => {
+    const lastError = safelyOptional(() => entry.provider.lastError?.());
+    return {
+      id: entry.provider.id,
+      name: entry.provider.name,
+      builtin: false,
+      available: entry.available,
+      ...(entry.reason === undefined ? {} : { reason: entry.reason }),
+      ...(lastError === undefined || lastError === '' ? {} : { lastError }),
+      fields: entry.provider.fields ?? [],
+      // 音色扫描失败（目录没配、磁盘抽风）不该让整条链不可用：空数组就是「暂时列不出音色」
+      voices: safely(() => entry.provider.listVoices?.() ?? []),
+      voice: safelyText(() => entry.provider.activeVoice?.() ?? ''),
+    };
+  });
   return [
     ...external,
     {
@@ -233,6 +248,15 @@ function safelyText(read: () => string): string {
     return read();
   } catch {
     return '';
+  }
+}
+
+/** 取可选文本（最近合成失败原因）时的兜底：实现自己抛错只当「没有」。 */
+function safelyOptional(read: () => string | undefined): string | undefined {
+  try {
+    return read();
+  } catch {
+    return undefined;
   }
 }
 

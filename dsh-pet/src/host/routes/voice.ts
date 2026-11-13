@@ -20,7 +20,7 @@ import {
   writeProviderVoice,
 } from '../voice/gsv/store.ts';
 import { gsvSettingsOf } from '../voice/gsv/settings.ts';
-import { startService, stopService } from '../voice/gsv/process.ts';
+import { startLogPath, startService, stopService } from '../voice/gsv/process.ts';
 import { requestExit } from '../voice/gsv/client.ts';
 
 /** 单个配置项的长度上限（字符）：路径与 URL 都远短于这个，超了基本是粘错内容。 */
@@ -170,6 +170,8 @@ export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): 
 
   // 第三方实现的启停（设置页「启动 / 停止」按钮）：只跑用户填的脚本，不猜进程树。
   // 启动立刻返回（服务加载几十秒，由 20s 的探活把可用性翻过来）；停止最多等 20s。
+  // 启动的输出写进 <userRoot>/logs/gsv/<provider>-start.log：不建控制台，也就没有「窗口被关掉、
+  // 服务变孤儿且 stdout 失效」那种事故（见 gsv/process.ts 模块头）。
   if (rest === 'voice/provider-process') {
     if (method !== 'POST') return methodNotAllowed();
     let parsed: { provider?: unknown; action?: unknown };
@@ -189,7 +191,7 @@ export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): 
     // 停止优先用用户脚本；没配就走 api_v2 的标准 `/control?command=exit`（让服务自己退）。
     const result =
       action === 'start'
-        ? startService(settings.startScript)
+        ? startService(settings.startScript, startLogPath(deps.userRoot, providerId))
         : settings.stopScript
           ? await stopService(settings.stopScript)
           : await stopByControl(settings.baseURL);

@@ -82,6 +82,7 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
               name: form.name,
               available: form.available,
               reason: form.reason ?? '',
+              lastError: form.lastError ?? '',
               fields: form.fields,
               values: voice.draft,
               message: voice.draftMessage,
