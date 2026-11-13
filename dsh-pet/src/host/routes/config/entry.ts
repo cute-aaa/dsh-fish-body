@@ -7,6 +7,7 @@
  * @module dsh-pet/src/host/routes/config/entry
  */
 import { isValidPetId, readAllConfig, saveUserConfig } from '../../config.ts';
+import { isReservedAssetRoot } from '../../../shared/pool.ts';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { type RouteResult } from '../../http.ts';
 import type { PetRouteDeps, RouteInput } from '../types.ts';
@@ -71,6 +72,10 @@ export async function savePetLayer(deps: PetRouteDeps, input: RouteInput): Promi
   // 先挡非法字符再查文件：entry 会被拼成路径片段，不能让配置值逃出 pet/ 目录。
   if (!isValidPetId(entry)) return failResult('bad-request', `entry 不能当路径片段用：${entry}`);
   if (entry === MAIN_ENTRY) return failResult('bad-request', 'main 条目请用 PUT /config：它还要带全局字段');
+  // 保留字：`pool` 是共享资源池的虚拟素材根（`/skin/pool/…`、`/sound/pool/…`），不能当 pack 名。
+  if (isReservedAssetRoot(entry)) {
+    return failResult('bad-request', 'pool 是资源池的保留名，不能作为种类（pack）名');
+  }
   const pets = payload.pets;
   if (!Array.isArray(pets) || pets.length === 0) return failResult('bad-request', INVALID_PETS);
   const resolved = resolveConfigLayer(deps, entry);

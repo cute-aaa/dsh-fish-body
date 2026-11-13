@@ -19,6 +19,7 @@ import { createSessionNotify } from './plugin/session-notify.ts';
 import { createPetLookup } from './plugin/pet-lookup.ts';
 import { createDownloadReport } from './plugin/download-report.ts';
 import { createWorkStatusBridge } from './plugin/work-status-bridge.ts';
+import { createSessionFishBridge, registerSessionFish } from './plugin/session-fish.ts';
 import { registerTodoReminders } from './plugin/todo-reminders.ts';
 import { registerPersonaSync } from './plugin/persona-sync.ts';
 import { createVoiceService } from './voice/speak.ts';
@@ -53,6 +54,7 @@ export function apply(ctx: any): void {
     state,
     playback,
     workStatus,
+    sessionFish,
     EXTERNAL_WORK_SESSION,
     nextExternalWorkSeq,
   } = setup;
@@ -73,6 +75,9 @@ export function apply(ctx: any): void {
 
   const workStatusBridge = createWorkStatusBridge({ state, workStatus, EXTERNAL_WORK_SESSION });
   const { publishWorkStatus, stopWorkStatusFlush } = workStatusBridge;
+  // 会话鱼：状态机在 setup（与 workStatus 同级），这里只建「快照 → /state」桥。
+  const sessionFishBridge = createSessionFishBridge({ state, store: sessionFish });
+  const { publishSessionFish } = sessionFishBridge;
   const downloadReport = createDownloadReport({
     EXTERNAL_WORK_SESSION,
     nextExternalWorkSeq,
@@ -127,6 +132,7 @@ export function apply(ctx: any): void {
     ...sessionNotify,
     ctx,
     todos,
+    publishSessionFish,
     // 「打开素材文件夹」：平台文件管理器由这里的子进程拉起，路由只给类别名
     openDir: openDirectory,
     // 语音合成：缓存落 userRoot，失败只留日志，不打断宿主
@@ -157,6 +163,10 @@ export function apply(ctx: any): void {
     turnFlags,
     workStatus,
   });
+
+  // 会话鱼：与工作状态同一个事件源，但独立维护 turn 上下文（plan 等待 / goal 中间轮 / 完成确认）。
+  // 放在 registerSessionWatch 之后：同一事件先让工作状态记账，这里只读事件本身，顺序不影响结果。
+  const { stopSessionFishTimers } = registerSessionFish({ ctx, store: sessionFish, publishSessionFish });
 
   registerBalanceCommand({ ctx, effectivePetList, refreshBalance, sleep, sleepRefusalText });
 
@@ -201,6 +211,7 @@ export function apply(ctx: any): void {
     state,
     stopDownloadSlotTimer,
     stopHelper,
+    stopSessionFishTimers,
     stopWorkStatusFlush,
   });
 

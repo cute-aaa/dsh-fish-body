@@ -135,6 +135,7 @@ export const es: Record<Key, string> = {
     'Datos de tareas (texto de la lista, hora de vencimiento y estado de completado; borrarlo vacía todas las tareas)',
   animationDir: 'Directorio de recursos de animación (añade o personaliza animaciones aquí)',
   memesDir: 'Directorio de imágenes de memes (añade o personaliza imágenes aquí)',
+  poolDir: 'Carpeta del pool de recursos (skins / modelos / animaciones / sonidos compartidos)',
   logFile: 'Archivo de registro (para diagnóstico; se puede vaciar)',
   logFileNote:
     'La versión de escritorio no tiene consola, así que todos los registros de ejecución del plugin (inicio, fallos y reinicios de la mascota de escritorio, errores y advertencias) van a este único archivo; adjúntalo al reportar un problema. El límite por archivo es de 1 MB; al llenarse solo se conservan los últimos 512 KB.',
@@ -192,6 +193,10 @@ export const es: Record<Key, string> = {
   sfxOriginDefault: 'integrado',
   sfxOriginConfig: 'configuracion',
   sfxOriginNone: 'sin coincidencia',
+  sfxOriginPoolSkin: 'pool · recurso',
+  sfxOriginPoolRenderer: 'pool · renderer',
+  sfxOriginPoolGlobal: 'pool · global',
+  sfxWhereToPut: 'Coloca el archivo aquí: {path}',
   sfxHooksTitle: 'Hooks propios',
   sfxHooksHint:
     'Registra un nombre aqui y disparalo con POST /sfx/<nombre>?pet=<id>; el archivo se busca por la regla de nombres, sin editar configuracion.',

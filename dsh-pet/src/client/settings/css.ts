@@ -195,8 +195,11 @@ const SETTINGS_CSS = [
   '.dsh-pet-cfg__msg{margin-left:4px;font-size:12px;color:var(--dsw-alias-state-success-primary)}',
   '.dsh-pet-cfg__msg.is-err{color:var(--dsw-alias-state-error-primary)}',
   '.dsh-pet-cfg__note{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
-  '.dsh-pet-cfg__path{font-size:12px;line-height:18px;word-break:break-all;user-select:text;color:var(--dsw-alias-label-secondary)}',
+  '.dsh-pet-cfg__path{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;line-height:18px;word-break:break-all;user-select:text;color:var(--dsw-alias-label-secondary)}',
   '.dsh-pet-cfg__path b{color:var(--dsw-alias-label-primary);font-weight:400}',
+  // 「打开文件夹」按钮组：按钮 + 行内提示（问是否创建 / 失败说明）。提示跟着行流走，不做浮层。
+  '.dsh-pet-cfg__folderBtn{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}',
+  '.dsh-pet-cfg__folderBtn .dsh-pet-cfg__inp{max-width:320px;font-size:11px;padding:1px 4px;word-break:break-all}',
   '.dsh-pet-cfg__cmd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:12px;line-height:18px;word-break:break-all;user-select:text;padding:6px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-primary)}',
 ].join('\n');
 

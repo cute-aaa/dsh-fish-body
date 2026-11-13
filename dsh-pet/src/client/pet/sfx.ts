@@ -77,6 +77,10 @@ export async function loadSfxIndex(pet: Pet): Promise<SfxIndex> {
       animations: body.animations ?? {},
       hooks: body.hooks ?? {},
       origin: body.origin ?? {},
+      // 落地信息（宿主算好的绝对路径与「建议放这里」）：设置页只展示，播放链不用它。
+      ...(body.paths === undefined ? {} : { paths: body.paths }),
+      ...(body.hookPaths === undefined ? {} : { hookPaths: body.hookPaths }),
+      ...(body.suggestions === undefined ? {} : { suggestions: body.suggestions }),
     };
     indexes.set(pet.id, index);
     loadedKeys.set(pet.id, key);
@@ -107,15 +111,19 @@ export function setSfxIndex(pet: Pet, index: SfxIndex): void {
  *
  * `model` 带上皮肤是因为同一文件名可能在多套皮肤目录里各有一份：宿主按它先查该皮肤的目录，
  * 否则切了皮肤却还响上一套的声音。
+ * `renderer` 必须带：池的资源目录是 `<池>/<渲染方式>/<皮肤>/`，宿主少了这一项就退化成 webm
+ * ——layered 皮肤放进池里的音效会 404（索引里有名字、播放时 404 的那一声就是这么丢的）。
  *
- * @param pet - 宠物（提供素材根与皮肤）。
+ * @param pet - 宠物（提供素材根、皮肤与渲染方式）。
  * @param file - 文件名。
  * @returns 可直接 fetch / 播放的地址。
  */
 export function sfxUrl(pet: Pet, file: string): string {
   const base = ROUTE_PATH + '/sound/' + encodeURIComponent(pet.assetRoot ?? pet.id) + '/' + encodeURIComponent(file);
+  const query = ['renderer=' + encodeURIComponent(pet.renderer ?? 'webm')];
   const model = pet.model ?? '';
-  return model === '' ? base : base + '?model=' + encodeURIComponent(model);
+  if (model !== '') query.push('model=' + encodeURIComponent(model));
+  return base + '?' + query.join('&');
 }
 
 /** 覆盖层：从基到具体（条目 → 渲染方式 → 皮肤清单 → 皮肤覆盖）。 */

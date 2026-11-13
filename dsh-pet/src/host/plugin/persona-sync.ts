@@ -19,10 +19,18 @@ export interface PersonaSyncDeps {
   userConfigPath: string;
 }
 
-/** 注册内置来源并启动同步；卸载时停止监听。 */
+/** 注册内置来源并启动同步；卸载时停止监听并注销来源。 */
 export function registerPersonaSync(ctx: PersonaSyncContext, deps: PersonaSyncDeps): void {
-  registerPersonaSource(createFishSoulSource(resolveDshHome()));
+  const unregister = registerPersonaSource(createFishSoulSource(resolveDshHome()));
   const sync = createPersonaSync(deps);
   sync.start();
-  ctx.effect(() => sync.stop, 'dsh-pet: persona sync');
+  // 注销来源必须随插件卸载一起做：注册表是模块级单例，漏了它插件一重载就撞 id 重复
+  // （disable → enable、HMR、测试里连续 apply 都会踩到）。
+  ctx.effect(
+    () => () => {
+      sync.stop();
+      unregister();
+    },
+    'dsh-pet: persona sync',
+  );
 }

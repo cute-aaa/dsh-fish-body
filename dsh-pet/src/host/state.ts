@@ -21,7 +21,7 @@ export interface StateLeaf {
  *  不能塞进每秒一次的 /state。当前只有 POST /pet-display 写它：桌面端右键改显示位置时，浏览器
  *  页面不是发起方，只能靠这个信号知道配置被别处改过；保存 / 同步配置的调用方自己拿到了成品聚合，
  *  所以不写。 */
-export type SectionName = 'balance' | 'workStatus' | 'notify' | 'config' | 'menu' | 'focusSession';
+export type SectionName = 'balance' | 'workStatus' | 'notify' | 'config' | 'menu' | 'focusSession' | 'sessionFish';
 
 /** 每宠物段（say = 要说的话；anim = 要播的动画名；position = 要挪到的位置；throw = 要给的初速度；
  *  lock = 占用锁状态；sleep = 睡觉状态）。
@@ -113,6 +113,9 @@ export class PollStateStore {
       // 桌面宠物点会话气泡后的跳转意图（`POST /focus-session`）：页面据此切会话。
       // 一次性信号：带 ts，消费端据它判重，页面晚于写入加载时仍可重放一次。
       focusSession: emptyLeaf(),
+      // 会话鱼：新建 / 进行中 / 完成未确认的会话各一条小鱼的快照（含启停与显示参数）。
+      // 写入方是 host/session-fish 的状态桥；浏览器浮层只读，不往回写。
+      sessionFish: emptyLeaf(),
     };
     this.pets = new Map();
     this.waiters = new Set();

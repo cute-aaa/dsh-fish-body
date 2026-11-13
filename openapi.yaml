@@ -291,6 +291,199 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
+  /dsh-pet-7340/session-fish:
+    get:
+      tags: [Config]
+      operationId: getSessionFishSettings
+      summary: 读取会话鱼设置
+      description: |
+        会话鱼是独立于主配置的一份偏好（`<用户根>/session-fish.json`）：每个新建 / 进行中 /
+        刚结束还没点开的会话对应一条屏幕右下角的小鱼。
+
+        - 文件缺失、损坏或字段非法时按默认值返回，不报错（读取侧逐字段宽容）。
+        - 本端点只读内存缓存；改完文件需重载插件才生效，改设置请走 `PUT`。
+      responses:
+        "200":
+          description: 当前设置。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [settings]
+                properties:
+                  settings:
+                    $ref: "#/components/schemas/SessionFishSettings"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    put:
+      tags: [Config]
+      operationId: saveSessionFishSettings
+      summary: 保存会话鱼设置
+      description: |
+        部分更新：只提交要改的字段，其余保留当前值。校验是严格的——未知键、类型错、越界都返回
+        `bad-request`；写盘失败返回 `settings-write-failed` 且内存保持旧值。
+
+        保存成功后会重写 `sections.sessionFish` 快照（含 `enabled` / `sizePx` 等显示参数），
+        浏览器浮层即时生效，不需要刷新页面。把 `enabled` 改为 `false` 会同时清空现有鱼。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionFishSettingsPatch"
+      responses:
+        "200":
+          description: |
+            保存后的完整设置。
+
+            校验失败（`reason: bad-request`）或写盘失败（`reason: settings-write-failed`）
+            同样是 `200` + 失败实体。
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [settings]
+                    properties:
+                      settings:
+                        $ref: "#/components/schemas/SessionFishSettings"
+                  - $ref: "#/components/schemas/FailureResponse"
+        "400":
+          description: "请求体不是合法 JSON（`reason: invalid-json`）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "413":
+          description: "请求体超过 8 KiB（`reason: payload-too-large`）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailureResponse"
+    post:
+      tags: [Action]
+      operationId: sessionFishAction
+      summary: 会话鱼用户动作（点进 / 关闭）
+      description: |
+        浏览器浮层只发两种动作：
+
+        - `focus`：用户点进了某条会话。已完成的鱼在这里消失；没有鱼时，只有
+          `blank: true`（新建空白会话）或 `running: true` 才补一条待命鱼。
+        - `close`：用户点了某条鱼的 ×。该鱼隐藏，直到这条会话的下一次 `turn/start` 才回来。
+
+        未知会话、已删会话都是幂等的空操作（`changed: false`）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/SessionFishFocusAction"
+                - $ref: "#/components/schemas/SessionFishCloseAction"
+      responses:
+        "200":
+          description: |
+            动作已处理；`changed` 表示快照是否变化。
+
+            参数非法 → `reason: bad-request`。
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [changed]
+                    properties:
+                      changed:
+                        type: boolean
+                  - $ref: "#/components/schemas/FailureResponse"
+        "400":
+          description: "请求体不是合法 JSON（`reason: invalid-json`）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "413":
+          description: "请求体超过 8 KiB（`reason: payload-too-large`）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailureResponse"
+
+  /dsh-pet-7340/session-fish/skins:
+    get:
+      tags: [Config]
+      operationId: listSessionFishSkins
+      summary: 列出可选皮肤
+      description: |
+        会话鱼的皮肤可以自定义：用户目录 `<用户根>/session-fish-skin/` 里放图片 / 动图 / webm，
+        包内 `assets/webm/` 的一百多段小动作同样可选。
+
+        - 用户目录在前、包内在后；同名以用户那份为准（`source` 标明来源）。
+        - 只列扩展名白名单内的文件：`.webm` / `.mp4` / `.png` / `.jpg` / `.jpeg` / `.gif` / `.webp`。
+        - 目录不存在只是空清单，不报错。
+      responses:
+        "200":
+          description: 皮肤清单（含默认皮肤名）。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, defaultSkin]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SessionFishSkinItem"
+                  defaultSkin:
+                    type: string
+                    examples: ["写代码.webm"]
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/session-fish/skin:
+    get:
+      tags: [Config]
+      operationId: getSessionFishSkin
+      summary: 取一份皮肤文件
+      description: |
+        按名字在「用户目录 → 包内」里找文件并原样下发，`Content-Type` 由扩展名决定。
+        名字只允许是**一个文件名**：含路径分隔符、以点开头、扩展名不在白名单里一律 `400`；
+        找不到回 `404` 文本，浏览器 `<img>` / `<video>` 会走 `onError` 回落到内嵌小鱼。
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: 皮肤 id（= 文件名，可含中文）。
+          schema:
+            type: string
+            examples: ["写代码.webm"]
+      responses:
+        "200":
+          description: 皮肤文件字节（`video/webm`、`image/gif` 等）。
+          content:
+            video/webm:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: "缺参、名字非法或扩展名不支持（文本应答）。"
+        "404":
+          description: "皮肤不存在（文本应答）。"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
   /dsh-pet-7340/balance:
     post:
       tags: [Action]
@@ -1155,11 +1348,33 @@ paths:
           in: query
           required: true
           description: |
-            目录类别：`sound`（`pet/<素材根>-sound/`）、`skin`（皮肤目录，live2d 取模型所在层）、
-            `animation`（动画同目录）、`user`（用户共享 `main-sound/`，仅 main 链）、`package`（包内 `assets/sound/`）。
+            目录类别。素材类（需要 `?pet=`）：旧布局五项：`sound`（`pet/<素材根>-sound/`）、
+            `skin`（皮肤目录，live2d 取模型所在层）、`animation`（动画同目录）、`user`（用户共享
+            `main-sound/`，仅 main 链）、`package`（包内 `assets/sound/`）；共享资源池五项（A 方案，
+            池根见 `assets.pool`，默认 `<用户根>/skin`）：`pool-layered`（`skin/layered/<皮肤>`）、
+            `pool-live2d`（`skin/live2d/<模型目录>`）、`pool-webm`（`skin/webm/`）、
+            `pool-sound`（`skin/<渲染方式>/sound/`）、`pool-global-sound`（`skin/sound/`）。
+            池的素材类别只在宠物自己的渲染方式下有效，否则回 `not-found`。
+
+            全局类（**不需要** `?pet=`，设置页「落盘位置」卡的按钮用）：`pool-root`（池根）、
+            `animations`（用户动画目录）、`memes`（用户表情包目录）、`user-root`（插件数据根）。
           schema:
             type: string
-            enum: [sound, skin, animation, user, package]
+            enum:
+              - sound
+              - skin
+              - animation
+              - user
+              - package
+              - pool-layered
+              - pool-live2d
+              - pool-webm
+              - pool-sound
+              - pool-global-sound
+              - pool-root
+              - animations
+              - memes
+              - user-root
             example: sound
         - name: create
           in: query
@@ -1199,19 +1414,25 @@ paths:
 
   /dsh-pet-7340/sound/{root}/index:
     get:
-      tags: [Asset]
       operationId: getSfxIndex
       summary: 音效索引（自动匹配结果）
+      tags: [Assets]
       description: |
-        宿主按「皮肤目录 → `-sound/`（带皮肤前缀 > 不带）→ 动画同目录 → 用户共享 → 包内默认」
-        扫一遍，给出这只宠物每个事件槽实际用哪个文件、文件从哪来。
+        宿主按「池资源目录（结构文件基名 / 目录名）→ 池渲染方式兜底 → 池全局音效 →
+        旧皮肤目录 → `-sound/`（带皮肤前缀 > 不带）→ 动画同目录 → 用户共享 → 包内默认 → 内置默认」
+        扫一遍，给出这只宠物每个事件槽实际用哪个文件、文件从哪来、真实路径在哪。
         事件槽恒完整（缺省填内置默认文件名）；动作音与 hook 只含真正匹配到的。
         客户端据此决定播什么，不做 404 探测。
+
+        `root=pool` 表示共享资源池（保留虚拟素材根），此时只查池（旧布局挂在 pack 名下）。
+        `paths` / `hookPaths` 是宿主回查到的**绝对路径**（设置页直接展示）；
+        `suggestions` 只在「没命中池」时给出：告诉用户该把文件放到哪个池目录，附
+        `which`（可直接交给 `POST /open-folder`）与相对/绝对路径。
       parameters:
         - name: root
           in: path
           required: true
-          description: 素材根（条目 key）。
+          description: 素材根（条目 key）；`pool` 是资源池的保留虚拟根。
           schema:
             type: string
             example: main
@@ -1225,13 +1446,13 @@ paths:
         - name: model
           in: query
           required: false
-          description: `pets[].model`（layered 皮肤名 / live2d 的 `.model3.json` 相对路径）。
+          description: "pets[].model（layered 皮肤名 / live2d 的 .model3.json 相对路径）。"
           schema:
             type: string
             default: ""
       responses:
         "200":
-          description: 索引（失败也恒为 200 + `ok: false`）。
+          description: "索引（失败也恒为 200 + `ok: false`）。"
           content:
             application/json:
               schema:
@@ -1256,7 +1477,52 @@ paths:
                     type: object
                     additionalProperties:
                       type: string
-                      enum: [skin, sound, animation, user, package-default, config]
+                      enum:
+                        - pool-skin
+                        - pool-renderer
+                        - pool-global
+                        - skin
+                        - sound
+                        - animation
+                        - user
+                        - package-default
+                        - config
+                  paths:
+                    type: object
+                    description: 槽位 → 实际命中的绝对路径（宿主回查；设置页只展示）。
+                    additionalProperties:
+                      type: string
+                  hookPaths:
+                    type: object
+                    description: hook 名 → 实际命中的绝对路径。
+                    additionalProperties:
+                      type: string
+                  suggestions:
+                    type: object
+                    description: 槽位 → 未命中池时的「建议放这里」。
+                    additionalProperties:
+                      type: object
+                      required: [which, relative, absolute]
+                      properties:
+                        which:
+                          type: string
+                          description: 对应的「打开素材文件夹」类别。
+                          enum:
+                            - pool-layered
+                            - pool-live2d
+                            - pool-webm
+                            - pool-sound
+                            - pool-global-sound
+                        relative:
+                          type: string
+                          description: 相对用户根的 posix 路径，设置页直接展示。
+                          example: skin/layered/character1/character1-click.wav
+                        absolute:
+                          type: string
+                          description: 建议位置的绝对路径。
+                  poolRoot:
+                    type: string
+                    description: 当前解析到的池根绝对路径（排障与只读展示用）。
   /dsh-pet-7340/lock/release:
     post:
       tags: [Action]
@@ -1559,7 +1825,7 @@ paths:
         - name: id
           in: path
           required: true
-          description: '`POST /anim` 响应里的 `playbackId`。'
+          description: "`POST /anim` 响应里的 `playbackId`。"
           schema:
             type: string
           example: pb-mfh2k1-1
@@ -1626,7 +1892,7 @@ paths:
         - name: id
           in: path
           required: true
-          description: '`playbackId`。'
+          description: "`playbackId`。"
           schema:
             type: string
           example: pb-mfh2k1-1
@@ -1641,7 +1907,7 @@ paths:
                 status:
                   type: string
                   enum: [playing, ended, failed, cancelled]
-                  description: '只接受这四个——`accepted` 是宿主受理态，上报它回 400。'
+                  description: "只接受这四个——`accepted` 是宿主受理态，上报它回 400。"
                 reason:
                   type: string
                   description: |
@@ -2363,6 +2629,14 @@ paths:
                   animations:
                     type: string
                     description: 用户动画素材根目录绝对路径
+                  memes:
+                    type: string
+                    description: 用户表情包目录绝对路径（加图不必改包）
+                  pool:
+                    type: string
+                    description: |
+                      共享资源池根绝对路径（`assets.pool`，默认 `$DSH_HOME/dsh-pet/skin`）。
+                      池里按 `layered/`、`live2d/`、`webm/`、`sound/` 四类放素材，所有宠物共用。
                   todos:
                     type: string
                     description: |
@@ -2509,12 +2783,14 @@ paths:
       operationId: getAnimation
       summary: 获取宠物动画素材
       description: |-
-        按「是否存在该宠物的独立素材目录 `pet/<petId>-animation/`」决定素材归属：
+        按「是否存在该宠物的独立素材目录 `pet/<petId>-animation/`」决定素材归属，池永远排在它后面：
 
-        - **存在**（pet pack 宠物）：只查该目录，查不到即 `404` 显式报错——**绝不混用**别的素材。
-        - **不存在**（所有主配置宠物，包括用户添加的任意多只）：走主素材链——
-          用户目录 `main-animation/<webm|mov>` 优先，其次包内 `assets/<webm|mov>`。
+        - **存在**（pet pack 宠物）：先查该目录，缺失再查共享资源池 `<池>/webm/`，
+          仍未命中才落到主素材链。
+        - **不存在**（所有主配置宠物，包括用户添加的任意多只）：查池 `<池>/webm/`，
+          再走主素材链——用户目录 `main-animation/<webm|mov>` 优先，其次包内 `assets/<webm|mov>`。
           与宠物数量无关，多只共用。
+        - **`petId=pool`**：池的保留虚拟素材根，只查 `<池>/webm/`，不查任何 pack / 用户目录。
 
         `petId` 是**标识符**（即 `<名>-animation` 里的 `<名>`），不是路径片段：
         含分隔符 / 保留字符即 `400`，早于任何路径拼接判定。合法名（含中文）照常。
@@ -2738,7 +3014,8 @@ paths:
                     description: 合成链（第三方按注册顺序在前，内置 edge 收尾）。
                     items:
                       type: object
-                      required: [id, name, builtin, available, fields, voices, voice]
+                      required:
+                        [id, name, builtin, available, fields, voices, voice]
                       properties:
                         id:
                           type: string
@@ -3246,10 +3523,39 @@ paths:
     get:
       tags: [Assets]
       operationId: getSound
-      summary: 获取点击音效文件
-      description: 从包内 `assets/sound/` 读取（扁平结构，**没有** petId 段）；当前只有 `click-duck.wav`。
+      summary: 获取音效文件
+      description: |
+        两种形式并存：
+
+        - `/dsh-pet-7340/sound/<file>` → 包内 `assets/sound/`（扁平结构，兼容旧地址）。
+        - `/dsh-pet-7340/sound/<素材根>/<file>?model=&renderer=` → 按该素材根的音效搜索链取文件：
+          池资源目录 → 池渲染兜底 → 池全局 → 旧皮肤目录（`?model=` 先查该皮肤）→ `-sound/` →
+          用户共享 → 动画同目录 → 包内默认。顺序与 `GET /sound/<素材根>/index` 完全同一份。
+        - `/dsh-pet-7340/sound/pool/<file>?renderer=&model=` → 只查共享资源池（保留虚拟素材根）。
+
+        `?model=` 决定先查哪套皮肤的目录（layered 皮肤名 / live2d 模型所在目录）；`?renderer=` 决定
+        池的哪一层参与（缺省 `webm`）。路径经规范化后必须留在各自根目录内。
       parameters:
         - $ref: "#/components/parameters/AssetFile"
+        - name: root
+          in: path
+          required: false
+          description: 素材根（条目 key）或保留虚拟根 `pool`；省略时等价于 `main`。
+          schema:
+            type: string
+        - name: model
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ""
+        - name: renderer
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [webm, layered, live2d]
+            default: webm
       responses:
         "200":
           description: 音效文件
@@ -3607,7 +3913,7 @@ paths:
                   example: 1793000000000
       responses:
         "200":
-          description: '新建结果；正文为空 / 超长或 `dueAt` 非法时回 `ok: false` + `bad-request`'
+          description: "新建结果；正文为空 / 超长或 `dueAt` 非法时回 `ok: false` + `bad-request`"
           content:
             application/json:
               schema:
@@ -3675,7 +3981,7 @@ paths:
       tags: [Action]
       operationId: deleteTodo
       summary: 删除一条待办
-      description: '幂等：id 不存在也回 `ok: true`，`removed: 0`。'
+      description: "幂等：id 不存在也回 `ok: true`，`removed: 0`。"
       parameters:
         - $ref: "#/components/parameters/TodoIdPath"
       responses:
@@ -3753,8 +4059,11 @@ paths:
       operationId: getSkinFile
       summary: 取分层皮肤或 live2d 模型的素材文件
       description: |
-        `/skin/<素材根>/<file>` → `$DSH_HOME/dsh-pet/pet/<素材根>-skin/`。素材根只查自己的目录，
-        绝不回落主素材池；含分隔符或保留字符即 400。
+        `/skin/<素材根>/<file>` → `$DSH_HOME/dsh-pet/pet/<素材根>-skin/`，缺失时回落到共享资源池
+        （`<池>/layered/…` 再 `<池>/live2d/…`）——先 pack 后池。含分隔符或保留字符即 400。
+
+        `root=pool` 是池的保留虚拟素材根：`/skin/pool/<渲染方式>/<file>` 指定桶，
+        `/skin/pool/<file>` 依次试 layered → live2d；此时不查任何 pack。
 
         同一素材根可以同时装分层皮肤与 live2d 模型（`live2d/` 子目录放 `.model3.json`，
         `layered/` 子目录放 `manifest.json`），所以 `<file>` 允许再带子目录。
@@ -3789,19 +4098,21 @@ paths:
       operationId: listSkinModels
       summary: 列出皮肤目录下的 live2d 模型
       description: |
-        递归列出 `pet/<素材根>-skin/` 下全部 `.model3.json`（相对路径、posix 分隔符、排序稳定）。
-        右键「模型」子菜单与 `pets[].model` 的取值都以它为准；空数组表示这个素材根没有模型，
-        菜单里 live2d 一项因此置灰（而不是点下去黑屏）。
+        递归列出 `pet/<素材根>-skin/` 下全部 `.model3.json`（相对路径、posix 分隔符、排序稳定），
+        并合并共享资源池里的 live2d 资源（`<池>/live2d/<模型目录>/*.model3.json`）。
+        `models` 是去重后的 id 列表（旧布局在前、池在后，同名只留旧布局那一份）；
+        `items` 带来源（`pack` / `pool`），右键「模型」菜单据此给池里的模型标「（池）」。
+        空数组表示这个素材根没有模型，菜单里 live2d 一项因此置灰（而不是点下去黑屏）。
       parameters:
         - name: root
           in: path
           required: true
           schema:
             type: string
-          description: 素材根
+          description: 素材根；`pool` 表示只看池
       responses:
         "200":
-          description: 模型相对路径列表
+          description: 模型相对路径列表 + 带来源的清单
           content:
             application/json:
               schema:
@@ -3813,6 +4124,63 @@ paths:
                     items:
                       type: string
                     example: ["live2d/大肥鱼.model3.json"]
+                  items:
+                    type: array
+                    description: 与 `models` 同序的带来源清单。
+                    items:
+                      type: object
+                      required: [id, source]
+                      properties:
+                        id:
+                          type: string
+                        source:
+                          type: string
+                          enum: [pack, pool]
+        "400":
+          description: 素材根缺失或不合法（`text/plain`）。
+
+  /dsh-pet-7340/skin/{root}/skins:
+    get:
+      tags: [Assets]
+      operationId: listLayeredSkins
+      summary: 列出可切换的分层皮肤
+      description: |
+        列出 `pet/<素材根>-skin/` 里带清单的皮肤（根布局记空串，子目录布局记目录名），
+        并合并共享资源池里的 layered 资源（一级子目录且能判定结构文件）。
+        `skins` 是去重后的 id 列表（旧布局在前、池在后）；`items` 带来源。
+        `pets[].model` 写这里的值；layered 右键「皮肤」子菜单用它。
+      parameters:
+        - name: root
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 素材根；`pool` 表示只看池
+      responses:
+        "200":
+          description: 皮肤 id 列表 + 带来源的清单
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [skins]
+                properties:
+                  skins:
+                    type: array
+                    items:
+                      type: string
+                    example: ["", "winter", "character1"]
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, source]
+                      properties:
+                        id:
+                          type: string
+                        source:
+                          type: string
+                          enum: [pack, pool]
         "400":
           description: 素材根缺失或不合法（`text/plain`）。
 
@@ -4228,7 +4596,8 @@ components:
         sections:
           type: object
           description: 全局段（所有端共享一份）
-          required: [balance, workStatus, notify, config, focusSession]
+          required:
+            [balance, workStatus, notify, config, focusSession, sessionFish]
           properties:
             balance:
               $ref: "#/components/schemas/BalanceLeaf"
@@ -4240,6 +4609,8 @@ components:
               $ref: "#/components/schemas/ConfigLeaf"
             focusSession:
               $ref: "#/components/schemas/FocusSessionLeaf"
+            sessionFish:
+              $ref: "#/components/schemas/SessionFishLeaf"
         pets:
           type: object
           description: 每只宠物各自一份；键是宠物 id（**可含点号，勿切分**）
@@ -4518,6 +4889,282 @@ components:
           description: 当前任务详情（由 todo / write 工具提供），可为 `null`
           oneOf:
             - type: string
+            - type: "null"
+
+    SessionFishSettings:
+      type: object
+      description: |
+        会话鱼的完整设置（`<用户根>/session-fish.json`）。默认值：
+        `enabled=true`、`sizePx=96`、`maxCount=6`、`bubbleMs=12000`、`skin=""`（默认皮肤）、
+        `followPet=true`、语音与三类播报全开、`progressGapMs=15000`。
+      required:
+        [
+          enabled,
+          sizePx,
+          maxCount,
+          bubbleMs,
+          skin,
+          followPet,
+          speakEnabled,
+          speakProgress,
+          speakTurnEnd,
+          speakWaiting,
+          progressGapMs,
+        ]
+      properties:
+        enabled:
+          type: boolean
+          description: 总开关；关掉会清空现有鱼并隐藏浮层。
+        sizePx:
+          type: integer
+          minimum: 48
+          maximum: 160
+          description: "`写代码.webm` 小动画的显示宽度（px）；高度按 16:9 换算。"
+        maxCount:
+          type: integer
+          minimum: 1
+          maximum: 12
+          description: 同时最多几条鱼；超出时先淘汰最早完成的。
+        bubbleMs:
+          type: integer
+          minimum: 4000
+          maximum: 60000
+          description: 一条播报在气泡里停留多久（ms）。完成态的鱼常驻到用户点进会话。
+        skin:
+          type: string
+          maxLength: 120
+          description: |
+            皮肤 id（= 文件名）。空串表示用默认皮肤（`写代码.webm`）。
+            只允许一个文件名：不含路径分隔符、不以点开头，扩展名限
+            `.webm` / `.mp4` / `.png` / `.jpg` / `.jpeg` / `.gif` / `.webp`。
+        followPet:
+          type: boolean
+          description: 是否围着桌宠转；关掉后鱼回到右下角竖排，拖拽与位置记忆不变。
+        speakEnabled:
+          type: boolean
+          description: 语音播报总开关；关掉后三类播报都不出声，气泡照常。
+        speakProgress:
+          type: boolean
+          description: 是否念出思考 / 干活 / 整理类进度播报。
+        speakTurnEnd:
+          type: boolean
+          description: 是否念出每一轮的结束播报（完成 / 出错 / goal 中间轮）。
+        speakWaiting:
+          type: boolean
+          description: 是否念出等待确认（审批 / 选择题 / 计划审查）的播报。
+        progressGapMs:
+          type: integer
+          minimum: 5000
+          maximum: 600000
+          description: 同一会话两条进度播报的最小间隔（ms）；轮次结束不受限。
+
+    SessionFishSettingsPatch:
+      type: object
+      description: "PUT /session-fish 的部分更新体：只提交要改的字段。"
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        sizePx:
+          type: integer
+          minimum: 48
+          maximum: 160
+        maxCount:
+          type: integer
+          minimum: 1
+          maximum: 12
+        bubbleMs:
+          type: integer
+          minimum: 4000
+          maximum: 60000
+        speakEnabled:
+          type: boolean
+        speakProgress:
+          type: boolean
+        speakTurnEnd:
+          type: boolean
+        speakWaiting:
+          type: boolean
+        progressGapMs:
+          type: integer
+          minimum: 5000
+          maximum: 600000
+
+    SessionFishFocusAction:
+      type: object
+      description: 用户点进了某条会话。
+      required: [action, sessionId]
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          enum: [focus]
+        sessionId:
+          type: string
+          minLength: 1
+          maxLength: 200
+        blank:
+          type: boolean
+          description: 该会话是否为新建空白会话；没有鱼时据此补一条待命鱼。
+        running:
+          type: boolean
+          description: 该会话当前是否在跑；没有鱼时据此补一条待命鱼。
+
+    SessionFishCloseAction:
+      type: object
+      description: 用户关闭了某条会话鱼；该会话下一次 `turn/start` 前不再出现。
+      required: [action, sessionId]
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          enum: [close]
+        sessionId:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    SessionFishSkinItem:
+      type: object
+      description: 一个可选皮肤（`GET /session-fish/skins` 的一项）。
+      required: [id, label, kind, source]
+      properties:
+        id:
+          type: string
+          description: 皮肤 id（= 文件名，也是设置里 `skin` 的取值）。
+        label:
+          type: string
+          description: 显示标签（已去掉扩展名）。
+        kind:
+          type: string
+          enum: [video, image]
+        source:
+          type: string
+          enum: [user, pack]
+          description: "`user` = `<用户根>/session-fish-skin/`；`pack` = 包内 `assets/webm/`。"
+
+    SessionFishEntry:
+      type: object
+      description: 一条会话鱼。`done` 表示任务已结束、等用户点进该会话。
+      required:
+        [
+          sessionId,
+          state,
+          task,
+          line,
+          lineKind,
+          lineSeq,
+          lineAt,
+          done,
+          planPending,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        sessionId:
+          type: string
+        state:
+          type: string
+          enum: [idle, thinking, working, result, waiting, success, error]
+        task:
+          description: 当前任务详情（todo/write 或工具描述），可为 `null`。
+          oneOf:
+            - type: string
+            - type: "null"
+        line:
+          description: 最近一条播报文案，可为 `null`。
+          oneOf:
+            - type: string
+            - type: "null"
+        lineKind:
+          type: string
+          enum: [idle, progress, turnEnd, done]
+        lineSeq:
+          type: integer
+          minimum: 0
+          description: 播报序号；跨「关闭 → 复活」保持单调，消费端只念新序号。
+        lineAt:
+          type: integer
+          format: int64
+          description: 最近一条播报的时间戳（ms）。
+        done:
+          type: boolean
+        planPending:
+          type: boolean
+          description: 正在等用户审查计划（plan 模式），不算任务结束。
+        createdAt:
+          type: integer
+          format: int64
+        updatedAt:
+          type: integer
+          format: int64
+
+    SessionFishSnapshot:
+      type: object
+      description: "sections.sessionFish.data：浮层需要的全部显示参数与鱼群。"
+      required:
+        [
+          enabled,
+          sizePx,
+          maxCount,
+          bubbleMs,
+          skin,
+          skinKind,
+          followPet,
+          speakEnabled,
+          speakProgress,
+          speakTurnEnd,
+          speakWaiting,
+          fishes,
+          ts,
+        ]
+      properties:
+        enabled:
+          type: boolean
+        sizePx:
+          type: integer
+        maxCount:
+          type: integer
+        bubbleMs:
+          type: integer
+        skin:
+          type: string
+          description: 生效的皮肤 id（设置里的空串已换成默认皮肤名）。
+        skinKind:
+          type: string
+          enum: [video, image]
+          description: 皮肤的渲染方式；客户端据此选 `<video>` 还是 `<img>`。
+        followPet:
+          type: boolean
+          description: 是否围着桌宠转。
+        speakEnabled:
+          type: boolean
+        speakProgress:
+          type: boolean
+        speakTurnEnd:
+          type: boolean
+        speakWaiting:
+          type: boolean
+        fishes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionFishEntry"
+        ts:
+          type: integer
+          format: int64
+
+    SessionFishLeaf:
+      type: object
+      required: [counter, data]
+      properties:
+        counter:
+          $ref: "#/components/schemas/Counter"
+        data:
+          description: |
+            会话鱼快照；`null` = 从未写过（插件尚未启动完成）。
+            内容没变时宿主不写这个叶子；`ts` 不参与去重。
+          oneOf:
+            - $ref: "#/components/schemas/SessionFishSnapshot"
             - type: "null"
 
     NotifyLeaf:
@@ -5291,6 +5938,17 @@ components:
               type: integer
               default: 300
               description: 周期碎碎念间隔
+        assets:
+          type: object
+          description: |
+            共享资源池（只读 main 条目）。池里按 `layered/`、`live2d/`、`webm/`、`sound/` 四类
+            放皮肤 / 模型 / 动画 / 音效，所有宠物共用；解析顺序恒为「先 pack 后池」。
+            `pool` 是保留字：不能作为 pet pack 的文件名前缀。
+          properties:
+            pool:
+              type: string
+              default: skin
+              description: 池根：相对用户根（默认 `skin`）或绝对路径；空串/非法回落默认。
       additionalProperties: true
 
     Todo:
@@ -5339,7 +5997,7 @@ components:
           $ref: "#/components/schemas/Todo"
         reason:
           type: string
-          description: '失败原因（如 `bad-request` / `todo-not-found`）'
+          description: "失败原因（如 `bad-request` / `todo-not-found`）"
         message:
           type: string
 
@@ -5352,7 +6010,3 @@ components:
         removed:
           type: integer
           description: 删掉的条数；0 = 本来就没有（幂等）
-
-
-
-

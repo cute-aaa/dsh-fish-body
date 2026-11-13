@@ -16,6 +16,9 @@ import type { MenuRegistry } from '../menu.ts';
 import type { PlaybackStore } from '../playback.ts';
 import type { PoseStore } from '../pose.ts';
 import type { SleepStore } from '../sleep.ts';
+import type { SessionFishStore } from '../session-fish/store.ts';
+import type { SessionFishSettingsStore } from '../session-fish/settings.ts';
+import type { FishSkinDirs } from '../session-fish/skins.ts';
 import type { SfxDirs } from '../sfx/scan.ts';
 import type { PollStateStore } from '../state.ts';
 import type { VoiceTarget } from '../surface.ts';
@@ -23,6 +26,7 @@ import type { TodoStore } from '../todo/store.ts';
 import type { HearService } from '../voice/hear.ts';
 import type { VoiceService } from '../voice/speak.ts';
 import type { WorkStatusStore } from '../work-status.ts';
+import type { RendererKind } from '../../shared/types.ts';
 
 /** 一次路由调用的输入：URL 已解析，`rest` 是去掉前缀并解码后的路径。 */
 export interface RouteInput {
@@ -78,6 +82,12 @@ export interface PetRouteDeps {
   readonly todos: TodoStore;
   /** 工作状态联动快照。 */
   readonly workStatus: WorkStatusStore;
+  /** 会话鱼状态机（新建 / 进行中 / 完成未确认的会话各一条）。 */
+  readonly sessionFish: SessionFishStore;
+  /** 会话鱼设置（独立 session-fish.json）。 */
+  readonly sessionFishSettings: SessionFishSettingsStore;
+  /** 把会话鱼快照写进轮询状态。 */
+  readonly publishSessionFish: () => void;
   /** 外部写入用的固定会话 id。 */
   readonly EXTERNAL_WORK_SESSION: string;
   /** 占用锁拦截：被别的会话占着时直接给出应答。 */
@@ -127,8 +137,16 @@ export interface PetRouteDeps {
   readonly nextExternalWorkSeq: () => number;
   /** 表情包目录链（与 /thumb 同一套归属语义）。 */
   readonly memeDirsFor: (assetRoot: string) => string[];
-  /** 音效搜索目录（皮肤根 / -sound / 用户共享 / 动画同目录 / 包内默认）。 */
-  readonly soundDirsFor: (assetRoot: string, ext: string) => SfxDirs;
+  /** 音效搜索目录（池三层 / 皮肤根 / -sound / 用户共享 / 动画同目录 / 包内默认）。 */
+  readonly soundDirsFor: (
+    assetRoot: string,
+    ext: string,
+    opts?: { renderer?: RendererKind; model?: string },
+  ) => SfxDirs;
+  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）。 */
+  readonly poolRoot: () => string;
+  /** 会话鱼的皮肤池目录（用户目录 + 包内动画）；缺省按 `userRoot` 现算。 */
+  readonly fishSkinDirs?: () => FishSkinDirs;
   /** 用平台文件管理器打开一个目录（设置页的「打开素材文件夹」）。 */
   readonly openDir: (path: string) => void;
   /** 姿态上报存储。 */

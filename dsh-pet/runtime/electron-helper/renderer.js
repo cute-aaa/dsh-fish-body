@@ -90,7 +90,7 @@ async function loadSfxIndex(pet) {
       origin: body.origin || {},
     };
     // 预热事件槽素材：第一下不依赖「取文件 + 解码」的延迟，也避免首声走回退路径。
-    for (const file of Object.values(index.events)) S.preloadSfx(soundUrlOf(root, file, pet.model || ''));
+    for (const file of Object.values(index.events)) S.preloadSfx(soundUrlOf(root, file, pet.model || '', pet.renderer));
     return index;
   } catch (e) {
     console.warn(

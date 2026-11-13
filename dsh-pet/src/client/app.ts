@@ -21,6 +21,11 @@ import { registerPetChatTab, openPetChatTab } from './chat/register.ts';
 import { PET_CHAT_COMMAND_ID, registerPetChatShortcut } from './chat/shortcut.ts';
 import { dicts as chatDicts, NS as CHAT_NS } from './chat/locales/index.ts';
 import { registerPetCardShortcuts } from './pet/card/shortcut.ts';
+import { dicts as fishDicts, NS as FISH_NS } from './session-fish/locales.ts';
+import { makeSessionFishLayer, type SessionFishLayerDeps } from './session-fish/layer.ts';
+import { makeSessionFishReporter } from './session-fish/reporter.ts';
+import { makeSessionFishSection } from './session-fish/section.ts';
+import { makeSessionFishIcon } from './session-fish/sprite.ts';
 import type * as ReactNS from 'react';
 import type * as PrimitivesNS from '@deepseek-ai/dsh-client-ui-primitives';
 
@@ -81,6 +86,29 @@ export function makeFactory(): (require: (mod: string) => any) => any {
       // 侧栏对话的文案独立成命名空间：只覆盖对话面板，不与设置页字典混在一起。
       ctx.effect(() => ctx.locale.register(CHAT_NS, chatDicts), 'dsh-pet: chat dictionaries');
       const chatT = ctx.locale.bind(CHAT_NS);
+      // 会话鱼的文案再独立一份：设置分区与浮层共用，不塞进「桌宠配置」的大字典。
+      ctx.effect(() => ctx.locale.register(FISH_NS, fishDicts), 'dsh-pet: session fish dictionaries');
+      const fishT = ctx.locale.bind(FISH_NS);
+
+      // 会话鱼：浮层（根插槽）、当前会话上报器（会话插槽）与设置分区共用同一份字典。
+      // 会话列表与打开会话都是可选能力：拿不到时退化成「没有标题、点鱼只 ack」。
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DSH 注入服务无静态类型
+      const sessionsService = (ctx as any).get?.('sessions') as SessionFishLayerDeps['sessions'] | undefined;
+      const openSession = (sessionId: string): void => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 同上
+          (ctx as any).get?.('uiWorkspace')?.openSession?.(sessionId);
+        } catch {
+          /* 会话已删 / 旧版没有该服务：不跳会话而已 */
+        }
+      };
+      const SessionFishLayer = makeSessionFishLayer(
+        { h, useState, useEffect, useRef, t: fishT },
+        { openSession, sessions: sessionsService },
+      );
+      const SessionFishReporter = makeSessionFishReporter({ useEffect }, { sessions: sessionsService });
+      const SessionFishSection = makeSessionFishSection({ h, useState, useEffect, t: fishT });
+      const SessionFishIcon = makeSessionFishIcon({ h });
 
       // 同页第三方插件可通过 Cordis 服务 petApi7340 读取本页宠物的实况、播放进度、最近一拍状态与菜单点击。
       // 只开读，控制仍走 HTTP，避免出现两条控制通道。
@@ -189,6 +217,25 @@ export function makeFactory(): (require: (mod: string) => any) => any {
         yield ctx.slots.register({ name: 'shell.overlay', id: 'pet', order: 1000 }, () => h(PetMulti, {}));
       });
 
+      // 会话鱼浮层：排在桌宠之后、吃白饭之前；层本身 click-through，只有鱼与气泡接收指针。
+      ctx.slots.inject('shell.overlay', function* () {
+        yield ctx.slots.register({ name: 'shell.overlay', id: 'session-fish', order: 1050 }, SessionFishLayer);
+      });
+
+      // 当前会话上报：零渲染组件，只在会话切换时把 sessionId 告诉宿主（宿主据此 ack 已完成的鱼）。
+      ctx.slots.inject('conversation.input.dock', function* () {
+        yield ctx.slots.register(
+          {
+            name: 'conversation.input.dock',
+            id: 'session-fish-focus',
+            order: 30,
+            // 会话作用域的注入回调能拿到 sessionId（与 dsh-client-ui-goal 的用法一致）。
+            inject: (sessionId: string) => ({ sessionId }),
+          },
+          SessionFishReporter,
+        );
+      });
+
       // 设置页「桌宠配置」：大小、位置、模型，保存即时生效。
       // useRef 供「AI 模型」下拉的浮层定位与外部点击判定使用。
       const PetConfigSection = makePetConfigSection({ h, useState, useEffect, useRef, useCallback, t }, ctx);
@@ -197,6 +244,18 @@ export function makeFactory(): (require: (mod: string) => any) => any {
           { name: 'settings.section', id: 'pet-config', order: 30, label: () => t('nav'), inject: () => ({ t }) },
           PetConfigSection,
         );
+      });
+
+      // 设置页「会话鱼」：独立分区（写自己的 session-fish.json，不走主配置保存链）。
+      ctx.slots.inject('settings.section', function* () {
+        yield ctx.slots.register(
+          { name: 'settings.section', id: 'session-fish', order: 31, label: () => fishT('nav') },
+          SessionFishSection,
+        );
+      });
+      // 导航行图标：owner 只按 section id 匹配，取不到就保留默认齿轮。
+      ctx.slots.inject('settings.section.icon', function* () {
+        yield ctx.slots.register({ name: 'settings.section.icon', id: 'session-fish', order: 31 }, SessionFishIcon);
       });
 
       // 快捷键独立注册：不挂在侧栏注册里——侧栏服务缺失时侧栏没了，快捷键不该跟着没。

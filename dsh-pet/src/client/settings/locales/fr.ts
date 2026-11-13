@@ -133,6 +133,7 @@ export const fr: Record<Key, string> = {
   todosFile: 'Données de tâches (texte, échéance et état ; les supprimer vide toutes les tâches)',
   animationDir: 'Dossier des animations (pour ajouter ou personnaliser des animations)',
   memesDir: 'Dossier des mèmes (pour ajouter ou personnaliser des images)',
+  poolDir: 'Dossier du pool de ressources (skins / modèles / animations / sons partagés)',
   logFile: 'Fichier journal (pour le dépannage ; peut être vidé)',
   logFileNote:
     "L'application de bureau n'a pas de console : tous les journaux d'exécution du plugin (démarrage, plantages / redémarrages des compagnons, erreurs et avertissements) sont écrits dans ce seul fichier — joignez-le à vos rapports de problème. Limité à 1 Mo ; une fois plein, seuls les 512 Ko les plus récents sont conservés.",
@@ -190,6 +191,10 @@ export const fr: Record<Key, string> = {
   sfxOriginDefault: 'integre',
   sfxOriginConfig: 'configuration',
   sfxOriginNone: 'non trouve',
+  sfxOriginPoolSkin: 'pool · ressource',
+  sfxOriginPoolRenderer: 'pool · renderer',
+  sfxOriginPoolGlobal: 'pool · global',
+  sfxWhereToPut: 'Placez le fichier ici : {path}',
   sfxHooksTitle: 'Hooks personnalises',
   sfxHooksHint:
     'Enregistrez un nom ici puis declenchez-le avec POST /sfx/<nom>?pet=<id> ; le fichier est trouve par la regle de nommage, sans config.',

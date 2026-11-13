@@ -1720,3 +1720,67 @@ describe('removeRoundsByTs —— 按轮删除（一轮两条共享 ts，成对�
     assert.equal(r.removed, 4);
   });
 });
+
+describe('readAllConfig —— 共享资源池（assets.pool）', () => {
+  /** 内置默认里带上池段（真实包内的 assets/config.jsonc 就是这样）。 */
+  const DEFAULT = { ...BASE, assets: { pool: 'skin' } };
+
+  /** 造一套临时配置：内置默认 + 可选用户层 + 可选 pet 文件。 */
+  const read = (
+    overlay: Record<string, unknown> | undefined,
+    pets: Record<string, string> = {},
+  ): Record<string, Record<string, unknown>> => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-pet-pool-cfg-'));
+    try {
+      const paths: ConfigPaths = {
+        defaultFile: join(dir, 'default.jsonc'),
+        userFile: join(dir, 'main-config.jsonc'),
+        petDir: join(dir, 'pet'),
+      };
+      writeFileSync(paths.defaultFile, JSON.stringify(DEFAULT));
+      if (overlay !== undefined) writeFileSync(paths.userFile, JSON.stringify(overlay));
+      for (const [name, body] of Object.entries(pets)) {
+        mkdirSync(paths.petDir, { recursive: true });
+        writeFileSync(join(paths.petDir, name), body);
+      }
+      return readAllConfig(paths);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  test('没有用户层：成品里的池根就是内置默认', () => {
+    assert.deepEqual(read(undefined).main.assets, { pool: 'skin' });
+  });
+
+  test('用户层写了 assets.pool：原样透传到成品', () => {
+    assert.deepEqual(read({ assets: { pool: 'mypool' } }).main.assets, { pool: 'mypool' });
+  });
+
+  test('绝对路径池根合法', () => {
+    const abs = join(tmpdir(), 'elsewhere', 'skin');
+    assert.deepEqual(read({ assets: { pool: abs } }).main.assets, { pool: abs });
+  });
+
+  test('assets.pool 为空串 / 非字符串 / 整段非对象：回落内置默认', () => {
+    for (const bad of [{ pool: '' }, { pool: 42 }, 'nope', null] as unknown[]) {
+      assert.deepEqual(read({ assets: bad }).main.assets, { pool: 'skin' });
+    }
+  });
+
+  test('pet/pool-config.json 与保留字冲突：跳过该条目，其它条目照常', () => {
+    const merged = read(undefined, {
+      'duck-config.json': JSON.stringify({ pets: [{ ...BASE.pets[0], id: 'duck', name: '鸭子' }] }),
+      'pool-config.json': JSON.stringify({ pets: [{ ...BASE.pets[0], id: 'poolpet', name: '池' }] }),
+    });
+    assert.deepEqual(Object.keys(merged).sort(), ['duck', 'main']);
+  });
+});
+
+describe('saveUserConfig —— assets 段透传', () => {
+  test('请求体没带 assets 时，磁盘上的旧值原样保留', () => {
+    const clean = saveUserConfig({ pets: BASE.pets }, { assets: { pool: 'mypool' } });
+    assert.ok(clean !== null);
+    assert.deepEqual(clean.assets, { pool: 'mypool' });
+  });
+});

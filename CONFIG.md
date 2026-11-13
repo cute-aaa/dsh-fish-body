@@ -39,19 +39,45 @@ DSH 设置 → 「桌宠配置」：
 
 用户层配置文件位于 `$DSH_HOME/dsh-pet/main-config.jsonc`。**它和包内默认配置是同一套格式**——想改什么直接照着 `assets/config.jsonc` 的结构写即可，写错的字段/缺失的字段回落默认，无需（也无法）写完整份。设置页「同步」可直接生成这份完整文件（原文复制包内 `config.jsonc`，注释齐全）：
 
-| 字段                   | 作用                                                                                                           | 格式与默认一致即可         |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| `pets`                 | 宠物列表（大小/位置/多开/余额开关）                                                                            | 数组，每项同 `pets[]` 结构 |
-| `animations`           | **动画池**：idle / turn / drag / clicks / moves / categories / events（余额等事件动画）/ sleep（睡觉套，可选） | 同 `animations` 结构       |
-| `animationWeights`     | 动画链播放权重（idle / turn / move）                                                                           | 同 `animationWeights` 结构 |
-| `eventsRefreshSec`     | 事件刷新周期（秒）：`whisper` 碎碎念、`sleepTalk` 梦话、`balance` 余额                                         | 同 `eventsRefreshSec` 结构 |
-| `sleepStartTexts`      | **入睡台词**（条目级，随机挑一句；播「开始」时弹气泡）                                                         | 非空字符串数组             |
-| `sleepEndTexts`        | **醒来台词**（条目级，随机挑一句；播「起来」时弹气泡）                                                         | 非空字符串数组             |
-| `sleepRefuseTexts`     | **睡着被打扰时的拒绝台词**（条目级，随机挑一句）                                                               | 非空字符串数组             |
-| `notificationsEnabled` | 系统通知总开关（布尔）                                                                                         | 同 `notificationsEnabled`  |
+| 字段                   | 作用                                                                                                                       | 格式与默认一致即可         |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `pets`                 | 宠物列表（大小/位置/多开/余额开关）                                                                                        | 数组，每项同 `pets[]` 结构 |
+| `animations`           | **动画池**：idle / turn / drag / clicks / moves / categories / events（余额等事件动画）/ sleep（睡觉套，可选）             | 同 `animations` 结构       |
+| `animationWeights`     | 动画链播放权重（idle / turn / move）                                                                                       | 同 `animationWeights` 结构 |
+| `eventsRefreshSec`     | 事件刷新周期（秒）：`whisper` 碎碎念、`sleepTalk` 梦话、`balance` 余额                                                     | 同 `eventsRefreshSec` 结构 |
+| `sleepStartTexts`      | **入睡台词**（条目级，随机挑一句；播「开始」时弹气泡）                                                                     | 非空字符串数组             |
+| `sleepEndTexts`        | **醒来台词**（条目级，随机挑一句；播「起来」时弹气泡）                                                                     | 非空字符串数组             |
+| `sleepRefuseTexts`     | **睡着被打扰时的拒绝台词**（条目级，随机挑一句）                                                                           | 非空字符串数组             |
+| `notificationsEnabled` | 系统通知总开关（布尔）                                                                                                     | 同 `notificationsEnabled`  |
 | `chatAnimationEnabled` | **对话动作联动**：开启后对话时把 `animations.categories` 下的动作清单交给模型，由它按语境挑一个当场表演（布尔，默认 true） | 布尔，默认即可             |
 
 > 覆盖语义：用户层给出即**整体替换**该字段（如写了 `animations` 就用你的整份动画池，替代默认），没写的字段回落包内默认。校验在插件加载时执行——格式错误会在 DSH 控制台显式报错，不会静默运行残缺配置。
+
+## 方式三之二：会话鱼设置（`session-fish.json`）
+
+会话鱼不写进 `main-config.jsonc`：它是一组独立的小偏好，单独存在 `$DSH_HOME/dsh-pet/session-fish.json`（普通 JSON，不带注释；写坏了逐字段回落默认）。设置页「会话鱼」分区改的就是它，保存后浮层立即生效。
+
+```jsonc
+{
+  "enabled": true, // 总开关；关掉会清空现有鱼并隐藏浮层
+  "sizePx": 96, // 皮肤的显示宽度（px），48–160；高度按素材比例算（夹在 0.5–2 倍宽之间）
+  "maxCount": 6, // 同时最多几条，1–12；超出先淘汰最早完成的
+  "bubbleMs": 12000, // 气泡停留时长（ms），4000–60000
+  "skin": "", // 皮肤 id（素材名）；空串 = 默认的 写代码.webm
+  "followPet": true, // 围着桌宠转；关掉后回到右下角竖排
+  "speakEnabled": true, // 语音播报总开关；关掉后三类都不出声（气泡照常）
+  "speakProgress": true, // 念出思考 / 干活 / 整理
+  "speakTurnEnd": true, // 念出每一轮的结束
+  "speakWaiting": true, // 念出等待确认（审批 / 计划审查）
+  "progressGapMs": 15000, // 同一会话两条进度播报的最小间隔（ms），5000–600000
+}
+```
+
+小鱼默认**围着桌宠转**：桌宠走位、被拖走、被甩飞时鱼群跟着移动，鱼与鱼、鱼与桌宠之间有碰撞分离；拖住一条鱼可以挪位置，松手会甩一下再回到自己的位置，位置以「相对槽位的偏移」按会话记在浏览器 `localStorage`（`dsh-pet:session-fish-offsets`），刷新后仍在你放它的方向。设置页「会话鱼」分区的「重置鱼的位置」会把它们放回桌宠旁边；`followPet=false` 时回到右下角竖排（同一套拖拽与位置记忆）。
+
+**换皮肤**：把图片 / 动图（`.png` / `.jpg` / `.jpeg` / `.gif` / `.webp`）或视频（`.webm` / `.mp4`）放进用户数据根下的 `session-fish-skin/` 目录（设置页「打开皮肤文件夹」会建好并打开），回到设置页点「重新扫描」即可在下拉里选中；包内 `assets/webm/` 的一百多段小动作也都在列表里。素材按原比例显示，太扁或太长的会被夹在 0.5–2 倍宽之间；文件删掉后那一条自动回落到内嵌的小鱼画法。
+
+未知键、类型错、越界、非法皮肤名在保存时会被宿主拒绝（`PUT /session-fish` 回 `bad-request`）；手工改文件后需要重载插件才生效。字段与状态机见 [`API.md`](API.md) 与 [`openapi.yaml`](openapi.yaml)。
 
 ## 方式四：额外宠物（pet pack）——添加新「种类」
 
@@ -131,7 +157,67 @@ $DSH_HOME/dsh-pet/
 - 设置页**会列出**文件宠物（按种类分组）：改名称/大小/位置/显示方式/四个开关/实例人设后保存，写回该种类自己的配置文件——不混进 `main-config.jsonc`，文件顶层的动画池与人设原样保留；「+」可在该种类下新建实例，每种至少留一只
 - 余额档位动画按各宠物自己的 `events.balance`
 
+## 资源池（assets）——共享皮肤 / 模型 / 动画 / 音效
 
+旧布局（`pet/<材料根>-skin|sound|animation`）**原样保留、零迁移**；在此之外多了一个可选的共享池：
+放一份素材，所有宠物都能用。池根由 `assets.pool` 决定（只读 `main` 条目）：
+
+```jsonc
+"assets": { "pool": "skin" }   // 相对用户根（默认），也可以写绝对路径，例如 "D:/pets/shared"
+```
+
+目录约定（`<用户根>` 例如 `D:\NodeJs\DSH_home\dsh-pet\`）：
+
+```
+<用户根>/
+├─ pet/                          # 【旧】按 pack 分，保持原样
+│  ├─ main-skin/character1/…     #   旧皮肤（layered / live2d）
+│  ├─ main-animation/webm/…      #   旧动画
+│  └─ main-sound/…               #   旧音效
+├─ main-sound/                   # 【旧】用户级全局音效
+└─ skin/                         # 【新】共享资源池（assets.pool 的默认值）
+   ├─ layered/
+   │  ├─ character1/
+   │  │  ├─ manifest.json        # 结构文件（任意名；manifest.json 优先，其次含 rig/schema 的 json）
+   │  │  ├─ art/…
+   │  │  ├─ character1-click.wav # 目录名前缀
+   │  │  └─ xxx-drag.wav         # 结构文件基名前缀（结构文件叫 xxx.json 时）
+   │  └─ sound/layered-click.wav # 该渲染方式的兜底音效
+   ├─ live2d/
+   │  ├─ model1/xx.model3.json
+   │  │  └─ xx-click.wav         # 模型基名前缀（也认 model1-click.wav）
+   │  └─ sound/live2d-click.wav
+   ├─ webm/                       # 平铺：一部动画一个文件，不建子目录
+   │  ├─ movie1.webm
+   │  └─ webm-click.wav           # 该渲染方式的兜底音效（也认 webm/sound/webm-click.wav）
+   └─ sound/
+      ├─ click.wav                # 全局音效：无前缀优先
+      └─ common-drag.wav          # 任意前缀次之（同事件多份按文件名排序取第一个）
+```
+
+- **`pets[].model` 语义不变**，宿主按「先 pack 后池」解析：`pet/<素材根>-skin/<model>/` 存在就用它，
+  缺失才回落到 `skin/layered/<model>/`（live2d 同理回落到 `skin/live2d/<model 所在目录>`）。
+  动画同理：先 `pet/<素材根>-animation/webm/`，再 `skin/webm/`，最后用户目录与包内素材。
+- **`pool` 是保留字**：不能当 pet pack 的文件名前缀（`pet/pool-config.json` 会被跳过并告警一次，
+  `POST /pet-config` 里传 `entry: "pool"` 会被拒）。
+- **`skin/` 不存在 = 空池**：不报错、不告警，行为与没有这段配置完全一样。
+  （插件启动时会把池根与 `layered / live2d / webm / sound` 建出来，所以「刚装好」看到的是空目录而不是不存在。）
+- **启动时初始化的目录**：`<用户根>`、`main-animation/webm`、`main-animation/mov`、`memes/`、
+  池根的 `layered` / `live2d` / `webm` / `sound` 四个目录，以及各渲染方式的兜底音效目录
+  （`<池>/layered/sound` 等）。只建目录、不写占位文件；建不出来的只记一行日志，插件照常可用。
+- **`pet/<素材根>-*` 是内置素材，`skin/` 是用户素材**：`pet/` 跟着 pack 安装/升级/迁移走，
+  `skin/` 是「我自己补的，一份给所有宠物用」。解析顺序仍是**先 pack 后池**，所以内置那套优先、
+  池只做补充与替换的落点；右键「皮肤 / 模型」菜单里池里的条目带「（池）」标记。
+- 池里的音效**必须带前缀**（结构文件基名 / 目录名 / 渲染方式名 / 任意前缀）——池是共享的，
+  裸 `click.wav` 会串到别的宠物头上；只有 `skin/sound/` 认无前缀写法。
+- 设置页「音效」分区每行第二行显示**实际命中的绝对路径**；没命中池时会提示「建议放这里：
+  `skin/layered/<皮肤>/<皮肤>-click.wav`」。每行右侧都有「打开文件夹」：命中时打开该文件所在的
+  那一类目录，未命中时打开建议落点；目录不存在会先问是否创建。
+- 设置页「高级配置」卡的动画目录 / 表情包目录 / 资源池目录右侧也有「打开文件夹」
+  （走 `POST /open-folder?which=animations|memes|pool-root`，不需要宠物参数）。
+- 「打开文件夹」交给**系统的默认处理程序**（Windows 走 ShellExecute，macOS 走 LaunchServices，Linux 走
+  `xdg-open`），不是写死资源管理器：把默认文件管理器换成第三方工具时照样生效。
+- 全部路径都过「规范化 + 池根内校验」：`..`、绝对路径片段一律拒绝，池根配到别的盘也只在池根内解析。
 
 ## 音效段（sfx）
 

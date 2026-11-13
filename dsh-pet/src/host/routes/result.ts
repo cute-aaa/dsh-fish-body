@@ -32,6 +32,7 @@ export type ResultReason =
   | 'pet-required'
   | 'pose-unavailable'
   | 'provider-missing'
+  | 'settings-write-failed'
   | 'sleeping'
   | 'todo-not-found'
   | 'too-many-items'

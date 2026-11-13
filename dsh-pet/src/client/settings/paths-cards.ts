@@ -8,7 +8,9 @@
  */
 import type { FunctionComponent } from 'react';
 import type { ConfigMeta } from './config/index.ts';
+import type { GlobalFolderTarget } from '../../shared/folders.ts';
 import type { SettingsRuntime } from './runtime.ts';
+import { makeFolderButton } from './folder-button.ts';
 import { MONO_STACK, makeUiKit } from './ui.ts';
 
 /** 两张卡的共同输入。 */
@@ -40,20 +42,31 @@ const BODY_ID = {
 export function makePathsCards(rt: SettingsRuntime): PathsCards {
   const { h, t, useState } = rt;
   const { foldCard } = makeUiKit({ h, t });
+  // 目录类路径右边配一个「打开文件夹」：省得用户照着路径自己去资源管理器里翻。
+  const FolderButton = makeFolderButton(rt);
 
   function ConfigMetaCard(props: PathsCardProps) {
     const { paths } = props;
     const [open, setOpen] = useState(false);
-    const line = (key: string, value: string | undefined, suffix = '') =>
+    const line = (key: string, value: string | undefined, which?: GlobalFolderTarget) =>
       value === undefined
         ? null
-        : h('div', { key, className: 'dsh-pet-cfg__path', children: t(key) + '：' + value + suffix });
+        : h('div', {
+            key,
+            className: 'dsh-pet-cfg__path',
+            children: [
+              h('span', { key: 'v', children: t(key) + '：' + value }),
+              which === undefined ? null : h(FolderButton, { key: 'open', which }),
+            ],
+          });
     const body = [
       line('defaultConfig', paths.default),
       line('userConfig', paths.user),
       line('todosFile', paths.todos),
-      line('animationDir', paths.animations),
-      line('memesDir', paths.memes),
+      line('animationDir', paths.animations, 'animations'),
+      line('memesDir', paths.memes, 'memes'),
+      // 共享资源池的根：皮肤 / 模型 / 动画 / 音效都可以只放一份在这里，所有宠物共用。
+      line('poolDir', paths.pool, 'pool-root'),
       // 日志文件路径 + 一句说明；其余位置的用途都在问号里，唯独这条写在明面上——反馈问题时要先找它。
       line('logFile', paths.logs),
       paths.logs ? h('div', { key: 'logNote', className: 'dsh-pet-cfg__note', children: t('logFileNote') }) : null,

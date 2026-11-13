@@ -120,3 +120,104 @@ describe('scan 辅助', () => {
     assert.equal(isValidModelPath('a//b'), false);
   });
 });
+
+describe('buildSfxIndex —— 资源池三层', () => {
+  test('第 1/2 级：结构文件基名与目录名前缀都能命中，来源标 pool-skin', () => {
+    const index = buildSfxIndex({
+      model: 'character1',
+      poolSkinName: 'character1',
+      poolSkinStructures: ['xxx'],
+      renderer: 'layered',
+      sources: sources({ poolSkin: ['xxx-click.wav', 'character1-throw.wav'] }),
+    });
+    assert.equal(index.events.click, 'xxx-click.wav');
+    assert.equal(index.events.throw, 'character1-throw.wav');
+    assert.equal(index.origin.click, 'pool-skin');
+  });
+
+  test('池资源目录里不认裸文件名（池是共享的，裸名会串到别的宠物）', () => {
+    const index = buildSfxIndex({
+      model: 'character1',
+      poolSkinName: 'character1',
+      renderer: 'layered',
+      sources: sources({ poolSkin: ['click.wav'] }),
+    });
+    assert.equal(index.origin.click, 'package-default');
+  });
+
+  test('第 3 级：<渲染方式>-<事件> 命中，来源标 pool-renderer', () => {
+    const layeredIndex = buildSfxIndex({
+      model: 'character1',
+      poolSkinName: 'character1',
+      renderer: 'layered',
+      sources: sources({ poolRenderer: ['layered-wall.wav'] }),
+    });
+    assert.equal(layeredIndex.events.wall, 'layered-wall.wav');
+    assert.equal(layeredIndex.origin.wall, 'pool-renderer');
+
+    const webmIndex = buildSfxIndex({
+      model: '',
+      renderer: 'webm',
+      sources: sources({ poolRenderer: ['webm-click.wav'] }),
+    });
+    assert.equal(webmIndex.events.click, 'webm-click.wav');
+  });
+
+  test('第 4 级：全局音效无前缀优先；带前缀多份时取排序第一并告警一次', () => {
+    const warnings: string[] = [];
+    const index = buildSfxIndex({
+      model: '',
+      renderer: 'webm',
+      sources: sources({ poolGlobal: ['bbb-click.wav', 'aaa-click.wav', 'pet.wav', 'zzz-pet.wav'] }),
+      warn: (message) => warnings.push(message),
+    });
+    assert.equal(index.events.click, 'aaa-click.wav', '无前缀的没有，带前缀的按文件名排序取第一');
+    assert.equal(index.events.pet, 'pet.wav', '无前缀压过任何带前缀的');
+    assert.equal(index.origin.click, 'pool-global');
+    assert.equal(warnings.length, 1, '只有一个槽出现多份候选，只告警一次');
+    assert.match(warnings[0], /click/);
+  });
+
+  test('池整体优先于旧皮肤目录与用户共享目录', () => {
+    const index = buildSfxIndex({
+      model: 'beiluoye',
+      poolSkinName: 'beiluoye',
+      renderer: 'layered',
+      sources: sources({
+        bySkin: { beiluoye: ['click.wav'] },
+        poolGlobal: ['click.wav'],
+        user: ['floor.wav'],
+      }),
+    });
+    assert.equal(index.origin.click, 'pool-global', '池全局的裸 click 压过旧皮肤目录里的同名文件');
+    assert.equal(index.events.floor, 'floor.wav', '池没有 floor 时才用用户共享');
+    assert.equal(index.origin.floor, 'user');
+  });
+
+  test('bump 兜底：池的具体槽已填时不被池里/旧目录的 bump 覆盖', () => {
+    const index = buildSfxIndex({
+      model: '',
+      renderer: 'webm',
+      sources: sources({ poolGlobal: ['floor.wav', 'bump.wav'], sound: ['wall.wav'] }),
+    });
+    assert.equal(index.events.floor, 'floor.wav', '同层内具体槽压过 bump');
+    assert.equal(index.events.wall, 'bump.wav', 'bump 填掉剩下的碰撞槽');
+    assert.equal(index.events.ceiling, 'bump.wav');
+  });
+
+  test('hook：池资源目录 / 渲染兜底 / 池全局都能命中', () => {
+    const index = buildSfxIndex({
+      model: 'character1',
+      poolSkinName: 'character1',
+      renderer: 'layered',
+      sources: sources({
+        poolGlobal: ['hook-global.wav'],
+        poolRenderer: ['layered-hook-render.wav'],
+        poolSkin: ['character1-hook-skin.wav'],
+      }),
+    });
+    assert.equal(index.hooks.skin, 'character1-hook-skin.wav');
+    assert.equal(index.hooks.render, 'layered-hook-render.wav');
+    assert.equal(index.hooks.global, 'hook-global.wav');
+  });
+});

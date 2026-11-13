@@ -22,6 +22,7 @@ import { handleOpenFolderRoutes } from './open-folder.ts';
 import { handlePlaybackRoutes } from './playback.ts';
 import { handlePluginRestart } from './plugin-restart.ts';
 import { handleSessionRoutes } from './session.ts';
+import { handleSessionFishRoutes } from './session-fish.ts';
 import { handleSfxRoutes } from './sfx.ts';
 import { handleSoundRoutes } from './sound.ts';
 import { handleStateRoutes } from './state.ts';
@@ -37,6 +38,7 @@ const HANDLERS: readonly RouteHandler[] = [
   handleMenuRoutes,
   handleStateRoutes,
   handleSessionRoutes,
+  handleSessionFishRoutes,
   handleBalanceRoutes,
   handleInteractionRoutes,
   handleMotionRoutes,

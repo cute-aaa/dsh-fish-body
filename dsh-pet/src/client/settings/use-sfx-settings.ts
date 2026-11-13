@@ -14,7 +14,17 @@ import { resolveSfx } from '../../shared/sfx/resolve.ts';
 import { SFX_EVENT_SLOTS, SFX_HOOK_NAME_RE, BUILTIN_HOOKS } from '../../shared/sfx/types.ts';
 import type { MainConfigPatch } from './config/index.ts';
 import type { SettingsRuntime } from './runtime.ts';
-import type { Pet, SfxConfig, SfxCue, SfxEventSlot, SfxIndex, SfxOrigin } from '../../shared/types.ts';
+import type {
+  Pet,
+  RendererKind,
+  SfxConfig,
+  SfxCue,
+  SfxEventSlot,
+  SfxIndex,
+  SfxOrigin,
+  SfxSuggestion,
+} from '../../shared/types.ts';
+import type { FolderTarget } from '../../shared/folders.ts';
 
 /** 一行槽位的展示数据。 */
 export interface SfxSlotView {
@@ -22,10 +32,16 @@ export interface SfxSlotView {
   readonly slot: SfxEventSlot;
   /** 生效文件名；空串 = 这一槽不响。 */
   readonly file: string;
-  /** 文件从哪来（皮肤 / 声音目录 / 动画同目录 / 用户 / 内置默认 / 配置覆盖）。 */
+  /** 文件从哪来（池 / 皮肤 / 声音目录 / 动画同目录 / 用户 / 内置默认 / 配置覆盖）。 */
   readonly origin: SfxOrigin | 'none';
   /** 当前是否出声。 */
   readonly enabled: boolean;
+  /** 实际命中的绝对路径（宿主回查；缺省 = 没算出来，只展示文件名）。 */
+  readonly path?: string;
+  /** 未命中池时「建议放这里」的位置（设置页的第二行就是它）。 */
+  readonly suggestion?: SfxSuggestion;
+  /** 「打开文件夹」该打开哪一类目录（命中按真实来源，未命中按建议落点）。 */
+  readonly which: FolderTarget;
 }
 
 /** 一个自定义 hook 的展示数据。 */
@@ -40,6 +56,10 @@ export interface SfxHookView {
   readonly declared: boolean;
   /** 是否是内置 hook 点（两端自己在固定时机触发，不需要外部调用）。 */
   readonly builtin: boolean;
+  /** 实际命中的绝对路径（宿主回查）。 */
+  readonly path?: string;
+  /** 「打开文件夹」该打开哪一类目录。 */
+  readonly which: FolderTarget;
 }
 
 /** 音效分区的状态与回调。 */
@@ -122,6 +142,55 @@ function currentPet(): Pet | undefined {
   return petBridge.current[0];
 }
 
+/** 该渲染方式的池资源目录类别。 */
+function poolWhich(renderer: RendererKind): FolderTarget {
+  if (renderer === 'layered') return 'pool-layered';
+  if (renderer === 'live2d') return 'pool-live2d';
+  return 'pool-webm';
+}
+
+/**
+ * 一行「打开文件夹」该开哪里。
+ *
+ * 优先级：命中池 → 池对应层；命中旧布局 → 那一层的真实目录；只剩内置默认/配置覆盖 →
+ * 宿主的建议落点（没有建议时退到池资源目录）。点按钮的人想知道「这个文件在哪、我要往哪放」，
+ * 所以命中时开真实目录，未命中时开建议目录。
+ *
+ * @param origin - 生效文件的来源。
+ * @param suggestion - 宿主的建议落点（只有未命中池时才有）。
+ * @param renderer - 当前渲染方式。
+ * @returns 目录类别。
+ */
+function whichOf(
+  origin: SfxOrigin | 'none',
+  suggestion: SfxSuggestion | undefined,
+  renderer: RendererKind,
+): FolderTarget {
+  switch (origin) {
+    case 'pool-skin':
+      return poolWhich(renderer);
+    case 'pool-renderer':
+      return renderer === 'webm' ? 'pool-webm' : 'pool-sound';
+    case 'pool-global':
+      return 'pool-global-sound';
+    case 'skin':
+      return 'skin';
+    case 'sound':
+      return 'sound';
+    case 'animation':
+      return 'animation';
+    case 'user':
+      return 'user';
+    default:
+      return suggestion?.which ?? poolWhich(renderer);
+  }
+}
+
+/** 渲染方式的兜底（老配置没有这个键）。 */
+function rendererOf(pet: Pet | undefined): RendererKind {
+  return pet?.renderer ?? 'webm';
+}
+
 /**
  * 管理音效分区。
  *
@@ -157,13 +226,20 @@ export function useSfxSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCallba
 
   const config = withEdits(base, edits);
   const plan = resolveSfx({ index, layers: [config], lane: 'web' });
+  const renderer = rendererOf(currentPet());
   const slots: SfxSlotView[] = SFX_EVENT_SLOTS.map((slot) => {
     const cue = plan.slot(slot);
+    const path = index?.paths?.[slot];
+    const suggestion = index?.suggestions?.[slot];
+    const origin = cue?.origin ?? 'none';
     return {
       enabled: cue !== null,
       file: cue?.file ?? '',
-      origin: cue?.origin ?? 'none',
+      origin,
       slot,
+      which: whichOf(origin, suggestion, renderer),
+      ...(path === undefined ? {} : { path }),
+      ...(suggestion === undefined ? {} : { suggestion }),
     };
   });
   const builtin = new Set(BUILTIN_HOOKS);
@@ -176,12 +252,16 @@ export function useSfxSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCallba
   ];
   const hooks: SfxHookView[] = hookNames.map((name) => {
     const cue = plan.hook(name);
+    const path = index?.hookPaths?.[name];
+    const origin = cue?.origin ?? 'none';
     return {
       builtin: builtin.has(name),
       declared: (config.hooks ?? {})[name] !== undefined,
       file: cue?.file ?? '',
       name,
-      origin: cue?.origin ?? 'none',
+      origin,
+      which: whichOf(origin, undefined, renderer),
+      ...(path === undefined ? {} : { path }),
     };
   });
 

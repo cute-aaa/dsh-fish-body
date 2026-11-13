@@ -132,6 +132,7 @@ export const pt: Record<Key, string> = {
   todosFile: 'Dados de tarefas (texto, prazo e estado de conclusão; apagar equivale a limpar tudo)',
   animationDir: 'Pasta de animações (adicione ou personalize animações aqui)',
   memesDir: 'Pasta de memes (adicione ou personalize imagens aqui)',
+  poolDir: 'Pasta do pool de recursos (skins / modelos / animações / sons compartilhados)',
   logFile: 'Arquivo de log (para diagnóstico; pode ser limpo)',
   logFileNote:
     'O app desktop do DSH não tem console, então todo log de execução do plugin (inicialização, travamentos e reinícios do pet, erros e avisos) vai para este único arquivo — anexe-o ao relatar um problema. Limite de 1 MB por arquivo; ao encher, só os 512 KB mais recentes são mantidos.',
@@ -189,6 +190,10 @@ export const pt: Record<Key, string> = {
   sfxOriginDefault: 'interno',
   sfxOriginConfig: 'configuracao',
   sfxOriginNone: 'sem correspondencia',
+  sfxOriginPoolSkin: 'pool · recurso',
+  sfxOriginPoolRenderer: 'pool · renderer',
+  sfxOriginPoolGlobal: 'pool · global',
+  sfxWhereToPut: 'Coloque o arquivo aqui: {path}',
   sfxHooksTitle: 'Hooks proprios',
   sfxHooksHint:
     'Registre um nome aqui e dispare com POST /sfx/<nome>?pet=<id>; o arquivo e encontrado pela regra de nomes, sem editar configuracao.',

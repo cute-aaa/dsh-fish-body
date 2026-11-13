@@ -68,6 +68,8 @@ function getMeta(deps: PetRouteDeps): RouteResult {
     default: join(PACKAGE_ROOT, 'assets', 'config.jsonc'),
     animations: thumbUserRoot,
     memes: memesUserRoot,
+    // 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）：设置页只展示，不参与任何推导。
+    pool: deps.poolRoot(),
     // 待办数据文件：一份用户级数据（不分宠物），路径与宿主建库时用的是同一个文件名常量。
     todos: join(userRoot, TODO_FILE_NAME),
     // 统一日志出口（就是上面那个 logger 的 file：三种模式都落在 $DSH_HOME/dsh-pet/logs.txt）：

@@ -240,15 +240,50 @@ export type SfxLane = 'web' | 'desktop';
 /** cue 的生效面；缺省 both（与加 lane 之前的行为一致）。 */
 export type SfxCueLane = 'both' | SfxLane;
 
-/** 自动匹配到某个文件的来源，供设置页展示与排障。 */
-export type SfxOrigin = 'skin' | 'sound' | 'animation' | 'user' | 'package-default' | 'config';
+/**
+ * 自动匹配到某个文件的来源，供设置页展示与排障。
+ *
+ * `pool-*` 三个是共享资源池（`<用户根>/skin/`）的三层：资源目录内（文件名级/目录名级）、
+ * 该渲染方式的兜底音效、池的全局音效；其余五个是旧布局与包内默认。
+ */
+export type SfxOrigin =
+  | 'pool-skin'
+  | 'pool-renderer'
+  | 'pool-global'
+  | 'skin'
+  | 'sound'
+  | 'animation'
+  | 'user'
+  | 'package-default'
+  | 'config';
 
 /**
  * 设置页「打开素材文件夹」能打开哪几类目录。
  *
  * 只给类别名，不给路径：宿主按素材根与皮肤算出真实目录，设置页不拼路径。
+ * `pool-*` 五个指向共享资源池，其余五个是旧布局与包内默认。
  */
-export type SfxFolderTarget = 'sound' | 'skin' | 'animation' | 'user' | 'package';
+export type SfxFolderTarget =
+  | 'sound'
+  | 'skin'
+  | 'animation'
+  | 'user'
+  | 'package'
+  | 'pool-layered'
+  | 'pool-live2d'
+  | 'pool-webm'
+  | 'pool-sound'
+  | 'pool-global-sound';
+
+/** 「建议放这里」：未命中池时告诉用户该把文件放到哪个池目录。 */
+export interface SfxSuggestion {
+  /** 对应的「打开素材文件夹」类别。 */
+  which: SfxFolderTarget;
+  /** 建议的相对路径（posix 分隔符，相对用户根，如 `skin/layered/character1/character1-click.wav`）。 */
+  relative: string;
+  /** 建议位置的绝对路径（设置页「打开文件夹」用它）。 */
+  absolute: string;
+}
 
 /**
  * 一条音效定义（config.jsonc 的 sfx 段里每个槽位/动画名/hook 的值）。
@@ -297,6 +332,12 @@ export interface SfxIndex {
   hooks: Record<string, string>;
   /** 槽位 → 文件从哪来（排障与设置页标签）。 */
   origin: Partial<Record<SfxEventSlot, SfxOrigin>>;
+  /** 槽位 → 实际命中的绝对路径（宿主算好；设置页只展示，不解析路径）。 */
+  paths?: Partial<Record<SfxEventSlot, string>>;
+  /** hook 名 → 实际命中的绝对路径。 */
+  hookPaths?: Record<string, string>;
+  /** 槽位 → 未命中池时的「建议放这里」。 */
+  suggestions?: Partial<Record<SfxEventSlot, SfxSuggestion>>;
 }
 
 /** 生效中的一条 cue：可选值已补齐，`file` 已确定。 */
@@ -311,6 +352,38 @@ export interface ResolvedSfxCue {
   /** 动作音重复间隔；`null` = 不重复。 */
   everyMs: number | null;
   origin: SfxOrigin;
+}
+
+/**
+ * 共享资源池的配置段（`assets`，只读 main 条目）。
+ *
+ * 池是「这台机器上的共享素材库」：所有条目共用一份，所以只认 main 那一份配置。
+ */
+export interface AssetsConfig {
+  /** 池根：相对用户根（默认 `skin`）或绝对路径；空串/非法即回落默认。 */
+  pool?: string;
+}
+
+/**
+ * 池里扫出来的一个资源（宿主内部与清单接口共用）。
+ *
+ * `id` 就是 `pets[].model` 该写的值：layered 是目录名，live2d 是 `.model3.json` 的相对路径。
+ */
+export interface PoolEntry {
+  /** 资源 id（`model` 写什么）。 */
+  id: string;
+  /** 这种资源属于哪种渲染方式。 */
+  renderer: RendererKind;
+  /** 来源恒为池（旧皮肤由别处给出 `pack`）。 */
+  source: 'pool';
+}
+
+/** 模型/皮肤清单的一项：带来源，供设置页标注「池 / pack」。 */
+export interface PoolEntryItem {
+  /** 皮肤 id 或 `.model3.json` 的相对路径。 */
+  id: string;
+  /** 这份素材在旧布局（pack）里，还是在池里。 */
+  source: 'pack' | 'pool';
 }
 
 /** config.jsonc 全集——运行时直接使用。 */
@@ -353,4 +426,6 @@ export interface ClientConfig {
   chatModel: ModelSelection;
   /** 事件刷新周期（秒）：事件名 → 间隔；balance = 余额数据刷新与动画触发间隔 */
   eventsRefreshSec: Record<string, number>;
+  /** 共享资源池的根（全局，只读 main 条目；缺省 `skin`）。 */
+  assets?: AssetsConfig;
 }

@@ -12,6 +12,7 @@ import { slotFileStem } from '../../shared/sfx/names.ts';
 import { SFX_HOOK_NAME_RE } from '../../shared/sfx/types.ts';
 import { tooltipPlacement } from '../../shared/tooltip.ts';
 import { openAssetFolder } from './open-folder.ts';
+import { makeFolderButton } from './folder-button.ts';
 import type { SfxEventSlot, SfxFolderTarget } from '../../shared/types.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import type { SfxHookView, SfxSettings, SfxSlotView } from './use-sfx-settings.ts';
@@ -53,6 +54,9 @@ const SLOT_LABEL: Record<SfxEventSlot, string> = {
 
 /** 来源 → 文案键。 */
 const ORIGIN_LABEL: Record<SfxSlotView['origin'], string> = {
+  'pool-skin': 'sfxOriginPoolSkin',
+  'pool-renderer': 'sfxOriginPoolRenderer',
+  'pool-global': 'sfxOriginPoolGlobal',
   skin: 'sfxOriginSkin',
   sound: 'sfxOriginSound',
   animation: 'sfxOriginAnimation',
@@ -71,6 +75,8 @@ const ORIGIN_LABEL: Record<SfxSlotView['origin'], string> = {
 export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps> {
   const { h, t, useState, useEffect, useRef } = rt;
   const { q } = makeUiKit({ h, t });
+  // 每行一个「打开文件夹」：类别由行自己的来源/建议落点决定（use-sfx-settings 算好）。
+  const FolderButton = makeFolderButton(rt);
 
   return function SfxCard(props: SfxCardProps) {
     const { busy, sfx } = props;
@@ -209,10 +215,32 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
             ],
           });
 
-    /** 槽位行：开关与试听在上，来源与命名规则在下（小字）。 */
+    /** 槽位行：开关与试听在上，来源 + 实际路径 / 建议落点与命名规则在下（小字）。 */
     const slotRow = (view: SfxSlotView) => {
       const label = t(SLOT_LABEL[view.slot] as Parameters<typeof t>[0]);
       const source = t(ORIGIN_LABEL[view.origin] as Parameters<typeof t>[0]);
+      // 第二行：命中就给宿主回查到的绝对路径（排障最有用），没命中池就给「建议放这里」；
+      // 无论命中与否都跟一个「打开文件夹」，打开的是这条音效真正该在的那一类目录。
+      const where = h('span', {
+        key: 'where',
+        className: 'dsh-pet-cfg__sfxFile',
+        children: [
+          view.path !== undefined
+            ? h('code', {
+                key: 'path',
+                className: 'dsh-pet-cfg__sfxPattern',
+                title: view.path,
+                children: view.path,
+              })
+            : view.suggestion === undefined
+              ? null
+              : h('span', {
+                  key: 'suggest',
+                  children: t('sfxWhereToPut').replace('{path}', view.suggestion.relative),
+                }),
+          h(FolderButton, { key: 'open', which: view.which, disabled: busy }),
+        ],
+      });
       return h('div', {
         key: view.slot,
         className: 'dsh-pet-cfg__sfxRow',
@@ -255,6 +283,7 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
                 className: 'dsh-pet-cfg__sfxFile',
                 children: `${source}：${view.file === '' ? t('sfxNone') : view.file}`,
               }),
+              where,
               h('code', {
                 key: 'p',
                 className: 'dsh-pet-cfg__sfxPattern',
@@ -308,6 +337,15 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
                 className: 'dsh-pet-cfg__sfxFile',
                 children: `${source}：${view.file === '' ? t('sfxNone') : view.file}`,
               }),
+              view.path === undefined
+                ? null
+                : h('code', {
+                    key: 'path',
+                    className: 'dsh-pet-cfg__sfxPattern',
+                    title: view.path,
+                    children: view.path,
+                  }),
+              h(FolderButton, { key: 'open', which: view.which, disabled: busy }),
               // 内置点：两端口自己会在固定时机触发，不需要外部 POST；缺文件时它只是安静。
               view.builtin
                 ? h('span', { key: 'b', className: 'dsh-pet-cfg__sfxPattern', children: t('sfxHookBuiltinTag') })

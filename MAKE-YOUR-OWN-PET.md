@@ -84,12 +84,54 @@ npm publish --tag latest   # prepack 自动执行构建（完整产物 + 收敛 
 - client 端按运行时判断播放扩展名：macOS WebKit（Safari/WKWebView）自动用 `.mov`，其余用 `.webm`
 - 需要 Safari/HEVC 版（macOS）：mov 素材官方发布在 GitHub Release `assets-mov`，下载解压进 `main-animation/mov/` 即可
 
+## 素材放哪儿：pack 与共享资源池
+
+两条路都能用，**旧布局零迁移**：
+
+```
+<用户根>/                               # 例如 D:\NodeJs\DSH_home\dsh-pet\
+├─ pet/                                 # 【旧】按 pack 分：一个 pack 一套素材
+│  ├─ main-skin/character1/…            #   皮肤 / 模型（layered / live2d）
+│  ├─ main-animation/webm/…             #   动画
+│  └─ main-sound/…                      #   音效
+├─ main-sound/                          # 【旧】用户级全局音效
+└─ skin/                                # 【新】共享资源池：放一份，所有宠物都能用
+   ├─ layered/character1/{manifest.json, art/…, character1-click.wav}
+   ├─ live2d/model1/xx.model3.json + xx-click.wav
+   ├─ webm/movie1.webm + webm-click.wav
+   └─ sound/click.wav + common-drag.wav
+```
+
+- 池根由用户配置的 `assets.pool` 决定（默认 `skin`，可写绝对路径），见 `CONFIG.md` 的「资源池」。
+- **分工约定：`pet/<素材根>-*` = 随 pack 走的内置素材，`skin/` = 用户自己的素材。**
+  换言之「这只宠物自带的那一套」放 `pet/`（安装、升级、迁移都跟着它走），
+  「我自己补的皮肤 / 模型 / 动画 / 音效」放 `skin/`（一份所有宠物共用，升级不覆盖、删了不影响别的）。
+  宿主对 `pets[].model` 的解析是**先 pack 后池**，所以内置的那套永远优先，用户池只做补充与替换的落点。
+- 目录骨架不用手建：插件启动时会把 `<用户根>`、`main-animation/webm|mov`、`memes/` 与池的
+  `layered / live2d / webm / sound`（含各自的 `sound/` 兜底目录）建好，设置页「打开文件夹」点开就是它们。
+- `pets[].model` 写 `character1` / `model1/xx.model3.json` 这样就行：宿主**先 pack 后池**——
+  `pet/<素材根>-skin/<model>/` 存在就用它，缺失才回落到池里的同名资源。
+- 动画同理：先 `pet/<素材根>-animation/webm/`，再 `skin/webm/`，最后 `main-animation/webm/` 与包内素材。
+- 右键「模型 / 皮肤」子菜单里，池里的条目会标「（池）」，一眼看出它来自哪。
+- 想把旧布局搬进池：仓库里跑 `node dsh-pet/scripts/migrate-pool.mjs`（干跑，只打印清单），
+  确认后加 `--apply` 复制；**只搬不删**，旧布局照常可用。
+
 ## 音效
 
 音效不用写清单：把音频放到下面任意一处，宿主按**文件名**自动匹配事件与动画，匹配不到的事件槽用包内内置默认。
 
 ```
-pet/<素材根>-skin/<皮肤>/click.wav      # 主推：皮肤自带（目录即身份，不需要前缀）
+# 共享资源池（推荐；一份素材所有宠物共用，池根 = assets.pool，默认 <用户根>/skin）
+skin/layered/<皮肤>/<皮肤>-click.wav     # 资源目录：目录名前缀（结构文件基名前缀也认）
+skin/layered/<皮肤>/xxx-drag.wav         #           结构文件叫 xxx.json 时用它的基名
+skin/live2d/<模型目录>/xx-click.wav      #           模型基名前缀（也认 <模型目录>-click.wav）
+skin/layered/sound/layered-click.wav     # 该渲染方式的兜底
+skin/webm/webm-click.wav                 # webm 的兜底（平铺目录，也认 skin/webm/sound/webm-click.wav）
+skin/sound/click.wav                     # 全局：无前缀优先
+skin/sound/common-drag.wav               # 全局：任意前缀次之
+
+# 旧布局（原样保留，不用搬）
+pet/<素材根>-skin/<皮肤>/click.wav      # 皮肤自带（目录即身份，不需要前缀）
 pet/<素材根>-skin/<皮肤>/写代码.wav      #           动作音：基名 = 动画 / 动作 / gesture 名
 pet/<素材根>-sound/click.wav            # 该素材根所有皮肤共用
 pet/<素材根>-sound/<皮肤>-click.wav      # 同一目录管多套皮肤时的兼容写法
@@ -98,26 +140,28 @@ pet/<素材根>-animation/写代码.wav        # 便捷写法：动作音与动�
 <用户根>/main-sound/click.wav           # 用户共享（仅 main 链）
 ```
 
-| 文件名 | 何时响 |
-|---|---|
-| `click` / `throw` | 点击、甩出（**拖拽成立不出声**：它和随后的点击/甩出只差几十毫秒，两条音叠在一起像破音） |
-| `floor` / `wall` / `ceiling` / `pet` | 落地、撞墙、撞顶、宠物互撞（响度随撞击速度） |
-| `bump` | 上面四个碰撞槽的兜底（没有具体文件时才用） |
-| `sleep-start` / `sleep-end`（或 `sleepStart`） | 入睡、醒来 |
-| `hook-<名字>` | 自定义 hook，`POST /dsh-pet-7340/sfx/<名字>?pet=<id>` 触发 |
-| `<动画名>` | 该动画 / 动作 / layered 命中区手势播放时（可在配置里加 `at` 偏移与 `everyMs` 重复） |
+| 文件名                                         | 何时响                                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `click` / `throw`                              | 点击、甩出（**拖拽成立不出声**：它和随后的点击/甩出只差几十毫秒，两条音叠在一起像破音） |
+| `floor` / `wall` / `ceiling` / `pet`           | 落地、撞墙、撞顶、宠物互撞（响度随撞击速度）                                            |
+| `bump`                                         | 上面四个碰撞槽的兜底（没有具体文件时才用）                                              |
+| `sleep-start` / `sleep-end`（或 `sleepStart`） | 入睡、醒来                                                                              |
+| `hook-<名字>`                                  | 自定义 hook，`POST /dsh-pet-7340/sfx/<名字>?pet=<id>` 触发                              |
+| `<动画名>`                                     | 该动画 / 动作 / layered 命中区手势播放时（可在配置里加 `at` 偏移与 `everyMs` 重复）     |
 
 内置 hook 点（两端自己在固定时机触发，不需要外部调用；同样没有默认音，放了文件才响）：
 
-| 文件名 | 何时响 |
-|---|---|
-| `hook-drag` | 拖拽成立那一下（拖拽本身没有事件音效：它和随后的点击/甩出叠在一起像破音） |
-| `hook-whisper` | 碎碎念出现（气泡弹出时，与动画是否联动无关） |
-| `hook-chat-open` | 对话窗每次新打开 |
+| 文件名           | 何时响                                                                    |
+| ---------------- | ------------------------------------------------------------------------- |
+| `hook-drag`      | 拖拽成立那一下（拖拽本身没有事件音效：它和随后的点击/甩出叠在一起像破音） |
+| `hook-whisper`   | 碎碎念出现（气泡弹出时，与动画是否联动无关）                              |
+| `hook-chat-open` | 对话窗每次新打开                                                          |
 
 要更多触发点就自己用 `POST /dsh-pet-7340/sfx/<名字>?pet=<id>` 打点：名字先写进 `sfx.hooks` 或用上面的 `hook-` 文件名约定。
 
-优先级（高 → 低）：皮肤目录 → `-sound/` 带皮肤前缀 → `-sound/` 不带前缀 → 动画同目录 → 用户共享 → 包内 `assets/sound/`。
+优先级（高 → 低）：池资源目录 → 池渲染方式兜底 → 池全局音效 → 旧皮肤目录 → `-sound/` 带皮肤前缀 →
+`-sound/` 不带前缀 → 动画同目录 → 用户共享 → 包内 `assets/sound/` → 内置默认。
+也就是说：**新放的东西先响**（池永远在旧布局之前），但「用哪套皮肤」仍是先 pack 后池。
 格式优先 `.wav`（44.1kHz / 16bit / 单声道、攻击段压在 t=0），也认 `.ogg .mp3 .m4a`；单个文件建议 < 1MB。
 要压音量、关掉某个槽或给动画绑时间线，写在 `config.jsonc` 的 `sfx` 段（见 `CONFIG.md`）。
 设置页的「音效」分区逐个列出生效文件与命名规则，可以开关与试听；hook 在那里填个名字就能登记（等价于往 `sfx.hooks` 加一条空 cue），不用手改配置。

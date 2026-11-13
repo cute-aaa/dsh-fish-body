@@ -12,6 +12,7 @@ import type { ConfigPaths } from './constants.ts';
 import { effectiveUserFile, readJsonc } from './jsonc.ts';
 import { mergeEntry, packBase } from './merge.ts';
 import { migrateLegacySfxKeys } from './sfx.ts';
+import { POOL_ASSET_ROOT } from '../../shared/pool.ts';
 
 /**
  * 老用户一次性迁移：main-config.json → main-config.jsonc（重命名，内容一字不动）。
@@ -44,12 +45,22 @@ function scanPetFiles(petDir: string): PetFileEntry[] {
   } catch {
     return []; // pet/ 目录不存在 = 无文件宠物
   }
-  return entries
-    .filter((e) => e.isFile())
-    .map((e) => e.name)
-    .filter((name) => /^.+?-config\.(json|jsonc)$/.test(name))
-    .sort()
-    .map((name) => ({ prefix: name.replace(/-config\.(json|jsonc)$/, ''), path: join(petDir, name) }));
+  return (
+    entries
+      .filter((e) => e.isFile())
+      .map((e) => e.name)
+      .filter((name) => /^.+?-config\.(json|jsonc)$/.test(name))
+      // 保留字：`pool` 是共享资源池在 URL / 配置里的虚拟素材根，不能同时当 pack 名
+      // （`pet/pool-skin/` 与池根 `<用户根>/skin/` 的语义会互相顶掉）。整条条目跳过 + 告警一次。
+      .filter((name) => {
+        const prefix = name.replace(/-config\.(json|jsonc)$/, '');
+        if (prefix !== POOL_ASSET_ROOT) return true;
+        warnOnce('entry:pool', 'pet/' + name + ' 与资源池的保留字 pool 冲突，已跳过该条目（请换个文件名前缀）');
+        return false;
+      })
+      .sort()
+      .map((name) => ({ prefix: name.replace(/-config\.(json|jsonc)$/, ''), path: join(petDir, name) }))
+  );
 }
 
 /**

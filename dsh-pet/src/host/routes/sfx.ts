@@ -10,6 +10,7 @@ import { readAllConfig } from '../config.ts';
 import { buildSfxIndex } from '../sfx/index-build.ts';
 import { readSfxSources, skinIdOfModel } from '../sfx/scan.ts';
 import { SFX_HOOK_NAME_RE } from '../../shared/sfx/types.ts';
+import type { RendererKind } from '../../shared/types.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import type { RouteResult } from '../http.ts';
 import { failResult, methodNotAllowed, okResult } from './result.ts';
@@ -35,9 +36,18 @@ export async function handleSfxRoutes(deps: PetRouteDeps, input: RouteInput): Pr
     const declared = hook in ((who.conf.sfx as { hooks?: Record<string, unknown> } | undefined)?.hooks ?? {});
     let discovered = false;
     if (!declared) {
-      // 素材根 = 条目 key（与 /thumb、/sound 同一口径）。
-      const sources = readSfxSources(soundDirsFor(who.entry, '.webm'));
-      const index = buildSfxIndex({ model: skinIdOfModel(String(who.pet.model ?? '')), sources });
+      // 素材根 = 条目 key（与 /thumb、/sound 同一口径）；池三层按该宠物的渲染方式与皮肤定位。
+      const renderer = String(who.pet.renderer ?? 'webm') as RendererKind;
+      const model = String(who.pet.model ?? '');
+      const dirs = soundDirsFor(who.entry, '.webm', { model, renderer });
+      const sources = readSfxSources(dirs);
+      const index = buildSfxIndex({
+        model: skinIdOfModel(model),
+        poolSkinName: dirs.poolSkinName,
+        poolSkinStructures: dirs.poolSkinStructures,
+        renderer,
+        sources,
+      });
       discovered = index.hooks[hook] !== undefined;
     }
     if (!declared && !discovered) {

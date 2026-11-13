@@ -1,22 +1,35 @@
 /**
  * 静态素材：/font、/pic（含表情包链）、/sound、/cubism、/skin、/thumb 的取文件与路径守卫。
  *
- * 不决定素材归属，只按给定目录链查找。
+ * 不决定素材归属，只按给定目录链查找。素材根写 `pool` 时表示「共享资源池」（保留虚拟根）：
+ * /sound /skin /thumb 各自把池目录当成唯一候选，其它素材根则按「先 pack 后池」依次回落。
  * 依赖（PetRouteDeps）显式传入，模块内不读全局、不建状态。
  * @module dsh-pet/src/host/routes/assets
  */
 import { join } from 'node:path';
 import { PACKAGE_ROOT } from '../paths.ts';
 import { MIME, resolveAsset, resolveExisting } from '../http.ts';
-import { isValidPetId } from '../config.ts';
+import { isValidPetId, RENDERER_SET } from '../config.ts';
 import { SFX_AUDIO_EXTS } from '../../shared/sfx/types.ts';
 import { isValidModelPath, skinIdOfModel } from '../sfx/scan.ts';
 import { LAYERED_MANIFEST_PATHS, layeredBaseOf } from '../../shared/layered-paths.ts';
 import { isModelSettingsFile, mergeModelExtras } from '../model-extras.ts';
 import { petAvatarFile } from '../pet-avatar.ts';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { POOL_ASSET_ROOT, POOL_LAYER_DIR } from '../../shared/pool.ts';
+import { createPoolReader } from '../pool/scan.ts';
+import { soundCandidateDirs } from '../sfx/order.ts';
+import type { PoolEntryItem, RendererKind } from '../../shared/types.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import type { RouteResult } from '../http.ts';
+
+/** 池里当皮肤根用的两个目录（`layered` / `live2d`），顺序即探测顺序。 */
+const POOL_SKIN_LAYERS: ReadonlyArray<'layered' | 'live2d'> = ['layered', 'live2d'];
+
+/** 判断一个 URL 段是不是池里的渲染方式目录名。 */
+function poolLayerOf(segment: string): 'layered' | 'live2d' | undefined {
+  return (POOL_SKIN_LAYERS as readonly string[]).includes(segment) ? (segment as 'layered' | 'live2d') : undefined;
+}
 
 /** 递归列出皮肤目录下全部 `.model3.json`（相对路径，posix 分隔符，排序稳定）。 */
 function listModel3(dir: string): string[] {
@@ -61,14 +74,42 @@ function listSkinDirs(dir: string): string[] {
   return out;
 }
 
+/**
+ * 把「旧布局的 id」与「池里的 id」合成一份带来源的清单。
+ *
+ * 旧布局在前、池在后（与 `pets[].model` 的「先 pack 后池」一致），同名只留旧布局那一份——
+ * 否则设置页会列出两个一模一样的名字，选哪个都说不清。
+ *
+ * @param packIds - 旧布局的皮肤 id / 模型相对路径。
+ * @param poolIds - 池里的资源 id。
+ * @returns 去重后的 `{id, source}` 列表。
+ */
+function mergeEntryItems(packIds: readonly string[], poolIds: readonly string[]): PoolEntryItem[] {
+  const out: PoolEntryItem[] = [];
+  const seen = new Set<string>();
+  for (const id of packIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, source: 'pack' });
+  }
+  for (const id of poolIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, source: 'pool' });
+  }
+  return out;
+}
+
 /** 静态素材领域：未命中返回 undefined，命中返回应答。 */
 export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
-  const { assetRootFor, memeDirsFor, petConfigDir, soundDirsFor, userRootFor } = deps;
+  const { assetRootFor, memeDirsFor, petConfigDir, poolRoot, soundDirsFor, userRootFor } = deps;
   const { rest, url } = input;
+  // 池根可能缺失（老调用方 / 精简测试桩）：空串 = 没有池，整条池分支静默跳过。
+  const poolBase = typeof poolRoot === 'function' ? poolRoot() : '';
 
   // 动画素材：/thumb/<素材根>/<file>，扩展名 webm（默认）/ mov（macOS 定制）。
-  // 存在 `pet/<素材根>-animation/` 的宠物只查自己的目录，查不到即 404，绝不混用；
-  // 否则走主素材链：用户 main-animation/<ext> 优先 → 包内 assets/<ext>（所有主配置宠物共用）。
+  // 存在 `pet/<素材根>-animation/` 的宠物先查自己的目录，再查共享资源池（`<池>/webm/`），
+  // 仍未命中才走主素材链：用户 main-animation/<ext> → 包内 assets/<ext>（所有主配置宠物共用）。
   // mov（HEVC-with-Alpha）不随包发布，用户从 GitHub Release 下载后放 main-animation/mov/，
   // 并把客户端播放常量 ANIMATION_EXT 改为 .mov。
   // font / pic 是扁平的 /<scope>/<file>，只有 thumb 是 /<scope>/<petId>/<file>：先拆 scope 再各自拆剩余段。
@@ -105,7 +146,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   // 通知图标：/pic/<file> → 包内 assets/pic（方形 png，系统通知 icon 用）。
   // 表情包：/pic/memes/<素材根>/<名称>.png → 按素材根走 memeDirsFor 的目录链，与 /thumb 同一套
   // 归属语义；名称含中文，URL 段已在上方解码。旧的两段形式 /pic/memes/<名称>.png 保留，
-  // 等价于素材根 main 的目录链。
+  // 等价于素材根 main 的目录链。表情包不参与资源池：池只放皮肤 / 模型 / 动画 / 音效。
   if (scope === 'pic') {
     if (restParts[0] === 'memes') {
       const segs = restParts.slice(1);
@@ -134,10 +175,12 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   }
 
   // 音效：两种形式并存。
-  //   /sound/<素材根>/<file>：按该素材根的音效搜索链取文件（皮肤目录 → -sound → 用户共享 → 动画同目录
-  //     → 包内默认），顺序与 host/sfx/index-build 一致，否则索引指名的文件在这里取不到。
+  //   /sound/<素材根>/<file>：按该素材根的音效搜索链取文件（池资源目录 → 池渲染兜底 → 池全局
+  //     → 旧皮肤目录 → -sound → 用户共享 → 动画同目录 → 包内默认），顺序与 host/sfx/order 完全同一份，
+  //     否则索引指名的文件在这里取不到。
   //   /sound/<file>：旧形式，等价于素材根 main 的包内默认目录——只为兼容已存在的地址。
-  // ?model= 决定先查哪套皮肤的目录（layered 皮肤名 / live2d 模型所在目录），缺省只看不带皮肤的那几层。
+  // ?model= 决定先查哪套皮肤的目录（layered 皮肤名 / live2d 模型所在目录），缺省只看不带皮肤的那几层；
+  // ?renderer= 决定池的哪一层参与（缺省 webm）。
   if (scope === 'sound') {
     const scoped = restParts.length >= 2;
     const assetRoot = scoped ? restParts[0] : 'main';
@@ -145,17 +188,12 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     const rel = (scoped ? restParts.slice(1) : restParts).join('/');
     const rawModel = (url.searchParams.get('model') ?? '').trim();
     if (!isValidModelPath(rawModel)) return { kind: 'text', status: 400, body: 'dsh-pet: invalid model path' };
-    const model = skinIdOfModel(rawModel);
-    const dirs = soundDirsFor(assetRoot, '.webm');
-    const candidates: string[] = [];
-    if (dirs.skinDir !== undefined && model !== '') candidates.push(join(dirs.skinDir, model));
-    if (dirs.skinDir !== undefined) candidates.push(dirs.skinDir);
-    if (dirs.soundDir !== undefined) candidates.push(dirs.soundDir);
-    if (dirs.userSoundDir !== undefined) candidates.push(dirs.userSoundDir);
-    candidates.push(...dirs.animationDirs);
-    candidates.push(dirs.packageSoundDir);
+    const rawRenderer = url.searchParams.get('renderer') ?? 'webm';
+    if (!RENDERER_SET.has(rawRenderer)) return { kind: 'text', status: 400, body: 'dsh-pet: unknown renderer' };
+    const renderer = rawRenderer as RendererKind;
+    const dirs = soundDirsFor(assetRoot, '.webm', { model: rawModel, renderer });
     let soundFile: string | undefined;
-    for (const dir of candidates) {
+    for (const dir of soundCandidateDirs(dirs, skinIdOfModel(rawModel))) {
       soundFile = resolveExisting(dir, rel);
       if (soundFile !== undefined) break;
     }
@@ -192,7 +230,9 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   }
 
   // 分层 / live2d 皮肤：/skin/<素材根>/<file> → pet/<素材根>-skin/（manifest.json + art/*.png / .moc3 / 纹理）。
-  // 与 /thumb 同一套归属语义：skin 目录只查自己的目录，绝不回落主素材池；素材根含分隔符/保留字符即 400。
+  // 素材根写 `pool`（保留虚拟根）时只查共享资源池：`/skin/pool/<渲染方式>/<file>` 指定桶，
+  // `/skin/pool/<file>` 依次试 layered → live2d。普通素材根先查自己的目录，缺失再回落到池（先 pack 后池）。
+  // 路径一律过 resolveExisting（规范化后必须留在根内），素材根含分隔符/保留字符即 400。
   if (scope === 'skin') {
     const [assetRoot, ...nameParts] = restParts;
     if (!assetRoot || nameParts.length === 0) {
@@ -201,21 +241,53 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     if (!isValidPetId(assetRoot)) {
       return { kind: 'text', status: 400, body: 'dsh-pet: invalid skin asset root' };
     }
-    const rel = nameParts.join('/');
-    const skinDir = resolveAsset(petConfigDir, assetRoot + '-skin');
-    // /skin/<root>/models：列出皮肤目录里全部 .model3.json（相对路径，供 live2d 右键「模型」切换）。
-    if (nameParts.length === 1 && nameParts[0] === 'models') {
-      const models = skinDir !== undefined && existsSync(skinDir) ? listModel3(skinDir) : [];
-      return { kind: 'json', status: 200, obj: { models } };
+    const fromPool = assetRoot === POOL_ASSET_ROOT;
+    // 池视图没有池根就直接 404（虚拟根靠池存在才有意义）；精简测试桩没有 poolRoot 时同样跳过池分支。
+    if (fromPool && poolBase === '') return { kind: 'text', status: 404, body: 'dsh-pet: skin file not found' };
+    const pool = poolBase === '' ? undefined : createPoolReader(poolBase).scan();
+    const packSkinDir = fromPool ? undefined : resolveAsset(petConfigDir, assetRoot + '-skin');
+    const packDir = packSkinDir !== undefined && existsSync(packSkinDir) ? packSkinDir : undefined;
+
+    // 池视图的候选根：显式给了渲染方式桶就只查那一桶，否则 layered → live2d 依次试。
+    const bucket = fromPool && nameParts.length > 1 ? poolLayerOf(nameParts[0]) : undefined;
+    const poolRoots =
+      pool === undefined
+        ? []
+        : bucket === undefined
+          ? POOL_SKIN_LAYERS.map((layer) => join(pool.root, POOL_LAYER_DIR[layer]))
+          : [join(pool.root, POOL_LAYER_DIR[bucket])];
+    const relParts = bucket === undefined ? nameParts : nameParts.slice(1);
+    const rel = relParts.join('/');
+
+    // /skin/<root>/models：列出全部 .model3.json（相对路径，供 live2d 右键「模型」切换）。
+    // 普通素材根 = 旧皮肤目录 ∪ 池；池视图只有池。`items` 带来源，老调用方仍读 `models`。
+    if (relParts.length === 1 && relParts[0] === 'models') {
+      const packIds = packDir === undefined ? [] : listModel3(packDir);
+      const poolIds = pool === undefined ? [] : pool.live2d.map((entry) => entry.id);
+      return {
+        kind: 'json',
+        status: 200,
+        obj: { items: mergeEntryItems(packIds, poolIds), models: [...packIds, ...poolIds] },
+      };
     }
     // /skin/<root>/skins：列出可切换的分层皮肤（清单所在子目录名，根布局为空串），
     // 供 layered 右键「皮肤」切换（pets[].model 写这里的值）。根布局与子目录布局都认，
     // 见 shared/layered-paths——一处布局变了，这条列表跟着变，别在两端各写一套扫描。
-    if (nameParts.length === 1 && nameParts[0] === 'skins') {
-      const skins = skinDir !== undefined && existsSync(skinDir) ? listSkinDirs(skinDir) : [];
-      return { kind: 'json', status: 200, obj: { skins } };
+    if (relParts.length === 1 && relParts[0] === 'skins') {
+      const packIds = packDir === undefined ? [] : listSkinDirs(packDir);
+      const poolIds = pool === undefined ? [] : pool.layered.map((entry) => entry.id);
+      return {
+        kind: 'json',
+        status: 200,
+        obj: { items: mergeEntryItems(packIds, poolIds), skins: [...packIds, ...poolIds] },
+      };
     }
-    const skinFile = skinDir === undefined ? undefined : resolveExisting(skinDir, rel);
+
+    let skinFile: string | undefined;
+    for (const root of [...(packDir === undefined ? [] : [packDir]), ...poolRoots]) {
+      skinFile = resolveExisting(root, rel);
+      if (skinFile !== undefined) break;
+    }
     if (skinFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: skin file not found' };
     // 模型清单：补上目录里现成的 Animation 动作与 Exp3 表情（见 host/model-extras）。
     // 只改下发的这一份，磁盘上的用户文件保持原样；解析失败就按原文件走，不额外编个错误页。
@@ -258,17 +330,28 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     return { kind: 'text', status: 400, body: 'dsh-pet: unsupported animation format (expected .webm or .mov)' };
   }
 
-  // 素材归属：存在 `pet/<素材根>-animation/` 只查自己目录（唯一例外：mov 缺失时退回同名 webm），
-  // 否则走主素材链。extraAnimDir 必须先过 resolveAsset：petId 是解码后的 URL 段，Windows 上 %5C
-  // 解出的反斜杠不会被 split('/') 切开，直接 join 会让 `..\..\x` 逃出用户根读盘。
-  const extraAnimDir = resolveAsset(petConfigDir, petId + '-animation');
+  // 素材归属：`pet/<素材根>-animation/` 存在则先查它；随后查共享资源池的平铺动画（`<池>/webm/`）；
+  // 仍未命中走主素材链（用户根 → 包内根）。extraAnimDir 必须先过 resolveAsset：petId 是解码后的 URL 段，
+  // Windows 上 %5C 解出的反斜杠不会被 split('/') 切开，直接 join 会让 `..\..\x` 逃出用户根读盘。
+  // 素材根写 `pool` 时只查池（虚拟根没有 pack）。
+  const fromPool = petId === POOL_ASSET_ROOT;
+  const poolDir = poolBase === '' ? undefined : join(poolBase, POOL_LAYER_DIR.webm);
+  const extraAnimDir = fromPool ? undefined : resolveAsset(petConfigDir, petId + '-animation');
 
-  /** 按扩展名查同名素材（专属目录优先；否则用户根 → 包内根） */
+  /** 按扩展名查同名素材（专属目录 → 池 → 用户根 → 包内根） */
   const findAnim = (e: string): string | undefined => {
     const name = fileName.replace(/\.(webm|mov)$/i, '') + e;
-    return extraAnimDir !== undefined && existsSync(extraAnimDir)
-      ? resolveExisting(extraAnimDir, name)
-      : (resolveExisting(userRootFor(e), name) ?? resolveExisting(assetRootFor(e), name));
+    const candidates: string[] = [];
+    if (extraAnimDir !== undefined && existsSync(extraAnimDir)) candidates.push(extraAnimDir);
+    if (poolDir !== undefined) candidates.push(poolDir);
+    if (!fromPool && typeof userRootFor === 'function' && typeof assetRootFor === 'function') {
+      candidates.push(userRootFor(e), assetRootFor(e));
+    }
+    for (const dir of candidates) {
+      const hit = resolveExisting(dir, name);
+      if (hit !== undefined) return hit;
+    }
+    return undefined;
   };
 
   let file = findAnim(ext);

@@ -179,6 +179,19 @@ export function petSizesValid(value: unknown): boolean {
   return true;
 }
 
+/**
+ * `assets` 段校验：对象；`pool` 缺省（= 默认 `<用户根>/skin`）或非空字符串。
+ *
+ * 池根允许绝对路径，所以这里不限制分隔符与字符集——真正的路径守卫生成在 host/pool/resolve
+ * （每个相对片段都过 insideRoot）。未知子键忽略（与 sfx 同口径：不因为多写一个键整段失效）。
+ */
+export function assetsValid(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const pool = (value as Record<string, unknown>).pool;
+  if (pool === undefined || pool === null) return true;
+  return typeof pool === 'string' && pool.trim() !== '';
+}
+
 /** 顶层标量字段的合法性（非法与缺失同处理：取默认值 + 告警） */
 export function topFieldValid(key: string, value: unknown): boolean {
   switch (key) {
@@ -263,6 +276,9 @@ export function topFieldValid(key: string, value: unknown): boolean {
       return modelSelectionValid(value);
     case 'workStatusTexts':
       return workStatusTextsValid(value);
+    case 'assets':
+      // 共享资源池的根（`assets.pool`）：字符串、非空；缺省即默认 `<用户根>/skin`。
+      return assetsValid(value);
     case 'sleepRefuseTexts':
     case 'sleepStartTexts':
     case 'sleepEndTexts': {

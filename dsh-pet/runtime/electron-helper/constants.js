@@ -155,18 +155,23 @@ const STATE_WAIT_MS = 1000;
 const WINDOW_MARGIN_RATIO = 0.5;
 
 /**
- * 音效素材地址：`/sound/<素材根>/<文件>`，带 model 时宿主先查该皮肤目录。
+ * 音效素材地址：`/sound/<素材根>/<文件>?renderer=&model=`。
  *
  * 与网页端 `client/pet/sfx.ts` 的 sfxUrl 同一口径；两处只差前缀常量，改动时一起改。
+ * renderer 必带：池的资源目录是 `<池>/<渲染方式>/<皮肤>/`，缺了它宿主按 webm 找，
+ * layered 皮肤在池里的音效会「索引里有名字、播放时 404」。
  *
  * @param {string} root - 素材根（= 条目 key）。
  * @param {string} file - 文件名。
  * @param {string} model - 皮肤/模型选择（可空）。
+ * @param {string} renderer - 渲染方式（`layered` / `live2d` / `webm`；可空 = webm）。
  * @returns {string} 可直接播放的地址。
  */
-function soundUrlOf(root, file, model) {
+function soundUrlOf(root, file, model, renderer) {
   const base = BASE + '/sound/' + encodeURIComponent(root) + '/' + encodeURIComponent(file);
-  return model ? base + '?model=' + encodeURIComponent(model) : base;
+  const query = ['renderer=' + encodeURIComponent(renderer || 'webm')];
+  if (model) query.push('model=' + encodeURIComponent(model));
+  return base + '?' + query.join('&');
 }
 
 const rootEl = document.getElementById('root');

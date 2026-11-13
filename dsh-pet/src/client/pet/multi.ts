@@ -52,6 +52,7 @@ import { setMenuItems } from '../menu-service.ts';
 import { setStateSnapshot } from '../state-service.ts';
 import { jumpToSession, notifyFromFrame } from '../notify.ts';
 import { speakWorkStatus } from '../voice-notify.ts';
+import { ownsSessionFishSpeech, readSessionFish } from '../../shared/session-fish.ts';
 import { STATE_FALLBACK_MS, STATE_WAIT_MS } from './timings.ts';
 
 /**
@@ -226,7 +227,7 @@ export function createPetMulti(
         jumpToSession(cue.sessionId);
       };
       /** 分段叶子 → 消费端副作用；不认识的名字已被 resolveLeafPath 挡在外面。 */
-      const applySection = (name: SectionLeafName, leaf: StateLeaf): void => {
+      const applySection = (name: SectionLeafName, leaf: StateLeaf, state: PollState): void => {
         switch (name) {
           case 'config':
             // 配置被别处改过（唯一写方是 POST /pet-display），重新拉取并拍平。
@@ -244,7 +245,12 @@ export function createPetMulti(
               setWorkStatus(snap);
               setWorkStatusTick((t) => t + 1); // 任何变化都触发，含回到空闲。
               // 工作状态播报：与系统通知同级、同样只在网页端出声；不写 say 叶子。
-              speakWorkStatus(snap);
+              // 会话鱼接管时跳过：两边都念「等你确认 / 完成」会互相打断（气泡与动画不受影响）。
+              // 判据取自**同一拍**的 sessionFish 叶子——两条数据同源同拍，不存在先后竞态；
+              // 会话鱼语音总开关关掉时 `ownsSessionFishSpeech` 为 false，旧播报自动恢复。
+              const fishLeaf = state.sections.sessionFish;
+              const fish = fishLeaf?.data == null ? null : readSessionFish(fishLeaf.data);
+              if (!ownsSessionFishSpeech(fish)) speakWorkStatus(snap);
             }
             return;
           }
@@ -354,7 +360,7 @@ export function createPetMulti(
           const target = resolveLeafPath(path);
           // 不认识的路径（新增的叶子、别处写坏的键）静默跳过。
           if (target === null) continue;
-          if (target.where === 'section') applySection(target.name, leaf);
+          if (target.where === 'section') applySection(target.name, leaf, s);
           else applyPetLeaf(target.name, target.petId, leaf);
         }
       };

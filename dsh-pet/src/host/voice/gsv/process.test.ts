@@ -23,7 +23,10 @@ function scriptFile(name: string, content: string): string {
 }
 
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  // Windows 上后台 powershell 可能还开着脚本文件一小会儿：rmSync 带重试，别把清理竞态报成用例失败。
+  for (const root of roots.splice(0)) {
+    rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
+  }
 });
 
 test('启动：没填脚本 → 拒绝并说明', () => {

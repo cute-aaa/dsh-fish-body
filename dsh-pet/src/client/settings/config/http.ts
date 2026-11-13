@@ -16,6 +16,8 @@ export interface ConfigMeta {
   animations: string;
   /** 用户表情包目录（加图不必改包）。 */
   memes?: string;
+  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）。 */
+  pool?: string;
   /** 待办数据文件（一份用户级数据，不分宠物）。 */
   todos?: string;
   /** 统一日志文件；桌面版没控制台，排障只看它。 */

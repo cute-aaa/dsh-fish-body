@@ -16,7 +16,7 @@ import { captureDisplayFrame } from '../../../shared/chat/capture.ts';
 import { displayOfHotkey } from '../../../shared/display-hotkey.ts';
 import { SLEEP_HOTKEY_HINT, isSleepHotkey } from '../../../shared/sleep-hotkey.ts';
 import { TODO_HOTKEY_HINT, isTodoHotkey } from '../../../shared/todo/hotkey.ts';
-import type { PetDisplay, RendererKind } from '../../../shared/types.ts';
+import type { PetDisplay, PoolEntryItem, RendererKind } from '../../../shared/types.ts';
 import { bindOpenChat } from './open-chat.ts';
 import { playPetHook } from '../sfx.ts';
 import { registerPetChatHandle } from './registry.ts';
@@ -48,6 +48,25 @@ import type { Drag } from '../motion/drag.ts';
 import type { MenuActions } from '../menu-actions.ts';
 import type { RuntimePet } from '../types.ts';
 import type * as ReactNS from 'react';
+
+/**
+ * 读清单接口的 `items`（来源标注）：宿主给了就用，老版本宿主没有这一段时回退成空数组。
+ *
+ * @param raw - 响应体里的 `items` 原值。
+ * @returns 合法的 `{id, source}` 列表。
+ */
+function readEntryItems(raw: unknown): PoolEntryItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PoolEntryItem[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const entry = item as { id?: unknown; source?: unknown };
+    if (typeof entry.id !== 'string') continue;
+    if (entry.source !== 'pack' && entry.source !== 'pool') continue;
+    out.push({ id: entry.id, source: entry.source });
+  }
+  return out;
+}
 
 /** 注入的 react 能力。 */
 export interface CardEntryRuntime {
@@ -120,6 +139,9 @@ export function createCardEntry(rt: CardEntryRuntime) {
     const modelsRef = useRef<string[]>([]);
     // layered 可切换的皮肤 id（根布局为空串）：右键「皮肤」子菜单用它，同样挂载时拉一次。
     const skinsRef = useRef<string[]>([]);
+    // 上面两份清单的来源（pack / pool）：菜单里给池资源标「（池）」，与清单一起拉。
+    const skinItemsRef = useRef<PoolEntryItem[]>([]);
+    const modelItemsRef = useRef<PoolEntryItem[]>([]);
     // 这只宠物实际有素材的后端：右键「渲染方式」子菜单拿它把缺素材的项置灰，挂载时探一次。
     const availableRef = useRef<readonly RendererKind[]>(['webm']);
     // 第三方语音实现的可切音色快照（/voice/voices 的 providers 段）：右键「音色」用它，挂载时拉一次。
@@ -141,23 +163,27 @@ export function createCardEntry(rt: CardEntryRuntime) {
       ).then((hits) => hits.some(Boolean));
       const probeModels = fetch(dir + '/models')
         .then((r) => (r.ok ? r.json() : null))
-        .then((b: { models?: unknown } | null) =>
-          b && Array.isArray(b.models) ? b.models.filter((m): m is string => typeof m === 'string') : [],
-        )
-        .catch((): string[] => []);
+        .then((b: { models?: unknown; items?: unknown } | null) => ({
+          items: readEntryItems(b?.items),
+          models: b && Array.isArray(b.models) ? b.models.filter((m): m is string => typeof m === 'string') : [],
+        }))
+        .catch(() => ({ items: [] as PoolEntryItem[], models: [] as string[] }));
       const probeSkins = fetch(dir + '/skins')
         .then((r) => (r.ok ? r.json() : null))
-        .then((b: { skins?: unknown } | null) =>
-          b && Array.isArray(b.skins) ? b.skins.filter((s): s is string => typeof s === 'string') : [],
-        )
-        .catch((): string[] => []);
+        .then((b: { skins?: unknown; items?: unknown } | null) => ({
+          items: readEntryItems(b?.items),
+          skins: b && Array.isArray(b.skins) ? b.skins.filter((s): s is string => typeof s === 'string') : [],
+        }))
+        .catch(() => ({ items: [] as PoolEntryItem[], skins: [] as string[] }));
       void Promise.all([probeSkin, probeModels, probeSkins]).then(([hasSkin, models, skins]) => {
         if (!alive) return;
-        modelsRef.current = [...models];
-        skinsRef.current = [...skins];
+        modelsRef.current = [...models.models];
+        modelItemsRef.current = [...models.items];
+        skinsRef.current = [...skins.skins];
+        skinItemsRef.current = [...skins.items];
         const kinds: RendererKind[] = ['webm'];
         if (hasSkin) kinds.push('layered');
-        if (models.length > 0) kinds.push('live2d');
+        if (models.models.length > 0) kinds.push('live2d');
         availableRef.current = kinds;
       });
       return () => {
@@ -436,9 +462,9 @@ export function createCardEntry(rt: CardEntryRuntime) {
       const rendererNow = cfgRef.current.renderer ?? 'webm';
       const picker =
         rendererNow === 'layered'
-          ? skinMenuBranch(skinsRef.current, cfgRef.current.model)
+          ? skinMenuBranch(skinsRef.current, cfgRef.current.model, skinItemsRef.current)
           : rendererNow === 'live2d'
-            ? modelMenuBranch(modelsRef.current, cfgRef.current.model)
+            ? modelMenuBranch(modelsRef.current, cfgRef.current.model, modelItemsRef.current)
             : null;
       // 外观：live2d 的 Expressions（单片眼镜、尾巴开关…），可同时挂多个，打勾表示当前挂着它
       const accessory = accessoryMenuBranch(

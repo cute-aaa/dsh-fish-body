@@ -35,6 +35,7 @@ const meta: ConfigMeta = {
   default: 'D:/p/assets/config.jsonc',
   animations: 'D:/u/animations',
   memes: 'D:/u/memes',
+  pool: 'D:/u/skin',
   logs: 'D:/u/pet.log',
   profile: 'default',
   storage: [
@@ -116,11 +117,27 @@ describe('paths-cards —— 折叠卡', () => {
 });
 
 describe('paths-cards —— 内容不因折叠而变', () => {
-  test('高级配置列出五条路径与日志说明', () => {
+  test('高级配置列出六条路径与日志说明', () => {
     const tree = make(false).ConfigMetaCard({ paths: meta });
     const rows = flatten(tree).filter((node) => String(node.props?.className ?? '').includes('dsh-pet-cfg__path'));
-    assert.equal(rows.length, 5);
+    assert.equal(rows.length, 6);
     assert.ok(flatten(tree).some((node) => node.props?.className === 'dsh-pet-cfg__note'));
+  });
+
+  test('目录类路径各配一个「打开文件夹」按钮（全局类别，不需要宠物）', () => {
+    const tree = make(false).ConfigMetaCard({ paths: meta });
+    const targets = flatten(tree)
+      .map((node) => node.props?.which)
+      .filter((which): which is string => typeof which === 'string')
+      .sort();
+    assert.deepEqual(targets, ['animations', 'memes', 'pool-root']);
+  });
+
+  test('文件类路径（配置文件 / 待办 / 日志）不配打开按钮', () => {
+    const tree = make(false).ConfigMetaCard({ paths: meta });
+    const rows = flatten(tree).filter((node) => String(node.props?.className ?? '').includes('dsh-pet-cfg__path'));
+    const withButton = rows.filter((row) => flatten(row.props?.children).some((n) => n.props?.which !== undefined));
+    assert.equal(withButton.length, 3, '只有动画 / 表情包 / 池根三条带按钮');
   });
 
   test('卸载与存储：两条路径、卸载命令与三步说明', () => {

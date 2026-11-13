@@ -153,6 +153,7 @@ describe('插件宿主半边在独立模式下跑起来了', () => {
       'focusSession',
       'menu',
       'notify',
+      'sessionFish',
       'workStatus',
     ]);
     assert.equal(body.sections.balance?.counter, 0);

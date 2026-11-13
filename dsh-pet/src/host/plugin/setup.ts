@@ -7,22 +7,36 @@
  * @module dsh-pet/src/host/plugin/setup
  */
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { listBalanceProviders, registerBalanceProvider } from '../balance/index.ts';
 import { listVoiceProviders, registerVoiceProvider } from '../voice/registry.ts';
 import { listSpeechProviders, registerSpeechProvider } from '../voice/speech-registry.ts';
 import { listChatMemoryProviders, registerChatMemoryProvider } from '../chat-memory-provider.ts';
 import { listPersonaSources, registerPersonaSource } from '../persona-source/registry.ts';
-import { migrateUserConfig, type ConfigPaths } from '../config.ts';
+import { migrateUserConfig, readAllConfig, type ConfigPaths } from '../config.ts';
+import { ensureUserLayout } from '../layout.ts';
 import { createFileLogger, isFileLogger, setDefaultLogger, type FileLogger, type LoggerLike } from '../log-file.ts';
 import { MenuRegistry } from '../menu.ts';
 import { animSubdirFor, PACKAGE_MEMES_DIR, PACKAGE_ROOT, PACKAGE_SOUND_DIR } from '../paths.ts';
+import { isReservedAssetRoot } from '../../shared/pool.ts';
+import {
+  poolEntryDir,
+  poolGlobalSoundDir,
+  poolLayerDir,
+  poolRendererSoundDir,
+  resolvePoolRoot,
+} from '../pool/resolve.ts';
+import { poolStructureBaseOf } from '../pool/scan.ts';
+import type { RendererKind } from '../../shared/types.ts';
 import type { SfxDirs } from '../sfx/scan.ts';
 import { PlaybackStore } from '../playback.ts';
 import { resolveAsset } from '../http.ts';
 import { PollStateStore } from '../state.ts';
 import { WorkStatusStore } from '../work-status.ts';
+import { SessionFishStore } from '../session-fish/store.ts';
+import { fishSkinDirs, fishSkinUserDir, type FishSkinDirs } from '../session-fish/skins.ts';
+import { SessionFishSettingsStore, sessionFishSettingsPath } from '../session-fish/settings.ts';
 import type { StandaloneWhisperPolicy } from '../whisper-policy.ts';
 
 /** 装配期需要的宿主上下文：只有 logger / effect / provide 三处能力。 */
@@ -61,10 +75,18 @@ export interface HostSetup {
   readonly memesUserRoot: string;
   /** 表情包目录链 */
   readonly memeDirsFor: (assetRoot: string) => string[];
-  /** 音效搜索目录（皮肤根 / -sound / 用户共享 / 包内默认 / 动画同目录），见 host/sfx/scan。 */
-  readonly soundDirsFor: (assetRoot: string, ext: string) => SfxDirs;
+  /** 音效搜索目录（池三层 / 皮肤根 / -sound / 用户共享 / 动画同目录 / 包内默认），见 host/sfx/scan。 */
+  readonly soundDirsFor: (
+    assetRoot: string,
+    ext: string,
+    opts?: { renderer?: RendererKind; model?: string },
+  ) => SfxDirs;
   /** 用户级共享音效目录（`<用户根>/main-sound`）。 */
   readonly soundUserRoot: string;
+  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）；每次调用现读配置。 */
+  readonly poolRoot: () => string;
+  /** 会话鱼的皮肤池目录（用户目录 + 包内动画）。 */
+  readonly fishSkinDirs: () => FishSkinDirs;
   /** 软取宿主可选服务 */
   readonly optionalService: (name: string) => unknown;
   /** 独立模式的碎碎念授权策略 */
@@ -79,6 +101,10 @@ export interface HostSetup {
   readonly playback: PlaybackStore;
   /** 工作状态快照 */
   readonly workStatus: WorkStatusStore;
+  /** 会话鱼状态机 */
+  readonly sessionFish: SessionFishStore;
+  /** 会话鱼设置（独立 session-fish.json） */
+  readonly sessionFishSettings: SessionFishSettingsStore;
   /** 外部写入的固定会话 id */
   readonly EXTERNAL_WORK_SESSION: string;
   /** 推进外部写入序号 */
@@ -190,27 +216,87 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
   const soundUserRoot = join(userRoot, 'main-sound');
 
   /**
-   * 音效搜索目录，与服务端的素材归属同一套语义，但**不独占**：
-   * 音效是叠加的（皮肤自带 > 素材根 > 用户共享 > 包内默认），少一处文件就往下落，
-   * 所以这里把所有可能的位置一次给全，由 host/sfx/index-build 按优先级取第一个命中。
-   * 三个 pet/<素材根>-* 目录都先过 resolveAsset：素材根来自 URL 段，不能拼出用户根之外的路径。
+   * 共享资源池的根：`assets.pool`（相对用户根或绝对路径），默认 `<用户根>/skin`。
+   *
+   * 每次都现读配置：池根是用户随时会改的环境参数，装配期只算一次会让改完配置要重启。
+   * 读配置失败按默认处理——池是可选布局，配错不该让宿主报错。
    */
-  const soundDirsFor = (assetRoot: string, ext: string): SfxDirs => {
+  const poolRootOf = (): string => {
+    try {
+      return resolvePoolRoot(userRoot, readAllConfig(configPaths).main?.assets);
+    } catch {
+      return resolvePoolRoot(userRoot, undefined);
+    }
+  };
+
+  // 初始化的目录结构：高级配置里列出的那几个目录 + 池的约定目录，启动时就建出来。
+  // 这样「打开文件夹」永远不用先问「要不要创建」，用户也不必先去文档里抄目录名。
+  // 失败只记一行日志：数据根在只读盘上时插件本身照常跑。
+  const layout = ensureUserLayout({
+    animations: thumbUserRoot,
+    memes: memesUserRoot,
+    poolRoot: poolRootOf(),
+    fishSkin: fishSkinUserDir(userRoot),
+    userRoot,
+  });
+  if (layout.created.length > 0) {
+    log.info('[dsh-pet] 已初始化目录：' + layout.created.join('、'));
+  }
+  for (const item of layout.failed) {
+    log.info('[dsh-pet] 目录创建失败（' + item.dir + '）：' + item.error);
+  }
+
+  /**
+   * 音效搜索目录，与服务端的素材归属同一套语义，但**不独占**：
+   * 音效是叠加的（池资源目录 > 池渲染兜底 > 池全局 > 皮肤自带 > 素材根 > 用户共享 > 包内默认），
+   * 少一处文件就往下落，所以这里把所有可能的位置一次给全，由 host/sfx/index-build 按优先级取第一个命中。
+   *
+   * `opts.renderer/model` 决定池的三层指向哪个目录：池是共享的，同一份清单必须按「渲染方式 + 皮肤」定位，
+   * 否则切了皮肤还在响上一套。旧布局的三处先过 resolveAsset：素材根来自 URL 段，不能拼出用户根之外的路径。
+   * `assetRoot = 'pool'`（保留虚拟根）时只给池目录——旧布局挂在 pack 名下，虚拟根没有 pack。
+   */
+  const soundDirsFor = (
+    assetRoot: string,
+    ext: string,
+    opts?: { renderer?: RendererKind; model?: string },
+  ): SfxDirs => {
     const sub = animSubdirFor(ext);
-    const ownSkin = resolveAsset(petConfigDir, assetRoot + '-skin');
-    const ownSound = resolveAsset(petConfigDir, assetRoot + '-sound');
-    const ownAnimation = resolveAsset(petConfigDir, assetRoot + '-animation');
+    const renderer = opts?.renderer ?? 'webm';
+    const model = opts?.model ?? '';
+    const poolRoot = poolRootOf();
+    const fromPool = isReservedAssetRoot(assetRoot);
+
+    const ownSkin = fromPool ? undefined : resolveAsset(petConfigDir, assetRoot + '-skin');
+    const ownSound = fromPool ? undefined : resolveAsset(petConfigDir, assetRoot + '-sound');
+    const ownAnimation = fromPool ? undefined : resolveAsset(petConfigDir, assetRoot + '-animation');
+    const poolWebmDir = poolLayerDir(poolRoot, 'webm');
+    const poolSkinDir = poolEntryDir(poolRoot, renderer, model);
+    const structureBase = poolSkinDir === undefined ? undefined : poolStructureBaseOf(poolSkinDir);
+
     return {
       ...(ownSkin === undefined ? {} : { skinDir: ownSkin }),
       ...(ownSound === undefined ? {} : { soundDir: ownSound }),
       // 用户共享目录只给 main 系：pet pack 是整套素材，混用会让别人的音效串到它头上。
-      ...(assetRoot === 'main' ? { userSoundDir: soundUserRoot } : {}),
+      ...(fromPool || assetRoot !== 'main' ? {} : { userSoundDir: soundUserRoot }),
       packageSoundDir: PACKAGE_SOUND_DIR,
-      animationDirs: [
-        ...(ownAnimation === undefined ? [] : [ownAnimation]),
-        join(thumbUserRoot, sub),
-        join(PACKAGE_ROOT, 'assets', sub),
-      ],
+      animationDirs: fromPool
+        ? [poolWebmDir, join(thumbUserRoot, sub), join(PACKAGE_ROOT, 'assets', sub)]
+        : [
+            ...(ownAnimation === undefined ? [] : [ownAnimation]),
+            join(thumbUserRoot, sub),
+            join(PACKAGE_ROOT, 'assets', sub),
+          ],
+      poolGlobalSoundDir: poolGlobalSoundDir(poolRoot),
+      poolRendererSoundDir: poolRendererSoundDir(poolRoot, renderer),
+      ...(renderer === 'webm' ? { poolWebmDir } : {}),
+      poolSkinLayerDir: poolLayerDir(poolRoot, renderer),
+      ...(poolSkinDir === undefined
+        ? {}
+        : {
+            poolSkinDir,
+            poolSkinName: basename(poolSkinDir),
+            poolSkinStructures: structureBase === undefined ? [] : [structureBase],
+          }),
     };
   };
 
@@ -264,6 +350,13 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
   // 进程内内存态：重启回空闲；每次会话事件有实际状态变化才更新。
   const workStatus = new WorkStatusStore();
 
+  // 会话鱼：设置独立落盘（session-fish.json，见 ../session-fish/settings），状态机只读设置 getter，
+  // 因此设置页保存后下一次事件就用新值，不必重建 store。
+  const sessionFishSettings = new SessionFishSettingsStore(sessionFishSettingsPath(userRoot), (message) =>
+    log.info(message),
+  );
+  const sessionFish = new SessionFishStore({ settings: () => sessionFishSettings.get() });
+
   /** 外部写入槽：固定会话 id，最后写入者生效；不做多写者仲裁/租约/会话管理 */
   const EXTERNAL_WORK_SESSION = 'api';
 
@@ -283,6 +376,8 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     memeDirsFor,
     soundDirsFor,
     soundUserRoot,
+    poolRoot: poolRootOf,
+    fishSkinDirs: () => fishSkinDirs(userRoot),
     optionalService,
     standaloneAiPolicy,
     standaloneAiBalance,
@@ -290,6 +385,8 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     menuRegistry,
     playback,
     workStatus,
+    sessionFish,
+    sessionFishSettings,
     EXTERNAL_WORK_SESSION,
     nextExternalWorkSeq,
   };

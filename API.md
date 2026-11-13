@@ -22,10 +22,10 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 ## 二、占用锁
 
-| 接口                                   | 功能                                                                                                               |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 接口                                   | 功能                                                                                                                                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /dsh-pet-7340/lock?pet=`         | **占用锁**：联动演出期间独占这只宠物（除持锁者外全静音）；取锁会先把它叫醒，占用期间不能再睡下；`lockId` 给了=续期、没给=新建，回 `lockId` + `expiresAt` |
-| `POST /dsh-pet-7340/lock/release?pet=` | **释放占用**：`lockId`=持锁者收工 / `force`=用户接管（渲染端上报，第三方不用调）                                   |
+| `POST /dsh-pet-7340/lock/release?pet=` | **释放占用**：`lockId`=持锁者收工 / `force`=用户接管（渲染端上报，第三方不用调）                                                                         |
 
 **锁占用期间，桌宠完全静止**：它自己不动、也不弹气泡——余额、碎碎念、工作状态这些全都让路。
 
@@ -42,16 +42,16 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 ## 三、让它说话（气泡）
 
-| 接口                                   | 功能                                                                                                                                                                                                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /dsh-pet-7340/whisper?pet=`      | 让桌宠**生成**一句碎碎念（走当前模型）；响应带 `text`（配图时另有 `image`），同时照旧写进气泡                                                                                                                                                            |
-| `POST /dsh-pet-7340/broadcast?pet=`    | **第三方投喂**（需锁）：把外部给定的文本写进气泡（不生成，只搬运）；配图（`image` 池内名 / `url` 自带地址）、时长、动画联动、是否念（`speak`，缺省不念）可选                                                                                             |
-| `POST /dsh-pet-7340/bubble/clear?pet=` | **清空气泡**（需锁）：提前收起说话气泡（只动气泡，不动动画）                                                                                                                                                                                             |
+| 接口                                   | 功能                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /dsh-pet-7340/whisper?pet=`      | 让桌宠**生成**一句碎碎念（走当前模型）；响应带 `text`（配图时另有 `image`），同时照旧写进气泡                                                                                                                                                                                                                                               |
+| `POST /dsh-pet-7340/broadcast?pet=`    | **第三方投喂**（需锁）：把外部给定的文本写进气泡（不生成，只搬运）；配图（`image` 池内名 / `url` 自带地址）、时长、动画联动、是否念（`speak`，缺省不念）可选                                                                                                                                                                                |
+| `POST /dsh-pet-7340/bubble/clear?pet=` | **清空气泡**（需锁）：提前收起说话气泡（只动气泡，不动动画）                                                                                                                                                                                                                                                                                |
 | `POST /dsh-pet-7340/chat?pet=`         | 对桌宠说一句话并生成回复，同时写入对话记忆；响应带 `text`（配图时另有 `image`），同时照旧写进气泡。可选 `attachment`（`mediaType` + base64）随本轮送一张图：图片**记进记忆**（存附件引用，不存本体），但只影响这一轮、不进气泡；不传时行为与旧版逐字一致。配置 `chatAnimationEnabled` 时回复可带 `[动作:名称]`，采纳后与 `/anim` 同链路点播 |
-| `DELETE /dsh-pet-7340/chat?pet=`       | **删除对话记忆**：带 `?ts=`（可重复，取自 `GET /chat` 的 `messages[].ts`）只删这些轮——一轮两条共享 `ts`，成对删；不带 `ts` 清空整只。响应 `{ ok: true, removed }`，删空后不留空对象                                                                      |
-| `GET /dsh-pet-7340/chat/memory`        | 列出**已删宠物**残留的对话历史（宠物删了但历史还在，`GET /chat` 读不到）；只给条数与最后时间                                                                                                                                                             |
-| `DELETE /dsh-pet-7340/chat/memory`     | 一次清空这些残留历史                                                                                                                                                                                                                                     |
-| `POST /dsh-pet-7340/balance`           | 立即刷新一次余额（可见效果同样是弹气泡 + 档位动画）                                                                                                                                                                                                      |
+| `DELETE /dsh-pet-7340/chat?pet=`       | **删除对话记忆**：带 `?ts=`（可重复，取自 `GET /chat` 的 `messages[].ts`）只删这些轮——一轮两条共享 `ts`，成对删；不带 `ts` 清空整只。响应 `{ ok: true, removed }`，删空后不留空对象                                                                                                                                                         |
+| `GET /dsh-pet-7340/chat/memory`        | 列出**已删宠物**残留的对话历史（宠物删了但历史还在，`GET /chat` 读不到）；只给条数与最后时间                                                                                                                                                                                                                                                |
+| `DELETE /dsh-pet-7340/chat/memory`     | 一次清空这些残留历史                                                                                                                                                                                                                                                                                                                        |
+| `POST /dsh-pet-7340/balance`           | 立即刷新一次余额（可见效果同样是弹气泡 + 档位动画）                                                                                                                                                                                                                                                                                         |
 
 ## 四、让它做动作
 
@@ -65,7 +65,7 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `POST /dsh-pet-7340/throw?pet=`           | **原生抛掷**（需锁）：给桌宠一个初速度让它飞出去（`angle` 度、`power` 倍率）                                                                                                   |
 | `POST /dsh-pet-7340/sleep?pet=`           | **让它睡下**：从 `animations.sleep` 里挑一整套（开始/循环/起来）写进 `pets.<id>.sleep`；睡着期间自动来源与手动触发一律拒绝（持锁时让路）；没配睡觉动画回 `no-sleep-animations` |
 | `POST /dsh-pet-7340/wake?pet=`            | **叫醒**：播「起来」后回随机链；本来没睡也回 ok（幂等）                                                                                                                        |
-| `POST /dsh-pet-7340/focus-session`        | **跳会话**：让页面切到指定会话；桌面端点会话气泡走这条                                                                                                                          |
+| `POST /dsh-pet-7340/focus-session`        | **跳会话**：让页面切到指定会话；桌面端点会话气泡走这条                                                                                                                         |
 
 ## 五、改配置与重载
 
@@ -92,15 +92,21 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 ## 七、素材
 
-| 接口                                     | 功能                                                              |
-| ---------------------------------------- | ----------------------------------------------------------------- |
-| `GET /dsh-pet-7340/thumb/{petId}/{file}` | 动画素材（`.webm` / `.mov`，按宠物归属）                          |
-| `GET /dsh-pet-7340/font/{file}`          | 字体文件                                                          |
-| `GET /dsh-pet-7340/pic/{file}`           | 通知图标（`pic/`）与表情包（`pic/memes/{素材根}/`，按宠物归属）   |
-| `GET /dsh-pet-7340/attachment?id=`       | **取图**：把对话记忆里 `image.attachmentId`（`sha256:…`）换回图片 |
-| `GET /dsh-pet-7340/logo?root=`           | 宠物头像：缺省回插件 logo（`assets/logo.png`）；带 `root=<素材根>` 时回该 pet pack 上传的头像，没有就回默认 |
-| `GET /dsh-pet-7340/character?root=`      | **角色参考图**：按素材根回一张官方设定图（png / jpg / webp / gif），第三方自建生图时对齐角色用；**不代调生图模型**，出图与计费都在调用方 |
-| `POST /dsh-pet-7340/pet-avatar?root=`    | **上传头像**：`{ base64 }`，覆盖写 `pet/<素材根>-avatar.<ext>`；`root=main`（内置）被拒 |
+| 接口                                         | 功能                                                                                                                                                                                                                             |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /dsh-pet-7340/thumb/{petId}/{file}`     | 动画素材（`.webm` / `.mov`，按宠物归属；缺失回落共享资源池 `<池>/webm/`，`petId=pool` 只查池）                                                                                                                                   |
+| `GET /dsh-pet-7340/sound/{root}/index`       | **音效索引**：每个事件槽实际用哪个文件、来源（池 / 皮肤 / 声音目录 / 内置默认）、命中绝对路径与「建议放这里」                                                                                                                    |
+| `GET /dsh-pet-7340/sound/{root}/{file}`      | 音效文件（按该素材根的音效搜索链；`root=pool` 只查共享资源池）。必带 `?renderer=layered\|live2d\|webm`（决定池的资源目录是哪一层），`?model=` 决定先查哪套皮肤：`/sound/main/manifest-click.wav?renderer=layered&model=feiyu-05` |
+| `GET /dsh-pet-7340/skin/{root}/{file}`       | 皮肤 / 模型素材（缺失回落池；`root=pool` 只查池）                                                                                                                                                                                |
+| `GET /dsh-pet-7340/skin/{root}/skins`        | 可切换的分层皮肤清单（旧皮肤 ∪ 池，`items` 带 `pack` / `pool` 来源）                                                                                                                                                             |
+| `GET /dsh-pet-7340/skin/{root}/models`       | live2d 模型清单（同上，带来源）                                                                                                                                                                                                  |
+| `POST /dsh-pet-7340/open-folder?pet=&which=` | 打开素材目录（`pool-layered / pool-live2d / pool-webm / pool-sound / pool-global-sound` 等）；**不带 pet** 可打开全局目录：`pool-root / animations / memes / user-root`                                                          |
+| `GET /dsh-pet-7340/font/{file}`              | 字体文件                                                                                                                                                                                                                         |
+| `GET /dsh-pet-7340/pic/{file}`               | 通知图标（`pic/`）与表情包（`pic/memes/{素材根}/`，按宠物归属）                                                                                                                                                                  |
+| `GET /dsh-pet-7340/attachment?id=`           | **取图**：把对话记忆里 `image.attachmentId`（`sha256:…`）换回图片                                                                                                                                                                |
+| `GET /dsh-pet-7340/logo?root=`               | 宠物头像：缺省回插件 logo（`assets/logo.png`）；带 `root=<素材根>` 时回该 pet pack 上传的头像，没有就回默认                                                                                                                      |
+| `GET /dsh-pet-7340/character?root=`          | **角色参考图**：按素材根回一张官方设定图（png / jpg / webp / gif），第三方自建生图时对齐角色用；**不代调生图模型**，出图与计费都在调用方                                                                                         |
+| `POST /dsh-pet-7340/pet-avatar?root=`        | **上传头像**：`{ base64 }`，覆盖写 `pet/<素材根>-avatar.<ext>`；`root=main`（内置）被拒                                                                                                                                          |
 
 ## 八、工作状态（外部写入）
 
@@ -126,6 +132,31 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `PATCH /dsh-pet-7340/todos/{id}`  | 修改一条：`{ text?, dueAt?, done? }` 至少给一个              |
 | `DELETE /dsh-pet-7340/todos/{id}` | 删除一条（幂等，回 `removed` 条数）                          |
 
+## 十一、会话鱼
+
+| 接口                                        | 功能                                                                                                                      |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `GET /dsh-pet-7340/session-fish`            | 读会话鱼设置（独立文件 `<用户根>/session-fish.json`；文件缺失/损坏时回默认值）                                            |
+| `PUT /dsh-pet-7340/session-fish`            | 保存设置：只传要改的字段；未知键/类型错/越界 → `bad-request`，写盘失败 → `settings-write-failed`（旧值保留）              |
+| `POST /dsh-pet-7340/session-fish`           | 用户动作：`{ action: "focus" \| "close", sessionId, blank?, running? }`；`focus` 在已完成时让鱼消失，`close` 隐藏到下一轮 |
+| `GET /dsh-pet-7340/session-fish/skins`      | 列可选皮肤：用户目录 `<用户根>/session-fish-skin/` 在前、包内 `assets/webm/` 在后（同名以用户为准），附 `defaultSkin`     |
+| `GET /dsh-pet-7340/session-fish/skin?name=` | 取一份皮肤文件（图片 / 动图 / webm）；名字非法或扩展名不支持 → `400`，不存在 → `404` 文本                                 |
+
+会话鱼只在**DSH 网页端**渲染（桌面 helper 是独立窗口，不消费 `shell.overlay`）：每个新建 / 进行中 /
+刚结束还没点开的会话对应一条小鱼，宿主把鱼群写进 `sections.sessionFish`。
+
+- **位置**：默认围着桌宠排布（横向 / 纵向按桌宠舞台尺寸算椭圆半径），桌宠走位、被拖、被甩时鱼群跟着移动；
+  鱼与鱼、鱼与桌宠之间有碰撞分离。拖一条鱼松手后它会甩一下再回到自己的位置，位置以「相对槽位的偏移」
+  记在浏览器 `localStorage`。`followPet=false` 时回到右下角竖排。
+- **皮肤**：`skin` 是素材名（默认 `写代码.webm`）；把图片 / 动图（gif / webp）/ webm 放进
+  `<用户根>/session-fish-skin/`，设置页点「重新扫描」即可选中，`GET /session-fish/skin` 负责下发。
+- **播报**：与工作状态共用同一条语音链，但会话鱼接管时旧的工作状态播报会让路；多条鱼同时有事时
+  串行播报（同一时刻只有一句），同样的句子在 4 秒内不会重复出声。设置页「会话鱼」分区可整体关掉。
+- **会话范围**：会话是全局的（`<DSH_HOME>/sessions`，按 cwd 分桶，`SessionHeader` 里没有 profile 字段），
+  不按 profile 划分；只有在本进程里真正跑的会话才会发 `session/event`，因此鱼天然只对应本 profile 正在做的事。
+
+完整字段与状态机见 [`openapi.yaml`](openapi.yaml)。
+
 ---
 
 ## state 详解
@@ -136,7 +167,7 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 {
   "counter": 1755000000007,   // 整份 S 的版本号 = 最后一次写入的编号（顶层，不是叶子）
   "sections": {               // 全局段：所有端共享一份
-    "balance": {…}, "workStatus": {…}, "notify": {…}, "config": {…}, "menu": {…}, "focusSession": {…}
+    "balance": {…}, "workStatus": {…}, "notify": {…}, "config": {…}, "menu": {…}, "focusSession": {…}, "sessionFish": {…}
   },
   "pets": {                   // 每只宠物各自一份；键是宠物 id（可含点号，勿切分）
     "main": { "say": {…}, "anim": {…}, "position": {…}, "throw": {…}, "lock": {…}, "sleep": {…} }
@@ -151,6 +182,10 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 `pets.<id>.sleep` 与 `lock` 一样是**状态不是指令**：`{ sleeping: true, start, loop, end }` 时它在睡，
 三段名字由宿主挑定（渲染端照播）；`{ sleeping: false }` 是醒着。
+
+`sections.sessionFish` 是**只读快照**：`{ enabled, sizePx, maxCount, bubbleMs, speak*, fishes[], ts }`，
+每条鱼带 `state / task / line / lineSeq / done / planPending`。内容没变时宿主不会写它（`ts` 不参与去重），
+消费端按叶子 `counter` 判断即可。**浏览器从不往回写这个叶子**——用户动作走 `POST /session-fish`。
 
 **长轮询**：`?since=<上次的顶层 counter>&timeout=<ms>`（成对必填，上限 10s）。有字段改变就
 **立刻返回**，否则一直挂到 `timeout` 到点；返回体与不带参数时一样。
@@ -177,5 +212,3 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 - [`openapi.yaml`](openapi.yaml) —— 完整契约（OpenAPI 3.1，可直接导入 Swagger UI / Postman）
 - [`tools/api-tester.html`](tools/api-tester.html) —— 桌宠控制台：扮演第三方消费方的示例页面，
   可直观试用上述接口（用 `node tools/api-tester.cjs` 启动，它会带上本地代理解决跨域）
-
-

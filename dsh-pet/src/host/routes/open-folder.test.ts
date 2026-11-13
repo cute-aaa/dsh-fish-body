@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { handleOpenFolderRoutes } from './open-folder.ts';
-import { parseFolderTarget, resolveFolderTarget } from '../open-folder.ts';
+import { parseFolderTarget, resolveFolderTarget, resolveGlobalFolder } from '../open-folder.ts';
 import type { PetRouteDeps } from './types.ts';
 import type { RouteResult } from '../http.ts';
 
@@ -22,7 +22,7 @@ let animationDir = '';
 const opened: string[] = [];
 
 /** 路由依赖：requirePet 直给命中，soundDirsFor 指向临时目录。 */
-const deps = (entry = 'main'): PetRouteDeps =>
+const deps = (entry = 'main', pet: Record<string, unknown> = { model: 'beiluoye' }): PetRouteDeps =>
   ({
     configPaths: {
       defaultFile: fileURLToPath(new URL('../../../assets/config.jsonc', import.meta.url)),
@@ -31,7 +31,7 @@ const deps = (entry = 'main'): PetRouteDeps =>
     },
     requirePet: (params: URLSearchParams) =>
       params.get('pet') === 'main'
-        ? { ok: true, petId: 'main', entry, conf: {}, pet: { model: 'beiluoye' } }
+        ? { ok: true, petId: 'main', entry, conf: {}, pet }
         : { ok: false, res: { kind: 'json', status: 200, obj: { ok: false, reason: 'unknown-pet' } } },
     soundDirsFor: () => ({
       animationDirs: [animationDir],
@@ -39,14 +39,25 @@ const deps = (entry = 'main'): PetRouteDeps =>
       ...(entry === 'main' ? { userSoundDir: join(dir, 'user-sound') } : {}),
       skinDir,
       soundDir,
+      poolGlobalSoundDir: join(dir, 'skin', 'sound'),
+      poolRendererSoundDir: join(dir, 'skin', 'layered', 'sound'),
+      poolSkinDir: join(dir, 'skin', 'layered', 'beiluoye'),
+      poolSkinLayerDir: join(dir, 'skin', 'layered'),
+      poolSkinName: 'beiluoye',
+      poolWebmDir: join(dir, 'skin', 'webm'),
     }),
     openDir: (path: string) => opened.push(path),
+    // 全局类别（pool-root / animations / memes / user-root）直接用这几项，不需要宠物。
+    userRoot: dir,
+    thumbUserRoot: join(dir, 'main-animation'),
+    memesUserRoot: join(dir, 'memes'),
+    poolRoot: () => join(dir, 'skin'),
   }) as unknown as PetRouteDeps;
 
 /** 调一次路由。 */
-function call(query: string, method = 'POST'): Promise<RouteResult | undefined> {
+function call(query: string, method = 'POST', pet?: Record<string, unknown>): Promise<RouteResult | undefined> {
   const rest = 'open-folder';
-  return handleOpenFolderRoutes(deps(), { url: new URL('http://localhost/' + rest + query), rest, method });
+  return handleOpenFolderRoutes(deps('main', pet), { url: new URL('http://localhost/' + rest + query), rest, method });
 }
 
 before(() => {
@@ -154,5 +165,137 @@ describe('handleOpenFolderRoutes', () => {
     });
     assert.ok(result !== undefined && result.kind === 'json');
     assert.equal((result.obj as { reason: string }).reason, 'not-found');
+  });
+});
+
+describe('资源池目录（which=pool-*）', () => {
+  const poolLayered = join(dir, 'skin', 'layered', 'beiluoye');
+
+  test('resolveFolderTarget：池的五个类别各落到对应目录', () => {
+    const dirs = {
+      animationDirs: [],
+      packageSoundDir: '/pkg/sound',
+      poolGlobalSoundDir: '/skin/sound',
+      poolRendererSoundDir: '/skin/layered/sound',
+      poolSkinDir: '/skin/layered/beiluoye',
+      poolSkinLayerDir: '/skin/layered',
+      poolWebmDir: '/skin/webm',
+    };
+    assert.equal(resolveFolderTarget(dirs, 'pool-layered', '', 'layered'), '/skin/layered/beiluoye');
+    assert.equal(resolveFolderTarget(dirs, 'pool-live2d', '', 'layered'), null, '渲染方式不匹配');
+    assert.equal(resolveFolderTarget(dirs, 'pool-webm', '', 'layered'), null);
+    assert.equal(resolveFolderTarget(dirs, 'pool-sound', '', 'layered'), '/skin/layered/sound');
+    assert.equal(resolveFolderTarget(dirs, 'pool-global-sound', '', 'layered'), '/skin/sound');
+  });
+
+  test('layered 宠物：pool-layered 不存在时回 not-found 并带出算好的路径', async () => {
+    opened.length = 0;
+    const result = await call('?pet=main&which=pool-layered', 'POST', { model: 'beiluoye', renderer: 'layered' });
+    assert.ok(result !== undefined && result.kind === 'json');
+    const obj = result.obj as { ok: boolean; reason: string; path: string };
+    assert.equal(obj.ok, false);
+    assert.equal(obj.reason, 'not-found');
+    assert.equal(obj.path, poolLayered);
+    assert.deepEqual(opened, []);
+  });
+
+  test('create=1：把池的资源目录建出来再打开', async () => {
+    opened.length = 0;
+    const result = await call('?pet=main&which=pool-layered&create=1', 'POST', {
+      model: 'beiluoye',
+      renderer: 'layered',
+    });
+    assert.ok(result !== undefined && result.kind === 'json');
+    const obj = result.obj as { ok: boolean; path: string; created: boolean };
+    assert.equal(obj.ok, true);
+    assert.equal(obj.created, true);
+    assert.equal(obj.path, poolLayered);
+    assert.deepEqual(opened, [poolLayered]);
+  });
+
+  test('webm 宠物：pool-webm 指向平铺目录', async () => {
+    opened.length = 0;
+    const result = await call('?pet=main&which=pool-webm&create=1', 'POST', { renderer: 'webm' });
+    assert.ok(result !== undefined && result.kind === 'json');
+    assert.equal((result.obj as { path: string }).path, join(dir, 'skin', 'webm'));
+  });
+
+  test('webm 宠物：pool-layered 不适用 → not-found', async () => {
+    const result = await call('?pet=main&which=pool-layered', 'POST', { renderer: 'webm' });
+    assert.ok(result !== undefined && result.kind === 'json');
+    assert.equal((result.obj as { reason: string }).reason, 'not-found');
+  });
+});
+
+describe('全局目录（which=pool-root / animations / memes / user-root）', () => {
+  /** 造全局类别请求：**不带** pet。 */
+  const callGlobal = (which: string, create = false, method = 'POST') => {
+    const rest = 'open-folder';
+    const query = '?which=' + which + (create ? '&create=1' : '');
+    return handleOpenFolderRoutes(deps(), { url: new URL('http://localhost/' + rest + query), rest, method });
+  };
+
+  test('resolveGlobalFolder：四类各落到宿主的环境目录', () => {
+    const dirs = { animations: '/a', memes: '/m', pool: '/p', userRoot: '/u' };
+    assert.equal(resolveGlobalFolder('pool-root', dirs), '/p');
+    assert.equal(resolveGlobalFolder('animations', dirs), '/a');
+    assert.equal(resolveGlobalFolder('memes', dirs), '/m');
+    assert.equal(resolveGlobalFolder('user-root', dirs), '/u');
+  });
+
+  test('不需要 pet：目录不存在时回 not-found 并带出算好的路径', async () => {
+    opened.length = 0;
+    const rest = 'open-folder';
+    const fresh = join(dir, 'fresh-pool');
+    const base = deps() as unknown as Record<string, unknown>;
+    const target = { ...base, poolRoot: () => fresh } as unknown as PetRouteDeps;
+    const result = await handleOpenFolderRoutes(target, {
+      url: new URL('http://localhost/' + rest + '?which=pool-root'),
+      rest,
+      method: 'POST',
+    });
+    assert.ok(result !== undefined && result.kind === 'json');
+    const obj = result.obj as { ok: boolean; reason: string; path: string };
+    assert.equal(obj.ok, false);
+    assert.equal(obj.reason, 'not-found');
+    assert.equal(obj.path, fresh);
+    assert.deepEqual(opened, []);
+  });
+
+  test('create=1：建出来再打开，回 created', async () => {
+    opened.length = 0;
+    const result = await callGlobal('memes', true);
+    assert.ok(result !== undefined && result.kind === 'json');
+    const obj = result.obj as { ok: boolean; which: string; path: string; created: boolean };
+    assert.equal(obj.ok, true);
+    assert.equal(obj.which, 'memes');
+    assert.equal(obj.created, true);
+    assert.equal(obj.path, join(dir, 'memes'));
+    assert.deepEqual(opened, [join(dir, 'memes')]);
+  });
+
+  test('pool-root 用 deps.poolRoot() 的解析结果（不是写死的 skin）', async () => {
+    const rest = 'open-folder';
+    const custom = (path: string) => {
+      const base = deps() as unknown as Record<string, unknown>;
+      return { ...base, poolRoot: () => path } as unknown as PetRouteDeps;
+    };
+    const target = join(dir, 'elsewhere');
+    const result = await handleOpenFolderRoutes(custom(target), {
+      url: new URL('http://localhost/' + rest + '?which=pool-root&create=1'),
+      rest,
+      method: 'POST',
+    });
+    assert.ok(result !== undefined && result.kind === 'json');
+    assert.equal((result.obj as { path: string }).path, target);
+  });
+
+  test('未知类别 / 方法不对：分别 400 与 405', async () => {
+    const bad = await callGlobal('C%3A%2FWindows');
+    assert.ok(bad !== undefined && bad.kind === 'json');
+    assert.equal((bad.obj as { reason: string }).reason, 'bad-request');
+    const wrongMethod = await callGlobal('pool-root', false, 'GET');
+    assert.ok(wrongMethod !== undefined && wrongMethod.kind === 'json');
+    assert.equal((wrongMethod.obj as { reason: string }).reason, 'method-not-allowed');
   });
 });

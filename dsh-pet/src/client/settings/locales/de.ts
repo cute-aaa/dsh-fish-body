@@ -131,6 +131,7 @@ export const de: Record<Key, string> = {
   todosFile: 'To-do-Daten (Listentext, Fälligkeit und Erledigt-Status; Löschen entspricht alle To-dos leeren)',
   animationDir: 'Verzeichnis der Animations-Assets (Animationen anpassen/ergänzen)',
   memesDir: 'Verzeichnis der Meme-Bilder (Bilder anpassen/ergänzen)',
+  poolDir: 'Asset-Pool-Verzeichnis (gemeinsame Skins / Modelle / Animationen / Sounds)',
   logFile: 'Protokolldatei (für die Fehlersuche; kann geleert werden)',
   logFileNote:
     'Die Desktop-Version hat keine Konsole, daher gehen alle Laufzeitprotokolle des Plugins (Start, Absturz/Neustart des Desktop-Pets, Fehler und Warnungen) in diese eine Datei; bitte bei Problemmeldungen anhängen. Maximal 1 MB pro Datei, danach bleiben nur die letzten 512 KB erhalten.',
@@ -188,6 +189,10 @@ export const de: Record<Key, string> = {
   sfxOriginDefault: 'eingebaut',
   sfxOriginConfig: 'Konfiguration',
   sfxOriginNone: 'kein Treffer',
+  sfxOriginPoolSkin: 'Asset-Pool · Ressource',
+  sfxOriginPoolRenderer: 'Asset-Pool · Renderer',
+  sfxOriginPoolGlobal: 'Asset-Pool · global',
+  sfxWhereToPut: 'Datei hier ablegen: {path}',
   sfxHooksTitle: 'Eigene Hooks',
   sfxHooksHint:
     'Namen hier eintragen und mit POST /sfx/<name>?pet=<id> ausloesen; die Datei wird per Namensregel automatisch gefunden, ohne Konfiguration.',

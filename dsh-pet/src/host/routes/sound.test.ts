@@ -6,11 +6,12 @@
 import { after, before, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { handleSoundRoutes } from './sound.ts';
 import { handleAssetsRoutes } from './assets.ts';
+import type { SfxDirs } from '../sfx/scan.ts';
 import type { PetRouteDeps } from './types.ts';
 import type { RouteResult } from '../http.ts';
 
@@ -21,23 +22,33 @@ let animDir = '';
 let packageDir = '';
 
 /** 依赖：soundDirsFor 指向临时目录，其余字段本领域不读。 */
-const deps = (): PetRouteDeps =>
+const deps = (pool: Partial<SfxDirs> = {}): PetRouteDeps =>
   ({
     soundDirsFor: () => ({
       skinDir,
       soundDir,
       packageSoundDir: packageDir,
       animationDirs: [animDir],
+      ...pool,
     }),
     petConfigDir: dir,
+    poolRoot: () => join(dir, 'skin'),
+    userRoot: dir,
   }) as unknown as PetRouteDeps;
 
 /** 写一个空文件（内容无关，路由只看路径与扩展名）。 */
-const touch = (path: string): void => writeFileSync(path, Buffer.alloc(8));
+const touch = (path: string): void => {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, Buffer.alloc(8));
+};
 
 /** 调一次索引。 */
-function index(rest = 'sound/main/index', query = '?renderer=webm'): Promise<RouteResult | undefined> {
-  return handleSoundRoutes(deps(), {
+function index(
+  rest = 'sound/main/index',
+  query = '?renderer=webm',
+  pool: Partial<SfxDirs> = {},
+): Promise<RouteResult | undefined> {
+  return handleSoundRoutes(deps(pool), {
     url: new URL('http://localhost/' + rest + query),
     rest,
     method: 'GET',
@@ -45,8 +56,12 @@ function index(rest = 'sound/main/index', query = '?renderer=webm'): Promise<Rou
 }
 
 /** 调一次素材读取。 */
-function asset(rest: string, query = ''): Promise<RouteResult | undefined> {
-  return handleAssetsRoutes(deps(), { url: new URL('http://localhost/' + rest + query), rest, method: 'GET' });
+function asset(rest: string, query = '', pool: Partial<SfxDirs> = {}): Promise<RouteResult | undefined> {
+  return handleAssetsRoutes(deps(pool), {
+    url: new URL('http://localhost/' + rest + query),
+    rest,
+    method: 'GET',
+  });
 }
 
 before(() => {
@@ -150,5 +165,76 @@ describe('索引与文件路由的口径一致', () => {
       assert.ok(served !== undefined && served.kind !== 'json', file + ' 应被路由接受');
       if (served.kind === 'text') assert.notEqual(served.status, 400, file + ' 不该被判成格式非法');
     }
+  });
+});
+
+describe('资源池 —— 阶段 1 验收（/sound/pool）', () => {
+  /** 池三层目录（layered）。 */
+  const poolDirs = (): Partial<SfxDirs> => ({
+    poolGlobalSoundDir: join(dir, 'skin', 'sound'),
+    poolRendererSoundDir: join(dir, 'skin', 'layered', 'sound'),
+    poolSkinDir: join(dir, 'skin', 'layered', 'character1'),
+    poolSkinLayerDir: join(dir, 'skin', 'layered'),
+    poolSkinName: 'character1',
+    poolSkinStructures: ['xxx'],
+  });
+
+  beforeEach(() => {
+    touch(join(dir, 'skin', 'layered', 'character1', 'xxx.json'));
+    touch(join(dir, 'skin', 'layered', 'character1', 'xxx-click.wav'));
+  });
+
+  test('GET /sound/pool/index?renderer=layered&model=character1 → events.click = xxx-click.wav', async () => {
+    const result = await index('sound/pool/index', '?renderer=layered&model=character1', poolDirs());
+    assert.ok(result !== undefined && result.kind === 'json');
+    const body = result.obj as {
+      ok: boolean;
+      events: Record<string, string>;
+      origin: Record<string, string>;
+      paths?: Record<string, string>;
+      poolRoot?: string;
+    };
+    assert.equal(body.ok, true);
+    assert.equal(body.events.click, 'xxx-click.wav');
+    assert.equal(body.origin.click, 'pool-skin');
+    assert.equal(body.paths?.click, join(dir, 'skin', 'layered', 'character1', 'xxx-click.wav'));
+    assert.equal(body.poolRoot, join(dir, 'skin'));
+  });
+
+  test('GET /sound/pool/xxx-click.wav → 200 且是音频类型', async () => {
+    const result = await asset('sound/pool/xxx-click.wav', '?renderer=layered&model=character1', poolDirs());
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, join(dir, 'skin', 'layered', 'character1', 'xxx-click.wav'));
+    assert.equal(result.contentType, 'audio/wav');
+  });
+
+  test('普通素材根：池文件压过旧皮肤目录里的同名文件（新放的东西先响）', async () => {
+    mkdirSync(join(skinDir, 'character1'), { recursive: true });
+    touch(join(skinDir, 'character1', 'xxx-click.wav'));
+    const pool = await asset('sound/main/xxx-click.wav', '?renderer=layered&model=character1', poolDirs());
+    assert.ok(pool !== undefined && pool.kind === 'file');
+    assert.equal(pool.file, join(dir, 'skin', 'layered', 'character1', 'xxx-click.wav'));
+  });
+
+  test('普通素材根：池里没有时回落旧皮肤目录（先 pack 后池的取文件侧）', async () => {
+    mkdirSync(join(skinDir, 'character1'), { recursive: true });
+    touch(join(skinDir, 'character1', 'other-drag.wav'));
+    const legacy = await asset('sound/main/other-drag.wav', '?renderer=layered&model=character1', poolDirs());
+    assert.ok(legacy !== undefined && legacy.kind === 'file');
+    assert.equal(legacy.file, join(skinDir, 'character1', 'other-drag.wav'));
+  });
+
+  test('池没命中：index 给出「建议放这里」', async () => {
+    const result = await index('sound/main/index', '?renderer=layered&model=character2', {
+      ...poolDirs(),
+      poolSkinDir: join(dir, 'skin', 'layered', 'character2'),
+      poolSkinName: 'character2',
+      poolSkinStructures: [],
+    });
+    assert.ok(result !== undefined && result.kind === 'json');
+    const suggestion = (result.obj as { suggestions?: Record<string, { which: string; relative: string }> }).suggestions
+      ?.click;
+    assert.equal(suggestion?.which, 'pool-layered');
+    assert.equal(suggestion?.relative, 'skin/layered/character2/character2-click.wav');
   });
 });

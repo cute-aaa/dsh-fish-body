@@ -131,6 +131,7 @@ export const en: Record<Key, string> = {
   todosFile: 'Todo data (text, due time and done state; deleting it clears every todo)',
   animationDir: 'Animation assets dir (add/customize animations here)',
   memesDir: 'Meme images dir (add/customize images here)',
+  poolDir: 'Asset pool dir (shared skins / models / animations / sounds)',
   logFile: 'Log file (for troubleshooting; safe to clear)',
   logFileNote:
     'The DSH desktop app has no console, so every runtime log of the plugin (startup, desktop pet crashes/restarts, errors and warnings) goes into this single file — attach it when reporting a problem. It is capped at 1 MB; once full, only the latest 512 KB is kept.',
@@ -187,6 +188,10 @@ export const en: Record<Key, string> = {
   sfxOriginDefault: 'built-in',
   sfxOriginConfig: 'config override',
   sfxOriginNone: 'unmatched',
+  sfxOriginPoolSkin: 'asset pool · resource',
+  sfxOriginPoolRenderer: 'asset pool · renderer',
+  sfxOriginPoolGlobal: 'asset pool · global',
+  sfxWhereToPut: 'Put the file here: {path}',
   sfxHooksTitle: 'Custom hooks',
   sfxHooksHint:
     'Register a name here and trigger it with POST /sfx/<name>?pet=<id>; the file is matched by naming rule, no config editing needed.',

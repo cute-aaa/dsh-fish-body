@@ -125,6 +125,7 @@ export const zh = {
   todosFile: '待办数据（清单正文、到期时间与完成状态；删掉等于清空待办）',
   animationDir: '动画素材目录（可自定义/扩充动画）',
   memesDir: '表情包目录（可自定义/扩充配图）',
+  poolDir: '资源池目录（共享皮肤 / 模型 / 动画 / 音效）',
   logFile: '日志文件（排障用，可清空）',
   logFileNote:
     '桌面版没有控制台，插件的运行日志（启动、桌面宠物崩溃/重启、错误与告警）全部写进这一个文件；反馈问题请附上它。单文件上限 1 MB，写满只留最新的 512 KB。',
@@ -177,6 +178,10 @@ export const zh = {
   sfxOriginDefault: '内置默认',
   sfxOriginConfig: '配置覆盖',
   sfxOriginNone: '未匹配',
+  sfxOriginPoolSkin: '资源池·资源目录',
+  sfxOriginPoolRenderer: '资源池·渲染兜底',
+  sfxOriginPoolGlobal: '资源池·全局音效',
+  sfxWhereToPut: '建议放这里：{path}',
   sfxHooksTitle: '自定义 hook',
   sfxHooksHint: '登记一个名字就能用 POST /sfx/<名字>?pet=<id> 触发；文件按命名规则自动匹配，不需要手写配置。',
   sfxHookAdd: '登记',

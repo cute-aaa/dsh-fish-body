@@ -287,7 +287,7 @@ class PetSprite {
     if (!cue) return false;
     const scaled = typeof gain === 'number' ? gain : 1;
     if (!(scaled > 0)) return false;
-    return S.playSfx(soundUrlOf(this.assetRoot, cue.file, this.pet.model || ''), {
+    return S.playSfx(soundUrlOf(this.assetRoot, cue.file, this.pet.model || '', this.pet.renderer), {
       volume: cue.volume * scaled,
       throttleMs: cue.throttleMs,
       throttleKey: this.pet.id + ':' + slot,
@@ -307,7 +307,7 @@ class PetSprite {
     }
     S.scheduleSfx(
       cues.map((cue) => ({
-        url: soundUrlOf(this.assetRoot, cue.file, this.pet.model || ''),
+        url: soundUrlOf(this.assetRoot, cue.file, this.pet.model || '', this.pet.renderer),
         at: cue.at,
         ...(cue.everyMs === null ? {} : { everyMs: cue.everyMs }),
         volume: cue.volume,
@@ -324,7 +324,7 @@ class PetSprite {
   playHookSfx(hook) {
     const cue = this.sfxPlan().hook(hook);
     if (!cue) return false;
-    return S.playSfx(soundUrlOf(this.assetRoot, cue.file, this.pet.model || ''), {
+    return S.playSfx(soundUrlOf(this.assetRoot, cue.file, this.pet.model || '', this.pet.renderer), {
       volume: cue.volume,
       throttleMs: cue.throttleMs,
       throttleKey: this.pet.id + ':hook:' + hook,

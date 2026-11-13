@@ -8,7 +8,7 @@
 import { after, before, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { handleAssetsRoutes } from './assets.ts';
@@ -21,8 +21,8 @@ const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a
 
 let dir = '';
 
-/** 路由只用到 petConfigDir（其余字段本领域不读），测试里不构造。 */
-const deps = (): PetRouteDeps => ({ petConfigDir: dir }) as unknown as PetRouteDeps;
+/** 路由只用到 petConfigDir 与池根（其余字段本领域不读），测试里不构造。 */
+const deps = (): PetRouteDeps => ({ petConfigDir: dir, poolRoot: () => join(dir, 'skin') }) as unknown as PetRouteDeps;
 
 /** 调一次 logo 读取；`rest` 默认是干净的 `logo`。 */
 function readLogo(query: string, rest = 'logo'): Promise<RouteResult | undefined> {
@@ -118,5 +118,95 @@ describe('/skin/<root>/skins —— layered 可切换皮肤清单', () => {
     const result = await readSkins('nobody');
     if (result?.kind !== 'json') return;
     assert.deepEqual((result.obj as { skins: string[] }).skins, []);
+  });
+});
+
+describe('资源池 —— /skin 与 /thumb 的池分支', () => {
+  /** 写一个池文件（自动建目录）。 */
+  const putPool = (rel: string, body = '{}'): string => {
+    const path = join(dir, 'skin', rel);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, body);
+    return path;
+  };
+
+  /** 读一个素材路径。 */
+  const read = (rest: string, query = '') =>
+    handleAssetsRoutes(deps(), { url: new URL('http://localhost/' + rest + query), rest, method: 'GET' });
+
+  test('/skin/pool/<渲染方式>/<file>：池视图直接取池里的皮肤文件', async () => {
+    const file = putPool(join('layered', 'character1', 'manifest.json'), '{"canvas":{"w":1,"h":1}}');
+    const result = await read('skin/pool/layered/character1/manifest.json');
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, file);
+  });
+
+  test('/skin/pool/<file>：没给渲染方式桶时按 layered → live2d 试', async () => {
+    const file = putPool(join('live2d', 'model1', 'xx.model3.json'), '{"Version":3,"FileReferences":{}}');
+    const result = await read('skin/pool/model1/xx.model3.json');
+    assert.ok(result !== undefined);
+    // .model3.json 会走 model-extras 的补全分支（kind=json）；这里只钉「命中了池里那一份」。
+    assert.ok(result.kind === 'json' || (result.kind === 'file' && result.file === file));
+  });
+
+  test('普通素材根：pack 里没有的模型回落到池（先 pack 后池）', async () => {
+    const file = putPool(join('layered', 'character1', 'manifest.json'), '{"canvas":{"w":1,"h":1}}');
+    const result = await read('skin/fish/character1/manifest.json');
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, file);
+  });
+
+  test('普通素材根：pack 里有的模型仍压过池里的同名模型', async () => {
+    mkdirSync(join(dir, 'fish-skin', 'character1'), { recursive: true });
+    const packFile = join(dir, 'fish-skin', 'character1', 'manifest.json');
+    writeFileSync(packFile, '{"canvas":{"w":1,"h":1}}');
+    putPool(join('layered', 'character1', 'manifest.json'), '{"canvas":{"w":2,"h":2}}');
+    const result = await read('skin/fish/character1/manifest.json');
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, packFile);
+  });
+
+  test('/skin/<root>/skins：旧皮肤 ∪ 池，带 items 来源标注', async () => {
+    mkdirSync(join(dir, 'fish-skin', 'winter'), { recursive: true });
+    writeFileSync(join(dir, 'fish-skin', 'winter', 'manifest.json'), '{"canvas":{"w":1,"h":1}}');
+    putPool(join('layered', 'character1', 'manifest.json'));
+    const result = await read('skin/fish/skins');
+    if (result?.kind !== 'json') return assert.fail('应为 json');
+    const body = result.obj as { skins: string[]; items: Array<{ id: string; source: string }> };
+    assert.deepEqual(body.skins, ['winter', 'character1']);
+    assert.deepEqual(body.items, [
+      { id: 'winter', source: 'pack' },
+      { id: 'character1', source: 'pool' },
+    ]);
+  });
+
+  test('/skin/<root>/models：池里的 live2d 模型也进清单', async () => {
+    putPool(join('live2d', 'model1', 'xx.model3.json'), '{"Version":3}');
+    const result = await read('skin/fish/models');
+    if (result?.kind !== 'json') return assert.fail('应为 json');
+    const body = result.obj as { models: string[]; items: Array<{ id: string; source: string }> };
+    assert.deepEqual(body.models, ['model1/xx.model3.json']);
+    assert.deepEqual(body.items, [{ id: 'model1/xx.model3.json', source: 'pool' }]);
+  });
+
+  test('/thumb/pool/<动画>.webm：池里的平铺动画可播', async () => {
+    const file = putPool(join('webm', 'movie1.webm'), 'x');
+    const result = await read('thumb/pool/movie1.webm');
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, file);
+    assert.equal(result.contentType, 'video/webm');
+  });
+
+  test('/thumb/<素材根>/<动画>.webm：专属目录没有时回落池', async () => {
+    const file = putPool(join('webm', 'movie1.webm'), 'x');
+    const result = await read('thumb/fish/movie1.webm');
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, file);
+  });
+
+  test('非法 petId 仍然 400（池的加入不放宽路径守卫）', async () => {
+    const result = await read('thumb/../evil/movie1.webm');
+    assert.ok(result !== undefined && result.kind === 'text');
+    assert.equal(result.status, 400);
   });
 });

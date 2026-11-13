@@ -131,6 +131,7 @@ export const ja: Record<Key, string> = {
   todosFile: 'ToDo データ（リストの内容、期限、完了状態。削除すると ToDo がすべて消えます）',
   animationDir: 'アニメーション素材ディレクトリ（アニメーションをカスタマイズ / 追加できます）',
   memesDir: 'ミーム画像ディレクトリ（画像をカスタマイズ / 追加できます）',
+  poolDir: '共有プールのディレクトリ（スキン / モデル / アニメ / 効果音の共有先）',
   logFile: 'ログファイル（トラブルシューティング用。消去しても問題ありません）',
   logFileNote:
     'デスクトップ版にはコンソールがないため、プラグインの実行ログ（起動、デスクトップペットのクラッシュ / 再起動、エラーと警告）はすべてこの1つのファイルに書き込まれます。問題を報告する際はこのファイルを添付してください。1ファイルあたり最大 1 MB で、いっぱいになると最新の 512 KB だけが残ります。',
@@ -186,6 +187,10 @@ export const ja: Record<Key, string> = {
   sfxOriginDefault: '既定',
   sfxOriginConfig: '設定',
   sfxOriginNone: '未一致',
+  sfxOriginPoolSkin: 'プール・素材',
+  sfxOriginPoolRenderer: 'プール・レンダラー',
+  sfxOriginPoolGlobal: 'プール・全体',
+  sfxWhereToPut: 'ここに置いてください：{path}',
   sfxHooksTitle: 'カスタムフック',
   sfxHooksHint:
     'ここで名前を登録すれば POST /sfx/<名前>?pet=<id> で発火できます。ファイルは命名規則で自動マッチし、設定を書く必要はありません。',

@@ -254,3 +254,27 @@ describe('sizeMenuBranch —— 「大小」子菜单（滑块 + 恢复默认）
     assert.equal(isSleepAllowedAction('set-size'), true);
   });
 });
+
+describe('资源池 —— 清单来源标注', () => {
+  test('皮肤子菜单：池里的皮肤后缀「（池）」，pack 里的不标', () => {
+    const branch = skinMenuBranch(['winter', 'character1'], 'winter', [
+      { id: 'winter', source: 'pack' },
+      { id: 'character1', source: 'pool' },
+    ]);
+    assert.ok(branch !== null);
+    assert.deepEqual(
+      branch.children.map((child) => (child as { label: string }).label),
+      ['winter ✓', 'character1（池）'],
+    );
+  });
+
+  test('模型子菜单：没给 items 时文案保持纯 id（老调用方不受影响）', () => {
+    const branch = modelMenuBranch(['a.model3.json'], 'a.model3.json');
+    assert.deepEqual((branch?.children[0] as { label: string }).label, 'a.model3.json ✓');
+  });
+
+  test('模型子菜单：池里的模型也带标注', () => {
+    const branch = modelMenuBranch(['m1/a.model3.json'], undefined, [{ id: 'm1/a.model3.json', source: 'pool' }]);
+    assert.equal((branch?.children[0] as { label: string }).label, 'm1/a.model3.json（池）');
+  });
+});

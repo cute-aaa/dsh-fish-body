@@ -21,6 +21,20 @@ export interface SfxDirs {
   readonly packageSoundDir: string;
   /** 动画素材目录（动作音与动画同名同目录时用它），按优先级排列。 */
   readonly animationDirs: readonly string[];
+  /** 池：该渲染方式 + 模型命中的资源目录（`<池>/layered/<model>`、`<池>/live2d/<模型目录>`）。 */
+  readonly poolSkinDir?: string;
+  /** 池：该渲染方式的目录本身（`<池>/layered|live2d|webm`）；没有独立资源目录时它就是落点。 */
+  readonly poolSkinLayerDir?: string;
+  /** 池：资源目录名（第 2 级前缀：`character1-click.wav` 里的 `character1`）。 */
+  readonly poolSkinName?: string;
+  /** 池：结构文件基名（第 1 级前缀：`xxx.json` → `xxx`）。 */
+  readonly poolSkinStructures?: readonly string[];
+  /** 池：该渲染方式的兜底音效目录（`<池>/<渲染方式>/sound`）。 */
+  readonly poolRendererSoundDir?: string;
+  /** 池：webm 的平铺目录（`<池>/webm`；这里的音频也算第 3 级，且优先于它的 `sound/` 子目录）。 */
+  readonly poolWebmDir?: string;
+  /** 池：全局音效目录（`<池>/sound`）。 */
+  readonly poolGlobalSoundDir?: string;
 }
 
 /** 扫出来的原始文件清单：每个来源只列文件名（basename），顺序不影响结果。 */
@@ -37,6 +51,12 @@ export interface SfxSources {
   readonly animation: readonly string[];
   /** 包内默认目录里的文件名。 */
   readonly packaged: readonly string[];
+  /** 池里该资源目录内的文件名（第 1/2 级前缀在 index-build 里剥）。 */
+  readonly poolSkin: readonly string[];
+  /** 池里该渲染方式的兜底音效文件名（webm 包含平铺目录与它的 `sound/`）。 */
+  readonly poolRenderer: readonly string[];
+  /** 池的全局音效文件名。 */
+  readonly poolGlobal: readonly string[];
 }
 
 /** 空清单：目录都读不到时的结果。 */
@@ -44,6 +64,9 @@ export const EMPTY_SOURCES: SfxSources = {
   animation: [],
   bySkin: {},
   packaged: [],
+  poolGlobal: [],
+  poolRenderer: [],
+  poolSkin: [],
   skins: [],
   sound: [],
   user: [],
@@ -159,6 +182,10 @@ export function readSfxSources(dirs: SfxDirs): SfxSources {
     animation: dirs.animationDirs.flatMap((dir) => listAudio(dir)),
     bySkin,
     packaged: listAudio(dirs.packageSoundDir),
+    // webm 的平铺目录排在它自己的 `sound/` 之前（文档 §3 第 3 级的特例：`webm/webm-click.wav` 优先）。
+    poolGlobal: listAudio(dirs.poolGlobalSoundDir),
+    poolRenderer: [...listAudio(dirs.poolWebmDir), ...listAudio(dirs.poolRendererSoundDir)],
+    poolSkin: listAudio(dirs.poolSkinDir),
     skins: skinIds,
     sound: listAudio(dirs.soundDir),
     user: listAudio(dirs.userSoundDir),

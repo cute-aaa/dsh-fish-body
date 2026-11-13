@@ -8,7 +8,7 @@
 import { DISPLAY_HOTKEY_HINTS, DISPLAY_ORDER } from '../display-hotkey.ts';
 import { RENDERERS } from '../config.ts';
 import { SIZE_MAX, SIZE_MIN, SIZE_STEP } from '../pet-size.ts';
-import { type Animations, type Category, type PetDisplay, type RendererKind } from '../types.ts';
+import { type Animations, type Category, type PetDisplay, type PoolEntryItem, type RendererKind } from '../types.ts';
 import { switchableProviders, type VoiceProviderView } from '../voice-providers.ts';
 import type { MenuBranch, MenuLeaf, MenuMoreItem, MenuNode } from './types.ts';
 
@@ -79,33 +79,68 @@ export const rendererMenuBranch = (current?: RendererKind, available?: readonly 
 });
 
 /** 单选子菜单：给一组取值与当前值，当前那项打勾。`items` 是取值本身（菜单文案与取值同形）。 */
-const choiceMenuBranch = (label: string, items: readonly string[], current?: string): MenuBranch | null => {
+const choiceMenuBranch = (
+  label: string,
+  items: readonly string[],
+  current?: string,
+  suffixOf?: (item: string) => string,
+): MenuBranch | null => {
   if (items.length === 0) return null;
   return {
     label,
-    children: items.map((item): MenuLeaf => ({
-      label: current === item ? `${item} ✓` : item,
-      action: 'set-model',
-      model: item,
-    })),
+    children: items.map((item): MenuLeaf => {
+      const shown = item + (suffixOf === undefined ? '' : suffixOf(item));
+      return {
+        label: current === item ? `${shown} ✓` : shown,
+        action: 'set-model',
+        model: item,
+      };
+    }),
   };
 };
 
-/** 「模型」子菜单：layered 皮肤 / live2d 模型的列表（相对皮肤目录路径）；空列表返回 null。 */
-export const modelMenuBranch = (models: readonly string[], current?: string): MenuBranch | null =>
-  choiceMenuBranch('模型', models, current);
+/**
+ * 「模型」子菜单：layered 皮肤 / live2d 模型的列表（相对皮肤目录路径）；空列表返回 null。
+ *
+ * `items` 给了就按来源标注（池里的模型后缀「（池）」），没给按纯 id 列——
+ * 桌面 helper 与老调用方只传数组，文案保持原样。
+ */
+export const modelMenuBranch = (
+  models: readonly string[],
+  current?: string,
+  items?: readonly PoolEntryItem[],
+): MenuBranch | null => choiceMenuBranch('模型', models, current, sourceSuffixOf(items));
 
 /** 「皮肤」子菜单：layered 的皮肤 id（根布局记为空串 → 文案写「默认」）；空列表返回 null。 */
-export const skinMenuBranch = (skins: readonly string[], current?: string): MenuBranch | null => {
+export const skinMenuBranch = (
+  skins: readonly string[],
+  current?: string,
+  items?: readonly PoolEntryItem[],
+): MenuBranch | null => {
   if (skins.length === 0) return null;
+  const suffixOf = sourceSuffixOf(items);
   return {
     label: '皮肤',
     children: skins.map((skin): MenuLeaf => {
-      const shown = skin === '' ? '默认皮肤' : skin;
+      const shown = skin === '' ? '默认皮肤' : skin + suffixOf(skin);
       return { label: current === skin ? `${shown} ✓` : shown, action: 'set-model', model: skin };
     }),
   };
 };
+
+/**
+ * 清单项的来源后缀：池里的资源标「（池）」，pack 里的不标。
+ *
+ * 只标池：pack 是默认归属，给每一项都加「（pack）」只会让菜单变长、看不出重点。
+ *
+ * @param items - 带来源的清单；缺省时返回恒空的后缀函数（老调用方不受影响）。
+ * @returns 取 id 给后缀的函数。
+ */
+function sourceSuffixOf(items: readonly PoolEntryItem[] | undefined): (id: string) => string {
+  if (items === undefined) return () => '';
+  const pool = new Set(items.filter((item) => item.source === 'pool').map((item) => item.id));
+  return (id) => (pool.has(id) ? '（池）' : '');
+}
 
 /** 取消「当前表情/配件」的动作名：渲染器把表情清回模型默认外观。 */
 export const EXPRESSION_RESET = 'expression-reset';
