@@ -100,7 +100,7 @@ describe('dirtyTabs —— 路径归到分区', () => {
     const tabs = dirtyTabs(new Set(['global.sfxVolume', 'global.notificationsEnabled', 'look.physics.gravity']));
     assert.equal(tabs.audio, true);
     assert.equal(tabs.system, true);
-    assert.equal(tabs.behavior, true);
+    assert.equal(tabs.feel, true, '物理归到「外观与手感」');
     assert.equal(tabs.pet, false);
     assert.equal(tabs.fish, false);
   });
@@ -108,7 +108,7 @@ describe('dirtyTabs —— 路径归到分区', () => {
   test('宠物与字体各自归位', () => {
     const tabs = dirtyTabs(new Set(['pets', 'look.font.size']));
     assert.equal(tabs.pet, true);
-    assert.equal(tabs.look, true);
+    assert.equal(tabs.feel, true, '字体也归到「外观与手感」');
   });
 });
 

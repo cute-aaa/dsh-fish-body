@@ -1,8 +1,9 @@
 /**
  * 音效总闸卡：总开关、常驻预热与总音量。
  *
- * 从原先的「全局开关」卡里拆出来，和音效事件卡同属「声音」分区：这三项决定「响不响、多响」，
+ * 从原先的「全局开关」卡里拆出来，和事件音效卡同属「声音」分区：这三项决定「响不响、多响」，
  * 事件卡决定「哪个时机用什么文件」，两件事放在一起才读得懂。
+ * 位置在这一页最前面：静音是这里最高频的动作，滚到事件列表后面才找得到就太晚了。
  * 只改本地状态，随「保存」整包写入；总音量与语音音量各管各的。
  * @module dsh-pet/src/client/settings/sfx-master-card
  */
@@ -39,7 +40,7 @@ export function makeSfxMasterCard(rt: SettingsRuntime): FunctionComponent<SfxMas
 
   return function SfxMasterCard(props: SfxMasterCardProps) {
     const { busy, flags, dirty } = props;
-    const { cardHead, field, toggleCell } = makeUiKit({ h, t }, dirty);
+    const { cardHead, field, toggleCell, switchGrid } = makeUiKit({ h, t }, dirty);
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
@@ -48,49 +49,28 @@ export function makeSfxMasterCard(rt: SettingsRuntime): FunctionComponent<SfxMas
           'global.sfxKeepAlive',
           'global.sfxVolume',
         ]),
-        h('div', {
-          className: 'dsh-pet-cfg__grid2',
-          children: [
-            toggleCell(
-              'sfxToggle',
-              flags.sfxEnabled,
-              busy,
-              (value) => props.onFlag('sfxEnabled', value),
-              'global.sfxEnabled',
-            ),
-            toggleCell(
-              'sfxKeepAliveToggle',
-              flags.sfxKeepAlive,
-              busy,
-              (value) => props.onFlag('sfxKeepAlive', value),
-              'global.sfxKeepAlive',
-            ),
-          ],
-        }),
+        switchGrid([
+          toggleCell('sfxToggle', flags.sfxEnabled, busy, (value) => props.onFlag('sfxEnabled', value)),
+          toggleCell('sfxKeepAliveToggle', flags.sfxKeepAlive, busy, (value) => props.onFlag('sfxKeepAlive', value)),
+        ]),
         // 总音量独立于语音音量：混音器里那条是进程级总闸，这里才是「所有音效多响」的分项旋钮。
-        h('div', {
-          className: 'dsh-pet-cfg__grid2',
-          children: [
-            field(
-              `${t('sfxVolumeLabel')}（${Math.round(props.volume * 100)}%）`,
-              h('input', {
-                type: 'range',
-                className: 'dsh-pet-cfg__range',
-                min: '0',
-                max: '1',
-                step: '0.05',
-                value: String(props.volume),
-                disabled: busy,
-                onChange: (event: { target: { value: string } }) => {
-                  const next = Number(event.target.value);
-                  if (Number.isFinite(next)) props.onVolume(next);
-                },
-              }),
-              t('sfxVolumeHint'),
-              'global.sfxVolume',
-            ),
-          ],
-        }),
+        field(
+          `${t('sfxVolumeLabel')}（${Math.round(props.volume * 100)}%）`,
+          h('input', {
+            type: 'range',
+            className: 'dsh-pet-cfg__range',
+            min: '0',
+            max: '1',
+            step: '0.05',
+            value: String(props.volume),
+            disabled: busy,
+            onChange: (event: { target: { value: string } }) => {
+              const next = Number(event.target.value);
+              if (Number.isFinite(next)) props.onVolume(next);
+            },
+          }),
+          t('sfxVolumeHint'),
+        ),
       ],
     });
   };

@@ -112,9 +112,10 @@ export function baselineFromConfig(entries: readonly ConfigEntry[], patch: MainC
 const TAB_PREFIXES: ReadonlyArray<readonly [string, SettingsTabId]> = [
   ['pets', 'pet'],
   ['fish', 'fish'],
-  ['look.physics', 'behavior'],
-  ['look.weights', 'behavior'],
-  ['look.font', 'look'],
+  // 物理 / 动作频率 / 字体同属「外观与手感」：合并分区后三条前缀归到同一页。
+  ['look.physics', 'feel'],
+  ['look.weights', 'feel'],
+  ['look.font', 'feel'],
   ['sfx', 'audio'],
   ['voice', 'audio'],
   ['global.sfxEnabled', 'audio'],

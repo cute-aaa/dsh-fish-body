@@ -1,8 +1,10 @@
 /**
- * 确认 / 提示弹窗（仿官方视觉：遮罩 + 居中卡片 + 按钮）。
+ * 确认 / 提示弹窗：遮罩 + 居中卡片 + 按钮，样式全在 `./css` 的 `__mask` / `__dialog` 上。
+ *
  * 六种场景各有自己的按钮组合：删除要确认、只剩一只（main / 某个种类）只能「知道了」、
  * 重置与「从备份恢复」要确认（都会写盘且不可撤销）、配置损坏要确认强行重建。
  * 确认后的动作由设置页外壳执行（它才知道怎么删、怎么带 force 存盘），这里只负责问与答。
+ * owns only 问与答，never 删除 / 重置 / 恢复的实现。
  * @module dsh-pet/src/client/settings/dialog
  */
 import type { FunctionComponent } from 'react';
@@ -52,7 +54,7 @@ function confirmLabel(kind: 'remove' | 'reset' | 'restore' | 'corrupt', t: (key:
 /**
  * 造确认弹窗。
  *
- * @param rt - 注入的 react 能力与翻译函数。
+ * @param rt - 注入的节点工厂与翻译函数。
  * @returns 弹窗组件。
  */
 export function makeDialog(rt: SettingsRuntime): FunctionComponent<DialogProps> {
@@ -62,42 +64,22 @@ export function makeDialog(rt: SettingsRuntime): FunctionComponent<DialogProps> 
     const { dialog } = props;
     // 只剩一只（main 或某个种类）没有可确认的动作：直接收窄成 null，下面的分支就不用再看 kind。
     const confirmable = dialog.kind === 'lastOne' || dialog.kind === 'lastOfKind' ? null : dialog;
+    const title = t(dialog.kind === 'corrupt' ? 'corruptTitle' : 'confirmTitle');
     return h('div', {
-      style: {
-        position: 'fixed',
-        inset: 0,
-        zIndex: 2147483647,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.45)',
-      },
+      className: 'dsh-pet-cfg__mask',
       onClick: props.onDismiss,
       children: h('div', {
-        style: {
-          width: '340px',
-          maxWidth: 'calc(100vw - 40px)',
-          background: 'var(--dsw-alias-bg-layer-1)',
-          border: '1px solid var(--dsw-alias-border-l2)',
-          borderRadius: '12px',
-          padding: '16px 18px',
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.35)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-        },
+        className: 'dsh-pet-cfg__dialog',
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-label': title,
         onClick: (e: ReactNS.MouseEvent<HTMLDivElement>) => e.stopPropagation(),
         children: [
+          h('div', { key: 'title', className: 'dsh-pet-cfg__dialogTitle', children: title }),
+          h('div', { key: 'body', className: 'dsh-pet-cfg__dialogBody', children: bodyText(dialog, t, props.selId) }),
           h('div', {
-            style: { fontSize: '14px', fontWeight: 500, color: 'var(--dsw-alias-label-primary)' },
-            children: t(dialog.kind === 'corrupt' ? 'corruptTitle' : 'confirmTitle'),
-          }),
-          h('div', {
-            style: { fontSize: '13px', lineHeight: '20px', color: 'var(--dsw-alias-label-secondary)' },
-            children: bodyText(dialog, t, props.selId),
-          }),
-          h('div', {
-            style: { display: 'flex', gap: '8px', justifyContent: 'flex-end' },
+            key: 'acts',
+            className: 'dsh-pet-cfg__dialogActions',
             // 只剩一只没有可确认的动作，只给「知道了」；其余都是取消 + 确认双按钮。
             children:
               confirmable === null

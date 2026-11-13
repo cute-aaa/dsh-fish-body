@@ -411,7 +411,7 @@ export const es: Record<Key, string> = {
   // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
   tabPet: 'Mascota',
   intro:
-    'Todo está agrupado por función: mascotas, peces de sesión, comportamiento, aspecto, sonido, diálogo y sistema. Cambia lo que necesites y usa Aplicar / OK abajo; un punto marca los ajustes y pestañas con cambios sin guardar.',
+    'Organizado por propósito: mascota, aspecto y sensación, sonido, chat, pez de sesión, sistema. Guarda con «Aplicar» u «OK» abajo. Mientras haya cambios sin guardar, la pestaña y su tarjeta muestran un punto; «Descartar cambios» vuelve a los valores del archivo de configuración.',
   petCardHint:
     'Configuración por mascota: nombre / tamaño / visualización / posición / desplazamientos / cinco interruptores. Usa Aplicar u OK abajo para guardar.',
   tabFish: 'Peces de sesión',
@@ -468,4 +468,24 @@ export const es: Record<Key, string> = {
   confirmRestore:
     '¿Sobrescribir los ajustes actuales con «{name}»? Los tres archivos de configuración se escriben tal cual (los existentes se guardan antes como .bak). No se puede deshacer.',
   restoreConfirm: 'Restaurar',
+  tabFeel: 'Aspecto y sensación',
+  barDirty: '{n} cambios sin guardar',
+  barRevert: 'Descartar cambios',
+  barRevertHint: 'Descarta los cambios sin guardar y vuelve a los valores del archivo de configuración.',
+  revertDone: 'Se descartaron los cambios sin guardar.',
+  revertFailed: 'No se pudo descartar: la configuración no se cargó. Comprueba la conexión con el servidor.',
+  secBasic: 'Básico',
+  secDisplay: 'Visualización y posición',
+  secFeatures: 'Funciones',
+  secAdvanced: 'Avanzado',
+  maintenanceTitle: 'Mantenimiento',
+  maintenanceHint:
+    'Reiniciar el complemento, restaurar los valores predeterminados y cómo se organiza esta página. Son acciones que se ajustan una vez, así que no ocupan la barra inferior.',
+  chatCostTitle: 'Cuánto cuestan estos interruptores',
+  chatCostHint:
+    'Cada nota corresponde a un interruptor de arriba. Un interruptor apagado no envía ni un carácter al modelo.',
+  sfxSourcesTitle: 'Orígenes, rutas y nombres',
+  secSpeak: 'Lectura',
+  secTiming: 'Ritmo',
+  sizesTitle: 'Tamaño por renderizador',
 };

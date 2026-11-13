@@ -1,8 +1,10 @@
 /**
- * 设置页共用的小件：字段、问号说明、卡片头、开关格、改动圆点，以及输入框与等宽字体的共享常量。
- * 全部只是造节点，不含状态也不读翻译以外的全局——样式规则在 `css.ts`，文案键在 `locales.ts`。
- * 说明统一走 `data-tip` 属性（气泡由 `./tip-layer` 挂到 body 上摆位），不额外包一层 DOM，避免打乱外层 flex 的间距与对齐。
- * 圆点由注入的 {@link DirtyQuery} 决定：不传或路径没改动就一个节点都不多渲染。
+ * 设置页共用的小件：字段、卡头、小节、说明行、开关格、改动圆点、折叠卡与画框宽度控件。
+ *
+ * 说明文字只有两个出口：卡片标题旁的 `?`（整卡语境）与字段标签的悬浮气泡（单字段语境）。
+ * 过去每个字段各挂一个问号的做法已废弃——四十个问号把视线切碎，而它们承载的信息大多能从标签本身读出来；
+ * 真正会让人踩坑的那几条改由调用方写成常显的 {@link SettingsUiKit.note}。
+ * 全部小件只造节点，不含状态；样式规则在 `./css`，文案键在 `./locales`。
  * @module dsh-pet/src/client/settings/ui
  */
 import type { ChangeEvent, KeyboardEvent } from 'react';
@@ -72,28 +74,40 @@ export interface FoldCardOptions {
   readonly onToggle: () => void;
   /** 改动路径前缀（可给一组）：该前缀下有未保存改动就在标题后画点。 */
   readonly scope?: DirtyScope;
+  /** 折叠加在分区最外层时的样式修饰（如 `is-stack` 让正文自身成列）。 */
+  readonly className?: string;
 }
 
 /** 设置页的共用小件；由 {@link makeUiKit} 一次造好，各卡片共享同一套翻译与节点工厂。 */
 export interface SettingsUiKit {
   /** 悬浮说明的展开属性：带 `data-tip` 即悬浮出气泡。 */
   tip: (text: string) => Record<string, string>;
-  /** 问号说明入口：气泡的圆形触发元素。 */
+  /** 问号说明入口：气泡的圆形触发元素（只用在卡头）。 */
   q: (text: string) => ReturnType<typeof jsx>;
   /** 未保存改动的圆点；自己拼卡头的卡片用它，作用域没改动时返回 `null`。 */
   dot: (scope?: DirtyScope) => ReturnType<typeof jsx> | null;
-  /** 卡片头：标题与问号说明；右侧动作由调用方自行追加，`scope` 处有改动时画点。 */
-  cardHead: (title: string, hint?: string, scope?: DirtyScope) => ReturnType<typeof jsx>;
-  /** 一个字段：标签（可带问号与改动点）在上、控件在下。 */
-  field: (label: string, control: ReturnType<typeof jsx>, hint?: string, scope?: DirtyScope) => ReturnType<typeof jsx>;
-  /** 开关的一格：勾选框、标题与问号；说明挂在问号上，点标题只切开关。 */
+  /** 卡片头：标题与问号说明；右侧动作（如「打开文件夹」）作为第四个参数追加。 */
+  cardHead: (
+    title: string,
+    hint?: string,
+    scope?: DirtyScope,
+    actions?: ReturnType<typeof jsx> | null,
+  ) => ReturnType<typeof jsx>;
+  /** 一个字段：标签（可带悬浮说明）在上、控件在下。 */
+  field: (label: string, control: ReturnType<typeof jsx>, hint?: string) => ReturnType<typeof jsx>;
+  /** 开关的一格：勾选框、标题与悬浮说明；视觉是开关，语义仍是 checkbox。 */
   toggleCell: (
     label: string,
     value: boolean,
     disabled: boolean,
     onToggle: (value: boolean) => void,
-    scope?: DirtyScope,
   ) => ReturnType<typeof jsx>;
+  /** 卡片内的小节：标题 + 若干行；与上一小节之间由 CSS 画一条分隔线。 */
+  section: (title: string, children: ReadonlyArray<ReturnType<typeof jsx> | null>) => ReturnType<typeof jsx>;
+  /** 常显说明行（替代过去挂在每个字段上的问号）。 */
+  note: (text: string, tight?: boolean) => ReturnType<typeof jsx>;
+  /** 开关组：两列等宽；`muted` 表示整组从属于一个已关闭的父开关。 */
+  switchGrid: (cells: ReadonlyArray<ReturnType<typeof jsx> | null>, muted?: boolean) => ReturnType<typeof jsx>;
   /**
    * 折叠卡骨架：标题行常驻且整行可点，正文收进裁剪层。
    *
@@ -136,7 +150,7 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>, dirty: DirtyQuer
    */
   const tip = (text: string): Record<string, string> => ({ 'data-tip': text });
 
-  /** 问号：气泡的圆形触发元素。用 `<i>` 而不是 `<button>`——它只展示说明，点了不该有行为，也不该进 Tab 顺序。 */
+  /** 问号：气泡的触发元素。用 `<i>` 而不是 `<button>`——它只展示说明，点了不该有行为，也不该进 Tab 顺序。 */
   const q = (text: string): ReturnType<typeof jsx> =>
     h('i', { className: 'dsh-pet-cfg__q', ...tip(text), 'aria-label': text, role: 'img', children: '?' });
 
@@ -159,54 +173,61 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>, dirty: DirtyQuer
     tip,
     q,
     dot,
-    cardHead: (title, hint, scope) =>
+    cardHead: (title, hint, scope, actions) =>
       h('div', {
         className: 'dsh-pet-cfg__cardHead',
         children: [
           h('span', { key: 't', className: 'dsh-pet-cfg__cardTitle', children: title }),
           hint ? q(hint) : null,
           dot(scope),
+          actions === undefined || actions === null
+            ? null
+            : h('div', { key: 'a', className: 'dsh-pet-cfg__cardActions', children: actions }),
         ],
       }),
-    field: (label, control, hint, scope) => {
-      // 标签行只在真的多出东西时才变成数组：没有问号也没有圆点时保持原来的纯文本子节点。
-      const labelParts = [label, hint ? q(hint) : null, dot(scope)].filter((part) => part !== null);
-      return h('div', {
+    field: (label, control, hint) =>
+      h('div', {
         className: 'dsh-pet-cfg__field',
         children: [
           h('span', {
             key: 'l',
             className: 'dsh-pet-cfg__flabel',
-            children: labelParts.length === 1 ? labelParts[0] : labelParts,
+            children: label,
+            ...(hint === undefined ? {} : tip(hint)),
           }),
           control,
         ],
-      });
-    },
-    toggleCell: (label, value, disabled, onToggle, scope) =>
-      h('div', {
-        className: 'dsh-pet-cfg__toggle',
-        children: [
-          h('label', {
-            key: 'l',
-            children: [
-              h('input', {
-                key: 'i',
-                type: 'checkbox',
-                checked: value,
-                disabled,
-                onChange: (e: ChangeEvent<HTMLInputElement>) => onToggle(e.target.checked),
-              }),
-              h('span', { key: 't', children: t(label) }),
-            ],
-          }),
-          q(t(label + 'Hint')),
-          dot(scope),
-        ],
       }),
+    toggleCell: (label, value, disabled, onToggle) =>
+      h('div', {
+        className: 'dsh-pet-cfg__switch',
+        children: h('label', {
+          key: 'l',
+          ...tip(t(label + 'Hint')),
+          children: [
+            h('input', {
+              key: 'i',
+              type: 'checkbox',
+              checked: value,
+              disabled,
+              onChange: (e: ChangeEvent<HTMLInputElement>) => onToggle(e.target.checked),
+            }),
+            h('span', { key: 't', children: t(label) }),
+          ],
+        }),
+      }),
+    section: (title, children) =>
+      h('div', {
+        className: 'dsh-pet-cfg__section',
+        children: [h('div', { key: 'h', className: 'dsh-pet-cfg__sectionTitle', children: title }), ...children],
+      }),
+    note: (text, tight) =>
+      h('p', { className: 'dsh-pet-cfg__note' + (tight === true ? ' is-tight' : ''), children: text }),
+    switchGrid: (cells, muted) =>
+      h('div', { className: 'dsh-pet-cfg__switchGrid' + (muted === true ? ' is-muted' : ''), children: cells }),
     foldCard: (options) =>
       h('div', {
-        className: 'dsh-pet-cfg__card is-fold' + (options.open ? ' is-open' : ''),
+        className: 'dsh-pet-cfg__card is-fold' + (options.open ? ' is-open' : '') + (options.className ?? ''),
         children: [
           // 整行可点：标题、问号与箭头都在按钮里。问号自己拦掉冒泡，点它只出气泡、不开合。
           h('button', {
@@ -225,7 +246,7 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>, dirty: DirtyQuer
                 onClick: (e: ReactNS.MouseEvent<HTMLSpanElement>) => e.stopPropagation(),
                 children: q(options.hint),
               }),
-              // 箭头：展开时转 180°，与模型选择器的展开指示一致。
+              // 箭头：展开时转 180°，与下拉的展开指示一致。
               h('i', {
                 key: 'c',
                 className: 'dsh-pet-cfg__chevron' + (options.open ? ' is-open' : ''),

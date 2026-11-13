@@ -1,15 +1,17 @@
 /**
- * 语音卡：四个播报开关、一个播报去表情开关，以及音色、音量。
+ * 语音卡：四类播报开关、播报去表情、音色（edge 与本地两格）、音量与试听。
  *
  * 切换只改本地状态、随「保存」整包写入——即时写盘会重启桌面 Helper、重建全部桌面宠物窗口。
  * 音色选择器由外壳注入（与模型卡注入 picker 同构），卡片本身不硬编码任何音色 id。
+ * 四类开关排成 2×2：它们互不从属，横向排成一长条会读成「一串同义选项」；
+ * 去表情与音量同排——它们是「这一嗓子怎么出声」，跟「说不说」是两件事。
  * @module dsh-pet/src/client/settings/voice-card
  */
 import type { FunctionComponent } from 'react';
 import type { SpeakPhase } from '../../shared/voice.ts';
+import type { DirtyQuery } from './dirty.ts';
 import type { VoiceOption, VoicePickerProps } from './picker/voice-picker.ts';
 import type { SettingsRuntime } from './runtime.ts';
-import type { DirtyQuery } from './dirty.ts';
 import { makeUiKit } from './ui.ts';
 
 export type { VoiceOption } from './picker/voice-picker.ts';
@@ -90,31 +92,25 @@ export function makeVoiceCard(
   const { h, t } = rt;
 
   return function VoiceCard(props: VoiceCardProps) {
-    const { cardHead, field, toggleCell } = makeUiKit({ h, t }, props.dirty);
+    const { cardHead, field, toggleCell, switchGrid } = makeUiKit({ h, t }, props.dirty);
     // 本地实现（GSV）此刻可用且有音色可切：edge 那一格只是兜底，置灰并说明。
     const localActive = props.localAvailable === true && (props.localVoices?.length ?? 0) > 0;
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
         cardHead(t('voiceTitle'), t('voiceHint'), 'voice'),
-        // 第一行开关：四类语音各一个，必须相邻，读得出是「同一类」；第二行两个输入：音色与音量。
-        // 音色不挂文字标签也不挂问号：下拉当前值「晓伊（女·活泼）」自己就说明了它是什么。
+        // 四类语音各一个开关：互不从属，2×2 排布让「同一类」读得出来。
+        switchGrid([
+          toggleCell('voiceEnabled', props.enabled, props.busy, props.onToggle),
+          toggleCell('voiceWhisperEnabled', props.whisperEnabled, props.busy, props.onWhisperToggle),
+          toggleCell('voiceTodoEnabled', props.todoEnabled, props.busy, props.onTodoToggle),
+          toggleCell('voiceNotifyEnabled', props.notifyEnabled, props.busy, props.onNotifyToggle),
+        ]),
         h('div', {
-          className: 'dsh-pet-cfg__grid4',
-          children: [
-            toggleCell('voiceEnabled', props.enabled, props.busy, props.onToggle, 'voice.enabled'),
-            toggleCell('voiceWhisperEnabled', props.whisperEnabled, props.busy, props.onWhisperToggle, 'voice.whisper'),
-            toggleCell('voiceTodoEnabled', props.todoEnabled, props.busy, props.onTodoToggle, 'voice.todo'),
-            toggleCell('voiceNotifyEnabled', props.notifyEnabled, props.busy, props.onNotifyToggle, 'voice.notify'),
-            // 播报侧开关：合成前清洗文本，与上面四个「说不说」不是一回事，所以排在后面单独一格。
-            toggleCell('speakStripEmoji', props.stripEmoji, props.busy, props.onStripEmojiToggle, 'voice.stripEmoji'),
-          ],
-        }),
-        h('div', {
+          key: 'voices',
           className: 'dsh-pet-cfg__grid2',
           children: [
-            // edge 音色：本地 GSV 可用时置灰（这一项只决定「GSV 不可用时 edge 用谁的嗓子」），
-            // 并挂一句说明——否则选了晓晓却发现声音没变，只会让人以为配置没生效。
+            // edge 音色：本地 GSV 可用时置灰（这一项只决定「GSV 不可用时 edge 用谁的嗓子」）。
             field(
               t('voiceNameLabel'),
               h(picker, {
@@ -125,30 +121,8 @@ export function makeVoiceCard(
                 onChange: props.onVoiceChange,
               }),
               localActive ? t('voiceNameFallbackHint') : undefined,
-              'voice.name',
             ),
-            // 音量：播放端系数（0–1）。用滑块 + 百分比读数而不是裸小数——「0.65」没人看得出是多大，
-            // 而且 GSV 与 edge 的响度本来就不同，用户需要边放边拖。落盘仍是 0–1（配置校验不变）。
-            field(
-              `${t('voiceVolumeLabel')}（${Math.round(props.volume * 100)}%）`,
-              h('input', {
-                type: 'range',
-                className: 'dsh-pet-cfg__range',
-                min: '0',
-                max: '1',
-                step: '0.05',
-                value: String(props.volume),
-                disabled: props.busy,
-                onChange: (event: { target: { value: string } }) => {
-                  const next = Number(event.target.value);
-                  if (Number.isFinite(next)) props.onVolumeChange(next);
-                },
-              }),
-              t('voiceVolumeHint'),
-              'voice.volume',
-            ),
-            // 本地音色（GSV）：与 edge 白名单并列但互不覆盖——上面那格是「云端换声线」，
-            // 这格是「本机音色包」。没有可切音色时整格不出现，不留一个空下拉。
+            // 本地音色（GSV）：没有可切音色时整格不出现，不留一个空下拉。
             ...(props.localVoices && props.localVoices.length > 0
               ? [
                   field(
@@ -166,13 +140,39 @@ export function makeVoiceCard(
               : []),
           ],
         }),
-        // 试听：不放音色格里是因为它属于「这一嗓子听起来怎么样」，跟选哪个音色是两件事；
-        // 单独一行也让失败原因有地方落地（服务没起时点下去只会静默）。
         h('div', {
+          key: 'loudness',
+          className: 'dsh-pet-cfg__grid2',
+          children: [
+            // 音量：播放端系数（0–1）。用滑块 + 百分比读数而不是裸小数——「0.65」没人看得出是多大。
+            field(
+              `${t('voiceVolumeLabel')}（${Math.round(props.volume * 100)}%）`,
+              h('input', {
+                type: 'range',
+                className: 'dsh-pet-cfg__range',
+                min: '0',
+                max: '1',
+                step: '0.05',
+                value: String(props.volume),
+                disabled: props.busy,
+                onChange: (event: { target: { value: string } }) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) props.onVolumeChange(next);
+                },
+              }),
+              t('voiceVolumeHint'),
+            ),
+            // 播报侧开关：合成前清洗文本，与上面四个「说不说」不是一回事。
+            switchGrid([toggleCell('speakStripEmoji', props.stripEmoji, props.busy, props.onStripEmojiToggle)]),
+          ],
+        }),
+        // 试听：它属于「这一嗓子听起来怎么样」，跟选哪个音色是两件事，所以单独一行。
+        h('div', {
+          key: 'preview',
           className: 'dsh-pet-cfg__actions',
           children: [
             h('button', {
-              key: 'preview',
+              key: 'btn',
               type: 'button',
               className: 'dsh-pet-cfg__btn is-sm',
               // 合成中禁掉：再点一次只会顶掉正在合成的那一句，用户以为按钮没响应。

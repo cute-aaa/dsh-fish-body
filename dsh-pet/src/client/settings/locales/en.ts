@@ -404,7 +404,7 @@ export const en: Record<Key, string> = {
   // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
   tabPet: 'Pet',
   intro:
-    'Everything is grouped by function: pets, session fish, behavior, appearance, sound, chat and system. Change what you need, then use Apply or OK at the bottom — a dot marks settings and tabs with unsaved changes.',
+    'Organised by purpose: pet, look & feel, sound, chat, session fish, system. Save with Apply or OK at the bottom. While edits are pending, the tab and its card show a dot — or use Discard changes to go back to the values in the configuration file.',
   petCardHint:
     'Per-pet configuration: name / size / display / corner / offsets / five feature switches. Use Apply or OK at the bottom to save.',
   tabFish: 'Session fish',
@@ -459,4 +459,24 @@ export const en: Record<Key, string> = {
   confirmRestore:
     'Overwrite the current settings with “{name}”? The three configuration files are written back verbatim (existing files get a .bak first). This cannot be undone.',
   restoreConfirm: 'Restore',
+  tabFeel: 'Look & feel',
+  barDirty: '{n} unsaved changes',
+  barRevert: 'Discard changes',
+  barRevertHint: 'Throw away the unsaved edits and go back to the values in the configuration file.',
+  revertDone: 'Discarded the unsaved changes.',
+  revertFailed: 'Could not discard: the configuration did not load. Check the server connection.',
+  secBasic: 'Basics',
+  secDisplay: 'Display & position',
+  secFeatures: 'Features',
+  secAdvanced: 'Advanced',
+  maintenanceTitle: 'Maintenance',
+  maintenanceHint:
+    'Restart the plugin, restore the built-in defaults, and how this page is organised. These are set-once actions, so they stay out of the bottom bar.',
+  chatCostTitle: 'How much these toggles cost',
+  chatCostHint:
+    'Each note belongs to one toggle above. A toggle that is off sends not a single character to the model.',
+  sfxSourcesTitle: 'Sources, paths and file names',
+  secSpeak: 'Speech',
+  secTiming: 'Timing',
+  sizesTitle: 'Size per renderer',
 };

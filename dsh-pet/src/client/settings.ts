@@ -1,12 +1,11 @@
 /**
- * 「桌宠配置」设置页（`settings.section`，id 为 pet-config）：七个功能分区 + 底部常驻操作栏。
+ * 「桌宠配置」设置页（`settings.section`，id 为 pet-config）：六个功能分区 + 底部常驻操作栏。
  *
  * 本文件是装配根：分区表在 `settings/tabs.ts`，字段状态在 `settings/use-*.ts`，
- * 分区到卡片的映射在 `settings/panels.ts`，写盘在 `settings/config/`。
- * 这里只剩加载、写盘编排、未保存改动的基线、快捷键与外壳，所以照旧不自己拼条目级字段。
- * 「会话鱼」原先是一个独立分区（写自己的 `session-fish.json`），现在并进本页：草稿在
- * `settings/use-session-fish.ts`，底部栏的确定 / 应用 / 重启都会连带写它。
+ * 分区到卡片的映射在 `settings/panels.ts`，表单快照在 `settings/snapshot.ts`，写盘在 `settings/config/`。
+ * 这里只剩加载、写盘编排、未保存改动基线、快捷键与外壳，所以照旧不自己拼条目级字段。
  * 基线（最近一次服务端权威值）在加载、保存成功与重置成功后推进；圆点由「基线 vs 当前」的 diff 决定。
+ * 保存相关只有一条准则：任何改动都随底部栏落盘，页面自己不做即时写入。
  * @module dsh-pet/src/client/settings
  */
 import { avatarUrl } from '../shared/avatar.ts';
@@ -29,14 +28,13 @@ import { baselineFromConfig, diffSnapshot, dirtyTabs, makeDirtyQuery, type FormS
 import { NO_FEEDBACK, type Feedback } from './settings/feedback.ts';
 import { makeLoadStatus } from './settings/load-status.ts';
 import { makeSettingsPanels, type SettingsPanelDeps } from './settings/panels.ts';
-import { makeResetRow } from './settings/reset-row.ts';
 import { buildSaveFields } from './settings/save-fields.ts';
 import { useSaveHotkey } from './settings/save-hotkey.ts';
+import { makeSnapshot, withoutFish } from './settings/snapshot.ts';
 import { readSavedTab, saveTab, settingsTabStorage } from './settings/tab-memory.ts';
 import type { SettingsRuntime } from './settings/runtime.ts';
 import { DEFAULT_SETTINGS_TAB, makeTabBar, tabButtonId, tabPanelId, type SettingsTabId } from './settings/tabs.ts';
 import { attachTipLayer } from './settings/tip-layer.ts';
-import { makeUiKit } from './settings/ui.ts';
 import { useAppearanceSettings } from './settings/use-appearance-settings.ts';
 import { useAvatarUpload } from './settings/use-avatar-upload.ts';
 import { useGlobalSettings } from './settings/use-global-settings.ts';
@@ -44,6 +42,7 @@ import { useModelSettings } from './settings/use-model-settings.ts';
 import { usePermissionTest } from './settings/use-permission-test.ts';
 import { usePetList } from './settings/use-pet-list.ts';
 import { useRemoteData } from './settings/use-remote-data.ts';
+import { useRevert } from './settings/use-revert.ts';
 import { useSessionFish } from './settings/use-session-fish.ts';
 import { useSettingsBackup } from './settings/use-settings-backup.ts';
 import { useSfxSettings } from './settings/use-sfx-settings.ts';
@@ -74,15 +73,12 @@ export function makePetConfigSection(
   // 样式注入幂等，重复渲染不会重复插入。
   injectSettingsCss();
 
-  const { q } = makeUiKit({ h, t });
-
   // 外壳部件与面板表在装配时各造一次：组件类型必须跨渲染稳定，
   // 否则选择器与标签条的浮层 / 焦点状态每次渲染都会丢。
   const SettingsDialog = makeDialog(rt);
   const LoadStatus = makeLoadStatus({ h, t });
   const TabBar = makeTabBar({ h, t, useRef });
   const Bar = makeBar(rt);
-  const ResetRow = makeResetRow(rt);
   const panelsOf = makeSettingsPanels(rt, ctx);
   // 分区记忆：装配时读一次（渲染期不再碰存储），初始分区取上次停留的那一页。
   const tabStorage = settingsTabStorage();
@@ -176,33 +172,8 @@ export function makePetConfigSection(
     // 说明气泡：挂 body 摆位（伪元素会被窗口边缘与滚动容器裁掉），随页面卸载一起拆。
     useEffect(() => attachTipLayer(), []);
 
-    // 文件宠物条目数：只用于标题提示「另 n 只来自 pet/ 目录」。
-    const packCount = list.kinds.filter((item) => item.kind === 'pack').length;
-
     // 此刻的表单快照：形状与基线一致，diff 之后才知道哪些字段还没保存。
-    const snapshot: FormSnapshot = {
-      pets: list.pets,
-      global: { ...global.values, sfxVolume: global.sfxVolume },
-      sfx: sfx.config,
-      voice: {
-        enabled: voice.enabled,
-        name: voice.name,
-        volume: voice.volume,
-        whisper: voice.whisper,
-        todo: voice.todo,
-        notify: voice.notify,
-        stripEmoji: voice.stripEmoji,
-      },
-      model: {
-        whisperModel: model.whisperModel,
-        chatModel: model.chatModel,
-        chatMemory: model.chatMemory,
-        chatImageLimit: model.chatImageLimit,
-        ...model.chatFlags,
-      },
-      look: { physics: look.physics, weights: look.weights, font: look.font },
-      fish: fish.draft,
-    };
+    const snapshot = makeSnapshot({ list, global, sfx, voice, model, look, fish });
     snapshotRef.current = snapshot;
 
     const paths = baseline === null ? NO_PATHS : diffSnapshot(baseline, snapshot);
@@ -217,7 +188,7 @@ export function makePetConfigSection(
       // 更新过基线，这里再拿保存前的快照盖回去，会让刚保存完的那一页又亮起点。
       setBaseline((current) => ({
         ...current,
-        ...snapshotWithoutFish(now),
+        ...withoutFish(now),
         ...(scope === 'all' ? { fish: fishBaselineRef.current } : {}),
       }));
     }, []);
@@ -253,6 +224,9 @@ export function makePetConfigSection(
       onSaved: markSaved,
       onRestore: backup.confirm,
     });
+
+    // 撤销：重新读配置与会话鱼，成功 / 失败由 loadState 落地。
+    const { revert } = useRevert(rt, { loadState, retry, reloadFish: fish.reload, report: setMsg });
 
     // Ctrl+S = 应用（保存但不关闭）。
     useSaveHotkey(rt, rootRef, () => void write.saveAll());
@@ -303,6 +277,7 @@ export function makePetConfigSection(
       fish,
       perm: { msg: permission.message, test: permission.test },
       backup,
+      maintenance: { restart, reset: write.requestReset },
       dirty,
     };
     const panels = panelsOf(deps);
@@ -310,22 +285,19 @@ export function makePetConfigSection(
     return h('section', {
       ref: rootRef,
       className: 'dsh-pet-cfg',
+      // 页头标题已删（与左侧导航重复）：给整块补一个可读名，屏幕阅读器仍有上下文。
+      'aria-label': t('nav'),
       style: { maxWidth: '720px' },
       children: [
-        // 标题：intro 与「额外宠物」说明都收进问号。
-        h('h2', {
-          className: 'dsh-pet-cfg__title',
-          children: [
-            t('nav'),
-            q(packCount > 0 ? t('intro') + '\n' + t('extraPetsHint').replace('{n}', String(packCount)) : t('intro')),
-          ],
-        }),
+        // 页头只剩分区标签条：分区名已经在设置页的左侧导航里，再写一遍标题只是重复。
+        h(TabBar, { active: tab, onSelect: selectTab, dirty: tabsDirty }),
 
         h(LoadStatus, { loadState, onRetry: retry }),
 
         // 只渲染当前分区：其余分区的卡片不构造节点（字段状态仍在各 hook 里，切回来不丢）。
-        h(TabBar, { active: tab, onSelect: selectTab, dirty: tabsDirty }),
+        // key 跟随分区 id：切页时重新挂载，入场动画才会重播（CSS 只动透明度与位移）。
         h('div', {
+          key: tab,
           role: 'tabpanel',
           id: tabPanelId(tab),
           'aria-labelledby': tabButtonId(tab),
@@ -333,17 +305,15 @@ export function makePetConfigSection(
           children: panels[tab](),
         }),
 
-        // 设置项最底部：重置入口（唯一的破坏性动作，点击先弹确认）。
-        h(ResetRow, { busy, onReset: write.requestReset }),
-
         // 底部栏：不属于任何分区，任何一页都在同一位置。
         h(Bar, {
           busy,
           msg,
-          onConfirm: confirm,
+          dirtyCount: paths.size,
+          onRevert: revert,
           onCancel: () => close?.(),
           onApply: () => void write.saveAll(),
-          onRestart: restart,
+          onConfirm: confirm,
         }),
 
         dialog
@@ -356,17 +326,5 @@ export function makePetConfigSection(
           : null,
       ],
     });
-  };
-}
-
-/** 去掉会话鱼那一截的快照：只推进主配置基线时用。 */
-function snapshotWithoutFish(snapshot: FormSnapshot): Omit<FormSnapshot, 'fish'> {
-  return {
-    pets: snapshot.pets,
-    global: snapshot.global,
-    sfx: snapshot.sfx,
-    voice: snapshot.voice,
-    model: snapshot.model,
-    look: snapshot.look,
   };
 }

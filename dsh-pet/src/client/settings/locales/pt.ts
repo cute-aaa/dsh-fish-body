@@ -407,7 +407,7 @@ export const pt: Record<Key, string> = {
   // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
   tabPet: 'Pet',
   intro:
-    'Tudo agrupado por função: pets, peixes de sessão, comportamento, aparência, som, diálogo e sistema. Altere o que precisar e use Aplicar / OK no rodapé; um ponto marca ajustes e abas com alterações não salvas.',
+    'Organizado por finalidade: mascote, aspeto e sensação, som, conversa, peixe de sessão, sistema. Guarda com «Aplicar» ou «OK» em baixo. Enquanto houver alterações não guardadas, o separador e o cartão mostram um ponto; «Descartar alterações» volta aos valores do ficheiro de configuração.',
   petCardHint:
     'Configuração por pet: nome / tamanho / exibição / posição / deslocamentos / cinco interruptores. Use Aplicar ou OK no rodapé para salvar.',
   tabFish: 'Peixes de sessão',
@@ -465,4 +465,24 @@ export const pt: Record<Key, string> = {
   confirmRestore:
     'Sobrescrever as configurações atuais com «{name}»? Os três arquivos de configuração são reescritos como estão (os existentes são guardados antes como .bak). Não dá para desfazer.',
   restoreConfirm: 'Restaurar',
+  tabFeel: 'Aspeto e sensação',
+  barDirty: '{n} alterações não guardadas',
+  barRevert: 'Descartar alterações',
+  barRevertHint: 'Descarta as alterações não guardadas e volta aos valores do ficheiro de configuração.',
+  revertDone: 'As alterações não guardadas foram descartadas.',
+  revertFailed: 'Não foi possível descartar: a configuração não foi carregada. Verifique a ligação ao servidor.',
+  secBasic: 'Básico',
+  secDisplay: 'Apresentação e posição',
+  secFeatures: 'Funcionalidades',
+  secAdvanced: 'Avançado',
+  maintenanceTitle: 'Manutenção',
+  maintenanceHint:
+    'Reiniciar o plugin, restaurar os valores predefinidos e como esta página está organizada. São ações que se ajustam uma vez, por isso não ocupam a barra inferior.',
+  chatCostTitle: 'Quanto custam estes interruptores',
+  chatCostHint:
+    'Cada nota corresponde a um interruptor acima. Um interruptor desligado não envia um único caractere ao modelo.',
+  sfxSourcesTitle: 'Origens, caminhos e nomes',
+  secSpeak: 'Leitura',
+  secTiming: 'Ritmo',
+  sizesTitle: 'Tamanho por renderizador',
 };

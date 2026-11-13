@@ -1,18 +1,19 @@
 /**
- * 「桌宠」分区：种类条 + 宠物条 + 选中实例的配置卡。
+ * 「桌宠」分区：一个选择器行（种类 + 实例）+ 选中实例的配置卡。
  *
- * 三个部件共享同一个列表状态（`PetList`），所以整块一起装配、一起接收同一个 `list`；
- * 分区本身不持有任何状态，增删与选中都在 `use-pet-list` 里。保存已收进底部操作栏，
- * 这里不再透传「就近保存」。
+ * 过去这里是三排同形按钮（顶层分区、种类、实例），彼此只靠颜色区分层级，读起来像三份平级菜单。
+ * 现在第一层是顶部分段标签，第二层是这一行的 chip，第三层才是卡片里的字段——
+ * 层级靠形状与尺寸分开，不再靠在三排里长得一样的方块。
+ * 实例的增删与选中都在 `use-pet-list` 里；本分区不持有任何状态。
  * owns only 这一块的装配，never 字段值、保存与头像上传的实现。
  * @module dsh-pet/src/client/settings/pet-tab
  */
 import type { FunctionComponent } from 'react';
 import type { DirtyQuery } from './dirty.ts';
-import { makeKindTabs } from './kind-tabs.ts';
+import { makeSelect } from './panel/select.ts';
 import { makePetCard } from './pet-card.ts';
-import { makePetTabs } from './pet-tabs.ts';
 import type { SettingsRuntime } from './runtime.ts';
+import { makeUiKit } from './ui.ts';
 import type { PetList } from './use-pet-list.ts';
 
 /** 头像预览的一格。 */
@@ -45,30 +46,67 @@ export interface PetTabProps {
  */
 export function makePetTab(rt: SettingsRuntime): FunctionComponent<PetTabProps> {
   const { h, t } = rt;
-  // 三个部件在装配时各造一次：组件类型跨渲染稳定，切分区不会把浮层状态带乱。
-  const KindTabs = makeKindTabs({ h, t });
-  const PetTabs = makePetTabs({ h, t });
+  const Select = makeSelect(rt);
   const PetCard = makePetCard(rt);
+  const { note } = makeUiKit({ h, t });
 
   return function PetTab(props: PetTabProps) {
     const { list, busy, avatar, dirty } = props;
     const current = list.pets.find((pet) => pet.id === list.selId) ?? null;
     // 头像只能属于 pet pack：main（含没有 assetRoot 的实例）用插件默认 logo，不给上传入口。
     const avatarEditable = current !== null && current.assetRoot !== undefined && current.assetRoot !== 'main';
-    // 分区可以有多张卡：外层这层容器只负责把子节点交给分区的纵向 flex（`display:contents`），
-    // 自己不出盒子；组件的返回值仍是单节点，与其余分区同形。
+    // 另 n 个种类来自 pet/ 目录：只在真有文件宠物时提一句，普通用户不被打扰。
+    const packCount = list.kinds.filter((item) => item.kind === 'pack').length;
+
     return h('div', {
       className: 'dsh-pet-cfg__group',
       children: [
-        h(KindTabs, { key: 'kinds', kinds: list.kinds, kind: list.kind, busy, onSelect: list.selectKind }),
-        h(PetTabs, {
-          key: 'pets',
-          pets: list.visiblePets,
-          selId: list.selId,
-          busy,
-          onSelect: list.select,
-          onAdd: list.add,
+        h('div', {
+          key: 'picker',
+          className: 'dsh-pet-cfg__picker',
+          children: [
+            // 种类：条目名可能很长（pet/ 下的目录前缀），所以用下拉而不是再排一排按钮。
+            h('div', {
+              key: 'kind',
+              className: 'dsh-pet-cfg__kindPicker',
+              children: h(Select, {
+                label: t('kindLabel'),
+                value: list.kind,
+                options: list.kinds.map((item) => ({
+                  id: item.entry,
+                  label: (item.kind === 'main' ? t('kindMain') : item.entry) + ' (' + item.count + ')',
+                })),
+                disabled: busy,
+                onChange: list.selectKind,
+              }),
+            }),
+            h('div', {
+              key: 'pets',
+              className: 'dsh-pet-cfg__chips',
+              children: [
+                ...list.visiblePets.map((pet) =>
+                  h('button', {
+                    key: pet.id,
+                    type: 'button',
+                    className: 'dsh-pet-cfg__chip' + (pet.id === list.selId ? ' is-active' : ''),
+                    title: pet.name + ' · ' + pet.size + 'px',
+                    onClick: () => list.select(pet.id),
+                    children: pet.name || pet.id,
+                  }),
+                ),
+                h('button', {
+                  key: 'add',
+                  type: 'button',
+                  className: 'dsh-pet-cfg__chip is-add',
+                  disabled: busy,
+                  onClick: list.add,
+                  children: '+ ' + t('add'),
+                }),
+              ],
+            }),
+          ],
         }),
+        packCount > 0 ? note(t('extraPetsHint').replace('{n}', String(packCount)), true) : null,
         h(PetCard, {
           key: 'card',
           pet: current,

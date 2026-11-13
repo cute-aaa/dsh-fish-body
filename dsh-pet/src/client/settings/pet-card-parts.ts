@@ -1,22 +1,25 @@
 /**
- * 宠物卡的子部件：头像格，以及「身份」与「位置」两组字段。
+ * 宠物卡的字段组：身份（名字 / 大小）、显示（位置 / 渲染方式 / 屏宽上限）、
+ * 位置（角落与偏移）、按渲染方式的尺寸覆盖。
  *
- * 从 pet-card 拆出来的唯一原因是那张卡超长；这些部件只被它使用，不与别处共享。
- * 字段补丁的形状定义在这里——补丁就是这些控件产生的。
+ * 每组返回「若干格」而不是一整块 DOM：由 `pet-card` 决定放进哪个栅格、哪一段小节，
+ * 这样加一格字段只动这里，改版式只动那张卡。补丁形状也定义在这里——补丁就是这些控件产生的。
+ * 每个字段的说明都挂悬浮气泡（`data-tip`），卡头保留整卡语境的问号。
  * @module dsh-pet/src/client/settings/pet-card-parts
  */
 import type { ChangeEvent } from 'react';
+import type { jsx } from 'react/jsx-runtime';
 import type { Corner, Pet, PetDisplay, RendererKind } from '../../shared/types.ts';
 import { PET_DISPLAYS, RENDERERS } from '../../shared/config.ts';
 import { SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
+import { makeSelect } from './panel/select.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit, numberInputProps } from './ui.ts';
-import { makeSelect } from './panel/select.ts';
 
 /** 宠物字段补丁：`position` 只带要改的子字段，其余字段走顶层。 */
 export type PetPatch = Partial<Omit<Pet, 'position'>> & { position?: Partial<Pet['position']> };
 
-/** 字段类部件的输入。 */
+/** 字段组件的输入。 */
 export interface PetFieldsProps {
   /** 当前选中的宠物（字段值的唯一来源）。 */
   readonly pet: Pet;
@@ -24,6 +27,155 @@ export interface PetFieldsProps {
   readonly busy: boolean;
   /** 回传字段补丁。 */
   readonly onChange: (patch: PetPatch) => void;
+}
+
+/** 四个角落的固定顺序；文案走 `corner.<corner>`。 */
+const CORNERS: Corner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+
+/** 一组字段：调用即得到若干格（已翻译、已绑定回调），由调用方摆进栅格。 */
+export interface PetFieldGroups {
+  /** 名字与画框大小：这一页最常改的两项。 */
+  identity(props: PetFieldsProps): ReturnType<typeof jsx>[];
+  /** 显示位置、渲染方式与屏宽上限。 */
+  display(props: PetFieldsProps): ReturnType<typeof jsx>[];
+  /** 角落、水平偏移与垂直偏移。 */
+  positions(props: PetFieldsProps): ReturnType<typeof jsx>[];
+  /** 每种渲染方式各自的画框宽度（留空 = 跟随 `size`）。 */
+  sizeOverrides(props: PetFieldsProps): ReturnType<typeof jsx>[];
+}
+
+/**
+ * 造宠物卡的字段组。
+ *
+ * @param rt - 注入的节点工厂、状态与翻译。
+ * @returns 四组字段的渲染函数。
+ */
+export function makePetFieldGroups(rt: SettingsRuntime): PetFieldGroups {
+  const { h, t } = rt;
+  const { field, sizeControl } = makeUiKit({ h, t });
+  const Select = makeSelect(rt);
+
+  /** 宠物画框大小：滑块（SIZE_MIN~SIZE_MAX）+ 数字框，两处写同一个值。 */
+  const sizeInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
+    sizeControl(value, disabled, setter, { 'aria-label': t('sizeLabel') });
+
+  /** 百分比输入：默认 20；不设上限（超过 100 只在 size 也够大时才生效）。 */
+  const percentInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
+    h('input', numberInputProps(value, setter, { min: String(SIZE_PERCENT_MIN), step: '1', disabled }));
+
+  /** 偏移量输入：步长 1，不设上下限（可为任意数字）。 */
+  const marginInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
+    h('input', numberInputProps(value, setter, { step: '1', min: '', disabled }));
+
+  return {
+    identity: ({ pet, busy, onChange }) => [
+      field(
+        t('nameLabel'),
+        h('input', {
+          type: 'text',
+          className: INPUT_CLASS,
+          value: String(pet.name ?? ''),
+          disabled: busy,
+          maxLength: 50,
+          onChange: (e: ChangeEvent<HTMLInputElement>) => onChange({ name: e.target.value }),
+        }),
+        t('nameHint'),
+      ),
+      field(
+        t('sizeLabel'),
+        sizeInput(pet.size, busy, (v) => onChange({ size: v })),
+        t('sizeHint'),
+      ),
+    ],
+
+    display: ({ pet, busy, onChange }) => [
+      field(
+        t('displayLabel'),
+        h(Select, {
+          label: t('displayLabel'),
+          value: pet.display,
+          options: PET_DISPLAYS.map((d) => ({ id: d, label: t('display.' + d) })),
+          disabled: busy,
+          onChange: (id: string) => onChange({ display: id as PetDisplay }),
+        }),
+        t('displayHint'),
+      ),
+      field(
+        t('rendererLabel'),
+        h(Select, {
+          label: t('rendererLabel'),
+          value: pet.renderer ?? 'webm',
+          options: RENDERERS.map((r) => ({ id: r, label: t('renderer.' + r) })),
+          disabled: busy,
+          onChange: (id: string) => onChange({ renderer: id as RendererKind }),
+        }),
+        t('rendererHint'),
+      ),
+      field(
+        t('sizePercentLabel'),
+        percentInput(pet.sizePercent ?? SIZE_PERCENT_DEFAULT, busy, (v) => onChange({ sizePercent: v })),
+        t('sizePercentHint'),
+      ),
+    ],
+
+    positions: ({ pet, busy, onChange }) => [
+      field(
+        t('cornerLabel'),
+        h(Select, {
+          label: t('cornerLabel'),
+          value: pet.position.corner,
+          options: CORNERS.map((c) => ({ id: c, label: t('corner.' + c) })),
+          disabled: busy,
+          onChange: (id: string) => onChange({ position: { corner: id as Corner } }),
+        }),
+        t('cornerHint'),
+      ),
+      field(
+        t('marginX'),
+        marginInput(pet.position.marginX, busy, (v) => onChange({ position: { marginX: v } })),
+        t('marginXHint'),
+      ),
+      field(
+        t('marginY'),
+        marginInput(pet.position.marginY, busy, (v) => onChange({ position: { marginY: v } })),
+        t('marginYHint'),
+      ),
+    ],
+
+    sizeOverrides: ({ pet, busy, onChange }) =>
+      RENDERERS.map((renderer) => {
+        const base = pet.size;
+        const own = pet.sizes?.[renderer];
+        const write = (v: number): void => {
+          const next = { ...(pet.sizes ?? {}) };
+          // 等于基准值即删除覆盖：滑块很难精准落回 462 这种数，规则由「跟随默认」按钮补一个入口。
+          if (v === base || v <= 0) delete next[renderer];
+          else next[renderer] = v;
+          onChange({ sizes: next });
+        };
+        const label = t('sizesOf').replace('{renderer}', t('renderer.' + renderer));
+        return field(
+          label,
+          h('div', {
+            className: 'dsh-pet-cfg__sizeRow',
+            children: [
+              sizeControl(own ?? base, busy, write, { 'aria-label': label }),
+              own === undefined
+                ? null
+                : h('button', {
+                    key: 'follow',
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn is-sm',
+                    disabled: busy,
+                    onClick: () => write(base),
+                    children: t('sizeFollowDefault'),
+                  }),
+            ],
+          }),
+          own === undefined ? undefined : t('sizeFollowDefault'),
+        );
+      }),
+  };
 }
 
 /** 头像格的输入。 */
@@ -37,9 +189,6 @@ export interface PetAvatarCellProps {
   /** 选中新头像；`undefined` = 内置条目，只显示图、不可点。 */
   readonly onAvatar: ((file: File) => void) | undefined;
 }
-
-/** 四个角落的固定顺序；文案走 `corner.<corner>`。 */
-const CORNERS: Corner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 
 /**
  * 造头像格：可换时整块就是按钮（悬浮出遮罩、点它开文件框），内置条目只有图。
@@ -87,182 +236,6 @@ export function makePetAvatarCell(rt: Pick<SettingsRuntime, 'h' | 't'>) {
           }),
         ],
       }),
-    });
-  };
-}
-
-/**
- * 造「名字 / 大小 / 屏幕宽度上限 / 显示位置」四格（2×2）。
- *
- * @param rt - 注入的 react 能力与翻译。
- * @returns 身份字段组件。
- */
-export function makePetIdentityFields(rt: SettingsRuntime) {
-  const { h, t } = rt;
-  const { field, sizeControl } = makeUiKit({ h, t });
-  const Select = makeSelect(rt);
-
-  /** 宠物画框大小：滑块（SIZE_MIN~SIZE_MAX）+ 数字框，两处写同一个值。 */
-  const sizeInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
-    sizeControl(value, disabled, setter, { 'aria-label': t('sizeLabel') });
-
-  /** 百分比输入：默认 20；不设上限（超过 100 只在 size 也够大时才生效）。 */
-  const percentInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
-    h('input', numberInputProps(value, setter, { min: String(SIZE_PERCENT_MIN), step: '1', disabled }));
-
-  /** 四格各自成函数：都只读 props，拼在一起才是组件。 */
-  const cells = (props: PetFieldsProps) => {
-    const { pet, busy, onChange } = props;
-    return [
-      field(
-        t('nameLabel'),
-        h('input', {
-          type: 'text',
-          className: INPUT_CLASS,
-          value: String(pet.name ?? ''),
-          disabled: busy,
-          maxLength: 50,
-          onChange: (e: ChangeEvent<HTMLInputElement>) => onChange({ name: e.target.value }),
-        }),
-        t('nameHint'),
-      ),
-      field(
-        t('sizeLabel'),
-        sizeInput(pet.size, busy, (v) => onChange({ size: v })),
-        t('sizeHint'),
-      ),
-      field(
-        t('sizePercentLabel'),
-        percentInput(pet.sizePercent ?? SIZE_PERCENT_DEFAULT, busy, (v) => onChange({ sizePercent: v })),
-        t('sizePercentHint'),
-      ),
-      field(
-        t('displayLabel'),
-        h(Select, {
-          label: t('displayLabel'),
-          value: pet.display,
-          options: PET_DISPLAYS.map((d) => ({ id: d, label: t('display.' + d) })),
-          disabled: busy,
-          onChange: (id: string) => onChange({ display: id as PetDisplay }),
-        }),
-        t('displayHint'),
-      ),
-      field(
-        t('rendererLabel'),
-        h(Select, {
-          label: t('rendererLabel'),
-          value: pet.renderer ?? 'webm',
-          options: RENDERERS.map((r) => ({ id: r, label: t('renderer.' + r) })),
-          disabled: busy,
-          onChange: (id: string) => onChange({ renderer: id as RendererKind }),
-        }),
-        t('rendererHint'),
-      ),
-    ];
-  };
-
-  return function PetIdentityFields(props: PetFieldsProps) {
-    return h('div', { className: 'dsh-pet-cfg__grid2', children: cells(props) });
-  };
-}
-
-/**
- * 造「按渲染方式的大小」三格：每种素材一套画框宽度，留空 = 跟随上面的 `size`。
- *
- * 三种素材的人物占框比例不同（webm 只占中间 37.5%，方形画布几乎铺满），
- * 一个数字跨不过来——所以这里允许分开填，右键「大小」菜单写的是同一份字段。
- *
- * @param rt - 注入的 react 能力与翻译。
- * @returns 三格组件。
- */
-export function makePetSizeFields(rt: Pick<SettingsRuntime, 'h' | 't'>) {
-  const { h, t } = rt;
-  const { field, sizeControl } = makeUiKit({ h, t });
-
-  /**
-   * 单格：滑块显示该渲染方式当前生效的宽度；拖成与 `size` 相同、或点「跟随默认」= 删掉覆盖。
-   *
-   * 为什么要那个按钮：滑块能给手感，却很难精准落回基准值（462 这类数字不是整十数），
-   * 而「等于基准值即删除」的规则又不该逼用户去数字框里对齐——两个入口，一条规则。
-   */
-  const cell = (props: PetFieldsProps, renderer: RendererKind) => {
-    const base = props.pet.size;
-    const own = props.pet.sizes?.[renderer];
-    const write = (v: number): void => {
-      const next = { ...(props.pet.sizes ?? {}) };
-      if (v === base || v <= 0) delete next[renderer];
-      else next[renderer] = v;
-      props.onChange({ sizes: next });
-    };
-    const label = t('sizesOf').replace('{renderer}', t('renderer.' + renderer));
-    return field(
-      label,
-      h('div', {
-        className: 'dsh-pet-cfg__sizeCell',
-        children: [
-          sizeControl(own ?? base, props.busy, write, { 'aria-label': label }),
-          own === undefined
-            ? null
-            : h('button', {
-                key: 'follow',
-                type: 'button',
-                className: 'dsh-pet-cfg__btn is-sm',
-                disabled: props.busy,
-                onClick: () => write(base),
-                children: t('sizeFollowDefault'),
-              }),
-        ],
-      }),
-    );
-  };
-
-  return function PetSizeFields(props: PetFieldsProps) {
-    return h('div', { className: 'dsh-pet-cfg__grid3', children: RENDERERS.map((r) => cell(props, r)) });
-  };
-}
-
-/**
- * 造「角落 / 水平偏移 / 垂直偏移」三格。
- *
- * @param rt - 注入的 react 能力与翻译。
- * @returns 位置字段组件。
- */
-export function makePetPositionFields(rt: SettingsRuntime) {
-  const { h, t } = rt;
-  const { field } = makeUiKit({ h, t });
-  const Select = makeSelect(rt);
-
-  /** 偏移量输入：步长 1，不设上下限（可为任意数字）。 */
-  const marginInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
-    h('input', numberInputProps(value, setter, { step: '1', min: '', disabled }));
-
-  return function PetPositionFields(props: PetFieldsProps) {
-    const { pet, busy, onChange } = props;
-    return h('div', {
-      className: 'dsh-pet-cfg__grid3',
-      children: [
-        field(
-          t('cornerLabel'),
-          h(Select, {
-            label: t('cornerLabel'),
-            value: pet.position.corner,
-            options: CORNERS.map((c) => ({ id: c, label: t('corner.' + c) })),
-            disabled: busy,
-            onChange: (id: string) => onChange({ position: { corner: id as Corner } }),
-          }),
-          t('cornerHint'),
-        ),
-        field(
-          t('marginX'),
-          marginInput(pet.position.marginX, busy, (v) => onChange({ position: { marginX: v } })),
-          t('marginXHint'),
-        ),
-        field(
-          t('marginY'),
-          marginInput(pet.position.marginY, busy, (v) => onChange({ position: { marginY: v } })),
-          t('marginYHint'),
-        ),
-      ],
     });
   };
 }

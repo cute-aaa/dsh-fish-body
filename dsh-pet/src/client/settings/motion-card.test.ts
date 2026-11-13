@@ -2,9 +2,9 @@
  * 动作频率卡（src/client/settings/motion-card.ts）的契约测试。
  *
  * 三条契约：
- *   1. 四个输入框顺序固定为 待机 / 转向 / 移动 / 随机动作，前三个可编辑、第四个只读；
+ *   1. 三个输入框顺序固定为 待机 / 转向 / 移动；随机动作是**纯读数**，不是一个假输入框；
  *   2. 改一项时另两项不动，超上限的值在提交前被夹住；
- *   3. 忙时前三个输入全部禁用。
+ *   3. 忙时三个输入全部禁用。
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,20 +36,20 @@ function commit(input: Node, text: string): void {
 }
 
 describe('MotionCard —— 动作频率卡', () => {
-  test('四个框顺序固定，随机动作只读且等于余量', () => {
+  test('三个输入框顺序固定；随机动作只显示余量，不给输入入口', () => {
     const tree = MotionCard({
       busy: false,
       weights: { idle: 10, turn: 5, move: 5 },
       onChange: () => {},
     } as never);
     const found = inputs(tree);
-    assert.equal(found.length, 4);
+    assert.equal(found.length, 3, '只有三个可编辑权重');
     assert.deepEqual(
-      found.slice(0, 3).map((input) => input.props.defaultValue),
+      found.map((input) => input.props.defaultValue),
       ['10', '5', '5'],
     );
-    assert.equal(found[3].props.value, 80);
-    assert.equal(found[3].props.readOnly, true, '随机动作不该给输入入口');
+    const [readout] = flatten(tree).filter((node) => String(node.props.className ?? '').includes('__readout'));
+    assert.equal(readout.props.children, '80%', '随机动作 = 100 − 三项之和');
   });
 
   test('改待机：另两项不动，超过上限被夹到 90', () => {
@@ -74,12 +74,12 @@ describe('MotionCard —— 动作频率卡', () => {
     assert.deepEqual(seen, []);
   });
 
-  test('忙时前三个输入禁用', () => {
+  test('忙时三个输入禁用', () => {
     const tree = MotionCard({
       busy: true,
       weights: { idle: 10, turn: 5, move: 5 },
       onChange: () => {},
     } as never);
-    for (const input of inputs(tree).slice(0, 3)) assert.equal(input.props.disabled, true);
+    for (const input of inputs(tree)) assert.equal(input.props.disabled, true);
   });
 });

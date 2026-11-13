@@ -6,6 +6,8 @@
  *   2. 已加载时关键控件都在：预览、皮肤下拉、六个开关、四个数字框、两个位置动作；
  *   3. 每个控件回传的是 `SessionFishSettings` 的字段名与夹取后的值（谁写错谁静默不落盘）；
  *   4. 读取失败就地给「重试」，不阻塞页面其余部分。
+ *
+ * 假 `h` 会就地调用函数型组件（等价于 React 的一次浅渲染），这样分区里嵌的字段组与预览也在树里。
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,11 +18,13 @@ import { makeFishTab } from './fish-tab.ts';
 import type { SessionFishState } from './use-session-fish.ts';
 
 interface Node {
-  tag: string;
+  tag: string | unknown;
   props: Record<string, unknown>;
 }
 
-const h = ((tag: unknown, props: Record<string, unknown>) => ({ tag, props })) as unknown as typeof jsx;
+/** 组件就地展开；原生标签原样记录。 */
+const h = ((tag: unknown, props: Record<string, unknown>) =>
+  typeof tag === 'function' ? (tag as (p: unknown) => unknown)(props) : { tag, props }) as unknown as typeof jsx;
 const useState = (<T>(init: T): [T, (value: T) => void] => [init, () => {}]) as never;
 const FishTab = makeFishTab({
   h,
@@ -88,7 +92,10 @@ describe('FishTab —— 会话鱼分区', () => {
 
   test('已加载：预览、皮肤、六个开关、四个数字框与位置动作都在', () => {
     const tree = render();
-    assert.ok(flatten(tree).some((node) => String(node.props.className ?? '').includes('dsh-session-fish-preview')));
+    assert.ok(
+      flatten(tree).some((node) => String(node.props.className ?? '').includes('dsh-session-fish-preview')),
+      '预览框沿用浮层那套类名',
+    );
     assert.ok(flatten(tree).some((node) => node.tag === 'select'));
 
     const boxes = flatten(tree).filter((node) => node.tag === 'input' && node.props.type === 'checkbox');
@@ -114,6 +121,15 @@ describe('FishTab —— 会话鱼分区', () => {
     const select = flatten(tree).find((node) => node.tag === 'select');
     (select?.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: 'a.webm' } });
     assert.deepEqual(calls, ['skin=a.webm']);
+  });
+
+  test('父开关关掉时，三类子播报整块降透明', () => {
+    const tree = render({ draft: { ...draft, speakEnabled: false } });
+    const muted = flatten(tree).filter((node) => String(node.props.className ?? '').includes('is-muted'));
+    assert.equal(muted.length, 1, '子播报那一组要挂 is-muted');
+    for (const box of flatten(muted[0]).filter((node) => node.tag === 'input' && node.props.type === 'checkbox')) {
+      assert.equal(box.props.disabled, true, '父开关关掉时子播报不可点');
+    }
   });
 
   test('读取失败：就地给重试，按钮触发 reload', () => {

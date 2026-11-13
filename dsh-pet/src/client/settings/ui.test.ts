@@ -1,10 +1,12 @@
 /**
  * 设置页共用小件（src/client/settings/ui.ts）的契约测试。
  *
- * 三条契约：
- *   1. 说明一律走 `data-tip` 气泡属性，且带说明的字段必须同时有可读的 `aria-label`；
- *   2. 开关格的勾选态与禁用态透传给原生 checkbox，切换只回传布尔值；
- *   3. 没有说明时不留空的问号，也不给无说明的元素加 `data-tip`。
+ * 四条契约：
+ *   1. 说明只有两个出口：卡头问号（`role=img` + 可读名）与字段 / 开关标签的悬浮气泡；
+ *      **字段本身不再长问号**——四十个问号把视线切碎，信息大多能从标签读出来；
+ *   2. 开关格的勾选态与禁用态透传给原生 checkbox，视觉是开关、语义仍是 checkbox；
+ *   3. 圆点只在卡头与折叠卡上出现，字段级不再重复同一条「这块改过」的信号；
+ *   4. 小节 / 说明行 / 开关组各自只负责自己的盒子，不夹带交互。
  *
  * 用假的 `h` 记录节点树（不引 jsdom）。
  */
@@ -35,13 +37,11 @@ const byClass = (node: unknown, className: string): Node[] =>
   flatten(node).filter((child) => String(child.props.className ?? '').includes(className));
 
 describe('field —— 字段', () => {
-  test('带说明：标签后面跟一个问号，说明同时写进 data-tip 与 aria-label', () => {
+  test('带说明：说明挂在标签的 data-tip 上，字段里不长问号', () => {
     const field = ui.field('大小', h('input', {}), '高度自动 = 宽度 × 9/16');
     const [label] = byClass(field, 'dsh-pet-cfg__flabel');
-    const question = byClass(label, 'dsh-pet-cfg__q')[0];
-    assert.equal(question.props['aria-label'], '高度自动 = 宽度 × 9/16', '问号必须有无障碍名');
-    assert.equal(question.props['data-tip'], '高度自动 = 宽度 × 9/16');
-    assert.equal(question.props.role, 'img');
+    assert.equal(label.props['data-tip'], '高度自动 = 宽度 × 9/16', '鼠标悬浮标签能读到说明');
+    assert.deepEqual(byClass(field, 'dsh-pet-cfg__q'), [], '字段级问号已废弃');
     assert.equal(
       flatten(label).some((node) => node.tag === 'input'),
       false,
@@ -49,17 +49,11 @@ describe('field —— 字段', () => {
     );
   });
 
-  test('不带说明：标签就是纯文本，不凭空长出一个问号', () => {
+  test('不带说明：标签就是纯文本，不挂 data-tip', () => {
     const field = ui.field('大小', h('input', {}));
-    assert.deepEqual(byClass(field, 'dsh-pet-cfg__q'), []);
     const [label] = byClass(field, 'dsh-pet-cfg__flabel');
+    assert.equal(label.props['data-tip'], undefined);
     assert.equal(label.props.children, '大小');
-  });
-
-  test('问号不挂 data-tip-end：气泡靠 tip-layer 自动翻边，不再分左右', () => {
-    const field = ui.field('大小', h('input', {}), '说明');
-    const [question] = byClass(field, 'dsh-pet-cfg__q');
-    assert.equal(question.props['data-tip-end'], undefined);
   });
 });
 
@@ -82,11 +76,14 @@ describe('toggleCell —— 开关格', () => {
     assert.deepEqual(seen, [true]);
   });
 
-  test('说明固定在 `<label + Hint>` 上', () => {
+  test('说明挂在开关标签上（`<label + Hint>`），不额外长问号', () => {
     const cell = ui.toggleCell('notifyToggle', false, false, () => {});
-    const [question] = byClass(cell, 'dsh-pet-cfg__q');
-    assert.equal(question.props['aria-label'], 'notifyToggleHint');
-    assert.equal(question.props['data-tip'], 'notifyToggleHint');
+    const label = byClass(cell, 'dsh-pet-cfg__switch')[0];
+    assert.equal(flatten(label).length >= 2, true);
+    const [first] = byClass(cell, 'dsh-pet-cfg__switch');
+    const inner = flatten(first).find((node) => node.tag === 'label');
+    assert.equal(inner?.props['data-tip'], 'notifyToggleHint');
+    assert.deepEqual(byClass(cell, 'dsh-pet-cfg__q'), []);
   });
 });
 
@@ -98,6 +95,36 @@ describe('cardHead —— 卡片头', () => {
 
     const without = ui.cardHead('宠物配置');
     assert.deepEqual(byClass(without, 'dsh-pet-cfg__q'), []);
+  });
+
+  test('第四个参数是卡头右侧动作，包一层贴右容器', () => {
+    const head = ui.cardHead('音效', '说明', undefined, h('button', { children: '打开文件夹' }));
+    const [actions] = byClass(head, 'dsh-pet-cfg__cardActions');
+    assert.ok(actions, '动作要有自己的容器');
+    assert.equal(byClass(actions, '').length > 0, true);
+  });
+});
+
+describe('section / note / switchGrid —— 卡片内的小节', () => {
+  test('小节：标题 + 正文块', () => {
+    const node = ui.section('功能', [h('div', {}), null]) as unknown as Node;
+    assert.equal(node.props.className, 'dsh-pet-cfg__section', '小节根就是一个盒子');
+    const [title] = byClass(node, 'dsh-pet-cfg__sectionTitle');
+    assert.equal(title.props.children, '功能');
+  });
+
+  test('说明行：tight 是小一号的同一种盒子', () => {
+    const loose = ui.note('说明') as unknown as Node;
+    const tight = ui.note('说明', true) as unknown as Node;
+    assert.equal(loose.props.className, 'dsh-pet-cfg__note');
+    assert.match(String(tight.props.className), /is-tight/);
+  });
+
+  test('开关组：muted 让整组降透明（父开关关掉时的从属关系）', () => {
+    const muted = ui.switchGrid([ui.toggleCell('a', true, false, () => {})], true) as unknown as Node;
+    assert.match(String(muted.props.className), /is-muted/);
+    const plain = ui.switchGrid([]) as unknown as Node;
+    assert.equal(plain.props.className, 'dsh-pet-cfg__switchGrid');
   });
 });
 
@@ -117,18 +144,21 @@ describe('dot —— 未保存改动的圆点', () => {
     assert.deepEqual(byClass(field, 'dsh-pet-cfg__dot'), []);
   });
 
-  test('命中路径：字段、开关、卡头与折叠卡都带一个可读的圆点', () => {
+  test('命中路径：卡头与折叠卡各画一个可读的圆点；字段与开关不再重复', () => {
     const withDirty = makeUiKit({ h, t: (key) => key }, dirty);
-    const field = withDirty.field('大小', h('input', {}), '说明', 'look.physics.gravity');
-    const [fieldDot] = byClass(field, 'dsh-pet-cfg__dot');
-    assert.equal(fieldDot.props['aria-label'], 'unsaved');
-    assert.equal(fieldDot.props.role, 'img');
-
-    const cell = withDirty.toggleCell('x', false, false, () => {}, 'look.physics.hapticEnabled');
-    assert.equal(byClass(cell, 'dsh-pet-cfg__dot').length, 1);
+    assert.deepEqual(byClass(withDirty.field('大小', h('input', {}), '说明'), 'dsh-pet-cfg__dot'), []);
+    assert.deepEqual(
+      byClass(
+        withDirty.toggleCell('x', false, false, () => {}),
+        'dsh-pet-cfg__dot',
+      ),
+      [],
+    );
 
     const head = withDirty.cardHead('物理', '说明', 'look.physics');
-    assert.equal(byClass(head, 'dsh-pet-cfg__dot').length, 1, '卡片级前缀要能问整块');
+    const [headDot] = byClass(head, 'dsh-pet-cfg__dot');
+    assert.equal(headDot.props['aria-label'], 'unsaved');
+    assert.equal(headDot.props.role, 'img');
 
     const fold = withDirty.foldCard({
       id: 'x',
@@ -144,7 +174,6 @@ describe('dot —— 未保存改动的圆点', () => {
 
   test('没命中的路径不画点', () => {
     const withDirty = makeUiKit({ h, t: (key) => key }, dirty);
-    const field = withDirty.field('字体', h('input', {}), undefined, 'look.font.size');
-    assert.deepEqual(byClass(field, 'dsh-pet-cfg__dot'), []);
+    assert.deepEqual(byClass(withDirty.cardHead('字体', '说明', 'look.font.size'), 'dsh-pet-cfg__dot'), []);
   });
 });

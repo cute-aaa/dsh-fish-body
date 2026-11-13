@@ -1,11 +1,13 @@
 /**
- * 加载态条：配置还在拉或拉失败时显示一行状态，失败时给「重试」。
+ * 加载态条：配置还在拉或拉失败时显示一条状态，失败时给「重试」。
+ *
  * 就绪后整块不出现，也不占位——它就是设置页顶部那条临时提示。
+ * 失败态用告警色描边而不是只在文字上换色：这一条出现时整页是禁用的，得让人一眼看出「现在什么都改不了」。
  * @module dsh-pet/src/client/settings/load-status
  */
 import type { FunctionComponent } from 'react';
-import type { SettingsRuntime } from './runtime.ts';
 import type { LoadState } from './config/index.ts';
+import type { SettingsRuntime } from './runtime.ts';
 
 /** 加载态条的输入。 */
 export interface LoadStatusProps {
@@ -18,7 +20,7 @@ export interface LoadStatusProps {
 /**
  * 造加载态条。
  *
- * @param rt - 注入的 react 能力与翻译函数。
+ * @param rt - 注入的节点工厂与翻译函数。
  * @returns 状态条组件。
  */
 export function makeLoadStatus(rt: Pick<SettingsRuntime, 'h' | 't'>): FunctionComponent<LoadStatusProps> {
@@ -29,13 +31,14 @@ export function makeLoadStatus(rt: Pick<SettingsRuntime, 'h' | 't'>): FunctionCo
     const failed = props.loadState === 'error';
     return h('div', {
       role: failed ? 'alert' : 'status',
-      className: 'dsh-pet-cfg__actions',
+      className: 'dsh-pet-cfg__banner' + (failed ? ' is-err' : ''),
       children: [
-        h('span', { children: t(failed ? 'loadError' : 'loading') }),
+        h('span', { key: 't', children: t(failed ? 'loadError' : 'loading') }),
         failed
           ? h('button', {
+              key: 'retry',
               type: 'button',
-              className: 'dsh-pet-cfg__btn',
+              className: 'dsh-pet-cfg__btn is-sm',
               onClick: props.onRetry,
               children: t('retry'),
             })

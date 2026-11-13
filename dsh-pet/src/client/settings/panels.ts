@@ -2,7 +2,7 @@
  * 设置页的面板表：分区标识符 → 该分区的节点。
  *
  * 分区顺序与文案在 `./tabs.ts`，这里只负责「这个分区显示什么」。加一个分区就是表里加一项；
- * 装配较长、各有输入形状的分区（桌宠 / 会话鱼 / 行为 / 外观 / 声音 / 对话 / 系统）各有自己的文件，
+ * 装配较长、各有输入形状的分区（桌宠 / 外观与手感 / 声音 / 对话 / 会话鱼 / 系统）各有自己的文件，
  * 面板表只按顺序把状态递进去。卡片组件在装配时造一次、跨渲染稳定；`deps` 每次渲染重取。
  * owns only 分区到卡片的映射，never 字段状态、加载与写盘。
  * @module dsh-pet/src/client/settings/panels
@@ -10,11 +10,10 @@
 import type { jsx } from 'react/jsx-runtime';
 import type { ShortcutHost } from '../app-shortcut.ts';
 import { makeAudioTab } from './audio-tab.ts';
-import { makeBehaviorTab } from './behavior-tab.ts';
 import type { DirtyQuery } from './dirty.ts';
+import { makeFeelTab } from './feel-tab.ts';
 import type { Feedback } from './feedback.ts';
 import { makeFishTab } from './fish-tab.ts';
-import { makeLookTab } from './look-tab.ts';
 import { makeModelTab } from './model-tab.ts';
 import { makePetTab, type PetAvatarView } from './pet-tab.ts';
 import type { SettingsRuntime } from './runtime.ts';
@@ -29,6 +28,12 @@ import type { SfxSettings } from './use-sfx-settings.ts';
 import type { ModelSettings } from './use-model-settings.ts';
 import type { PetList } from './use-pet-list.ts';
 import type { VoiceSettings } from './use-voice-settings.ts';
+
+/** 维护动作（重启 / 重置）：只在系统分区的「插件维护」卡里出现。 */
+export interface MaintenanceActions {
+  restart(): void;
+  reset(): void;
+}
 
 /** 装配一个分区所需要的全部输入。 */
 export interface SettingsPanelDeps {
@@ -51,7 +56,9 @@ export interface SettingsPanelDeps {
   readonly perm: { readonly msg: Feedback; test(): void };
   /** 备份与恢复。 */
   readonly backup: SettingsBackupState;
-  /** 未保存改动查询口：各卡片据此在字段与卡头上画圆点。 */
+  /** 重启插件与重置设置。 */
+  readonly maintenance: MaintenanceActions;
+  /** 未保存改动查询口：各卡片据此在卡头上画圆点。 */
   readonly dirty: DirtyQuery;
 }
 
@@ -74,21 +81,19 @@ export function makeSettingsPanels(
 ): (deps: SettingsPanelDeps) => SettingsPanels {
   const { h } = rt;
   const PetTab = makePetTab(rt);
-  const FishTab = makeFishTab(rt);
-  const BehaviorTab = makeBehaviorTab(rt);
-  const LookTab = makeLookTab(rt);
+  const FeelTab = makeFeelTab(rt);
   const AudioTab = makeAudioTab(rt);
   const ModelTab = makeModelTab(rt);
+  const FishTab = makeFishTab(rt);
   const SystemTab = makeSystemTab(rt, ctx);
 
   return (deps: SettingsPanelDeps): SettingsPanels => ({
     pet: () => h(PetTab, { list: deps.list, avatar: deps.avatar, busy: deps.busy, dirty: deps.dirty }),
-    fish: () => h(FishTab, { busy: deps.busy, fish: deps.fish, dirty: deps.dirty }),
-    behavior: () => h(BehaviorTab, { busy: deps.busy, look: deps.look, dirty: deps.dirty }),
-    look: () => h(LookTab, { busy: deps.busy, look: deps.look, dirty: deps.dirty }),
+    feel: () => h(FeelTab, { busy: deps.busy, look: deps.look, dirty: deps.dirty }),
     audio: () =>
       h(AudioTab, { busy: deps.busy, global: deps.global, sfx: deps.sfx, voice: deps.voice, dirty: deps.dirty }),
     chat: () => h(ModelTab, { busy: deps.busy, model: deps.model, remote: deps.remote, dirty: deps.dirty }),
+    fish: () => h(FishTab, { busy: deps.busy, fish: deps.fish, dirty: deps.dirty }),
     system: () =>
       h(SystemTab, {
         busy: deps.busy,
@@ -97,6 +102,7 @@ export function makeSettingsPanels(
         remote: deps.remote,
         dirty: deps.dirty,
         backup: deps.backup,
+        maintenance: deps.maintenance,
       }),
   });
 }

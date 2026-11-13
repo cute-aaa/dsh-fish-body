@@ -1,10 +1,10 @@
 /**
  * 设置页的分区表与标签条：`id` 是跨文件稳定标识符，`titleKey` 取字典，顺序即标签条顺序。
  *
- * 这张表是「增减分区」的唯一改动点：加一行就多一个分区（面板装配在 `../panels.ts` 里对应补一项），
- * 删一行就少一个，入口不写 if。分区是本页最外层的信息架构，所以 id 用字面量联合类型钉住，
- * 面板表按它 `Record<>` 展开——少接一个分区在类型检查期就报错。
- * 分区按功能归类：个体（桌宠 / 会话鱼）→ 手感（行为 / 外观）→ 声音 → 智能（对话）→ 系统。
+ * 这张表是「增减分区」的唯一改动点：加一行就多一个分区（面板装配在 `./panels.ts` 里对应补一项），
+ * 删一行就少一个，入口不写 if。分区 id 用字面量联合类型钉住，面板表按它 `Record<>` 展开。
+ * 分区按「个体 → 手感 → 声音 → 智能 → 附加 → 维护」排：越靠前越常改，越靠后越是配一次就不动。
+ * 标签条是一条等宽分段控件（轨道 + 选中块），窄容器改横向滚动而不是折成两三行。
  * owns only 分区的名字、顺序与标签条交互，never 任何字段状态。
  * @module dsh-pet/src/client/settings/tabs
  */
@@ -20,14 +20,13 @@ export interface SettingsTabDef {
   readonly titleKey: Key;
 }
 
-/** 分区顺序即阅读顺序。 */
+/** 分区顺序即阅读顺序：高频在前，维护在后。 */
 export const SETTINGS_TABS = [
   { id: 'pet', titleKey: 'tabPet' },
-  { id: 'fish', titleKey: 'tabFish' },
-  { id: 'behavior', titleKey: 'tabBehavior' },
-  { id: 'look', titleKey: 'tabLook' },
+  { id: 'feel', titleKey: 'tabFeel' },
   { id: 'audio', titleKey: 'tabAudio' },
   { id: 'chat', titleKey: 'tabChat' },
+  { id: 'fish', titleKey: 'tabFish' },
   { id: 'system', titleKey: 'tabSystem' },
 ] as const satisfies readonly SettingsTabDef[];
 
@@ -82,20 +81,37 @@ export function makeTabBar(rt: Pick<SettingsRuntime, 'h' | 't' | 'useRef'>): Fun
   return function TabBar(props: TabBarProps) {
     const listRef = useRef<HTMLDivElement | null>(null);
 
-    /** 按方向键移动：选定下一个分区并把焦点搬过去，键盘用户不用再 Tab 一遍。 */
+    /** 把焦点搬到某个分区并把它的滚动位置带进可视区（窄容器里标签条是横向滚动的）。 */
+    const focusTab = (id: SettingsTabId): void => {
+      const button = listRef.current?.querySelector<HTMLElement>('[data-tab="' + id + '"]');
+      button?.focus();
+      button?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    };
+
+    /** 按方向键 / Home / End 移动：选定并把焦点搬过去，键盘用户不用再 Tab 一遍。 */
     const onKeyDown = (event: { key: string; preventDefault(): void }): void => {
-      const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
-      if (step === 0) return;
-      event.preventDefault();
       const index = SETTINGS_TABS.findIndex((tab) => tab.id === props.active);
-      const next = SETTINGS_TABS[(index + step + SETTINGS_TABS.length) % SETTINGS_TABS.length];
-      props.onSelect(next.id);
-      listRef.current?.querySelector<HTMLElement>('[data-tab="' + next.id + '"]')?.focus();
+      const last = SETTINGS_TABS.length - 1;
+      const next =
+        event.key === 'ArrowRight'
+          ? (index + 1) % SETTINGS_TABS.length
+          : event.key === 'ArrowLeft'
+            ? (index - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length
+            : event.key === 'Home'
+              ? 0
+              : event.key === 'End'
+                ? last
+                : -1;
+      if (next < 0) return;
+      event.preventDefault();
+      const target = SETTINGS_TABS[next];
+      props.onSelect(target.id);
+      focusTab(target.id);
     };
 
     return h('div', {
       ref: listRef,
-      className: 'dsh-pet-cfg__nav',
+      className: 'dsh-pet-cfg__seg',
       role: 'tablist',
       'aria-label': t('nav'),
       onKeyDown,
@@ -109,7 +125,7 @@ export function makeTabBar(rt: Pick<SettingsRuntime, 'h' | 't' | 'useRef'>): Fun
           'aria-selected': tab.id === props.active,
           'aria-controls': tabPanelId(tab.id),
           tabIndex: tab.id === props.active ? 0 : -1,
-          className: 'dsh-pet-cfg__navItem' + (tab.id === props.active ? ' is-active' : ''),
+          className: 'dsh-pet-cfg__segItem' + (tab.id === props.active ? ' is-active' : ''),
           onClick: () => props.onSelect(tab.id),
           children: [
             t(tab.titleKey),

@@ -414,7 +414,7 @@ export const fr: Record<Key, string> = {
   // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
   tabPet: 'Compagnon',
   intro:
-    "Tout est groupé par fonction : compagnons, poissons de session, comportement, apparence, son, dialogue et système. Modifiez ce qu'il faut puis utilisez Appliquer / OK en bas ; un point signale les réglages et onglets non enregistrés.",
+    "Organisé par usage : animal, aspect et ressenti, son, discussion, poisson de session, système. Enregistrez avec « Appliquer » ou « OK » en bas. Tant que des modifications sont en attente, l'onglet et sa carte affichent un point ; « Annuler les modifications » revient aux valeurs du fichier de configuration.",
   petCardHint:
     'Réglages par compagnon : nom / taille / affichage / position / décalages / cinq interrupteurs. Utilisez Appliquer ou OK en bas pour enregistrer.',
   tabFish: 'Poissons de session',
@@ -473,4 +473,24 @@ export const fr: Record<Key, string> = {
   confirmRestore:
     'Écraser les réglages actuels avec « {name} » ? Les trois fichiers de configuration sont réécrits tels quels (les fichiers existants sont d’abord conservés en .bak). Action irréversible.',
   restoreConfirm: 'Restaurer',
+  tabFeel: 'Aspect et ressenti',
+  barDirty: '{n} modifications non enregistrées',
+  barRevert: 'Annuler les modifications',
+  barRevertHint: 'Abandonne les modifications non enregistrées et revient aux valeurs du fichier de configuration.',
+  revertDone: 'Les modifications non enregistrées ont été abandonnées.',
+  revertFailed: "Annulation impossible : la configuration n'a pas été chargée. Vérifiez la connexion au serveur.",
+  secBasic: 'Essentiel',
+  secDisplay: 'Affichage et position',
+  secFeatures: 'Fonctions',
+  secAdvanced: 'Avancé',
+  maintenanceTitle: 'Maintenance',
+  maintenanceHint:
+    "Redémarrer le plugin, restaurer les valeurs par défaut et la façon dont cette page est organisée. Ces actions ne servent qu'une fois : elles restent hors de la barre du bas.",
+  chatCostTitle: 'Ce que ces options coûtent en tokens',
+  chatCostHint:
+    "Chaque note correspond à une option ci-dessus. Une option désactivée n'envoie pas le moindre caractère au modèle.",
+  sfxSourcesTitle: 'Sources, chemins et noms de fichiers',
+  secSpeak: 'Lecture vocale',
+  secTiming: 'Rythme',
+  sizesTitle: 'Taille par moteur de rendu',
 };

@@ -250,6 +250,7 @@ test('config save errors: network failures display a save error and release the 
 
 test('reset failures use the reset message', async (t) => {
   const { page } = await open(t, { post: (route) => route.fulfill({ status: 500, json: { error: 'write failed' } }) });
+  await tab(page, 'System').click();
   await page.getByRole('button', { name: 'Reset settings', exact: true }).first().click();
   await page.getByRole('button', { name: 'Reset settings', exact: true }).last().click();
   await page
@@ -309,6 +310,7 @@ test('Reset writes the built-in defaults and refreshes every control', async (t)
   const { page, writes, fishWrites } = await open(t);
   await apply(page);
   assert.equal(writes[0].chatMemoryRounds, 19);
+  await tab(page, 'System').click();
   await page.getByRole('button', { name: 'Reset settings', exact: true }).first().click();
   await page.getByRole('button', { name: 'Reset settings', exact: true }).last().click();
   await page.getByText('Reset to the built-in defaults.', { exact: true }).first().waitFor();
@@ -326,12 +328,12 @@ test('fresh config refreshes the pet list instead of saving an old bridge snapsh
   assert.deepEqual(userPets(writes[0].pets), fresh.main.pets);
 });
 
-test('bottom bar: sticky while the page scrolls, with restart / cancel / apply / OK', async (t) => {
+test('bottom bar: sticky while the page scrolls, with discard / cancel / apply / OK', async (t) => {
   const { page } = await open(t, { viewport: { width: 900, height: 520 } });
   const bar = page.locator('.dsh-pet-cfg__bar');
   await bar.waitFor();
   const names = await bar.getByRole('button').allTextContents();
-  assert.deepEqual(names, ['Restart', 'Cancel', 'Apply', 'OK']);
+  assert.deepEqual(names, ['Discard changes', 'Cancel', 'Apply', 'OK']);
 
   await page.evaluate(() => window.scrollTo(0, 0));
   const top = await bar.boundingBox();
@@ -370,6 +372,7 @@ test('Apply writes both files without closing', async (t) => {
 
 test('Restart saves first, then asks the host to recompose', async (t) => {
   const { page, writes, fishWrites, restarts } = await open(t);
+  await tab(page, 'System').click();
   await page.getByRole('button', { name: 'Restart', exact: true }).click();
   await page.getByText(/HMR is unavailable/, { exact: false }).waitFor();
   assert.equal(writes.length, 1, '重启前要先保存');
@@ -402,9 +405,9 @@ test('session fish tab writes its own file with the edited size', async (t) => {
   assert.equal(fishWrites[0].sizePx, 128);
 });
 
-test('all seven sections are reachable and render content', async (t) => {
+test('all six sections are reachable and render content', async (t) => {
   const { page } = await open(t);
-  for (const name of ['Pet', 'Session fish', 'Behavior', 'Appearance', 'Sound', 'Chat', 'System']) {
+  for (const name of ['Pet', 'Look & feel', 'Sound', 'Chat', 'Session fish', 'System']) {
     await tab(page, name).click();
     const panel = page.locator('.dsh-pet-cfg__panel');
     await panel.waitFor();
@@ -417,7 +420,7 @@ for (const lang of ['en', 'zh']) {
     test(`settings keep controls and toggle labels readable (${lang}, ${width}px)`, async (t) => {
       const { page } = await open(t, { viewport: { width, height: 800 }, lang });
       const clipped = await page
-        .locator('.dsh-pet-cfg__toggle>label>span')
+        .locator('.dsh-pet-cfg__switch>label>span')
         .evaluateAll((labels) =>
           labels.filter((label) => label.scrollWidth > label.clientWidth).map((label) => label.textContent),
         );
@@ -427,6 +430,7 @@ for (const lang of ['en', 'zh']) {
         await page.screenshot({
           path: join(process.env.DSH_PET_UI_ARTIFACTS, 'settings-' + lang + '-' + width + '.png'),
           fullPage: true,
+          animations: 'disabled',
         });
       }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -457,20 +461,26 @@ test('each section is reachable and screenshots are stable', async (t) => {
   const { page } = await open(t, { viewport: { width: 900, height: 900 }, lang: 'zh' });
   for (const [name, file] of [
     ['桌宠', 'pet'],
-    ['会话鱼', 'fish'],
-    ['行为', 'behavior'],
-    ['外观', 'look'],
+    ['外观与手感', 'feel'],
     ['声音', 'audio'],
     ['对话', 'chat'],
+    ['会话鱼', 'fish'],
     ['系统', 'system'],
   ]) {
     await tab(page, name).click();
+    // 等 React 把新面板提交进 DOM（面板 id 跟随分区 id）：只等底部栏不够，它上一页也在。
+    await page.waitForFunction(
+      (label) => document.querySelector('.dsh-pet-cfg__segItem.is-active')?.textContent?.startsWith(label) === true,
+      name,
+    );
     await page.locator('.dsh-pet-cfg__bar').waitFor();
     if (process.env.DSH_PET_UI_ARTIFACTS) {
       mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
       await page.screenshot({
         path: join(process.env.DSH_PET_UI_ARTIFACTS, 'tab-' + file + '.png'),
         fullPage: true,
+        // 入场动画是 160ms 的透明度位移：截图时快进到终态，否则会拍到半透明的一帧。
+        animations: 'disabled',
       });
     }
   }

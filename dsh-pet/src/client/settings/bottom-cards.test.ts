@@ -1,8 +1,8 @@
 /**
- * 重置行（src/client/settings/reset-row.ts）与音效总闸卡、系统与桌面卡的契约测试。
+ * 维护卡（src/client/settings/maintenance-card.ts）与音效总闸卡、系统与桌面卡的契约测试。
  *
  * 三张卡都在「设置页底部」这一带，各自只有一条容易写错的规则：
- *   1. 重置行把说明与危险按钮放在同一行，写盘时按钮禁用；
+ *   1. 维护卡把重启与重置放在同一行，重置走危险样式，写盘时两个都禁用；
  *   2. 音效三项与系统三项各自回传**配置字段名**（键名错位会静默写坏另一个开关）；
  *   3. 测试弹窗按钮只管触发，结论由宿主页面放进 `permMsg`。
  */
@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import type { H } from './runtime.ts';
 
 import { NO_DIRTY } from './dirty.ts';
-import { makeResetRow } from './reset-row.ts';
+import { makeMaintenanceCard } from './maintenance-card.ts';
 import { makeSfxMasterCard } from './sfx-master-card.ts';
 import { makeSystemCard } from './system-card.ts';
 import type { GlobalFlags } from './global-flags.ts';
@@ -44,23 +44,34 @@ const flags: GlobalFlags = {
   trayEnabled: true,
 };
 
-describe('ResetRow —— 设置项最底部的重置行', () => {
-  const ResetRow = makeResetRow(rt);
+describe('MaintenanceCard —— 插件维护', () => {
+  const MaintenanceCard = makeMaintenanceCard(rt);
 
-  test('说明 + 危险按钮；点击回传', () => {
+  test('重启 + 重置两个按钮；重置走危险样式，两个都回传', () => {
     const calls: string[] = [];
-    const tree = ResetRow({ busy: false, onReset: () => calls.push('reset') } as never);
-    assert.ok(flatten(tree).some((node) => node.props.children === 'resetHint'));
-    const [button] = buttons(tree);
-    assert.equal(button.props.children, 'resetSettings');
-    assert.match(String(button.props.className), /is-danger/);
-    (button.props.onClick as () => void)();
-    assert.deepEqual(calls, ['reset']);
+    const tree = MaintenanceCard({
+      busy: false,
+      intro: 'intro',
+      onRestart: () => calls.push('restart'),
+      onReset: () => calls.push('reset'),
+    } as never);
+    const all = buttons(tree);
+    assert.deepEqual(
+      all.map((node) => node.props.children),
+      ['barRestart', 'resetSettings'],
+    );
+    assert.match(String(all[1].props.className), /is-danger/);
+    for (const node of all) (node.props.onClick as () => void)();
+    assert.deepEqual(calls, ['restart', 'reset']);
   });
 
-  test('写盘时禁用', () => {
-    const [button] = buttons(ResetRow({ busy: true, onReset: () => {} } as never));
-    assert.equal(button.props.disabled, true);
+  test('写盘时两个都禁用；页面说明与重置说明都在卡里', () => {
+    const tree = MaintenanceCard({ busy: true, intro: 'intro', onRestart: () => {}, onReset: () => {} } as never);
+    for (const node of buttons(tree)) assert.equal(node.props.disabled, true);
+    const notes = flatten(tree)
+      .filter((node) => String(node.props.className ?? '').includes('__note'))
+      .map((node) => node.props.children);
+    assert.deepEqual(notes, ['resetHint', 'intro']);
   });
 });
 

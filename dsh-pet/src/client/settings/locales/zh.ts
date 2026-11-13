@@ -376,7 +376,7 @@ export const zh = {
   // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
   tabPet: '桌宠',
   intro:
-    '全部设置按功能分区：桌宠个体、会话鱼、行为手感、外观、声音、对话与系统。改完点底部「应用」或「确定」；有未保存改动的设置项与分区会亮起小圆点。',
+    '按功能分区：桌宠、外观与手感、声音、对话、会话鱼、系统。改完点底部「应用」或「确定」；有未保存改动时，分区标签与卡片标题会亮小圆点，也可以点「撤销改动」回到配置文件里的值。',
   petCardHint:
     '每只宠物独立配置：名字 / 大小 / 显示位置 / 位置 / 偏移 / 五个功能开关。改完点底部「应用」或「确定」保存。',
   tabFish: '会话鱼',
@@ -425,6 +425,24 @@ export const zh = {
   restoreFailed: '恢复失败：{message}',
   confirmRestore: '确定用「{name}」覆盖当前设置吗？三份配置文件会被原样写回（现有文件先留一份 .bak），不可撤销。',
   restoreConfirm: '恢复',
+  tabFeel: '外观与手感',
+  barDirty: '未保存 {n} 项',
+  barRevert: '撤销改动',
+  barRevertHint: '丢掉这次没保存的改动，回到配置文件里的值。',
+  revertDone: '已撤销未保存的改动。',
+  revertFailed: '撤销失败：配置没读到，请检查服务连接。',
+  secBasic: '基本信息',
+  secDisplay: '显示与位置',
+  secFeatures: '功能',
+  secAdvanced: '高级',
+  maintenanceTitle: '插件维护',
+  maintenanceHint: '重启插件、把设置恢复为内置默认，以及这一页的分区说明。这些动作配一次就不动，所以不占底部操作栏。',
+  chatCostTitle: '说明：这些开关要花多少 token',
+  chatCostHint: '三段说明分别对应上面三个开关；关掉的那一项一个字符都不会带进请求。',
+  sfxSourcesTitle: '来源、路径与命名规则',
+  secSpeak: '播报',
+  secTiming: '节奏',
+  sizesTitle: '每种渲染方式的大小',
 };
 
 /** 文案键；zh 的键集即全集。 */

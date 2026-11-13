@@ -19,7 +19,8 @@ interface Node {
 const h = ((tag: unknown, props: Record<string, unknown>) => ({ tag, props })) as unknown as typeof jsx;
 /** 模型选择器替身：只把 props 原样挂出来，方便断言 busy 传到了。 */
 const Picker = ((props: Record<string, unknown>) => ({ tag: 'select', props })) as never;
-const ModelCard = makeModelCard({ h, t: (key: string) => key } as never, Picker);
+const useState = (<T>(init: T): [T, (value: T) => void] => [init, () => {}]) as never;
+const ModelCard = makeModelCard({ h, t: (key: string) => key, useState } as never, Picker);
 
 function flatten(node: unknown): Node[] {
   if (node === null || node === undefined || typeof node === 'string') return [];

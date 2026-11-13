@@ -407,7 +407,7 @@ export const de: Record<Key, string> = {
   // 底部操作栏、重置、改动圆点与拆分后的卡片标题（会话鱼并入本页时新增）。
   tabPet: 'Begleiter',
   intro:
-    'Alles nach Funktion gruppiert: Begleiter, Sitzungsfische, Verhalten, Aussehen, Ton, Dialog und System. Ändern, dann unten Übernehmen / OK nutzen – ein Punkt markiert Einstellungen und Tabs mit ungespeicherten Änderungen.',
+    'Nach Zweck gegliedert: Pet, Aussehen & Verhalten, Ton, Chat, Sitzungsfisch, System. Speichern mit „Übernehmen“ oder „OK“ unten. Solange Änderungen offen sind, zeigen Tab und Karte einen Punkt – oder „Änderungen verwerfen“ stellt die Werte aus der Konfigurationsdatei wieder her.',
   petCardHint:
     'Einstellungen pro Begleiter: Name / Größe / Anzeige / Position / Versätze / fünf Funktionsschalter. Zum Speichern unten Übernehmen oder OK drücken.',
   tabFish: 'Sitzungsfische',
@@ -465,4 +465,24 @@ export const de: Record<Key, string> = {
   confirmRestore:
     'Aktuelle Einstellungen mit „{name}“ überschreiben? Die drei Konfigurationsdateien werden unverändert zurückgeschrieben (vorhandene Dateien werden vorher als .bak gesichert). Nicht rückgängig zu machen.',
   restoreConfirm: 'Wiederherstellen',
+  tabFeel: 'Aussehen & Verhalten',
+  barDirty: '{n} ungespeicherte Änderungen',
+  barRevert: 'Änderungen verwerfen',
+  barRevertHint: 'Die ungespeicherten Änderungen verwerfen und zu den Werten der Konfigurationsdatei zurückkehren.',
+  revertDone: 'Die ungespeicherten Änderungen wurden verworfen.',
+  revertFailed: 'Verwerfen fehlgeschlagen: Die Konfiguration wurde nicht geladen. Prüfen Sie die Serververbindung.',
+  secBasic: 'Grundlagen',
+  secDisplay: 'Anzeige & Position',
+  secFeatures: 'Funktionen',
+  secAdvanced: 'Erweitert',
+  maintenanceTitle: 'Wartung',
+  maintenanceHint:
+    'Plugin neu starten, die eingebauten Standardwerte wiederherstellen und wie diese Seite aufgebaut ist. Diese Aktionen stellt man einmal ein, deshalb stehen sie nicht in der unteren Leiste.',
+  chatCostTitle: 'Was diese Schalter an Tokens kosten',
+  chatCostHint:
+    'Jeder Hinweis gehört zu einem Schalter oben. Ein ausgeschalteter Schalter sendet kein einziges Zeichen mit.',
+  sfxSourcesTitle: 'Quellen, Pfade und Dateinamen',
+  secSpeak: 'Sprachausgabe',
+  secTiming: 'Taktung',
+  sizesTitle: 'Größe je Renderer',
 };
