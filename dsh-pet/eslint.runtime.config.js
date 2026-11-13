@@ -85,6 +85,7 @@ const scriptGlobals = {
   POSE_THROTTLE_MS: 'readonly',
   BUBBLE_DURATION_MS: 'readonly',
   BALANCE_FADE_MS: 'readonly',
+  HANDOFF_FALLBACK_MS: 'readonly',
   STATE_WAIT_MS: 'readonly',
   WINDOW_MARGIN_RATIO: 'readonly',
   soundUrlOf: 'readonly',
@@ -110,6 +111,11 @@ const scriptGlobals = {
   loadSfxIndex: 'readonly',
   // sprite/overlay.js：live2d 叠加层工厂（每只宠物一个实例，类本身是全局）
   createOverlay: 'readonly',
+  // sprite/fish.js：桌面会话鱼（认领出声权 + 碰撞音参数；PetSprite 的方法挂在原型上，不占全局）
+  claimFishSpeak: 'readonly',
+  FISH_BUMP_MIN_SPEED: 'readonly',
+  FISH_BUMP_GAP_MS: 'readonly',
+  FISH_BUMP_VOLUME: 'readonly',
 };
 
 export default defineConfig([

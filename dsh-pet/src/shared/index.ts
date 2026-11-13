@@ -39,3 +39,75 @@ export * from './voice.ts';
 export * from './voice-providers.ts';
 export * from './sfx/index.ts';
 export * from './pet-config-actions.ts';
+
+// 会话鱼：显式列名而不是 `export *`——几何与 wire 两头都有 `Slot` / `Rect` 一类短名，
+// 隐式再导出会与 motion/types 的既有符号撞名（撞名在 `export *` 里是静默丢弃，很难查）。
+export {
+  SESSION_FISH_SIZE_MIN,
+  SESSION_FISH_SIZE_MAX,
+  SESSION_FISH_SIZE_DEFAULT,
+  SESSION_FISH_MAX_COUNT_MIN,
+  SESSION_FISH_MAX_COUNT_MAX,
+  SESSION_FISH_MAX_COUNT_DEFAULT,
+  SESSION_FISH_BUBBLE_MS_MIN,
+  SESSION_FISH_BUBBLE_MS_MAX,
+  SESSION_FISH_BUBBLE_MS_DEFAULT,
+  SESSION_FISH_PROGRESS_GAP_MS_MIN,
+  SESSION_FISH_PROGRESS_GAP_MS_MAX,
+  SESSION_FISH_PROGRESS_GAP_MS_DEFAULT,
+  SESSION_FISH_SKIN_DEFAULT,
+  SESSION_FISH_SKIN_EXTS,
+  SESSION_FISH_SKIN_MAX_LEN,
+  SESSION_FISH_STATES,
+  SESSION_FISH_LINE_KINDS,
+  DEFAULT_SESSION_FISH_SETTINGS,
+  sessionFishSkinKindOf,
+  isSessionFishSkinName,
+  effectiveSessionFishSkin,
+  ownsSessionFishSpeech,
+  isSessionFishState,
+  isSessionFishLineKind,
+  readSessionFish,
+  isSessionFishBubbleVisible,
+  sessionFishSpeechOf,
+  selectSessionFishes,
+} from './session-fish.ts';
+export type {
+  SessionFishSkinKind,
+  SessionFishState,
+  SessionFishLineKind,
+  SessionFishSettings,
+  SessionFishEntry,
+  SessionFishSnapshot,
+} from './session-fish.ts';
+export {
+  SESSION_FISH_ASPECT,
+  sessionFishAspectOf,
+  rememberSessionFishAspect,
+  sessionFishHeightOf,
+} from './session-fish/aspect.ts';
+export {
+  ROAM_EDGE_PX,
+  OFFSET_LIMIT_RATIO,
+  resolveFishSlots,
+  pushOutOfBody,
+  placeFish,
+  clampOffset,
+  ringRadiiOf,
+  offsetLimitOf,
+  fishWindowPad,
+  createRoam,
+} from './session-fish/roam.ts';
+export type {
+  FishBox,
+  FishOffset,
+  FishPlacement,
+  PetAnchor,
+  RoamViewport,
+  SlotRequest,
+  Slot,
+  FishBody,
+  FishImpact,
+  RoamDeps,
+  Roam,
+} from './session-fish/roam.ts';

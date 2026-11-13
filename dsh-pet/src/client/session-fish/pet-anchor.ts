@@ -6,30 +6,13 @@
  * 每帧调用一次，量的是舞台盒（含 `translateY(bottomPad)`），所以脚底与头顶都对得上。
  * 必须始终成立：找不到桌宠（未挂载 / `display` 不含 web / 桌面模式的另一个窗口）时返回 null，
  * 由调用方退回右下角排布——绝不猜一个坐标。
+ *
+ * 锚点的形状定义在共享层（`shared/session-fish/roam`）：桌面端按窗口局部坐标算同一份。
  * @module dsh-pet/src/client/session-fish/pet-anchor
  */
+import type { PetAnchor } from '../../shared/session-fish/roam.ts';
 
-/** 一段视口矩形（px）。 */
-export interface Rect {
-  readonly left: number;
-  readonly top: number;
-  readonly right: number;
-  readonly bottom: number;
-}
-
-/** 桌宠锚点：舞台中心、尺寸与「鱼不该压上去的那块身体」。 */
-export interface PetAnchor {
-  /** 舞台中心 x（px）。 */
-  readonly cx: number;
-  /** 舞台中心 y（px）。 */
-  readonly cy: number;
-  /** 舞台宽（px）。 */
-  readonly w: number;
-  /** 舞台高（px，16:9）。 */
-  readonly h: number;
-  /** 身体盒：舞台矩形按固定比例内缩（左右各让 15%，上 10%、下 12%）。 */
-  readonly body: Rect;
-}
+export type { PetAnchor };
 
 /** 桌宠根节点选择器（`client/pet/card/view.ts` 的类名）。 */
 const PET_ROOT_SELECTOR = '.dsh-pet-root';

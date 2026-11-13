@@ -5,8 +5,9 @@
  * `session-fish-skin/` 的 gif / png / webm，只有宿主知道该从哪个目录取；前端只认名字，
  * 不拼素材根、也不猜文件在不在（404 就回落，不阻塞其它鱼）。
  *
- * 宽高比：素材尺寸只有加载后才知道，量到就记进模块级缓存并回调一次；布局按缓存里的比例算，
+ * 宽高比：素材尺寸只有加载后才知道，量到就记进共享缓存并回调一次；布局按缓存里的比例算，
  * 所以第一帧用 16:9 兜底、量到真实尺寸后盒子自己长对，不必等一整轮刷新。
+ * 比例与「按宽度算高度」的口径在 `shared/session-fish/aspect`（桌面端用同一份）。
  * @module dsh-pet/src/client/session-fish/media
  */
 import type { Dispatch, SetStateAction } from 'react';
@@ -18,17 +19,20 @@ import {
   type SessionFishSkinKind,
   type SessionFishState,
 } from '../../shared/session-fish.ts';
+import {
+  sessionFishAspectOf,
+  sessionFishHeightOf,
+  rememberSessionFishAspect,
+} from '../../shared/session-fish/aspect.ts';
 import { renderFishSprite } from './sprite.ts';
 
-/** 默认宽高比（素材 640×360）：量到真实尺寸前按它排。 */
-export const SESSION_FISH_ASPECT = 16 / 9;
-
-/** 高度相对宽度的允许区间：太扁或太长的图都不会把鱼群挤成一列。 */
-const HEIGHT_RATIO_MIN = 0.5;
-const HEIGHT_RATIO_MAX = 2;
-
-/** 皮肤 id → 量到的宽高比；没有记录时用默认值。 */
-const aspectCache = new Map<string, number>();
+// 比例相关的纯函数住在共享层（桌面端要用同一份）；这里转出，网页内的调用方不必改 import。
+export {
+  SESSION_FISH_ASPECT,
+  sessionFishAspectOf,
+  sessionFishHeightOf,
+  rememberSessionFishAspect,
+} from '../../shared/session-fish/aspect.ts';
 
 /**
  * 皮肤地址：宿主按名字在「用户目录 → 包内」里找。
@@ -39,47 +43,6 @@ const aspectCache = new Map<string, number>();
 export function sessionFishSkinUrl(skin: string): string {
   const name = skin === '' ? SESSION_FISH_SKIN_DEFAULT : skin;
   return ROUTE_PATH + '/session-fish/skin?name=' + encodeURIComponent(name);
-}
-
-/**
- * 读某个皮肤已知的宽高比。
- *
- * @param skin - 皮肤 id。
- * @returns 宽 / 高；没量过时 {@link SESSION_FISH_ASPECT}。
- */
-export function sessionFishAspectOf(skin: string): number {
-  const known = aspectCache.get(skin);
-  return known === undefined ? SESSION_FISH_ASPECT : known;
-}
-
-/**
- * 记一个皮肤的宽高比（量到合法尺寸才记）。
- *
- * @param skin - 皮肤 id。
- * @param width - 素材宽（px）。
- * @param height - 素材高（px）。
- * @returns 与已知比例相比是否变了（调用方据此决定要不要重排一次）。
- */
-export function rememberSessionFishAspect(skin: string, width: number, height: number): boolean {
-  if (!(width > 0) || !(height > 0)) return false;
-  const aspect = width / height;
-  const before = aspectCache.get(skin);
-  if (before !== undefined && Math.abs(before - aspect) < 0.01) return false;
-  aspectCache.set(skin, aspect);
-  return true;
-}
-
-/**
- * 按宽度与宽高比算显示高度。
- *
- * @param widthPx - 显示宽度（px）。
- * @param aspect - 宽 / 高；缺省用默认比例。
- * @returns 夹在 `[0.5×宽, 2×宽]` 内的高度（px）。
- */
-export function sessionFishHeightOf(widthPx: number, aspect: number = SESSION_FISH_ASPECT): number {
-  const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : SESSION_FISH_ASPECT;
-  const ratio = Math.min(HEIGHT_RATIO_MAX, Math.max(HEIGHT_RATIO_MIN, 1 / safeAspect));
-  return Math.max(1, Math.round(widthPx * ratio));
 }
 
 /** 媒体组件的 react 能力。 */

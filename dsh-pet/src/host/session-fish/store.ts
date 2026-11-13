@@ -94,6 +94,7 @@ export class SessionFishStore {
   declare private readonly flags: Map<string, SessionFlags>;
   declare private readonly closed: Set<string>;
   declare private readonly lineSeq: Map<string, number>;
+  declare private readonly spoken: Map<string, number>;
   declare private readonly settings: () => SessionFishSettings;
   declare private readonly now: () => number;
   declare private readonly pick: () => number;
@@ -103,9 +104,32 @@ export class SessionFishStore {
     this.flags = new Map();
     this.closed = new Set();
     this.lineSeq = new Map();
+    this.spoken = new Map();
     this.settings = options.settings;
     this.now = options.now ?? (() => Date.now());
     this.pick = options.pick ?? Math.random;
+  }
+
+  /**
+   * 认领一条播报的「出声权」：同一个 `(sessionId, lineSeq)` 只会授予一次。
+   *
+   * 为什么由宿主裁决：语音链的单槽是**每个页面/窗口各一份**的，网页开两个标签、或网页与桌面
+   * 同时显示会话鱼时，两边会各自把同一条播报念一遍，听感就是「播了两次、叠在一起」。
+   * 宿主是两端唯一的共同点，谁先问谁念，另一端拿到 `false` 就不出声（气泡照常显示）。
+   *
+   * 只认严格更大的序号：乱序到达的旧播报（另一端晚一步的轮询）不该再被念一次。
+   *
+   * @param sessionId - 会话 id。
+   * @param lineSeq - 该鱼的播报序号（`SessionFishEntry.lineSeq`）。
+   * @returns 这一次是否由调用方来念。
+   */
+  claimLine(sessionId: string, lineSeq: number): boolean {
+    if (sessionId === '' || !Number.isFinite(lineSeq)) return false;
+    const seq = Math.floor(lineSeq);
+    if (seq <= 0) return false;
+    if (seq <= (this.spoken.get(sessionId) ?? 0)) return false;
+    this.spoken.set(sessionId, seq);
+    return true;
   }
 
   /** 该会话是否已有鱼（供装配层判断 focus 是否需要新建）。 */

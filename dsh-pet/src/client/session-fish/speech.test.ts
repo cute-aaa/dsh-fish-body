@@ -159,4 +159,54 @@ describe('fish speech queue', () => {
     harness.finish();
     assert.deepEqual(harness.spoken, ['A']);
   });
+
+  test('端口给得出序号：别处念同一句不会被当成本句收尾', () => {
+    const spoken: string[] = [];
+    let listener: ((event: VoiceUtteranceEvent) => void) | null = null;
+    let seq = 100; // 基线：此前已经有 100 条播报
+    // 包一层而不是直接 `listener?.(...)`：TS 的控制流分析看不到「在 subscribe 回调里被赋值」，
+    // 直接调用会被判成 never。
+    const emit = (event: VoiceUtteranceEvent): void => listener?.(event);
+    configureFishSpeech({
+      speak: (text: string) => {
+        spoken.push(text);
+      },
+      subscribe: (next) => {
+        listener = next;
+        return () => {
+          listener = null;
+        };
+      },
+      now: () => 1_000,
+      currentSeq: () => seq,
+    });
+    enqueueFishLine(line('A'));
+    enqueueFishLine(line('B', { kind: 'turnEnd' }));
+    // 别的组件念到同一句「A」：序号落在基线之内 → 既不是我的 start，也不算我的收尾
+    emit({ kind: 'start', seq: 99, text: 'A' });
+    emit({ kind: 'end', seq: 99, text: 'A' });
+    assert.deepEqual(spoken, ['A'], '别人念的同句不该推进我的队列');
+    // 自己这一句：基线之后的那一条
+    seq = 100;
+    emit({ kind: 'start', seq: 101, text: 'A' });
+    emit({ kind: 'end', seq: 101, text: 'A' });
+    assert.deepEqual(spoken, ['A', 'B'], '认准自己的序号才收尾');
+  });
+
+  test('卸载时把正在响的那句掐掉；没在念时不动别人的自动播报', () => {
+    let stops = 0;
+    configureFishSpeech({
+      speak: () => {},
+      subscribe: () => () => {},
+      now: () => 1_000,
+      stop: () => {
+        stops += 1;
+      },
+    });
+    enqueueFishLine(line('A'));
+    stopFishSpeech();
+    assert.equal(stops, 1, '队列在念 → 卸载时要停掉声音');
+    stopFishSpeech();
+    assert.equal(stops, 1, '没在念 → 不碰别的组件正在响的播报');
+  });
 });

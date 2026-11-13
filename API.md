@@ -141,17 +141,29 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `POST /dsh-pet-7340/session-fish`           | 用户动作：`{ action: "focus" \| "close", sessionId, blank?, running? }`；`focus` 在已完成时让鱼消失，`close` 隐藏到下一轮 |
 | `GET /dsh-pet-7340/session-fish/skins`      | 列可选皮肤：用户目录 `<用户根>/session-fish-skin/` 在前、包内 `assets/webm/` 在后（同名以用户为准），附 `defaultSkin`     |
 | `GET /dsh-pet-7340/session-fish/skin?name=` | 取一份皮肤文件（图片 / 动图 / webm）；名字非法或扩展名不支持 → `400`，不存在 → `404` 文本                                 |
+| `POST /dsh-pet-7340/session-fish/claim`     | 认领一条播报的出声权：`{ sessionId, lineSeq }` → `{ granted }`；每个 `(会话, 序号)` 全机器只授予一次                      |
 
-会话鱼只在**DSH 网页端**渲染（桌面 helper 是独立窗口，不消费 `shell.overlay`）：每个新建 / 进行中 /
-刚结束还没点开的会话对应一条小鱼，宿主把鱼群写进 `sections.sessionFish`。
+### 显示面：网页 + 桌面
 
-- **位置**：默认围着桌宠排布（横向 / 纵向按桌宠舞台尺寸算椭圆半径），桌宠走位、被拖、被甩时鱼群跟着移动；
-  鱼与鱼、鱼与桌宠之间有碰撞分离。拖一条鱼松手后它会甩一下再回到自己的位置，位置以「相对槽位的偏移」
-  记在浏览器 `localStorage`。`followPet=false` 时回到右下角竖排。
-- **皮肤**：`skin` 是素材名（默认 `写代码.webm`）；把图片 / 动图（gif / webp）/ webm 放进
-  `<用户根>/session-fish-skin/`，设置页点「重新扫描」即可选中，`GET /session-fish/skin` 负责下发。
-- **播报**：与工作状态共用同一条语音链，但会话鱼接管时旧的工作状态播报会让路；多条鱼同时有事时
-  串行播报（同一时刻只有一句），同样的句子在 4 秒内不会重复出声。设置页「会话鱼」分区可整体关掉。
+会话鱼**跟着桌宠的显示方式走**（`pets[].display`）：`web` / `both` 时网页浮层里有鱼，`desktop` / `both`
+时桌面 Helper 的窗口里也有鱼；`display` 不含那一端就不出现（网页里也不会退化成右下角竖排）。
+
+- **网页**：`shell.overlay` 浮层，围着 `.dsh-pet-stage` 排布，拖拽位置以「相对槽位的偏移」记在
+  `localStorage`（`dsh-pet:session-fish-offsets`）。
+- **桌面**：画在桌宠**自己的那个窗口**里——不新增窗口、不新增渲染进程、不新增第二条 `/state` 轮询。
+  鱼层全程 `pointer-events: none`（点击穿透到下层应用），窗口只在真有鱼时按环位把透明余量撑大，
+  鱼全没了立刻收回。桌面端鱼不可点、也不带气泡；运动与碰撞复用同一份 `shared/session-fish/roam`。
+
+### 播报：全机器只念一次
+
+语音链的单槽是每个页面 / 窗口各一份的，所以「谁该念这一句」由宿主裁决：客户端在念之前先
+`POST /session-fish/claim`，只有拿到 `granted: true` 的那一端出声，另一端的鱼照样显示气泡。
+请求失败一律按放行处理——网络抖动不该把播报静音。
+
+每个显示面内部还有一层队列：多条鱼同时有事时串行播报（同一时刻只有一句），同一条播报 8 秒内不重入、
+同样的句子跨会话 4 秒内只念一次；认句按 `lineSeq` 而不是文本（文案池每档只有两句，按文本认会把
+别处念的同句误判成自己的收尾）。设置页「会话鱼」分区可整体关掉。
+
 - **会话范围**：会话是全局的（`<DSH_HOME>/sessions`，按 cwd 分桶，`SessionHeader` 里没有 profile 字段），
   不按 profile 划分；只有在本进程里真正跑的会话才会发 `session/event`，因此鱼天然只对应本 profile 正在做的事。
 

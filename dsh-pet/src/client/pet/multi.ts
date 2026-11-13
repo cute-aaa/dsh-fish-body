@@ -5,7 +5,7 @@
  * @module dsh-pet/src/client/pet/multi
  */
 import type { FunctionComponent, ReactNode } from 'react';
-import { petBridge } from '../settings/bridge.ts';
+import { petBridge, notifyPetBridge } from '../settings/bridge.ts';
 import { flattenConfigPets, isWebVisible, pickSurfacePet } from '../../shared/config.ts';
 import { decideBalanceNotice } from '../../shared/balance/index.ts';
 import { ROUTE_PATH } from '../../shared/constants.ts';
@@ -129,9 +129,12 @@ export function createPetMulti(
         setVoiceNotifyEnabled(main.voiceNotifyEnabled);
         const flattened = flattenConfigPets(merged);
         petBridge.current = flattened;
+        petBridge.ready = true;
         // 「添加宠物」模板取 main 条目的 pets[0]。
         petBridge.template = Array.isArray(main.pets) ? ((main.pets as Pet[])[0] ?? undefined) : undefined;
         setPets(flattened);
+        // 显示面变了（display 一改，会话鱼该出现在哪一屏就跟着变）：通知在等的浮层，不等下一次轮询。
+        notifyPetBridge();
         // 音效索引按素材根 + 渲染方式 + 皮肤取一份：失败只降级成内置默认音，不影响宠物渲染。
         const shown = pickSurfacePet(flattened, (p) => isWebVisible(p.display)).pet;
         if (shown !== undefined) void loadSfxIndex(shown);

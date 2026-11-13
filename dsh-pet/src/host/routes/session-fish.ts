@@ -1,9 +1,10 @@
 /**
- * 会话鱼路由：设置读写与「点进 / 关闭」两种用户动作。
+ * 会话鱼路由：设置读写、「点进 / 关闭」两种用户动作、皮肤池与播报出声权。
  *
  * 单段路径（`/session-fish`）承载三种方法，是为了同时满足两件事：`check-openapi` 只按一级段
  * 比对文档与实现，且浏览器与设置页都不需要记更多路径。动作走 JSON body，不用查询串——
  * 会话 id 可能含 `&` 一类字符，放进 body 才不会被编码细节绊住。
+ * 子路径只放「需要独立语义」的三件事：皮肤清单、皮肤字节、以及跨面唯一一次的出声权（`/claim`）。
  * @module dsh-pet/src/host/routes/session-fish
  */
 import type { RouteResult } from '../http.ts';
@@ -68,6 +69,7 @@ export async function handleSessionFishRoutes(deps: PetRouteDeps, input: RouteIn
   // 两条皮肤只读端点先匹配：它们都是 `/session-fish` 的子路径，落到下面那条精确匹配就取不到了。
   if (rest === 'session-fish/skins') return listSkins(deps, input);
   if (rest === 'session-fish/skin') return sendSkin(deps, input);
+  if (rest === 'session-fish/claim') return claimSpeak(deps, input);
   // 先按一级段精确匹配（分发器按 rest 串行尝试各领域处理器）。
   const isSessionFishRoute = rest === 'session-fish';
   if (!isSessionFishRoute) return undefined;
@@ -118,9 +120,7 @@ export async function handleSessionFishRoutes(deps: PetRouteDeps, input: RouteIn
  */
 function skinDirsOf(deps: PetRouteDeps): FishSkinDirs {
   return typeof deps.fishSkinDirs === 'function' ? deps.fishSkinDirs() : fishSkinDirs(deps.userRoot);
-}
-
-/**
+} /**
  * 列可选皮肤：用户目录在前、包内动画在后（同名以用户为准）。
  *
  * 只回清单不回字节：设置页只要一个下拉，皮肤本身走 `/session-fish/skin`，
@@ -158,4 +158,38 @@ function sendSkin(deps: PetRouteDeps, input: RouteInput): RouteResult {
   if (file === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: fish skin not found' };
   const ext = file.slice(file.lastIndexOf('.')).toLowerCase();
   return { kind: 'file', file, contentType: MIME[ext] ?? 'application/octet-stream' };
+}
+
+/**
+ * 认领一条会话鱼播报的出声权（每个 `(sessionId, lineSeq)` 只授予一次）。
+ *
+ * 为什么需要这条：语音链的单槽是每个页面/窗口各一份的，网页开两个标签、或网页与桌面同时显示
+ * 会话鱼时，两端会把同一条播报各念一遍。宿主是两端唯一的共同点，由它裁决「谁念」。
+ * 客户端在请求失败时一律按放行处理——网络抖动不该把播报静音。
+ *
+ * @param deps - 路由依赖（只用 `sessionFish`）。
+ * @param input - 请求（只接受 POST，body `{ sessionId, lineSeq }`）。
+ * @returns `{ granted }`；形状非法 400，方法不对 405。
+ */
+async function claimSpeak(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult> {
+  if (input.method !== 'POST') return methodNotAllowed();
+  if (Buffer.byteLength(input.body ?? '', 'utf8') > MAX_BODY_BYTES)
+    return payloadTooLarge('session-fish body too large');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(input.body ?? '');
+  } catch {
+    return invalidJson();
+  }
+  const body = recordOf(parsed);
+  if (!body) return failResult('bad-request', 'body must be a JSON object');
+  const sessionId = parseSessionId(body.sessionId);
+  if (sessionId === undefined) {
+    return failResult('bad-request', `sessionId must be a non-empty string (max ${MAX_SESSION_ID_LENGTH})`);
+  }
+  const lineSeq = body.lineSeq;
+  if (typeof lineSeq !== 'number' || !Number.isFinite(lineSeq) || lineSeq <= 0) {
+    return failResult('bad-request', 'lineSeq must be a positive number');
+  }
+  return okResult({ granted: deps.sessionFish.claimLine(sessionId, lineSeq) });
 }

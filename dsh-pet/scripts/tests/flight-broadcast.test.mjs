@@ -118,6 +118,8 @@ test('飞行逐帧更新窗口并捎带速度', () => {
   Object.assign(sprite, {
     stopDragFollow: () => {},
     stopMove: () => {},
+    // 抛掷起手会播一个音效槽（sprite.js 的 playSfxSlot）；这里是纯物理用例，给个空实现即可
+    playSfxSlot: () => {},
     throwToken: 0,
     throwSpaceOf: () => ({ bounds: [{ maxY: 1000 }] }),
     physics: { petCollision: false },

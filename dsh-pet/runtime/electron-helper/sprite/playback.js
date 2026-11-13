@@ -8,6 +8,22 @@
 'use strict';
 
 Object.assign(PetSprite.prototype, {
+  /**
+   * 排一次动作音（延后到下一轮宏任务）。
+   *
+   * 动作音与动画名绑定，所有换源都收口在 switchTo，所以一处就够。但**不能**在换源的那一帧里
+   * 同步排：音频解码会占住主线程，把视频交接那一帧往后推，用户看到的就是「切动画闪一下」。
+   * 延后一拍既能保住音效，也不跟画面抢帧；`this.anim` 变了说明这次换源已被顶掉，不再排。
+   *
+   * @param {string} next - 换到的动画名。
+   */
+  queueAnimSfx(next) {
+    window.setTimeout(() => {
+      if (this.anim !== next) return;
+      this.playAnimSfx(next);
+    }, 0);
+  },
+
   switchTo(next, nextOnce, playbackId, url) {
     if (!next) return;
     // 「当前在播哪一段」只在这里写：ended 分流、回空闲补丁、随机链避重都读它。
@@ -15,7 +31,7 @@ Object.assign(PetSprite.prototype, {
     this.anim = next;
     this.once = !nextOnce;
     // 动作音与动画名绑定：所有换源都收口在这里，所以一处就够（先清掉上一段排下的点）。
-    this.playAnimSfx(next);
+    this.queueAnimSfx(next);
     // layered / live2d 没有视频源：动作交给画布后端，动画链靠合成的「播完」推进（见 sprite/backend.js）。
     if (this.renderer !== 'webm') {
       this.switchBackend(next, nextOnce, playbackId);
@@ -67,28 +83,55 @@ Object.assign(PetSprite.prototype, {
       loadGuard('video error');
     };
     el.load();
+    /**
+     * 交接：让新段**先出画**，再在同一帧里顶掉旧段。
+     *
+     * 为什么要等出画：桌面窗口是透明的，旧段一旦先撤下、新段又还没提交第一帧，中间就会
+     * 露出一个透明的空洞（看起来就是「闪一下」）。所以顺序是「新段开播 → 帧就绪 → 同帧换 front」。
+     * 又因为 helper 的 `.pet-video` 没有 opacity 过渡（见 index.html），换 front 是离散的，
+     * 两段不会各半透明叠着，也不会掉 alpha。
+     */
     const onReady = () => {
       el.removeEventListener('loadeddata', onReady);
       window.clearTimeout(loadTimer);
       el.onerror = null;
       if (this.pending && this.pending.gen !== gen) return;
-      const old = this.front === 0 ? this.videoA : this.videoB;
-      el.classList.add('is-front');
-      if (old && old !== el) {
-        old.classList.remove('is-front');
-        old.onended = null;
-        old.pause();
-        // 被换下去的那一段若属第三方点播且没播完 → 如实回 cancelled（被新点播顶掉由宿主受理时标记，
-        // 这里补的是点击/拖拽/碎碎念/余额/工作状态/空闲回收这类非点播打断）。
-        if (this.playback && this.playback !== playbackId) {
-          this.reportPlayback(this.playback, 'cancelled', 'superseded');
+      // 先开播：播放器只有在出画之后才提交第一帧（loadeddata 只代表可解码）
+      const started = el.play();
+      let handed = false;
+      const handoff = () => {
+        if (handed) return;
+        handed = true;
+        // 等帧期间可能又被下一次换源顶掉：那时不能再动 front
+        if (this.pending && this.pending.gen !== gen) return;
+        const old = this.front === 0 ? this.videoA : this.videoB;
+        el.classList.add('is-front');
+        if (old && old !== el) {
+          old.classList.remove('is-front');
+          old.onended = null;
+          old.pause();
+          // 被换下去的那一段若属第三方点播且没播完 → 如实回 cancelled（被新点播顶掉由宿主受理时标记，
+          // 这里补的是点击/拖拽/碎碎念/余额/工作状态/空闲回收这类非点播打断）。
+          if (this.playback && this.playback !== playbackId) {
+            this.reportPlayback(this.playback, 'cancelled', 'superseded');
+          }
         }
-      }
-      this.front = this.front === 0 ? 1 : 0;
-      this.pending = null;
-      this.playback = playbackId || null;
-      el.style.transform = this.facing === 'right' ? 'scaleX(-1)' : '';
-      el.play()
+        this.front = this.front === 0 ? 1 : 0;
+        this.pending = null;
+        this.playback = playbackId || null;
+        el.style.transform = this.facing === 'right' ? 'scaleX(-1)' : '';
+        // 点击 Q 弹：等新动画就位后才压（压的是新点击动画的首帧，与浏览器一致）
+        if (this.pendingSquash) {
+          this.pendingSquash = false;
+          this.startSquash(el);
+        }
+        if (this.pendingMove) this.startMoveDrive(el);
+      };
+      // 帧回调是「这一帧已提交合成」的信号，正是交接时机；个别环境不触发，用定时器兜底
+      // （兜底期间旧段一直亮着，所以看不到空洞，只是晚一点换）。
+      if (typeof el.requestVideoFrameCallback === 'function') el.requestVideoFrameCallback(() => handoff());
+      window.setTimeout(handoff, HANDOFF_FALLBACK_MS);
+      started
         .then(() => {
           // 只有 play() 兑现才代表确实开始出画（loadeddata 只代表可解码）
           if (playbackId) this.reportPlayback(playbackId, 'playing');
@@ -99,12 +142,6 @@ Object.assign(PetSprite.prototype, {
           if (this.playback === playbackId) this.playback = null;
           this.reportPlayback(playbackId, 'failed', 'play-rejected');
         });
-      // 点击 Q 弹：等新动画就位后才压（压的是新点击动画的首帧，与浏览器一致）
-      if (this.pendingSquash) {
-        this.pendingSquash = false;
-        this.startSquash(el);
-      }
-      if (this.pendingMove) this.startMoveDrive(el);
     };
     el.addEventListener('loadeddata', onReady);
     if (el.readyState >= 2) onReady();

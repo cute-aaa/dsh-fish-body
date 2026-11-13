@@ -213,3 +213,46 @@ describe('皮肤端点', () => {
     );
   });
 });
+
+describe('POST /session-fish/claim —— 出声权', () => {
+  test('同一条播报只授予一次：第二个面拿到 false', async () => {
+    const deps = makeDeps();
+    const body = JSON.stringify({ sessionId: 's1', lineSeq: 3 });
+    const first = bodyOf(await handleSessionFishRoutes(deps, input('POST', body, 'session-fish/claim')));
+    const second = bodyOf(await handleSessionFishRoutes(deps, input('POST', body, 'session-fish/claim')));
+    assert.equal(first.granted, true);
+    assert.equal(second.granted, false, '另一面（或另一个标签页）不该再念一遍');
+  });
+
+  test('更新的序号授予、乱的旧序号拒绝；不同会话互不影响', async () => {
+    const deps = makeDeps();
+    const claim = async (sessionId: string, lineSeq: number) =>
+      bodyOf(
+        await handleSessionFishRoutes(
+          deps,
+          input('POST', JSON.stringify({ sessionId, lineSeq }), 'session-fish/claim'),
+        ),
+      ).granted;
+    assert.equal(await claim('s1', 5), true);
+    assert.equal(await claim('s1', 6), true);
+    assert.equal(await claim('s1', 5), false, '旧序号晚到不该再念一次');
+    assert.equal(await claim('s1', 7), true);
+    assert.equal(await claim('s2', 1), true, '会话之间各自独立');
+  });
+
+  test('形状非法 400：缺 sessionId / lineSeq 非正 / body 不是对象', async () => {
+    const deps = makeDeps();
+    const bad = async (body: string) =>
+      bodyOf(await handleSessionFishRoutes(deps, input('POST', body, 'session-fish/claim'))).reason;
+    assert.equal(await bad(JSON.stringify({ lineSeq: 1 })), 'bad-request');
+    assert.equal(await bad(JSON.stringify({ sessionId: 's1' })), 'bad-request');
+    assert.equal(await bad(JSON.stringify({ sessionId: 's1', lineSeq: 0 })), 'bad-request');
+    assert.equal(await bad(JSON.stringify({ sessionId: 's1', lineSeq: 'x' })), 'bad-request');
+    assert.equal(await bad('[]'), 'bad-request');
+  });
+
+  test('claim 只接受 POST', async () => {
+    const deps = makeDeps();
+    assert.equal(statusOf(await handleSessionFishRoutes(deps, input('GET', undefined, 'session-fish/claim'))), 405);
+  });
+});

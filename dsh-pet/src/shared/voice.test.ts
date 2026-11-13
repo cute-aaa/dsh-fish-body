@@ -82,18 +82,30 @@ interface FakeAudio {
  *   在开播后自动播完；`playFails` 模拟浏览器拒绝开播。
  * @returns 按播放顺序创建的假音频与还原函数。
  */
-function stubBrowser(options: { volumes?: number[]; autoEnd?: boolean; playFails?: boolean } = {}): {
+function stubBrowser(
+  options: {
+    volumes?: number[];
+    autoEnd?: boolean;
+    playFails?: boolean;
+    holdFirstPlay?: boolean;
+  } = {},
+): {
   audios: FakeAudio[];
+  /** 放行第一段（预热静音）的开播；只在 `holdFirstPlay` 时有用。 */
+  releaseFirstPlay: () => void;
   restore: () => void;
 } {
-  const { volumes, autoEnd = true, playFails = false } = options;
+  const { volumes, autoEnd = true, playFails = false, holdFirstPlay = false } = options;
   const previousAudio = (globalThis as { Audio?: unknown }).Audio;
   const previousCreate = URL.createObjectURL;
   const previousRevoke = URL.revokeObjectURL;
   const audios: FakeAudio[] = [];
+  let releaseFirst: (() => void) | null = null;
   (globalThis as { Audio?: unknown }).Audio = class {
     /** 与真实 Audio 同名的音量字段：被测代码写它，这里在 play 时取出。 */
     volume = 1;
+    /** 创建次序：0 = 预热静音（音量 0），其余是正片。 */
+    order = audios.length;
     onended: (() => void) | null = null;
     onerror: (() => void) | null = null;
     onpause: (() => void) | null = null;
@@ -106,6 +118,12 @@ function stubBrowser(options: { volumes?: number[]; autoEnd?: boolean; playFails
 
     play(): Promise<void> {
       volumes?.push(this.volume);
+      if (holdFirstPlay && this.order === 0) {
+        // 卡住预热那一段：模拟「输出设备迟迟拉不起来」，把预热等待窗撑开
+        return new Promise<void>((resolve) => {
+          releaseFirst = resolve;
+        });
+      }
       if (playFails) return Promise.reject(new Error('play blocked'));
       // 宏任务而不是微任务：收尾回调由被测代码在 await play() 之后才挂上
       if (autoEnd) setTimeout(() => this.fire('ended'), 0);
@@ -127,6 +145,7 @@ function stubBrowser(options: { volumes?: number[]; autoEnd?: boolean; playFails
   URL.revokeObjectURL = () => undefined;
   return {
     audios,
+    releaseFirstPlay: () => releaseFirst?.(),
     restore: () => {
       (globalThis as { Audio?: unknown }).Audio = previousAudio;
       URL.createObjectURL = previousCreate;
@@ -533,6 +552,41 @@ describe('speakNotice —— 通知类播报允许后台出声', () => {
       await flush();
       assert.equal(fetchStub.calls.length, 0, '空串没有可念的内容');
     } finally {
+      browser.restore();
+      fetchStub.restore();
+    }
+  });
+});
+
+describe('单槽纪律 —— 预热窗口里被顶掉也不能叠着响', () => {
+  test('预热期间被新的一句顶掉：旧的那句不许再落地开播', async () => {
+    const previousAudioContext = (globalThis as { AudioContext?: unknown }).AudioContext;
+    const fetchStub = stubFetch();
+    const volumes: number[] = [];
+    const browser = stubBrowser({ volumes, holdFirstPlay: true });
+    // 有 AudioContext 才有预热等待窗（真浏览器的路径）；没有它 warmAudioSink 会立刻返回
+    (globalThis as { AudioContext?: unknown }).AudioContext = class {};
+    try {
+      setSurface('web');
+      setVoiceConfig('', 1);
+      speakNotice('第一句');
+      await flush();
+      assert.ok(browser.audios.length > 0, '预热音频应当已经建出来（否则这条用例没测到竞态窗口）');
+      assert.equal(browser.audios[0].volume, 0, '第一段是音量 0 的预热静音');
+      // 上一句还卡在预热里，下一句进来抢单槽
+      speakNotice('第二句');
+      await flush();
+      browser.releaseFirstPlay();
+      await flush();
+      const realPlays = volumes.filter((volume) => volume > 0);
+      assert.equal(realPlays.length, 1, '只许一句正片开播：被顶掉的那句不能再补一条，否则两句叠着响');
+      assert.deepEqual(
+        fetchStub.calls.map((call) => call.text),
+        ['第一句', '第二句'],
+        '两句都请求过合成（旧句在预热前就发请求了）',
+      );
+    } finally {
+      (globalThis as { AudioContext?: unknown }).AudioContext = previousAudioContext;
       browser.restore();
       fetchStub.restore();
     }

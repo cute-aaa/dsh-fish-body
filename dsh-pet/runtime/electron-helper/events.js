@@ -424,6 +424,18 @@ function applyMenuLeaf(leaf) {
   for (const s of sprites) s.menuItems = items;
 }
 
+/**
+ * 会话鱼快照叶子 → 各宠物窗口里的鱼群（`sprite/fish.js`）。
+ *
+ * 鱼是**状态**而不是事件：首拉必须补一次，否则 helper 启动后要等下一轮会话事件才有鱼。
+ * 解析失败（老宿主 / 形状不对）就当这一拍没发生，保留上一份快照——绝不因为一次脏数据把鱼群清空。
+ */
+function applyFishLeaf(leaf) {
+  const snap = S.readSessionFish(leaf ? leaf.data : null);
+  if (!snap) return;
+  for (const s of sprites) s.applyFishSnapshot(snap);
+}
+
 /** hook 音效叶子 → 对应宠物播一次。它是指令：宿主每写一次 counter 就变一拍，所以同名连点也各响一次。 */
 function applySfxLeaf(petId, leaf) {
   const hit = S.readSfx(leaf);
@@ -449,6 +461,8 @@ async function pollStateOnce() {
       stateBaseline = S.flattenCounters(s); // 首拉：只记基线，不渲染（避免启动/重载时重放旧气泡）
       // 第三方菜单项是状态而不是事件：首拉就要装上，否则 helper 重启后要等下次注册才出现
       applyMenuLeaf(s.sections ? s.sections.menu : null);
+      // 会话鱼同样是状态：首拉补一次，否则要等下一轮会话事件才会出现（鱼群在窗口里，不该等）
+      applyFishLeaf(s.sections ? s.sections.sessionFish : null);
       // 睡觉同样是状态：helper 重启 / 重载配置后宿主仍记着它在睡，这里必须补一次；
       // 否则渲染端显示醒着，而宿主因「已在睡」不回写叶子，只能等宿主重启才恢复。
       for (const [petId, entry] of Object.entries((s && s.pets) || {})) {
@@ -461,6 +475,7 @@ async function pollStateOnce() {
       if (change.path === 'sections.balance') applyBalanceLeaf(change.leaf);
       else if (change.path === 'sections.workStatus') applyWorkStatusLeaf(change.leaf);
       else if (change.path === 'sections.menu') applyMenuLeaf(change.leaf);
+      else if (change.path === 'sections.sessionFish') applyFishLeaf(change.leaf);
       else if (change.path.startsWith('pets.') && change.path.endsWith('.say')) {
         // 宠物 id 允许含点号：按前缀/后缀切片，绝不 split('.')
         applySayLeaf(change.path.slice('pets.'.length, -'.say'.length), change.leaf);

@@ -263,6 +263,9 @@ Object.assign(PetSprite.prototype, {
     this.el.appendChild(stage);
     rootEl.appendChild(this.el);
     if (this.renderer !== 'webm') this.mountBackend(stage);
+    // 会话鱼层：插在 el 的第一个子节点（画在宠物背后），位置与运动完全由 sprite/fish.js 管。
+    // 放在 mountBackend 之后：它要读 this.hitRect / this.winOffset，两者此时都已就绪。
+    this.initFish();
     this.position();
   },
 

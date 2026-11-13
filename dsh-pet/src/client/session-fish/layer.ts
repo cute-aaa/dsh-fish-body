@@ -7,7 +7,9 @@
  *
  * 必须始终成立：
  * - 首拍只记播报基线，不补念历史；
- * - 播报只对「真正显示出来的那几条」发（超出 `maxCount` 的不出声）；
+ * - 播报只对「真正显示出来的那几条」发（超出 `maxCount` 的不出声），且先向宿主认领出声权
+ *   （双标签页 / 网页 + 桌面只念一次）；
+ * - 桌宠不在本页（`display` 不含 web）就不显示鱼、也不出声——鱼的显示面跟着桌宠走；
  * - 拖动超过阈值才吞掉随后的 click，小于阈值就是一次点击；
  * - 所有 hook 都在早退之前：快照没到时也要按同一顺序调用。
  * @module dsh-pet/src/client/session-fish/layer
@@ -29,12 +31,14 @@ import { fetchState } from '../../shared/state.ts';
 import { playSfx } from '../../shared/sfx/player.ts';
 import { getActiveSession } from './active.ts';
 import { injectSessionFishCss } from './css.ts';
-import { postSessionFishAction } from './api.ts';
+import { claimFishLine, postSessionFishAction } from './api.ts';
 import { makeSessionFishMedia, sessionFishAspectOf, sessionFishHeightOf } from './media.ts';
 import { readOffsets, SESSION_FISH_POSITIONS_RESET_EVENT, writeFishOffset, type FishOffset } from './offsets.ts';
-import { createRoam, resolveFishSlots, type FishBox, type Roam } from './roam.ts';
+import { createRoam, resolveFishSlots, type FishBox, type Roam } from '../../shared/session-fish/roam.ts';
 import { readPetAnchor } from './pet-anchor.ts';
+import { webPetVisible } from './surface.ts';
 import { enqueueFishLine, stopFishSpeech } from './speech.ts';
+import { subscribePetBridge } from '../settings/bridge.ts';
 import { runStatePoll } from '../pet/state-poll.ts';
 
 /** 浮层用的 react 能力（只取用到的子集）。 */
@@ -143,6 +147,8 @@ export function makeSessionFishLayer(rt: SessionFishRuntime, deps: SessionFishLa
     const [viewport, setViewport] = useState<Viewport>(() =>
       typeof window === 'undefined' ? { w: 1280, h: 720 } : { w: window.innerWidth, h: window.innerHeight },
     );
+    // 显示面 tick：桌宠的 display 变了就重渲染一次（鱼跟着桌宠出现/消失，不等下一次轮询）。
+    const [, setSurfaceTick] = useState(0);
     // 拖拽后的偏移：先读本地，再在拖拽结束时更新；`offsetsRef` 给引擎实时读最新值。
     const [offsets, setOffsets] = useState<Record<string, FishOffset>>(readOffsets);
     const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -160,6 +166,8 @@ export function makeSessionFishLayer(rt: SessionFishRuntime, deps: SessionFishLa
     const lastSeqRef = useRef<Record<string, number>>({});
     const seededRef = useRef(false);
     const prunedRef = useRef<Set<string>>(new Set());
+    /** 上一拍本页是否在显示鱼：由「显示」翻到「不显示」时要把正在念的播报掐掉。 */
+    const surfaceRef = useRef(true);
 
     // 引擎只造一次：视口、偏移、跟随开关都经 ref 现读，避免每次渲染重建（rAF 与拖拽状态在引擎里）。
     engineRef.current ??= createRoam({
@@ -220,6 +228,17 @@ export function makeSessionFishLayer(rt: SessionFishRuntime, deps: SessionFishLa
     // 卸载：停掉队列，别让已经离开页面的鱼还在念。
     useEffect(() => () => stopFishSpeech(), []);
 
+    // 桌宠的显示方式变了（设置页改 display）：立刻重排；鱼要跟着桌宠消失时顺手掐掉播报。
+    useEffect(() => {
+      const onConfig = (): void => {
+        const visible = webPetVisible();
+        if (surfaceRef.current && !visible) stopFishSpeech();
+        surfaceRef.current = visible;
+        setSurfaceTick((tick) => tick + 1);
+      };
+      return subscribePetBridge(onConfig);
+    }, []);
+
     /** 一拍快照 → 播报、渲染与清理。 */
     const applyState = (state: Parameters<Parameters<typeof runStatePoll>[0]['onState']>[0]): void => {
       const leaf = state.sections.sessionFish;
@@ -227,6 +246,11 @@ export function makeSessionFishLayer(rt: SessionFishRuntime, deps: SessionFishLa
       const snap = readSessionFish(leaf.data);
       if (!snap) return;
       followPetRef.current = snap.followPet;
+      // 显示面：桌宠不在本页就不出声也不显示（鱼跟着桌宠走）。序号基线照常推进，
+      // 这样重新显示时不会把中途攒下的旧播报补念一遍。
+      const surfaceVisible = webPetVisible();
+      if (surfaceRef.current && !surfaceVisible) stopFishSpeech();
+      surfaceRef.current = surfaceVisible;
       // 播报只认「显示出来的那几条」：超出上限、用户根本看不见的鱼不该出声。
       const shown = selectSessionFishes(snap.fishes, snap.maxCount);
       const previous = lastSeqRef.current;
@@ -245,17 +269,24 @@ export function makeSessionFishLayer(rt: SessionFishRuntime, deps: SessionFishLa
           }
           const line = sessionFishSpeechOf(fish, before, snap);
           previous[fish.sessionId] = fish.lineSeq;
+          if (!surfaceVisible) continue;
           if (line !== undefined && (latest === undefined || fish.lineAt > latest.fish.lineAt)) {
             latest = { fish, line };
           }
         }
         if (latest !== undefined) {
-          // 交给队列：多鱼同一刻收工时串行念、同句不重念（见 speech.ts）。
-          enqueueFishLine({
-            sessionId: latest.fish.sessionId,
-            text: latest.line,
-            kind: latest.fish.lineKind,
-            lineAt: latest.fish.lineAt,
+          // 先向宿主认领出声权：同一个 (会话, 序号) 全机器只念一次，双标签页/网页+桌面都算一次。
+          // 认领失败（网络问题）按放行处理——宁可偶尔多念一次，也不能把播报静音。
+          const target = latest;
+          void claimFishLine(target.fish.sessionId, target.fish.lineSeq).then((granted) => {
+            if (!granted) return;
+            // 交给队列：多鱼同一刻收工时串行念、同句不重念（见 speech.ts）。
+            enqueueFishLine({
+              sessionId: target.fish.sessionId,
+              text: target.line,
+              kind: target.fish.lineKind,
+              lineAt: target.fish.lineAt,
+            });
           });
         }
       }
@@ -311,7 +342,7 @@ export function makeSessionFishLayer(rt: SessionFishRuntime, deps: SessionFishLa
     }, [snapshot]);
 
     // ===== 以下都是渲染期派生值（不含 hook），供渲染与两个运动相关的 effect 共用 =====
-    const enabled = snapshot?.enabled === true;
+    const enabled = snapshot?.enabled === true && webPetVisible();
     const fishes = enabled
       ? selectSessionFishes(snapshot.fishes, snapshot.maxCount).filter((fish) => !hiddenIds.includes(fish.sessionId))
       : [];
@@ -444,7 +475,9 @@ export function makeSessionFishLayer(rt: SessionFishRuntime, deps: SessionFishLa
       }
       dragRef.current = null;
       setDraggingId(null);
-      const saved = engineRef.current?.endDrag();
+      // 把松手坐标一并交给引擎：最后一次 pointermove 与松手往往不是同一个点，
+      // 只用「上一次拖到哪」会把落点算偏（触屏与快速甩动尤其明显）。
+      const saved = engineRef.current?.endDrag({ x: event.clientX, y: event.clientY });
       if (!drag.moved || !saved) return;
       // 拖完的 click 可能在 pointerup 之后才到（触屏/合成事件），用时间窗吞掉；
       // 比布尔标记稳：即使没有 click，也不会把下一次真正的点击吞掉。

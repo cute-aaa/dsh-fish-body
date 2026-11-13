@@ -12,9 +12,18 @@
  *    （气泡仍各自显示，只是不重复出声）。
  * 3. **有界**：积压最多 {@link MAX_PENDING} 条，超了先丢最旧的进度句；排队超过 {@link MAX_STALE_MS}
  *    的旧句直接作废——用户不需要三分钟前的「我在想啦」。
+ *
+ * 认句按**序号**而不是文本（见 {@link onUtterance}）：文案池每档只有两句，别处念到同一句
+ * 会被误判成自己的收尾。跨显示面「只念一次」不在这里，由宿主的 `/session-fish/claim` 裁决。
  * @module dsh-pet/src/client/session-fish/speech
  */
-import { speakNotice, subscribeVoiceUtterance, type VoiceUtteranceEvent } from '../../shared/voice.ts';
+import {
+  currentUtteranceSeq,
+  speakNotice,
+  stopAutoSpeech,
+  subscribeVoiceUtterance,
+  type VoiceUtteranceEvent,
+} from '../../shared/voice.ts';
 import type { SessionFishLineKind } from '../../shared/session-fish.ts';
 
 /** 一条待播报。 */
@@ -37,6 +46,10 @@ export interface FishSpeechPort {
   subscribe(listener: (event: VoiceUtteranceEvent) => void): () => void;
   /** 当前时间（ms）。 */
   now(): number;
+  /** 当前播报序号：用来认出「这次的 start 是不是我」；缺省时退化为按文本认句。 */
+  currentSeq?(): number;
+  /** 停掉正在响的自动播报（浮层卸载时用）；缺省不处理。 */
+  stop?(): void;
 }
 
 /** 同一个 key 的重复窗口（ms）。 */
@@ -65,6 +78,8 @@ function defaultPort(): FishSpeechPort {
     speak: (text) => speakNotice(text),
     subscribe: (listener) => subscribeVoiceUtterance(listener),
     now: () => Date.now(),
+    currentSeq: () => currentUtteranceSeq(),
+    stop: () => stopAutoSpeech(),
   };
 }
 
@@ -85,6 +100,8 @@ interface SpeechState {
   waitingSeq: number | undefined;
   /** 正在念的文本：用来认出「这一句」的 start/end。 */
   waitingText: string | null;
+  /** 念之前取到的播报序号基线；undefined = 端口不提供序号，只能按文本认句。 */
+  baseline: number | undefined;
 }
 
 const state: SpeechState = {
@@ -98,6 +115,7 @@ const state: SpeechState = {
   timer: null,
   waitingSeq: undefined,
   waitingText: null,
+  baseline: undefined,
 };
 
 /** 清一条时间记录之外的全部过期项，避免 Map 无限增长。 */
@@ -118,20 +136,35 @@ function settle(): void {
   }
   state.waitingSeq = undefined;
   state.waitingText = null;
+  state.baseline = undefined;
   state.playing = false;
   pump();
 }
 
-/** 语音链的 end：认准「我们这一句」的序号才收尾（别的组件也在说话）。 */
+/**
+ * 语音链的 start / end：只认「我们这一句」。
+ *
+ * 认句优先用序号：`pump()` 在念之前记下播报序号基线，start 必须落在基线之后。
+ * 端口给不出序号时才退化为按文本认（老链路/假端口），此时的取舍是「能继续往下念」优先。
+ */
 function onUtterance(event: VoiceUtteranceEvent): void {
   if (event.kind === 'start') {
-    if (state.waitingText !== null && event.text === state.waitingText && state.waitingSeq === undefined) {
-      state.waitingSeq = event.seq;
-    }
+    if (state.waitingText === null || state.waitingSeq !== undefined) return;
+    if (event.text !== state.waitingText) return;
+    // 别处念到同一句（文案池每档只有两句，很容易撞）不算自己的 start
+    if (state.baseline !== undefined && event.seq <= state.baseline) return;
+    state.waitingSeq = event.seq;
     return;
   }
   if (state.waitingText === null) return;
-  if (state.waitingSeq !== undefined ? event.seq !== state.waitingSeq : event.text !== state.waitingText) return;
+  if (state.waitingSeq !== undefined) {
+    if (event.seq !== state.waitingSeq) return;
+  } else if (state.baseline !== undefined) {
+    // 有基线却没拿到自己的 start：这条 end 一定是别人的，等兜底超时，绝不提前推进
+    return;
+  } else if (event.text !== state.waitingText) {
+    return;
+  }
   settle();
 }
 
@@ -150,6 +183,8 @@ function pump(): void {
   state.playing = true;
   state.waitingText = line.text;
   state.waitingSeq = undefined;
+  // 必须先取基线再念：start 是 speak 内部同步发出的，晚取就落在基线之前了
+  state.baseline = state.port.currentSeq?.();
   if (state.unsubscribe === null) state.unsubscribe = state.port.subscribe(onUtterance);
   // 语音链在任何结局（播完 / 合成失败 / 超时）都会发 end；这里只兜底一个「end 永远不来」。
   state.timer = setTimeout(() => {
@@ -202,6 +237,7 @@ export function enqueueFishLine(line: FishSpeechLine): void {
  * 停掉队列并清空去重记录（浮层卸载 / 重置时调用）。
  */
 export function stopFishSpeech(): void {
+  const wasPlaying = state.playing;
   state.pending = [];
   state.pendingKeys = [];
   if (state.timer !== null) {
@@ -213,8 +249,12 @@ export function stopFishSpeech(): void {
   state.playing = false;
   state.waitingSeq = undefined;
   state.waitingText = null;
+  state.baseline = undefined;
   state.keys.clear();
   state.texts.clear();
+  // 队列真在念时把正在响的那句也掐掉：浮层都卸载了，声音不该还在（没在念时不动，
+  // 免得误停别的组件正在响的自动播报）。
+  if (wasPlaying) state.port.stop?.();
 }
 
 /**

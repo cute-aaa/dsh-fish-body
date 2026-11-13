@@ -205,3 +205,42 @@ describe('SessionFishStore 的展示生命周期', () => {
     assert.ok(snap.ts > 0);
   });
 });
+
+describe('SessionFishStore 播报出声权', () => {
+  test('每个 (会话, 序号) 只授予一次：另一个显示面拿到 false', () => {
+    const { store } = makeStore();
+    assert.equal(store.claimLine('s1', 1), true);
+    assert.equal(store.claimLine('s1', 1), false, '第二个面不该再念一遍');
+    assert.equal(store.claimLine('s1', 2), true);
+  });
+
+  test('旧序号晚到不授予；不同会话各自独立', () => {
+    const { store } = makeStore();
+    assert.equal(store.claimLine('s1', 4), true);
+    assert.equal(store.claimLine('s1', 3), false);
+    assert.equal(store.claimLine('s2', 1), true);
+    assert.equal(store.claimLine('s1', 5), true);
+  });
+
+  test('非法输入一律不授予（空会话 / 非数字 / 非正序号）', () => {
+    const { store } = makeStore();
+    assert.equal(store.claimLine('', 1), false);
+    assert.equal(store.claimLine('s1', Number.NaN), false);
+    assert.equal(store.claimLine('s1', 0), false);
+    assert.equal(store.claimLine('s1', -3), false);
+  });
+
+  test('关掉再复活同一条鱼：序号继续单调，旧播报不会被补念', () => {
+    const { store } = makeStore();
+    store.applyEvent('s1', turnStart);
+    const first = store.list()[0];
+    assert.ok(first);
+    assert.equal(store.claimLine('s1', first.lineSeq), true);
+    store.close('s1');
+    store.applyEvent('s1', turnStart);
+    const revived = store.list()[0];
+    assert.ok(revived);
+    assert.ok(revived.lineSeq > first.lineSeq, '复活后的序号必须更大');
+    assert.equal(store.claimLine('s1', first.lineSeq), false, '旧序号仍然不该再念');
+  });
+});

@@ -149,3 +149,30 @@ export async function postSessionFishAction(action: SessionFishAction): Promise<
     /* 网络抖动：快照仍是权威，下一次轮询会纠正 UI */
   }
 }
+
+/**
+ * 认领一条播报的出声权：宿主对每个 `(sessionId, lineSeq)` 只授予一次。
+ *
+ * 语音链的单槽是每个页面/窗口各一份的，网页开两个标签、或网页与桌面同时显示会话鱼时，
+ * 两端会各自把同一条播报念一遍。**失败一律按放行处理**——网络抖动不该把播报静音，
+ * 宁可偶尔多念一次，也不要让用户以为功能坏了。
+ *
+ * @param sessionId - 会话 id。
+ * @param lineSeq - 该鱼的播报序号。
+ * @returns 这一次是否由本端来念。
+ */
+export async function claimFishLine(sessionId: string, lineSeq: number): Promise<boolean> {
+  try {
+    const response = await fetch(ROUTE_PATH + '/session-fish/claim', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sessionId, lineSeq }),
+    });
+    if (!response.ok) return true;
+    const body = (await response.json()) as { ok?: unknown; granted?: unknown } | null;
+    if (!body || body.ok === false) return true;
+    return body.granted === true;
+  } catch {
+    return true;
+  }
+}

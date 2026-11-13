@@ -149,6 +149,9 @@ const BUBBLE_DURATION_MS = 10 * 1000; // 余额/碎碎念气泡展示时长（�
 // 余额气泡换内容前的等待（ms）：与 .pet-bubble 的 opacity 过渡同为 .25s，淡出走完再换，
 // 否则内容会在半透明时被替换 = 看得见的硬切（与浏览器 bubble.ts 同值）
 const BALANCE_FADE_MS = 250;
+// 视频双缓冲交接的兜底等待（ms）：requestVideoFrameCallback 在某些环境不触发，
+// 到点也要把新段换到前台。只影响「晚一点换」——旧段全程亮着，不会露透明空洞。
+const HANDOFF_FALLBACK_MS = 50;
 // /state 长轮询的挂起时长（与浏览器端同值）：宿主在版本没变时最多挂这么久，叶子一变立刻返回。
 const STATE_WAIT_MS = 1000;
 // 窗口四周外扩 = 该比例 × 宠物尺寸：为气泡与可能的弹窗预留显示空间，外扩区透明且点击穿透。

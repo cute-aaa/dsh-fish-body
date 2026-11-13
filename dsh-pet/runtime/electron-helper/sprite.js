@@ -101,6 +101,7 @@ class PetSprite {
     this.inputRegionMutation.disconnect();
     this.inputRegionResize.disconnect();
     this.inputRegionElements.clear();
+    this.disposeFish();
     this.disposeBackend();
     if (this.bubbleTimer !== null) window.clearTimeout(this.bubbleTimer);
     if (this.whisperTimer !== null) window.clearTimeout(this.whisperTimer);

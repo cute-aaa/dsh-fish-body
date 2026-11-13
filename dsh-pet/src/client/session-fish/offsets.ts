@@ -6,7 +6,7 @@
  * 手改存储或旧版本写脏了，最坏也只是那条鱼回到默认环位。
  * @module dsh-pet/src/client/session-fish/offsets
  */
-import type { FishOffset } from './roam.ts';
+import type { FishOffset } from '../../shared/session-fish/roam.ts';
 
 export type { FishOffset };
 

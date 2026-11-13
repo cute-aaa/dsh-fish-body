@@ -3,12 +3,21 @@
  * 屏边反弹、鱼鱼分离、鱼撞桌宠、拖拽落点换算）。
  *
  * 全部无 DOM：锚点、视口、时钟都注入，所以能直接跑在 node:test 里。
- * @module dsh-pet/src/client/session-fish/roam.test
+ * @module dsh-pet/src/shared/session-fish/roam.test
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { PetAnchor } from './pet-anchor.ts';
-import { createRoam, pushOutOfBody, resolveFishSlots, ROAM_EDGE_PX, type FishBox, type RoamViewport } from './roam.ts';
+import {
+  createRoam,
+  placeFish,
+  pushOutOfBody,
+  resolveFishSlots,
+  ROAM_EDGE_PX,
+  type FishBox,
+  type PetAnchor,
+  type RoamViewport,
+  type SlotRequest,
+} from './roam.ts';
 
 const VIEWPORT: RoamViewport = { w: 1000, h: 800 };
 
@@ -185,12 +194,19 @@ describe('pushOutOfBody', () => {
 
 describe('createRoam 动力学', () => {
   /** 造一个可控时钟与视口的引擎。 */
-  function makeEngine(options: { anchor?: PetAnchor | null; followPet?: boolean; reduced?: boolean } = {}) {
+  function makeEngine(
+    options: {
+      anchor?: PetAnchor | null;
+      followPet?: boolean;
+      reduced?: boolean;
+      offsets?: () => Record<string, { dx: number; dy: number }>;
+    } = {},
+  ) {
     let now = 1_000;
     const deps = {
       viewport: () => VIEWPORT,
       anchor: () => (options.anchor === undefined ? anchor() : options.anchor),
-      offsets: () => ({}),
+      offsets: options.offsets ?? (() => ({})),
       followPet: () => options.followPet !== false,
       now: () => now,
       reducedMotion: () => options.reduced === true,
@@ -339,5 +355,101 @@ describe('createRoam 动力学', () => {
     const slot = roam.slots().get('a')!;
     assert.ok(slot.x > VIEWPORT.w / 2, '竖排在右侧');
     assert.ok(slot.y + 54 <= VIEWPORT.h);
+  });
+
+  test('松手就在松手处：落点不再被拽回环位', () => {
+    // 模拟浮层：松手后把偏移写回存储，引擎下一帧读到它
+    const offsets: Record<string, { dx: number; dy: number }> = {};
+    const { roam, advance } = makeEngine({ reduced: true, offsets: () => offsets });
+    roam.sync([fish('a')]);
+    advance(1);
+    const body = roam.bodies().get('a')!;
+    roam.beginDrag('a', { x: body.x + 10, y: body.y + 10 });
+    const drop = { x: 760, y: 620 };
+    roam.dragTo({ x: drop.x + 10, y: drop.y + 10 });
+    const saved = roam.endDrag({ x: drop.x + 10, y: drop.y + 10 });
+    assert.ok(saved);
+    assert.ok(Math.abs(body.x - drop.x) < 1, '松手时就在落点');
+    assert.ok(Math.abs(body.y - drop.y) < 1);
+    offsets[saved.id] = saved.offset;
+    advance(2);
+    assert.ok(Math.abs(body.x - drop.x) < 1, '松手之后也不位移（槽位 == 落点）');
+    assert.ok(Math.abs(body.y - drop.y) < 1);
+  });
+
+  test('松手坐标参与落点：pointerup 与最后一次 pointermove 不是同一点', () => {
+    const { roam, advance } = makeEngine({ reduced: true });
+    roam.sync([fish('a')]);
+    advance(1);
+    const body = roam.bodies().get('a')!;
+    roam.beginDrag('a', { x: body.x + 10, y: body.y + 10 });
+    roam.dragTo({ x: 600, y: 300 });
+    // 松手时指针又走了 80px：落点必须取松手位置
+    roam.endDrag({ x: 680, y: 300 });
+    assert.ok(Math.abs(body.x - 670) < 1, '落点按 pointerup 算');
+  });
+
+  test('拖出牵引绳：停在边界（看得见），松手不跳回环位', () => {
+    const { roam, advance } = makeEngine({ reduced: true });
+    roam.sync([fish('a')]);
+    advance(1);
+    const body = roam.bodies().get('a')!;
+    const slot = roam.slots().get('a')!;
+    roam.beginDrag('a', { x: body.x + 10, y: body.y + 10 });
+    roam.dragTo({ x: VIEWPORT.w - 20, y: VIEWPORT.h - 20 });
+    const atBoundary = { x: body.x, y: body.y };
+    const saved = roam.endDrag();
+    assert.ok(saved);
+    const distance = Math.hypot(atBoundary.x - slot.x, atBoundary.y - slot.y);
+    assert.ok(distance > 300, '3× 环半径的牵引绳要够宽（旧值 1.6× 时只有两百多）');
+    assert.ok(Math.abs(body.x - atBoundary.x) < 1, '松手时不再位移');
+    assert.ok(Math.abs(body.y - atBoundary.y) < 1);
+  });
+});
+
+describe('placeFish —— 落点即终点（纯函数）', () => {
+  /** 用同一份请求 + 新偏移再解一次，验证「下一帧的槽位」是否就是落点。 */
+  function after(request: SlotRequest, drop: { x: number; y: number }, id: string) {
+    const placement = placeFish(request, drop, id);
+    assert.ok(placement, '应当给出落点解');
+    const next = resolveFishSlots({ ...request, offsets: { ...request.offsets, [id]: placement.offset } }).get(id);
+    assert.ok(next);
+    return { placement, next };
+  }
+
+  /** 一个环模式的请求。 */
+  function request(offsets: SlotRequest['offsets'], fishes: FishBox[] = [fish('a')]): SlotRequest {
+    return { mode: 'ring', anchor: anchor(), viewport: VIEWPORT, fishes, offsets };
+  }
+
+  test('单鱼：拖到远处，落点解出来的槽位就是落点', () => {
+    const { next } = after(request({}), { x: 760, y: 620 }, 'a');
+    assert.ok(Math.abs(next.x - 760) < 0.6);
+    assert.ok(Math.abs(next.y - 620) < 0.6);
+  });
+
+  test('贴角落点：被视口夹住，但仍然没有残余位移', () => {
+    const { placement, next } = after(request({}), { x: 5000, y: 5000 }, 'a');
+    assert.ok(next.x <= VIEWPORT.w - 96 - ROAM_EDGE_PX + 0.01, '夹进视口');
+    assert.ok(next.y <= VIEWPORT.h - 54 - ROAM_EDGE_PX + 0.01);
+    assert.ok(Number.isFinite(placement.offset.dx));
+  });
+
+  test('压到桌宠身上：落点被推出来，且推出来的位置就是最终位置', () => {
+    const pet = anchor();
+    const drop = { x: pet.cx - 48, y: pet.cy - 27 };
+    const { next } = after(request({}), drop, 'a');
+    const box = { left: next.x, top: next.y, right: next.x + 96, bottom: next.y + 54 };
+    const overlaps =
+      box.left < pet.body.right && box.right > pet.body.left && box.top < pet.body.bottom && box.bottom > pet.body.top;
+    assert.equal(overlaps, false, '不压在身体盒里');
+  });
+
+  test('三鱼且邻鱼带偏移：落点仍然一致（残差被一次修正吃掉）', () => {
+    const fishes = [fish('a'), fish('b'), fish('c')];
+    const offsets = { b: { dx: 30, dy: -20 } };
+    const { next } = after(request(offsets, fishes), { x: 720, y: 300 }, 'a');
+    assert.ok(Math.abs(next.x - 720) < 6, '邻鱼的偏移不该把落点带走');
+    assert.ok(Math.abs(next.y - 300) < 6);
   });
 });

@@ -13,12 +13,27 @@
  *
  * 必须始终成立：拖拽中的那条鱼是运动学的——不被弹簧与碰撞改动，只把别人推开；
  * 同一帧最多一次速度结算，绝不按增量叠加（重叠会持续几帧，叠加会让同一对碰撞反复注入动量）。
- * @module dsh-pet/src/client/session-fish/roam
+ *
+ * 网页浮层与桌面 Helper 共用这一份（桌面经 `shared-core.js` 拿到 `window.PetShared`）：
+ * 几何、偏移上限与「拖到哪就落在哪」的口径因此只有一处实现。
+ * @module dsh-pet/src/shared/session-fish/roam
  */
-import { estimateReleaseVelocity, trimTrail } from '../../shared/physics/release.ts';
-import { springStep } from '../../shared/physics/spring.ts';
-import type { DragSample } from '../../shared/physics/throw.ts';
-import type { PetAnchor, Rect } from './pet-anchor.ts';
+import { estimateReleaseVelocity, trimTrail } from '../physics/release.ts';
+import { springStep } from '../physics/spring.ts';
+import type { DragSample } from '../physics/throw.ts';
+
+/**
+ * 边坐标矩形（左 / 上 / 右 / 下）。
+ *
+ * 与 `shared/types` 的 `Rect`（x / y / 宽 / 高）是两套口径：鱼的身体盒与碰撞判定全都按边算，
+ * 混用会让「重叠多少」这类式子到处乘加减。名字分开，就不会有人误把两种矩形互相传。
+ */
+export interface FishRect {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
 
 /** 一条鱼的当前尺寸（px）：宽度取设置，高度按皮肤比例算好传进来。 */
 export interface FishBox {
@@ -31,6 +46,25 @@ export interface FishBox {
 export interface FishOffset {
   readonly dx: number;
   readonly dy: number;
+}
+
+/**
+ * 桌宠锚点：舞台中心、尺寸与「鱼不该压上去的那块身体」。
+ *
+ * 网页端从 `.dsh-pet-stage` 的 `getBoundingClientRect()` 现读（见 `client/session-fish/pet-anchor`），
+ * 桌面端按窗口局部坐标直接算——两端的形状一致，运动引擎才只写一份。
+ */
+export interface PetAnchor {
+  /** 舞台中心 x（px）。 */
+  readonly cx: number;
+  /** 舞台中心 y（px）。 */
+  readonly cy: number;
+  /** 舞台宽（px）。 */
+  readonly w: number;
+  /** 舞台高（px，16:9）。 */
+  readonly h: number;
+  /** 身体盒：舞台矩形按固定比例内缩（左右各让 15%，上 10%、下 12%）。 */
+  readonly body: FishRect;
 }
 
 /** 视口尺寸（px）。 */
@@ -107,10 +141,14 @@ export interface Roam {
   step(): void;
   /** 开始拖某条鱼；`pointer` 是视口坐标。 */
   beginDrag(id: string, pointer: { x: number; y: number }): void;
-  /** 拖到某处。 */
+  /** 拖到某处；越出「牵引绳」或视口时鱼停在边界上（拖动预览就是最终落点）。 */
   dragTo(pointer: { x: number; y: number }): void;
-  /** 松手：返回要持久化的偏移（没有拖动过则 null）。 */
-  endDrag(): { readonly id: string; readonly offset: FishOffset } | null;
+  /**
+   * 松手：返回要持久化的偏移（没有拖动过则 null）。
+   *
+   * @param pointer - 松手时的指针位置；最后一次 pointermove 与松手常常不是同一点。
+   */
+  endDrag(pointer?: { x: number; y: number }): { readonly id: string; readonly offset: FishOffset } | null;
   /** 当前被拖的鱼；没有则 null。 */
   draggingId(): string | null;
   /** 取走这一帧累积的撞击（读后清空）。 */
@@ -141,20 +179,28 @@ const PET_RESTITUTION = 0.35;
 const FISH_RESTITUTION = 0.5;
 /** 挤压动画的持续时间（ms）。 */
 const BUMP_MS = 260;
-/** 偏移上限 = 环半径 × 这个比例：拖得再远也还在「桌宠旁边」。 */
-const OFFSET_LIMIT_RATIO = 1.6;
+/**
+ * 偏移上限 = 环半径 × 这个比例：拖得再远也还在「桌宠旁边」，但要比环宽得多。
+ *
+ * 1.6 的旧值只有 240px 左右（鱼 96 / 桌宠 200 时），拖动时鱼跟着光标跑到哪儿都能去，
+ * 松手却被拽回环边——看起来就是「放下的位置不对」。3× 让可达范围覆盖大半个屏幕，
+ * 同时保证鱼仍然围着桌宠（拖动时就能看见这个边界，松手不再位移）。
+ */
+export const OFFSET_LIMIT_RATIO = 3;
+/** 竖排模式的偏移上限 = 鱼尺寸 × 它（没有桌宠时不受环半径约束，按鱼自身大小给）。 */
+const STACK_OFFSET_LIMIT = 6;
 /** 槽位互相分离的迭代轮数：够把贴角时的重叠摊开，又不至于每帧跑太多。 */
 const SLOT_RELAX_PASSES = 8;
 /** 拖拽轨迹保留的采样数（超过就丢最旧的）。 */
 const TRAIL_KEEP = 32;
 
 /** 两矩形是否相交。 */
-function overlap(a: Rect, b: Rect): boolean {
+function overlap(a: FishRect, b: FishRect): boolean {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
 /** 圆角矩形：鱼的身体框。 */
-function boxOf(slot: Slot, fish: FishBox): Rect {
+function boxOf(slot: Slot, fish: FishBox): FishRect {
   return { left: slot.x, top: slot.y, right: slot.x + fish.w, bottom: slot.y + fish.h };
 }
 
@@ -184,7 +230,7 @@ function clampIntoViewport(x: number, y: number, fish: FishBox, viewport: RoamVi
  * @param body - 桌宠身体框。
  * @returns 修正后的槽位；不重叠时原值返回。
  */
-export function pushOutOfBody(slot: Slot, fish: FishBox, body: Rect): Slot {
+export function pushOutOfBody(slot: Slot, fish: FishBox, body: FishRect): Slot {
   const box = boxOf(slot, fish);
   if (!overlap(box, body)) return slot;
   const exits = [
@@ -241,8 +287,14 @@ function separateSlots(slots: Slot[], fishes: readonly FishBox[], viewport: Roam
   }
 }
 
-/** 偏移量钳到上限：持久化里存的是原始值，用的时候再收口。 */
-function clampOffset(offset: FishOffset | undefined, limit: number): FishOffset {
+/**
+ * 偏移量钳到上限：持久化里存的是原始值，用的时候再收口。
+ *
+ * @param offset - 原始偏移（可能来自存储、脏数据）。
+ * @param limit - 上限长度（px）。
+ * @returns 长度不超过 `limit` 的偏移；非法输入按 `{0,0}`。
+ */
+export function clampOffset(offset: FishOffset | undefined, limit: number): FishOffset {
   if (!offset || !Number.isFinite(offset.dx) || !Number.isFinite(offset.dy)) return { dx: 0, dy: 0 };
   const length = Math.hypot(offset.dx, offset.dy);
   if (length <= limit || length === 0) return offset;
@@ -250,12 +302,57 @@ function clampOffset(offset: FishOffset | undefined, limit: number): FishOffset 
   return { dx: offset.dx * scale, dy: offset.dy * scale };
 }
 
-/** 环半径（px）：贴着一只 16:9 的桌宠画椭圆，横轴按宽度、纵轴按高度分开算。 */
-function ringRadiiOf(anchor: PetAnchor, fish: FishBox): { rx: number; ry: number } {
+/**
+ * 环半径（px）：贴着一只 16:9 的桌宠画椭圆，横轴按宽度、纵轴按高度分开算。
+ *
+ * @param anchor - 桌宠的尺寸（只用宽高）。
+ * @param fish - 鱼的尺寸（只用宽高）。
+ * @returns 横向与纵向半径。
+ */
+export function ringRadiiOf(
+  anchor: Pick<PetAnchor, 'w' | 'h'>,
+  fish: Pick<FishBox, 'w' | 'h'>,
+): { rx: number; ry: number } {
   return {
     rx: anchor.w * RING_RATIO_X + fish.w * 0.4 + RING_GAP_PX,
     ry: anchor.h * RING_RATIO_Y + fish.h * 0.5 + RING_GAP_PX,
   };
+}
+
+/**
+ * 桌宠窗口为「绕着它游的鱼」需要额外留出的余量（px，单边）。
+ *
+ * 桌面端把鱼画在桌宠同一个窗口里（不新增窗口/进程），而窗口原本只按桌宠尺寸 + 气泡余量撑开，
+ * 环位会伸到窗口外被裁掉。这里按环几何算出「还要多宽多高」，桌面端只按这个值加大透明余量
+ * （余量全程点击穿透），鱼群因此永远落在窗口内。
+ *
+ * @param body - 桌宠本体尺寸（宽 × 高，含脚底垫）。
+ * @param fish - 鱼的显示尺寸。
+ * @returns 左右/上下各自要加的最小余量；已经装得下时是 0。
+ */
+export function fishWindowPad(
+  body: { readonly w: number; readonly h: number },
+  fish: { readonly w: number; readonly h: number },
+): { readonly x: number; readonly y: number } {
+  const radii = ringRadiiOf(body, fish);
+  const x = radii.rx + fish.w / 2 + ROAM_EDGE_PX - body.w / 2;
+  const y = radii.ry + fish.h / 2 + ROAM_EDGE_PX - body.h / 2;
+  return { x: Math.max(0, Math.ceil(x)), y: Math.max(0, Math.ceil(y)) };
+}
+
+/**
+ * 这条鱼的偏移上限（px）：环模式按环半径，竖排按鱼自身尺寸。
+ *
+ * @param request - 模式与锚点（只看这两项）。
+ * @param fish - 鱼的尺寸。
+ * @returns 允许的最大偏移长度。
+ */
+export function offsetLimitOf(request: Pick<SlotRequest, 'mode' | 'anchor'>, fish: FishBox): number {
+  if (request.mode === 'ring' && request.anchor !== null) {
+    const radii = ringRadiiOf(request.anchor, fish);
+    return Math.max(radii.rx, radii.ry) * OFFSET_LIMIT_RATIO;
+  }
+  return Math.max(fish.w, fish.h) * STACK_OFFSET_LIMIT;
 }
 
 /**
@@ -275,7 +372,6 @@ export function resolveFishSlots(request: SlotRequest): Map<string, Slot> {
   for (let index = 0; index < fishes.length; index += 1) {
     const fish = fishes[index];
     let base: Slot;
-    let limit: number;
     if (ring && anchor) {
       const radii = ringRadiiOf(anchor, fish);
       const angle = -Math.PI / 2 + (index * 2 * Math.PI) / Math.max(1, fishes.length);
@@ -283,22 +379,59 @@ export function resolveFishSlots(request: SlotRequest): Map<string, Slot> {
         x: anchor.cx + Math.cos(angle) * radii.rx - fish.w / 2,
         y: anchor.cy + Math.sin(angle) * radii.ry - fish.h / 2,
       };
-      limit = Math.max(radii.rx, radii.ry) * OFFSET_LIMIT_RATIO;
     } else {
       const stackGap = fish.h + STACK_GAP_PX;
       base = {
         x: viewport.w - 12 - fish.w,
         y: viewport.h - 12 - fish.h - index * stackGap,
       };
-      limit = Math.max(fish.w, fish.h) * 3;
     }
-    const offset = clampOffset(request.offsets[fish.id], limit);
+    const offset = clampOffset(request.offsets[fish.id], offsetLimitOf(request, fish));
     const moved = { x: base.x + offset.dx, y: base.y + offset.dy };
     const clamped = clampIntoViewport(moved.x, moved.y, fish, viewport);
     slots.push(anchor && ring ? pushOutOfBody(clamped, fish, anchor.body) : clamped);
   }
   separateSlots(slots, fishes, viewport);
   return new Map(fishes.map((fish, index) => [fish.id, slots[index]]));
+}
+
+/** 一次拖拽/落点的解：能落到的槽位 + 该写的偏移 + 此刻的偏移上限。 */
+export interface FishPlacement {
+  /** 这条鱼真正能到的左上角（视口坐标）。 */
+  readonly slot: Slot;
+  /** 相对槽位的偏移（写进存储的那一份）。 */
+  readonly offset: FishOffset;
+  /** 本次允许的最大偏移长度（px）。 */
+  readonly limit: number;
+}
+
+/**
+ * 把「想把鱼放到哪里」翻译成「它能落在哪里」——拖动与松手共用这一个函数。
+ *
+ * 为什么必须共用：松手时若用另一套算法算偏移，落点与随后渲染出来的槽位就会差一截，
+ * 鱼会在松手瞬间被弹簧拽走（实测偏差可达数百 px）。这里先用「本鱼偏移归零、其余保持现状」
+ * 解出基准槽位，再取「落点 − 基准」钳到上限；最后按真实偏移再解一次，把视口夹取 / 让开身体 /
+ * 槽位分离造成的残差补掉（一次修正即可，残差很小）。
+ *
+ * @param request - 当前几何（模式、锚点、视口、鱼、偏移）。
+ * @param drop - 期望的落点（鱼左上角的视口坐标）。
+ * @param id - 被拖的那条鱼。
+ * @returns 落点解；该鱼不在场时 null。
+ */
+export function placeFish(request: SlotRequest, drop: Slot, id: string): FishPlacement | null {
+  const fish = request.fishes.find((entry) => entry.id === id);
+  if (!fish) return null;
+  const limit = offsetLimitOf(request, fish);
+  const base = resolveFishSlots({ ...request, offsets: { ...request.offsets, [id]: { dx: 0, dy: 0 } } }).get(id);
+  if (!base) return null;
+  let offset = clampOffset({ dx: drop.x - base.x, dy: drop.y - base.y }, limit);
+  let slot = resolveFishSlots({ ...request, offsets: { ...request.offsets, [id]: offset } }).get(id) ?? base;
+  const residual = { dx: drop.x - slot.x, dy: drop.y - slot.y };
+  if (Math.hypot(residual.dx, residual.dy) > 0.5) {
+    offset = clampOffset({ dx: offset.dx + residual.dx, dy: offset.dy + residual.dy }, limit);
+    slot = resolveFishSlots({ ...request, offsets: { ...request.offsets, [id]: offset } }).get(id) ?? slot;
+  }
+  return { slot, offset, limit };
 }
 
 /** 引擎构造的默认时钟。 */
@@ -333,15 +466,6 @@ export function createRoam(deps: RoamDeps): Roam {
       return body === undefined ? [] : [{ id, w: body.w, h: body.h }];
     });
 
-  const computeSlots = (): Map<string, Slot> =>
-    resolveFishSlots({
-      mode: deps.followPet === undefined || deps.followPet() ? 'ring' : 'stack',
-      anchor: deps.anchor(),
-      viewport: deps.viewport(),
-      fishes: fishes(),
-      offsets: deps.offsets(),
-    });
-
   /** 首次出现的鱼直接落在它的槽位上（不飞入），避免从左上角划一道。 */
   const placeAtSlot = (id: string): void => {
     const body = bodies.get(id);
@@ -369,7 +493,7 @@ export function createRoam(deps: RoamDeps): Roam {
     for (const id of [...bodies.keys()]) {
       if (!order.includes(id)) bodies.delete(id);
     }
-    slots = computeSlots();
+    slots = resolveFishSlots(slotRequest());
     for (const id of order) {
       const body = bodies.get(id);
       // x/y 都是 0 说明是刚建的：直接落到槽位。已有位置的不动，免得改设置时鱼群瞬移。
@@ -502,7 +626,7 @@ export function createRoam(deps: RoamDeps): Roam {
   const step = (): void => {
     const ts = now();
     const viewport = deps.viewport();
-    slots = computeSlots();
+    slots = resolveFishSlots(slotRequest());
     const reduced = deps.reducedMotion?.() === true;
     const dt = lastTs === 0 ? 0 : Math.min(MAX_DT, Math.max(0, (ts - lastTs) / 1000));
     lastTs = ts;
@@ -546,6 +670,15 @@ export function createRoam(deps: RoamDeps): Roam {
     collidePairs(ts);
   };
 
+  /** 当前这一帧的求解输入（拖拽与落点都用它，绝不另拼一份口径）。 */
+  const slotRequest = (): SlotRequest => ({
+    mode: deps.followPet === undefined || deps.followPet() ? 'ring' : 'stack',
+    anchor: deps.anchor(),
+    viewport: deps.viewport(),
+    fishes: fishes(),
+    offsets: deps.offsets(),
+  });
+
   const beginDrag = (id: string, pointer: { x: number; y: number }): void => {
     const body = bodies.get(id);
     if (!body) return;
@@ -558,46 +691,48 @@ export function createRoam(deps: RoamDeps): Roam {
     body.vy = 0;
   };
 
+  /**
+   * 拖到某处：鱼跟手，但落点用 {@link placeFish} 收口——越出牵引绳、压到桌宠身上、
+   * 或被视口夹住时**当场**停在边界上。松手因此不再有回弹（拖动预览就是最终落点）。
+   */
   const dragTo = (pointer: { x: number; y: number }): void => {
     const body = dragging === null ? undefined : bodies.get(dragging);
-    if (!body) return;
-    const viewport = deps.viewport();
-    const next = clampIntoViewport(pointer.x - grabDx, pointer.y - grabDy, body, viewport);
-    body.x = next.x;
-    body.y = next.y;
+    if (!body || dragging === null) return;
+    const placement = placeFish(slotRequest(), { x: pointer.x - grabDx, y: pointer.y - grabDy }, dragging);
+    if (placement) {
+      body.x = placement.slot.x;
+      body.y = placement.slot.y;
+    }
     moved = true;
     trail.push({ t: now(), x: pointer.x, y: pointer.y });
     if (trail.length > TRAIL_KEEP) trail = trail.slice(-TRAIL_KEEP);
   };
 
-  const endDrag = (): { readonly id: string; readonly offset: FishOffset } | null => {
+  const endDrag = (pointer?: { x: number; y: number }): { readonly id: string; readonly offset: FishOffset } | null => {
     const id = dragging;
-    dragging = null;
     if (id === null) return null;
+    // 松手坐标才是最终落点：最后一次 pointermove 常常早于松手好几像素（触屏/快速甩动更明显）。
+    // 只在「确实拖动过」时才采纳，否则一次点击会被当成拖动。
+    if (pointer !== undefined && moved) dragTo(pointer);
+    dragging = null;
     const body = bodies.get(id);
     if (!body || !moved) return null;
     const ts = now();
     const released = estimateReleaseVelocity(trimTrail(trail, ts), ts);
+    // 用与拖动同一个求解器算偏移，并把鱼落到它解出来的槽位上：
+    // 于是「存下来的偏移」与「下一帧渲染的槽位」必然一致，松手瞬间不再位移。
+    const placement = placeFish(slotRequest(), { x: body.x, y: body.y }, id);
     if (released) {
       body.vx = released.vx;
       body.vy = released.vy;
+    } else {
+      body.vx = 0;
+      body.vy = 0;
     }
-    // 落点相对「无偏移槽位」的差就是新的偏移：鱼因此留在你放它的方向，仍在桌宠旁边。
-    const anchor = deps.followPet === undefined || deps.followPet() ? deps.anchor() : null;
-    const base = resolveFishSlots({
-      mode: anchor ? 'ring' : 'stack',
-      anchor,
-      viewport: deps.viewport(),
-      fishes: fishes(),
-      offsets: {},
-    });
-    const baseSlot = base.get(id);
-    if (!baseSlot) return null;
-    const radii = anchor ? ringRadiiOf(anchor, body) : null;
-    const limit = radii ? Math.max(radii.rx, radii.ry) * OFFSET_LIMIT_RATIO : Math.max(body.w, body.h) * 3;
-    const dx = body.x - baseSlot.x;
-    const dy = body.y - baseSlot.y;
-    return { id, offset: clampOffset({ dx, dy }, limit) };
+    if (!placement) return null;
+    body.x = placement.slot.x;
+    body.y = placement.slot.y;
+    return { id, offset: placement.offset };
   };
 
   return {

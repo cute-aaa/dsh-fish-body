@@ -484,6 +484,62 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
+  /dsh-pet-7340/session-fish/claim:
+    post:
+      tags: [Action]
+      operationId: claimSessionFishLine
+      summary: 认领一条会话鱼播报的出声权
+      description: |
+        语音链的单槽是**每个页面 / 窗口各一份**的：网页开两个标签、或网页与桌面同时显示会话鱼时，
+        两端会各自把同一条播报念一遍（听起来就是「播了两次、叠在一起」）。宿主是两端唯一的共同点，
+        所以由它裁决 —— 每个 `(sessionId, lineSeq)` **只授予一次**，另一端拿到 `granted: false`
+        就不出声（气泡照常显示）。
+
+        - 只认**严格更大**的序号：乱序到达的旧播报不会再被念一次。
+        - 客户端在请求失败时一律按「放行」处理：网络抖动不该把播报静音。
+        - 这条端点是纯内存判定，不写 `/state`、不产生播报。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, lineSeq]
+              properties:
+                sessionId:
+                  type: string
+                  description: 会话 id。
+                  examples: ["session-59413cf6-5e29-4b65-9b8c-caf3147842af"]
+                lineSeq:
+                  type: number
+                  description: 该鱼的播报序号（`sections.sessionFish.data.fishes[].lineSeq`），必须为正数。
+                  examples: [10]
+      responses:
+        "200":
+          description: "认领结果：`granted: false` 表示这一段由别的显示面来念。"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [granted]
+                properties:
+                  granted:
+                    type: boolean
+        "400":
+          description: body 不是对象、缺 `sessionId` 或 `lineSeq` 不是正数。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailureResponse"
+        "413":
+          description: body 超过 8KB。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
   /dsh-pet-7340/balance:
     post:
       tags: [Action]

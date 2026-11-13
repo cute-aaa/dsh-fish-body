@@ -51,7 +51,10 @@
         object-fit: contain;
         pointer-events: none;
         opacity: 0;
-        transition: opacity 0.18s ease;
+        /* 桌面端**不做交叉淡化**：窗口本身是透明的，两段半透明视频叠着合成时，
+           不透明像素的 alpha 会掉到 0.75（1−(1−0.5)²），视觉上就是每次换动画都暗一下。
+           这里靠「新段出画后同一帧原子交接」保证看不到空白（见 sprite/playback.js），
+           淡化留给网页端——那边背景不透明，淡出好看且不露底。 */
         /* WebM 的「透明」背景实测 alpha 恒为 1/255（109 个素材逐一验证），
            Chromium 按 0.4% 不透明度合成，浅色底上就是一层淡灰矩形。
            扣掉一档即精确归零；本体只降一档（≤1/255），不可见。 */
@@ -59,6 +62,37 @@
       }
       video.pet-video.is-front {
         opacity: 1;
+      }
+      /* 会话鱼层：鱼围着桌宠游，位置由 sprite/fish.js 每帧写 transform。
+         整层与每条鱼都 pointer-events:none —— 桌面端鱼只做展示，点击穿透到下层应用；
+         命中区仍然只上报本体（window-fit.js 的 hit），主进程因此把鱼所在区域判成 margin。
+         没有 z-index：它是 .pet-sprite 的第一个子节点，后面那些定位元素按 DOM 顺序画在它上面，
+         于是鱼永远从宠物背后掠过，不会盖住脸。 */
+      .pet-fish-layer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        pointer-events: none;
+      }
+      .pet-fish {
+        position: absolute;
+        left: 0;
+        top: 0;
+        pointer-events: none;
+        will-change: transform;
+      }
+      .pet-fish__media {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        pointer-events: none;
+        /* 挤压用独立的 scale 属性，不碰 transform —— 位置是每帧写进 transform 的 */
+        scale: 1;
+        transition: scale 120ms ease-out;
+      }
+      .pet-fish.is-bumping .pet-fish__media {
+        scale: 1.08 0.92;
       }
       .pet-hit {
         position: absolute;
@@ -336,11 +370,6 @@
       .pet-error.visible {
         display: block;
       }
-      @media (prefers-reduced-motion: reduce) {
-        video.pet-video {
-          transition: none;
-        }
-      }
     </style>
   </head>
   <body>
@@ -366,6 +395,7 @@
     <script src="./sprite/window-fit.js"></script>
     <script src="./sprite/overlay.js"></script>
     <script src="./sprite/backend.js"></script>
+    <script src="./sprite/fish.js"></script>
     <script src="./sprite/init.js"></script>
     <script src="./sprite/playback.js"></script>
     <script src="./sprite/motion.js"></script>

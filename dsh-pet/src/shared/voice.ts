@@ -250,6 +250,7 @@ function waitForPlaybackEnd(audio: HTMLAudioElement, objectUrl: string): Promise
       if (settled) return; // ended 与 pause 会先后到达，只收一次尾
       settled = true;
       if (timer !== null) clearTimeout(timer);
+      liveAutoAudios.delete(audio); // 收尾即不可能再出声：从待掐名单里摘掉
       URL.revokeObjectURL(objectUrl);
       stopWarmAudio(); // 正片收尾：预热静音也没必要再响着
       resolve();
@@ -262,7 +263,14 @@ function waitForPlaybackEnd(audio: HTMLAudioElement, objectUrl: string): Promise
   });
 }
 
-/** 自动播报当前正在响的那个音频：新的一句进来先掐掉旧的，熄屏醒来后攒下的一串才不会叠着响。 */
+/**
+ * 自动播报**尚可能出声**的全部音频：单槽纪律的唯一依据。
+ *
+ * 为什么不能只记一个引用：合成 + 预热是异步的，上一句的音频可能在下一句已经开播之后才落地。
+ * 只保留「最后赋值的那个」会让先落地的那条失去引用，pause 不到它，于是两句话叠着响。
+ */
+const liveAutoAudios = new Set<HTMLAudioElement>();
+/** 自动播报当前正在响的那个音频（对外语义）：新的一句进来先掐掉旧的。 */
 let autoAudio: HTMLAudioElement | null = null;
 /** 自动播报世代号：合成期间可能被更新的一句顶掉，回来的旧结果直接丢弃。 */
 let autoSeq = 0;
@@ -366,20 +374,45 @@ function stopWarmAudio(): void {
 /**
  * 掐掉当前自动播报。
  *
+ * 暂停的是**集合里全部**尚可能出声的音频，而不只是最后一次赋值的那个：合成与预热是异步的，
+ * 上一句可能在新句之后才落地（见 {@link liveAutoAudios}），漏掉它就会两句话叠着响。
  * 用 pause 而不是直接丢掉引用：`waitForPlaybackEnd` 已经挂了 `onpause` 收尾，
  * 气泡能照常收起，不会等一个已经不会响的音频。
  */
 function stopAutoAudio(): void {
-  const audio = autoAudio;
+  const pending = [...liveAutoAudios];
+  liveAutoAudios.clear();
   // 标记无条件清掉：没有音频时也要清，否则下一句会被上一句的许可值带偏。
   autoAudio = null;
   autoAudioCanPlayHidden = false;
-  if (audio === null) return;
-  try {
-    audio.pause();
-  } catch {
-    /* 播放器已销毁：忽略 */
+  for (const audio of pending) {
+    try {
+      audio.pause();
+    } catch {
+      /* 播放器已销毁：忽略 */
+    }
   }
+}
+
+/**
+ * 停掉正在响的自动播报（浮层卸载等「没人在看」的场合）。
+ *
+ * 只停自动播报这一条道：用户点播（`speakText`）与 `say` 气泡的语音不归它管。
+ */
+export function stopAutoSpeech(): void {
+  stopAutoAudio();
+}
+
+/**
+ * 当前播报序号（只读）。
+ *
+ * 队列类消费者要靠它认出「这条 start 是不是我自己这一次触发的」：拿不到基线时只能按文本认句，
+ * 而文案池里同一句话会被反复使用，别处念到同句就会被误认成自己的收尾。
+ *
+ * @returns 最近一次「决定要念一句」时分配出去的序号。
+ */
+export function currentUtteranceSeq(): number {
+  return utteranceSeq;
 }
 
 // 页面被藏起来（切后台 / 息屏）就静音：回来时不补播。通知类播报自带后台许可，不受这条影响。
@@ -423,16 +456,24 @@ async function speak(text: string, canPlayHidden = false): Promise<void> {
     }
     // 先把输出流热起来再建正片：冷启动丢掉的那一段落在静音上，句首的字才不会被啃掉。
     await warmAudioSink();
+    // 预热是异步的（最长 WARMUP_WAIT_MS）：这段等待里可能已经被新的一句顶掉。
+    // 这里必须重新校验世代号——否则本句会把新句刚赋好的 autoAudio 覆盖成自己，两条一起响。
+    if (token !== autoSeq) {
+      URL.revokeObjectURL(objectUrl);
+      return;
+    }
     const audio = new Audio(objectUrl);
     audio.volume = voiceVolume;
     // 音频就绪即置 ready：喇叭表示「这句有语音」，不跟播放进度绑定
     setVoiceState('ready');
     autoAudioCanPlayHidden = canPlayHidden;
     autoAudio = audio;
+    liveAutoAudios.add(audio);
     try {
       await audio.play(); // 只代表开播：开播就失败要落到 failed，也不必再等收尾
     } catch {
       URL.revokeObjectURL(objectUrl);
+      liveAutoAudios.delete(audio);
       stopWarmAudio();
       if (autoAudio === audio) {
         autoAudio = null;
@@ -443,6 +484,7 @@ async function speak(text: string, canPlayHidden = false): Promise<void> {
     }
     // 气泡靠 end 事件收起，所以必须等播完：停在「已经开播」会让气泡提早 1.5 秒消失
     await waitForPlaybackEnd(audio, objectUrl);
+    liveAutoAudios.delete(audio);
     if (autoAudio === audio) autoAudio = null;
   } catch {
     /* 含超时：气泡已经显示，失败也不能反过来打断渲染，只把图标换成静音喇叭 */
