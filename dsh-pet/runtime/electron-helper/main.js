@@ -52,6 +52,7 @@ const { createBridge } = require('./main/bridge.js');
 const { createTray } = require('./main/tray.js');
 const { createWindows } = require('./main/windows.js');
 const { registerIpc } = require('./main/ipc.js');
+const { startForegroundWatch, stopForegroundWatch } = require('./main/foreground.js');
 const { createDisplaySync } = require('./main/displays.js');
 const { dshHomeDir, resolveUserDataDir } = require('./main/user-data.js');
 
@@ -346,6 +347,50 @@ app.whenReady().then(() => {
   powerMonitor.on('unlock-screen', reassertTaskbar);
 
   registerIpc({ ipcMain, petWindows, shell, openTarget: OPEN_TARGET, petRoute: PET_ROUTE });
+
+  /**
+   * 避让采集与落点。
+   *
+   * 判定不在主进程：前台行的解析与「该不该躲」都在渲染端的 shared/foreground + shared/avoid
+   * （与浏览器端同一份共享代码）；主进程只做两件事——把「这一行 + 这只宠物所在显示器的矩形」
+   * 发给渲染端，把渲染端给的「藏 / 不藏」落到窗口上。
+   * 轮询进程按渲染端推来的开关起停：开关关着时一条 PowerShell 都不起。
+   */
+  ipcMain.on('pet:avoid-config', (event, cfg) => {
+    const enabled = !!(cfg && cfg.enabled === true);
+    if (!enabled) {
+      stopForegroundWatch();
+      return;
+    }
+    const started = startForegroundWatch(
+      Number(cfg && cfg.pollMs) || 800,
+      (line) => {
+        for (const win of petWindows.state.windows.values()) {
+          if (win.isDestroyed()) continue;
+          const display = screen.getDisplayMatching(win.getBounds());
+          try {
+            win.webContents.send('pet:foreground', {
+              line,
+              ownPid: process.pid,
+              monitor: { bounds: display.bounds, workArea: display.workArea },
+            });
+          } catch {
+            /* 窗口正在销毁：下一拍自然没有它 */
+          }
+        }
+      },
+      (error) => {
+        console.error('[fish-body-desktop] 前台轮询不可用:', String((error && error.message) || error));
+      },
+    );
+    if (!started) console.error('[fish-body-desktop] 避让不可用：只有 Windows 能问前台窗口');
+  });
+
+  ipcMain.on('pet:avoid-hidden', (event, hidden) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    petWindows.setAvoidHidden(win, hidden === true);
+  });
   createDisplaySync({ screen, petWindows, dpi });
 
   // 冒烟自检（默认关闭）：DSH_PET_SMOKE=1 时延时截图到 DSH_PET_SMOKE_OUT 后退出，
@@ -363,6 +408,8 @@ app.whenReady().then(() => {
 // 退出时销毁托盘图标：不销毁会在 Windows 通知区留下「幽灵图标」（鼠标划过才消失）。
 // 宿主改 display 时是 SIGTERM/SIGKILL 硬杀，Windows 上拦不到，所以这条只覆盖优雅退出。
 app.on('before-quit', () => {
+  // 前台轮询是本进程拉起的 PowerShell：宿主硬杀拦不到，只能在这里收掉，免得留孤儿进程
+  stopForegroundWatch();
   petWindows.stopTaskbarWatchdog();
   if (!tray.exists()) return;
   try {

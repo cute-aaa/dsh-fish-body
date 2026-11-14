@@ -87,6 +87,28 @@ export async function handleScreenRoutes(deps: PetRouteDeps, input: RouteInput):
     });
   }
 
+  if (rest === 'screen/event') {
+    if (method !== 'POST') return methodNotAllowed();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body ?? 'null');
+    } catch {
+      return invalidJson();
+    }
+    const o = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    if (o.kind !== 'foreground') return failResult('bad-request', 'kind 只支持 foreground');
+    // 只存最近一帧：这是给设置页显示「当前前台是谁、要不要躲」用的，不是审计日志。
+    // 字段截断是为了不把整整一行标题塞进 /state 的响应（也不让超大标题撑爆状态）。
+    screenState.noteForeground({
+      app: typeof o.app === 'string' ? o.app.trim().slice(0, 120) : '',
+      title: typeof o.title === 'string' ? o.title.slice(0, 200) : '',
+      decision: o.decision === 'hide' ? 'hide' : 'show',
+      reason: typeof o.reason === 'string' ? o.reason.slice(0, 32) : '',
+      atMs: Date.now(),
+    });
+    return okResult({ ok: true });
+  }
+
   if (rest === 'screen/frame') {
     if (method !== 'POST') return methodNotAllowed();
     if (!screen.readEnabled) return failResult('unsupported', '识屏开关没打开');

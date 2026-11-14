@@ -530,6 +530,11 @@ function startLoops() {
     for (const s of sprites) window.dshScreenWatch.start(s.pet);
   }
 
+  // 避让循环：两个开关都关着时同样不启动（主进程也就不会起 PowerShell）。
+  if (window.dshAvoidWatch) {
+    for (const s of sprites) window.dshAvoidWatch.start(s.pet);
+  }
+
   // 统一轮询是自调度的长轮询（请求 → 处理 → 立刻再请求）：宿主在版本没变时挂起，空闲时
   // 1 请求/秒，叶子一变立刻收到。本窗口只装一只宠物，所以每个窗口各跑一份；全局计数器意味着
   // 任意写入会唤醒所有窗口（有意为之）。

@@ -100,4 +100,17 @@ contextBridge.exposeInMainWorld('petBridge', {
   onDisplays(cb) {
     ipcRenderer.on('pet:displays', (e, geo) => cb(geo));
   },
+  // 避让：把「开关 + 轮询节拍」推给主进程（判定与状态机在渲染端的 shared/avoid）。
+  setAvoidConfig(cfg) {
+    ipcRenderer.send('pet:avoid-config', cfg);
+  },
+  // 避让的落点：主进程据此 hide/showInactive，并与托盘的「隐藏宠物」相乘。
+  setAvoidHidden(hidden) {
+    ipcRenderer.send('pet:avoid-hidden', !!hidden);
+  },
+  // 前台窗口快照：主进程每拍推一行原始数据 + 本窗口所在显示器的矩形。
+  // 解析与判定都在渲染端（shared/foreground + shared/avoid，与浏览器端同一份代码）。
+  onForeground(cb) {
+    ipcRenderer.on('pet:foreground', (e, payload) => cb(payload));
+  },
 });

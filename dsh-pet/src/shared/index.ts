@@ -38,6 +38,8 @@ export * from './todo/index.ts';
 export * from './tooltip.ts';
 export * from './voice.ts';
 export * from './voice-providers.ts';
+export * from './foreground.ts';
+export * from './avoid.ts';
 export * from './sfx/index.ts';
 export * from './pet-config-actions.ts';
 

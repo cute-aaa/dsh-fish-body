@@ -44,6 +44,10 @@ function createWindows({
 }) {
   /** 窗口表：petId -> BrowserWindow */
   const windows = new Map();
+  /** 被避让藏起来的窗口 id 集合（与托盘的手动隐藏相乘，见 setAvoidHidden） */
+  const avoidHidden = new Set();
+  /** 托盘是否把宠物整批藏起来了：避让收尾时据此不把窗口放出来 */
+  let manualHidden = false;
   /** win.id -> 上一次请求的内容区矩形（"x,y,w,h"）：pet:set-bounds 的去重基准 */
   const lastRequestedBounds = new Map();
   /** win.id -> 渲染端上报的窗口余量 `{ l, t }`：上边距按气泡加高后余量不再四边相等，命中区不能按宽反推 */
@@ -416,6 +420,8 @@ function createWindows({
     }
     windows.clear();
     petStates.clear();
+    // 窗口 id 会变：重建后旧的「避让藏着」记录全是死 id，必须清掉（否则新窗口永远躲不开）
+    avoidHidden.clear();
     if (petStateTimer !== null) {
       clearTimeout(petStateTimer);
       petStateTimer = null;
@@ -429,14 +435,48 @@ function createWindows({
    * 隐藏的是窗口不是配置——display 一个字节都不动，所以「显示宠物」只是把同一批窗口放出来。
    */
   function setHidden(hidden) {
+    manualHidden = hidden === true;
     for (const win of windows.values()) {
       if (win.isDestroyed()) continue;
+      // 显示宠物时跳过被避让藏起来的窗口：那一层归 setAvoidHidden 管，托盘不该替它做决定
+      if (!manualHidden && avoidHidden.has(win.id)) continue;
       try {
-        if (hidden) win.hide();
+        if (manualHidden) win.hide();
         else win.showInactive();
       } catch (e) {
         console.error('[fish-body-desktop] window hide/show failed:', String(e && e.message ? e.message : e));
       }
+    }
+  }
+
+  /**
+   * 避让隐藏：只翻「避让自己」这一层。
+   *
+   * 与托盘的手动隐藏是**相乘**关系而不是互相覆盖：手动藏着时不因避让结束就冒出来，
+   * 避让藏着时也不因托盘点了「显示宠物」就被提前放出（下一拍避让仍会把它藏回去，白闪一下）。
+   *
+   * @param win - 目标窗口。
+   * @param hidden - 是否要由避让藏起来。
+   */
+  function setAvoidHidden(win, hidden) {
+    if (!win || win.isDestroyed()) return;
+    if (hidden === true) {
+      avoidHidden.add(win.id);
+      if (!manualHidden) {
+        try {
+          win.hide();
+        } catch (e) {
+          console.error('[fish-body-desktop] avoid hide failed:', String(e && e.message ? e.message : e));
+        }
+      }
+      return;
+    }
+    if (!avoidHidden.delete(win.id)) return;
+    if (manualHidden) return;
+    try {
+      win.showInactive();
+    } catch (e) {
+      console.error('[fish-body-desktop] avoid show failed:', String(e && e.message ? e.message : e));
     }
   }
 
@@ -474,6 +514,7 @@ function createWindows({
     keepOffTaskbar,
     stopTaskbarWatchdog,
     setHidden,
+    setAvoidHidden,
     broadcastCommand,
     setPointerFallbackPaused: (paused) => {
       pointerFallbackPaused = paused;
