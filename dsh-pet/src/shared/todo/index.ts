@@ -9,7 +9,7 @@ export { addTodo, loadTodos, patchTodo, removeTodo, TODOS_PATH } from './api.ts'
 export { createTodoPanel } from './panel.ts';
 export type { TodoPanel, TodoPanelOptions } from './panel.ts';
 export { todoPanelTopMarginPx } from './styles.ts';
-export { TODO_HOTKEY_HINT, isTodoHotkey } from './hotkey.ts';
+export { isTodoHotkey } from './hotkey.ts';
 export {
   dueLabel,
   formatDateTimeLocal,

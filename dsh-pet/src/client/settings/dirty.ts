@@ -8,6 +8,7 @@
  * 纯函数，不读状态、不发请求、不碰时钟。
  * @module dsh-fish-body/src/client/settings/dirty
  */
+import type { HotkeyMap } from '../../shared/hotkeys.ts';
 import type { SessionFishSettings } from '../../shared/session-fish.ts';
 import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../shared/types.ts';
 import type { ConfigEntry, MainConfigPatch } from './config/index.ts';
@@ -58,6 +59,7 @@ export interface LookSnapshot {
 export interface FormSnapshot {
   readonly pets?: readonly Pet[];
   readonly global?: Partial<GlobalSnapshot>;
+  readonly hotkeys?: HotkeyMap;
   readonly sfx?: SfxConfig;
   readonly voice?: Partial<VoiceSnapshot>;
   readonly model?: Partial<ModelSnapshot>;
@@ -86,6 +88,7 @@ export function baselineFromConfig(entries: readonly ConfigEntry[], patch: MainC
       sfxKeepAlive: patch.sfxKeepAlive,
       sfxVolume: patch.sfxVolume,
     },
+    hotkeys: patch.hotkeys,
     sfx: patch.sfx,
     voice: {
       enabled: patch.voiceEnabled,
@@ -126,6 +129,8 @@ const TAB_PREFIXES: ReadonlyArray<readonly [string, SettingsTabId]> = [
   ['global.notificationsEnabled', 'system'],
   ['global.trayEnabled', 'system'],
   ['global.confineToScreen', 'system'],
+  // 九个悬停键在「系统」分区的快捷键卡里改。
+  ['hotkeys', 'system'],
 ];
 
 /** 普通对象判定：数组与 null 都不算。 */
@@ -179,6 +184,7 @@ export function diffSnapshot(baseline: FormSnapshot, current: FormSnapshot): Rea
   const out = new Set<string>();
   collect(baseline.pets, current.pets, 'pets', out);
   collect(baseline.global, current.global, 'global', out);
+  collect(baseline.hotkeys, current.hotkeys, 'hotkeys', out);
   collect(baseline.sfx, current.sfx, 'sfx', out);
   collect(baseline.voice, current.voice, 'voice', out);
   collect(baseline.model, current.model, 'model', out);

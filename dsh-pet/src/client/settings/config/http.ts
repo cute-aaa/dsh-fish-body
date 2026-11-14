@@ -6,6 +6,7 @@
  */
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import type { FolderTarget } from '../../../shared/folders.ts';
+import type { HotkeyMap } from '../../../shared/hotkeys.ts';
 import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../../shared/types.ts';
 import type { ModelCatalogGroup } from '../picker/index.ts';
 import type { MergedConfig } from './read.ts';
@@ -133,6 +134,8 @@ export interface SaveFields {
   font: FontConfig;
   /** 动作频率权重（main 条目）：三项合计 ≤ 100，随机动作是余量。 */
   animationWeights: Weights;
+  /** 九个悬停键（main 条目顶层那一段，见 shared/hotkeys）。 */
+  hotkeys: HotkeyMap;
 }
 
 /** 保存结果：调用方按 `kind` 分支，不再猜 HTTP 细节。 */
@@ -175,6 +178,7 @@ export function buildSaveBody(fields: SaveFields): Record<string, unknown> {
     chatImageLimit: fields.chatImageLimit,
     font: fields.font,
     animationWeights: fields.animationWeights,
+    hotkeys: fields.hotkeys,
   };
 }
 

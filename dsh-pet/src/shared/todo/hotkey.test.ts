@@ -6,7 +6,8 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { TODO_HOTKEY_HINT, isTodoHotkey } from './hotkey.ts';
+import { DEFAULT_HOTKEYS, hotkeyHint } from '../hotkeys.ts';
+import { isTodoHotkey } from './hotkey.ts';
 import type { HotkeyEvent } from '../hotkey.ts';
 
 /** 一个最小的键盘事件替身。 */
@@ -35,6 +36,13 @@ describe('isTodoHotkey —— 裸按 D 才开关面板', () => {
   });
 
   test('菜单提示与按键说的是同一个键', () => {
-    assert.ok(TODO_HOTKEY_HINT.startsWith('D'), `提示应写明 D，实得 ${TODO_HOTKEY_HINT}`);
+    const hint = hotkeyHint(DEFAULT_HOTKEYS, 'todo');
+    assert.ok(hint.startsWith('D'), `提示应写明 D，实得 ${hint}`);
+  });
+
+  test('改绑之后认新键、不再认旧键', () => {
+    const map = { ...DEFAULT_HOTKEYS, todo: 'k' };
+    assert.equal(isTodoHotkey(ev({ key: 'k' }), map), true);
+    assert.equal(isTodoHotkey(ev({ key: 'd' }), map), false);
   });
 });

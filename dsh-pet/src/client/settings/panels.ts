@@ -21,6 +21,7 @@ import { makeSystemTab } from './system-tab.ts';
 import type { SettingsTabId } from './tabs.ts';
 import type { AppearanceSettings } from './use-appearance-settings.ts';
 import type { GlobalSettings } from './use-global-settings.ts';
+import type { HotkeysSettings } from './use-hotkeys-settings.ts';
 import type { RemoteData } from './use-remote-data.ts';
 import type { SessionFishState } from './use-session-fish.ts';
 import type { SettingsBackupState } from './use-settings-backup.ts';
@@ -46,6 +47,8 @@ export interface SettingsPanelDeps {
   /** 页面级一次性拉取的结果（候选模型与落盘位置）。 */
   readonly remote: RemoteData;
   readonly global: GlobalSettings;
+  /** 九个悬停键（「系统」分区里的快捷键卡可改绑）。 */
+  readonly hotkeys: HotkeysSettings;
   readonly sfx: SfxSettings;
   readonly voice: VoiceSettings;
   readonly model: ModelSettings;
@@ -98,6 +101,7 @@ export function makeSettingsPanels(
       h(SystemTab, {
         busy: deps.busy,
         global: deps.global,
+        hotkeys: deps.hotkeys,
         perm: deps.perm,
         remote: deps.remote,
         dirty: deps.dirty,

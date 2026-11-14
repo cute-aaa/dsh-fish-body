@@ -1784,3 +1784,43 @@ describe('saveUserConfig —— assets 段透传', () => {
     assert.deepEqual(clean.assets, { pool: 'mypool' });
   });
 });
+
+describe('saveUserConfig —— hotkeys 段（九个悬停键）', () => {
+  test('合法的一段写进白名单，并按 shared/hotkeys 归一（大写转小写、缺失补出厂值）', () => {
+    const clean = saveOnce({ pets: BASE.pets, hotkeys: { chat: 'K', sleep: 'q' } });
+    assert.ok(clean !== null);
+    const hotkeys = clean.hotkeys as Record<string, string>;
+    assert.equal(hotkeys.chat, 'k', '大写要收成小写');
+    assert.equal(hotkeys.sleep, 'q');
+    // 没给的动作补出厂值，且九个键都在。
+    assert.equal(Object.keys(hotkeys).length, 9);
+    assert.equal(hotkeys.hear, 'm');
+  });
+
+  test('非法形状整包拒绝：非对象 / 非法键 / 未知动作 / 重复键', () => {
+    for (const bad of [
+      'nope',
+      42,
+      [],
+      { chat: 'kk' },
+      { chat: '!' },
+      { chat: 'ctrl+k' },
+      { chat: 'k', desc: 'x' },
+      { chat: 'k', hear: 'k' },
+    ]) {
+      assert.equal(saveOnce({ pets: BASE.pets, hotkeys: bad }), null, JSON.stringify(bad) + ' 应当被拒');
+    }
+  });
+
+  test('请求体没带 hotkeys 时，磁盘上的旧值原样保留', () => {
+    const clean = saveOnce({ pets: BASE.pets }, { hotkeys: { chat: 'k' } });
+    assert.ok(clean !== null);
+    assert.deepEqual(clean.hotkeys, { chat: 'k' });
+  });
+
+  test('请求体带了就覆盖磁盘旧值', () => {
+    const clean = saveOnce({ pets: BASE.pets, hotkeys: { chat: 'k' } }, { hotkeys: { chat: 'j' } });
+    assert.ok(clean !== null);
+    assert.equal((clean.hotkeys as Record<string, string>).chat, 'k');
+  });
+});

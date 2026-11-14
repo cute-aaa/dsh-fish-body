@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 
 import { buildSaveFields, type SaveFieldParts } from './save-fields.ts';
 import { DEFAULT_FONT } from '../../shared/fonts.ts';
+import { DEFAULT_HOTKEYS } from '../../shared/hotkeys.ts';
 import { DEFAULT_PHYSICS } from '../../shared/physics.ts';
 import { DEFAULT_WEIGHTS } from '../../shared/weights.ts';
 import type { Pet } from '../../shared/types.ts';
@@ -38,6 +39,7 @@ const parts = (): SaveFieldParts => ({
     confineToScreen: true,
     trayEnabled: false,
   },
+  hotkeys: { ...DEFAULT_HOTKEYS, chat: 'k' },
   sfxVolume: 0.25,
   sfx: { events: { click: { volume: 0.8 } } },
   chat: { whisperImageEnabled: true, chatImageEnabled: false, chatAnimationEnabled: false },

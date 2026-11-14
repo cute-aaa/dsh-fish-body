@@ -9,7 +9,8 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DISPLAY_HOTKEY_HINTS, DISPLAY_ORDER, displayOfHotkey } from './display-hotkey.ts';
+import { displayHotkeyHints, DISPLAY_ORDER, displayOfHotkey } from './display-hotkey.ts';
+import { DEFAULT_HOTKEYS } from './hotkeys.ts';
 import type { HotkeyEvent } from './hotkey.ts';
 
 /** 只造判据用到的字段，不需要真的 KeyboardEvent。 */
@@ -54,6 +55,8 @@ describe('displayOfHotkey —— 数字键到显示位置', () => {
 
   test('键帽文案与顺序同源', () => {
     assert.deepEqual(DISPLAY_ORDER, ['web', 'desktop', 'both', 'none']);
-    assert.deepEqual(DISPLAY_HOTKEY_HINTS, ['1 键', '2 键', '3 键', '4 键']);
+    assert.deepEqual(displayHotkeyHints(DEFAULT_HOTKEYS), ['1 键', '2 键', '3 键', '4 键']);
+    // 改绑之后键帽跟着变，顺序仍是 DISPLAY_ORDER。
+    assert.deepEqual(displayHotkeyHints({ ...DEFAULT_HOTKEYS, 'display.none': '0' }), ['1 键', '2 键', '3 键', '0 键']);
   });
 });

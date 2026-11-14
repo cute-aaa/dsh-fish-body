@@ -38,6 +38,7 @@ import { attachTipLayer } from './settings/tip-layer.ts';
 import { useAppearanceSettings } from './settings/use-appearance-settings.ts';
 import { useAvatarUpload } from './settings/use-avatar-upload.ts';
 import { useGlobalSettings } from './settings/use-global-settings.ts';
+import { useHotkeysSettings } from './settings/use-hotkeys-settings.ts';
 import { useModelSettings } from './settings/use-model-settings.ts';
 import { usePermissionTest } from './settings/use-permission-test.ts';
 import { usePetList } from './settings/use-pet-list.ts';
@@ -110,6 +111,8 @@ export function makePetConfigSection(
     // 各分区的字段状态各归各的文件；这里只按顺序取用，不碰它们的内部状态。
     const list = usePetList(rt, setDialog);
     const global = useGlobalSettings(rt);
+    // 九个悬停键：可改绑，随保存整包写进 main 条目顶层。
+    const hotkeys = useHotkeysSettings(rt);
     const sfx = useSfxSettings(rt);
     const voice = useVoiceSettings(rt);
     const model = useModelSettings(rt);
@@ -127,6 +130,7 @@ export function makePetConfigSection(
     // 每个分区只认自己那几项，这里按分区派发，不逐字段 setState；同时推进基线。
     const { replace } = list;
     const applyGlobal = global.apply;
+    const applyHotkeys = hotkeys.apply;
     const applySfx = sfx.apply;
     const applyVoice = voice.apply;
     const applyModel = model.apply;
@@ -139,6 +143,7 @@ export function makePetConfigSection(
         if (entries === null || patch === null) throw new Error('Invalid config response');
         replace(entries);
         applyGlobal(patch);
+        applyHotkeys(patch);
         applySfx(patch);
         applyVoice(patch);
         applyModel(patch);
@@ -146,7 +151,7 @@ export function makePetConfigSection(
         // 刚读到 / 刚重置：表单即将等于这份权威值，基线跟着走（会话鱼那半截由 markFish 补）。
         setBaseline({ ...baselineFromConfig(entries, patch), fish: fishBaselineRef.current });
       },
-      [replace, applyGlobal, applySfx, applyVoice, applyModel, applyLook],
+      [replace, applyGlobal, applyHotkeys, applySfx, applyVoice, applyModel, applyLook],
     );
 
     // 备份与恢复：导出只读不写；恢复要先过确认弹窗，写成功后用它回填表单并推进基线。
@@ -173,7 +178,7 @@ export function makePetConfigSection(
     useEffect(() => attachTipLayer(), []);
 
     // 此刻的表单快照：形状与基线一致，diff 之后才知道哪些字段还没保存。
-    const snapshot = makeSnapshot({ list, global, sfx, voice, model, look, fish });
+    const snapshot = makeSnapshot({ list, global, hotkeys, sfx, voice, model, look, fish });
     snapshotRef.current = snapshot;
 
     const paths = baseline === null ? NO_PATHS : diffSnapshot(baseline, snapshot);
@@ -201,6 +206,7 @@ export function makePetConfigSection(
         buildSaveFields({
           pets: list.mainPets,
           global: global.values,
+          hotkeys: hotkeys.values,
           sfxVolume: global.sfxVolume,
           sfx: sfx.config,
           chat: model.chatFlags,
@@ -270,6 +276,7 @@ export function makePetConfigSection(
       avatar: { src: avatarUrl(current?.assetRoot ?? '', avatar.version), busy: avatar.busy, onPick: avatar.upload },
       remote,
       global,
+      hotkeys,
       sfx,
       voice,
       model,

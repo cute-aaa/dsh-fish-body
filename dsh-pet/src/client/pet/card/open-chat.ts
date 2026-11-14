@@ -1,10 +1,11 @@
 /**
- * 打开对话的隐式入口：拖拽落到宠物上、悬停时按 L、悬停时粘贴一张图。
+ * 打开对话的隐式入口：拖拽落到宠物上、悬停时按「对话」键、悬停时粘贴一张图。
  * 只在调用方生命周期内注册，卸载时全部摘除；不认为自己是 React 组件，也不碰状态。
  * 菜单项那条入口由调用方直接接线，不在这里。
  * @module dsh-fish-body/src/client/pet/card/open-chat
  */
 import { isChatHotkey, isTypingTarget } from '../../../shared/chat/hotkey.ts';
+import type { HotkeyMap } from '../../../shared/hotkeys.ts';
 import { firstImageFromClipboard } from '../../../shared/chat/image-pick.ts';
 import { claimFileDragEnter, claimFileDragOver, claimFileDrop } from '../../file-drop.ts';
 
@@ -14,6 +15,8 @@ export interface OpenChatInput {
   readonly stage: HTMLElement | null;
   /** 调用方持有的悬停标记：为 true 时才响应快捷键。 */
   readonly isHovered: () => boolean;
+  /** 当前键位表（现读，改绑后立刻生效）；缺省走出厂键。 */
+  readonly keys?: () => HotkeyMap | undefined;
   /** 打开对话；带图时直接进入待发送状态。 */
   readonly openChat: (image?: File) => void;
 }
@@ -25,9 +28,9 @@ export interface OpenChatInput {
  * @returns 解绑函数，交给调用方的 effect 清理。
  */
 export function bindOpenChat(input: OpenChatInput): () => void {
-  const { stage, isHovered, openChat } = input;
+  const { stage, isHovered, openChat, keys } = input;
   const onKeyDown = (e: KeyboardEvent): void => {
-    if (!isHovered() || !isChatHotkey(e)) return;
+    if (!isHovered() || !isChatHotkey(e, keys?.())) return;
     e.preventDefault();
     openChat();
   };

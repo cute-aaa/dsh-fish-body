@@ -7,6 +7,7 @@
  * owns only 字段映射，never 校验、写盘与任何状态。
  * @module dsh-fish-body/src/client/settings/save-fields
  */
+import type { HotkeyMap } from '../../shared/hotkeys.ts';
 import type { Pet, SfxConfig } from '../../shared/types.ts';
 import type { SaveFields } from './config/index.ts';
 import type { GlobalFlags } from './global-flags.ts';
@@ -21,6 +22,8 @@ export interface SaveFieldParts {
   readonly pets: readonly Pet[];
   /** 五个全局开关，键名即成品字段名。 */
   readonly global: GlobalFlags;
+  /** 九个悬停键（设置页「快捷键」卡）。 */
+  readonly hotkeys: HotkeyMap;
   /** 音效总音量（0–1）；与语音音量分开，混音器那条是进程级总闸。 */
   readonly sfxVolume: number;
   /** 音效分区写回的 `sfx` 段（事件槽覆盖 / 动作音 / hook / 按渲染方式 / 按皮肤）。 */
@@ -46,6 +49,7 @@ export function buildSaveFields(parts: SaveFieldParts): SaveFields {
     pets: parts.pets,
     // 两个开关组各自就是成品字段名的一份映射，摊平即可：漏键会被类型检查逮住。
     ...parts.global,
+    hotkeys: parts.hotkeys,
     sfxVolume: parts.sfxVolume,
     sfx: parts.sfx,
     ...parts.chat,

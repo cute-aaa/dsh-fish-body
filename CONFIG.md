@@ -244,15 +244,48 @@ $DSH_HOME/fish-body/
 
 三处位置都能指到别处（设置页「系统 → 文件与目录」里各有入口，也可以手写）：
 
-| 想改什么 | 记在哪 | 缺省 |
-| --- | --- | --- |
-| 整个数据根 | `$DSH_HOME/fish-body-root.json`（`{ "schema": 1, "root": "D:/data/fish-body" }`） | `$DSH_HOME/fish-body` |
-| 用户皮肤目录 | `<数据根>/config/locations.json` 的 `skin` | `<数据根>/skin` |
-| Electron 运行时 | 同上的 `runtime`（也可 `POST /desktop/runtime { action: "dir" }`） | `<数据根>/runtime/electron` |
+| 想改什么        | 记在哪                                                                            | 缺省                        |
+| --------------- | --------------------------------------------------------------------------------- | --------------------------- |
+| 整个数据根      | `$DSH_HOME/fish-body-root.json`（`{ "schema": 1, "root": "D:/data/fish-body" }`） | `$DSH_HOME/fish-body`       |
+| 用户皮肤目录    | `<数据根>/config/locations.json` 的 `skin`                                        | `<数据根>/skin`             |
+| Electron 运行时 | 同上的 `runtime`（也可 `POST /desktop/runtime { action: "dir" }`）                | `<数据根>/runtime/electron` |
 
 优先级固定：环境变量 `DSH_PET_USER_ROOT` > 指针文件 > 缺省。指针指向的目录不存在时**回落到缺省位置**
 并在日志里说明——「换盘后没挂载」不该变成一次空数据启动。搬动由 `POST /layout/location` 完成：
 复制 → 核对文件数与字节数 → 通过才删旧位置（失败两份都留），成功后需要重启插件生效。
+点「更改位置…」会先出一道说明（`GET /layout/size?which=root|skin` 给出文件数与体积），
+选好目录后再出一次「旧 → 新」确认，两步都讲明「整体迁移、旧位置会被移除」。
+
+## 悬停快捷键（`hotkeys`）
+
+九个键写在**主配置（`main` 条目）顶层**，改绑在设置页「系统 → 快捷键」卡里点键帽：
+
+```jsonc
+"hotkeys": {
+  "chat": "l",            // 打开对话
+  "hear": "m",            // 按住说话
+  "capture": "s",         // 截图到对话
+  "todo": "d",            // 待办面板
+  "sleep": "z",           // 睡觉 / 起来
+  "display.web": "1",     // 只显示在网页
+  "display.desktop": "2", // 只显示在桌面
+  "display.both": "3",    // 两边都显示
+  "display.none": "4"     // 两边都不显示（单向门，恢复入口在设置页）
+}
+```
+
+四条硬规则（校验与归一见 `shared/hotkeys`，读写共用同一份）：
+
+- **只接受裸键**：一个小写字母或一个数字。这些键只在鼠标停在宠物上时生效，带 `Ctrl`/`Alt`/`Meta`
+  的组合属于浏览器与宿主（复制、撤销、切标签…），宠物去抢会直接抢坏基本操作。
+- **不在输入框里生效**：`input` / `textarea` / `select` / `contenteditable` 里打字属于输入法。
+- **九个键互不相同**：手写配置写重了，重复的那一项回落到它的出厂键；出厂键也被占用则顺延到下一个空位
+  （`qwerty…` 顺序）。界面里改绑到别人占着的键时**两者互换**，所以不存在「冲突」这种中间状态。
+- **缺项 = 出厂键**：整段删掉就回到上面这张表；大写会被收成小写。
+
+生效方式：网页端在 `PUT /config` 保存成功后由 `petBridge.reload` 立刻换上新键位（不必重启）；
+桌面窗口的右键菜单键帽在宿主写盘后触发的那次 Helper 重启里同步。菜单项右侧的灰字与真正生效的判定
+读的是同一个字符，不会出现「菜单写 L、按 L 没反应」。
 
 ## 音效段（sfx）
 

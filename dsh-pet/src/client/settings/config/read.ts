@@ -5,6 +5,7 @@
  * @module dsh-fish-body/src/client/settings/config/read
  */
 import { DEFAULT_FONT } from '../../../shared/fonts.ts';
+import { normalizeHotkeys, type HotkeyMap } from '../../../shared/hotkeys.ts';
 import { DEFAULT_PHYSICS } from '../../../shared/physics.ts';
 import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../../shared/types.ts';
 import { parseWeights } from '../../../shared/weights.ts';
@@ -57,6 +58,8 @@ export interface MainConfigPatch {
   chatModel?: ModelSelection;
   chatMemoryRounds?: number;
   chatImageLimit?: number;
+  /** 九个悬停键（main 顶层 hotkeys，已归一成完整且唯一的键位表）。 */
+  hotkeys?: HotkeyMap;
 }
 
 /** 非负有限数才算合法；其余（`NaN`、负数、字符串）一律当作没写。 */
@@ -123,6 +126,8 @@ export function readMainConfig(merged: MergedConfig): MainConfigPatch | null {
   if (volume !== undefined && volume <= 1) patch.voiceVolume = volume;
   const sfxVolume = nonNegative(main.sfxVolume);
   if (sfxVolume !== undefined && sfxVolume <= 1) patch.sfxVolume = sfxVolume;
+  // 悬停键：成品里可能整段缺失（老配置），一律收成完整键位表，界面不必再判空。
+  patch.hotkeys = normalizeHotkeys(main.hotkeys);
   return patch;
 }
 

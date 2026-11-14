@@ -10,6 +10,7 @@
 import type { FormSnapshot } from './dirty.ts';
 import type { AppearanceSettings } from './use-appearance-settings.ts';
 import type { GlobalSettings } from './use-global-settings.ts';
+import type { HotkeysSettings } from './use-hotkeys-settings.ts';
 import type { ModelSettings } from './use-model-settings.ts';
 import type { PetList } from './use-pet-list.ts';
 import type { SessionFishState } from './use-session-fish.ts';
@@ -20,6 +21,7 @@ import type { VoiceSettings } from './use-voice-settings.ts';
 export interface SnapshotSources {
   readonly list: PetList;
   readonly global: GlobalSettings;
+  readonly hotkeys: HotkeysSettings;
   readonly sfx: SfxSettings;
   readonly voice: VoiceSettings;
   readonly model: ModelSettings;
@@ -34,10 +36,11 @@ export interface SnapshotSources {
  * @returns 与基线同形的快照；会话鱼草稿没读到时为 `null`（整块不参与比较）。
  */
 export function makeSnapshot(sources: SnapshotSources): FormSnapshot {
-  const { list, global, sfx, voice, model, look, fish } = sources;
+  const { list, global, hotkeys, sfx, voice, model, look, fish } = sources;
   return {
     pets: list.pets,
     global: { ...global.values, sfxVolume: global.sfxVolume },
+    hotkeys: hotkeys.values,
     sfx: sfx.config,
     voice: {
       enabled: voice.enabled,
@@ -70,6 +73,7 @@ export function withoutFish(snapshot: FormSnapshot): Omit<FormSnapshot, 'fish'> 
   return {
     pets: snapshot.pets,
     global: snapshot.global,
+    hotkeys: snapshot.hotkeys,
     sfx: snapshot.sfx,
     voice: snapshot.voice,
     model: snapshot.model,

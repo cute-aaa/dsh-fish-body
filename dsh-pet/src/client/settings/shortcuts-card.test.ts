@@ -1,8 +1,9 @@
 /**
- * 快捷键卡的契约：五行都在、键位取自真源、改绑后跟着变，且与页尾参考卡一样是折叠卡。
- *
- * 这张卡唯一的价值就是「键位只有一处真源」——悬停键读共享常量，全局键读 DSH 的目录。
- * 哪天有人把键位写死，这里的断言就会红。
+ * 快捷键卡的契约：
+ *   1. 九个悬停键都从 `hotkeys` 取值（改绑后跟着变），没有被写死在卡片里；
+ *   2. 键帽是按钮，点一下进捕获态；捕获到一个裸键就回传 `onAssign(动作, 键)`；
+ *   3. 全局那组跟着 DSH 目录走，改绑后显示改绑后的组合；
+ *   4. 仍是折叠卡，卡头说明挂在问号气泡上。
  *
  * 跑法：node --experimental-strip-types --test src/client/settings/shortcuts-card.test.ts
  */
@@ -10,10 +11,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { jsx } from 'react/jsx-runtime';
 
-import { HEAR_HOTKEY_HINT } from '../../shared/chat/hear-hold.ts';
-import { CAPTURE_HOTKEY_HINT, CHAT_HOTKEY_HINT } from '../../shared/chat/hotkey.ts';
-import { SLEEP_HOTKEY_HINT } from '../../shared/sleep-hotkey.ts';
-import { TODO_HOTKEY_HINT } from '../../shared/todo/hotkey.ts';
+import { DEFAULT_HOTKEYS, type HotkeyAction, type HotkeyMap } from '../../shared/hotkeys.ts';
 import { keycapOf, type ShortcutHost } from '../app-shortcut.ts';
 import { makeShortcutsCard } from './shortcuts-card.ts';
 
@@ -27,8 +25,17 @@ interface Node {
 type Row = { id: string; keys: string[] };
 
 const h = ((tag: unknown, props: Record<string, unknown>) => ({ tag, props })) as unknown as typeof jsx;
-/** 假 useState：初始值原样收下，setter 只吞掉调用。 */
-const useState = ((init: unknown) => [init, () => {}]) as never;
+/**
+ * 假 useState：初始值原样收下；setter 记进 `seen`（捕获态与开合态都靠它观察）。
+ * 第三个及之后的 hook 各拿自己的初值——卡片里 open / editing / keycaps 三个状态互不能串。
+ */
+function makeUseState(seen: unknown[][]): never {
+  return ((init: unknown) => {
+    const box: unknown[] = [init];
+    seen.push(box);
+    return [init, (next: unknown) => box.push(next)];
+  }) as never;
+}
 /** 假 useEffect：不在测试里挂订阅，只要求它存在。 */
 const useEffect = (() => {}) as never;
 
@@ -84,15 +91,168 @@ function nodes(node: unknown): Node[] {
   return [element, ...nodes(element.props?.children)];
 }
 
-/** 按给定目录渲染一次整张卡。 */
-function render(rows: Row[] = []): unknown {
-  const Card = makeShortcutsCard({ h, t: (key: string) => key, useState, useEffect } as never, makeCtx(rows));
-  return Card({});
+/** 渲染一次整张卡；`onAssign` 收集改绑回传，`stateSeen` 用来观察本地状态变化。 */
+function render(
+  rows: Row[] = [],
+  hotkeys: HotkeyMap = DEFAULT_HOTKEYS,
+  options: { onAssign?: (action: HotkeyAction, key: string) => void; onReset?: () => void } = {},
+): { tree: unknown; seen: unknown[][]; assigned: Array<[HotkeyAction, string]> } {
+  const assigned: Array<[HotkeyAction, string]> = [];
+  const seen: unknown[][] = [];
+  const Card = makeShortcutsCard(
+    { h, t: (key: string) => key, useState: makeUseState(seen), useEffect } as never,
+    makeCtx(rows),
+  );
+  const tree = Card({
+    hotkeys,
+    onAssign: (action, key) => {
+      assigned.push([action, key]);
+      options.onAssign?.(action, key);
+    },
+    onReset: () => options.onReset?.(),
+    disabled: false,
+  });
+  return { tree, seen, assigned };
+}
+
+/**
+ * 一架会真的重渲染的假 hook 环境：`useState` 记住每次渲染的值，setter 触发重新渲染，
+ * `useEffect` 立即执行并把清理函数收起来。捕获态要靠它才测得动（点键帽 → 按键 → 回传）。
+ */
+function makeHarness(rows: Row[] = [], hotkeys: HotkeyMap = DEFAULT_HOTKEYS) {
+  const state: unknown[] = [];
+  let cursor = 0;
+  const assigned: Array<[HotkeyAction, string]> = [];
+  let reset = 0;
+  const listeners: Array<{ type: string; fn: (e: KeyboardEvent) => void }> = [];
+  const savedWindow = (globalThis as { window?: unknown }).window;
+  const fakeWindow = {
+    addEventListener: (type: string, fn: unknown): void => {
+      if (typeof fn === 'function') listeners.push({ type, fn: fn as (e: KeyboardEvent) => void });
+    },
+    removeEventListener: (): void => undefined,
+  };
+  (globalThis as { window?: unknown }).window = fakeWindow;
+
+  const Card = makeShortcutsCard(
+    {
+      h,
+      t: (key: string) => key,
+      useState: ((init: unknown) => {
+        const index = cursor;
+        cursor += 1;
+        if (state.length <= index) state[index] = init;
+        return [
+          state[index],
+          (next: unknown) => {
+            state[index] = typeof next === 'function' ? (next as (prev: unknown) => unknown)(state[index]) : next;
+            render();
+          },
+        ];
+      }) as never,
+      useEffect: ((fn: () => void | (() => void)) => {
+        fn();
+      }) as never,
+    } as never,
+    makeCtx(rows),
+  );
+
+  let current: unknown;
+  function render(): unknown {
+    cursor = 0;
+    listeners.length = 0;
+    current = Card({
+      hotkeys,
+      onAssign: (action, key) => assigned.push([action, key]),
+      onReset: () => (reset += 1),
+      disabled: false,
+    });
+    return current;
+  }
+
+  render();
+  return {
+    /** 最近一次渲染的节点树（点击会触发重渲染，所以必须是 getter）。 */
+    get tree(): unknown {
+      return current;
+    },
+    assigned,
+    /** 按下一个键：所有已注册的 keydown 监听都会收到，事件对象带最小的两个方法。 */
+    press: (key: string, extra: Partial<KeyboardEvent> = {}): void => {
+      const event = { key, preventDefault: () => undefined, stopPropagation: () => undefined, ...extra };
+      for (const item of listeners) if (item.type === 'keydown') item.fn(event as unknown as KeyboardEvent);
+    },
+    get resetCount(): number {
+      return reset;
+    },
+    restore: (): void => {
+      (globalThis as { window?: unknown }).window = savedWindow;
+    },
+  };
+}
+
+/** 按下某个键帽（找 aria-label 里带动作标签的那个按钮）。 */
+function keycapOfLabel(tree: unknown, label: string): Node | undefined {
+  return nodes(tree).find(
+    (node) =>
+      node.tag === 'button' &&
+      String(node.props?.className ?? '').includes('dsh-pet-cfg__keycap') &&
+      String(node.props?.['aria-label'] ?? '').startsWith(label),
+  );
 }
 
 describe('ShortcutsCard —— 快捷键卡', () => {
+  test('九个悬停键都来自配置：改绑后键帽跟着变', () => {
+    const custom: HotkeyMap = { ...DEFAULT_HOTKEYS, chat: 'k', sleep: 'q', 'display.none': '0' };
+    const text = texts(render([], custom).tree).join('\n');
+    assert.ok(text.includes('K 键'), '对话键取配置里的 K');
+    assert.ok(text.includes('Q 键'), '睡觉键取配置里的 Q');
+    assert.ok(text.includes('0 键'), '「都不」取配置里的 0');
+    assert.ok(!text.includes('Z 键'), '默认的 Z 不该再出现');
+  });
+
+  test('出厂配置下九个键帽都在', () => {
+    const text = texts(render().tree).join('\n');
+    for (const cap of ['L 键', 'M 键', 'S 键', 'D 键', 'Z 键', '1 键', '2 键', '3 键', '4 键']) {
+      assert.ok(text.includes(cap), cap + ' 应该出现在键帽里');
+    }
+  });
+
+  test('点键帽进捕获态，按一个裸键就回传 (动作, 键)', () => {
+    const box = makeHarness();
+    try {
+      const button = keycapOfLabel(box.tree, 'shortcutRowChat');
+      assert.ok(button, '对话那一行应该有键帽按钮');
+      (button?.props?.onClick as () => void)();
+      // 捕获态：键帽文字换成「按一个键…」。
+      assert.ok(texts(keycapOfLabel(box.tree, 'shortcutRowChat')).join('').includes('shortcutCapture'));
+      box.press('k');
+      assert.deepEqual(box.assigned, [['chat', 'k']]);
+      // 捕获结束：键帽回到配置里的值（上层拿到 onAssign 后会写回配置，这里仍是 L）。
+      assert.equal(texts(keycapOfLabel(box.tree, 'shortcutRowChat')).join(''), 'L 键');
+    } finally {
+      box.restore();
+    }
+  });
+
+  test('捕获态：Escape 取消、带修饰键与非法键都不认、也不回传', () => {
+    const box = makeHarness();
+    try {
+      (keycapOfLabel(box.tree, 'shortcutRowSleep')?.props?.onClick as () => void)();
+      box.press('Escape');
+      assert.deepEqual(box.assigned, []);
+      // 退出捕获态之后，再按空格（不是裸键）也不该被算成一次改绑。
+      (keycapOfLabel(box.tree, 'shortcutRowSleep')?.props?.onClick as () => void)();
+      box.press(' ', { ctrlKey: true });
+      box.press('Shift');
+      assert.deepEqual(box.assigned, []);
+    } finally {
+      box.restore();
+    }
+  });
+
   test('全局那组跟着目录走：改绑后显示改绑后的键', () => {
-    const text = texts(render(REBOUND)).join('\n');
+    const text = texts(render(REBOUND).tree).join('\n');
     assert.ok(text.includes('Ctrl+Alt+K'), '打开对话用改绑后的键');
     assert.ok(text.includes('Ctrl+Alt+H'), '语音输入用改绑后的键');
     assert.ok(text.includes('Ctrl+Alt+Y'), '截图用改绑后的键');
@@ -100,27 +260,20 @@ describe('ShortcutsCard —— 快捷键卡', () => {
   });
 
   test('没改绑 → 全局那组显示默认组合', () => {
-    const text = texts(render()).join('\n');
+    const text = texts(render().tree).join('\n');
     assert.ok(text.includes(FLOAT_DEFAULT), '打开对话');
     assert.ok(text.includes(HEAR_DEFAULT), '语音输入');
     assert.ok(text.includes(CAPTURE_DEFAULT), '截图');
     assert.ok(text.includes(CHAT_DEFAULT), '侧栏对话');
   });
 
-  test('悬停那组读共享常量，且不受改绑影响', () => {
-    const text = texts(render(REBOUND)).join('\n');
-    assert.ok(text.includes(CHAT_HOTKEY_HINT), '打开对话');
-    assert.ok(text.includes(HEAR_HOTKEY_HINT), '按住说话');
-    assert.ok(text.includes(CAPTURE_HOTKEY_HINT), '截图');
-    assert.ok(text.includes(TODO_HOTKEY_HINT), '待办');
-    assert.ok(text.includes(SLEEP_HOTKEY_HINT), '睡觉');
-  });
-
-  test('两组标题与说明、以及全部行标签都在', () => {
-    const text = texts(render()).join('\n');
+  test('三组标题、说明与全部行标签都在', () => {
+    const text = texts(render().tree).join('\n');
     for (const key of [
       'shortcutGroupPet',
       'shortcutGroupPetHint',
+      'shortcutGroupDisplay',
+      'shortcutGroupDisplayHint',
       'shortcutGroupGlobal',
       'shortcutGroupGlobalHint',
       'shortcutRowChat',
@@ -130,15 +283,19 @@ describe('ShortcutsCard —— 快捷键卡', () => {
       'shortcutRowPaste',
       'shortcutRowTodo',
       'shortcutRowSleep',
-      'shortcutRowDisplay',
+      'shortcutRowDisplayWeb',
+      'shortcutRowDisplayDesktop',
+      'shortcutRowDisplayBoth',
+      'shortcutRowDisplayNone',
       'shortcutRowSidebar',
+      'shortcutReset',
     ]) {
       assert.ok(text.includes(key), key + ' 应该出现');
     }
   });
 
   test('是折叠卡，默认收起（与页尾两张参考卡同一套骨架）', () => {
-    const all = nodes(render());
+    const all = nodes(render().tree);
     const card = all.find((node) => String(node.props?.className ?? '').includes('dsh-pet-cfg__card'));
     assert.ok(String(card?.props?.className).includes('is-fold'), '应该是折叠卡');
     assert.ok(!String(card?.props?.className).includes('is-open'), '默认不该展开');
@@ -148,8 +305,20 @@ describe('ShortcutsCard —— 快捷键卡', () => {
   });
 
   test('标题是卡片头文本，说明挂在问号气泡上', () => {
-    const tree = render();
+    const tree = render().tree;
     assert.ok(texts(tree).join('\n').includes('shortcutCardTitle'), '标题应该在文本里');
     assert.ok(tips(tree).includes('shortcutCardHint'), '说明应该挂在 data-tip 上');
+  });
+
+  test('恢复默认按钮回传 onReset', () => {
+    const box = makeHarness();
+    try {
+      const button = nodes(box.tree).find((node) => node.tag === 'button' && node.props?.children === 'shortcutReset');
+      assert.ok(button, '应该有「恢复默认键位」按钮');
+      (button?.props?.onClick as () => void)();
+      assert.equal(box.resetCount, 1);
+    } finally {
+      box.restore();
+    }
   });
 });

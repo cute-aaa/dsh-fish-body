@@ -16,6 +16,7 @@ import type {
   SfxConfig,
   Weights,
 } from './types.ts';
+import { normalizeHotkeys } from './hotkeys.ts';
 
 /** 显示位置白名单。 */
 export const PET_DISPLAYS: PetDisplay[] = ['web', 'desktop', 'both', 'none'];
@@ -55,16 +56,21 @@ export function pickSurfacePet(pets: readonly Pet[], isVisible: (pet: Pet) => bo
   return { pet, hidden: visible.filter((p) => p !== pet) };
 }
 
-/** 把成品聚合拍平成渲染用宠物列表。
+/**
+ * 把成品聚合拍平成渲染用宠物列表。
  *  条目级字段（animations / physics / font 等）由所属条目一份、多实例共享；assetRoot 取条目 key，
  *  即素材根。非 main 条目打 extra 标记：文件宠物在设置页不可编辑、保存时排除。 */
 export function flattenConfigPets(merged: Record<string, Record<string, unknown>>): Pet[] {
   const out: Pet[] = [];
+  // 悬停键是全局的：只在 main 条目里配一份，吹进每一只实例（含文件宠物），
+  // 于是网页端与桌面端都从同一个 `/config` 拿到同一份键位，菜单键帽与判定不可能对不上。
+  const hotkeys = normalizeHotkeys(merged.main?.hotkeys);
   for (const [entry, conf] of Object.entries(merged)) {
     const list = Array.isArray(conf?.pets) ? (conf.pets as Pet[]) : [];
     for (const p of list) {
       out.push({
         ...p,
+        hotkeys,
         animations: conf.animations as Animations | undefined,
         sfx: conf.sfx as SfxConfig | undefined,
         animationWeights: conf.animationWeights as Weights | undefined,

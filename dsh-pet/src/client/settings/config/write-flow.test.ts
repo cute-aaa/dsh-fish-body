@@ -13,6 +13,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { DEFAULT_FONT } from '../../../shared/fonts.ts';
+import { DEFAULT_HOTKEYS } from '../../../shared/hotkeys.ts';
 import { DEFAULT_PHYSICS } from '../../../shared/physics.ts';
 import type { SaveFields } from './http.ts';
 import { createWriteFlow, type SavedScope, type WriteFlowDeps } from './write-flow.ts';
@@ -28,6 +29,7 @@ const fields: SaveFields = {
       position: { corner: 'top-left', marginX: 0, marginY: 0 },
     } as never,
   ],
+  hotkeys: DEFAULT_HOTKEYS,
   notificationsEnabled: true,
   sfxEnabled: true,
   sfxKeepAlive: true,

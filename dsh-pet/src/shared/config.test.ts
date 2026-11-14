@@ -136,6 +136,25 @@ describe('flattenConfigPets —— 成品 → 渲染列表的唯一填充点', (
     assert.equal('whisperPrompt' in b, false, '没写就是没写——回落由 host 的 petPersona 做，这里不填生效值');
   });
 
+  test('悬停键：只在 main 条目配一份，吹进每只实例（含文件宠物）', () => {
+    const merged = {
+      main: { hotkeys: { chat: 'k' }, pets: [{ id: 'x' }] },
+      duck: { pets: [{ id: 'duck' }] },
+    };
+    const pets = flattenConfigPets(merged as Record<string, Record<string, unknown>>);
+    assert.equal(pets.length, 2);
+    for (const pet of pets) {
+      assert.equal(pet.hotkeys?.chat, 'k', 'main 的键位要吹进每一只，两端才用同一份');
+      // 没写到的动作补出厂值：界面与判定都不必再判空。
+      assert.equal(pet.hotkeys?.sleep, 'z');
+    }
+  });
+
+  test('悬停键整段缺失：等于出厂键位（老配置不炸）', () => {
+    const [pet] = flattenConfigPets({ main: { pets: [{ id: 'x' }] } } as Record<string, Record<string, unknown>>);
+    assert.equal(pet.hotkeys?.chat, 'l');
+    assert.equal(pet.hotkeys?.['display.none'], '4');
+  });
   test('源码守卫：客户端只有这一处填充，host 的写接口返回成品聚合', () => {
     // 容器（拍平与渲染列表）在 pet/multi.ts，卡片在 pet.ts：两处一起读，守卫才不会被拆分绕过。
     const clientPet = readSource('../client/pet.ts') + '\n' + readSource('../client/pet/multi.ts');

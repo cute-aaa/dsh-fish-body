@@ -24,6 +24,7 @@ function sources() {
       },
       sfxVolume: 0.5,
     },
+    hotkeys: { values: { chat: 'k' } },
     sfx: { config: { slots: { click: true } } },
     voice: {
       enabled: true,

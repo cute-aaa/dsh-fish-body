@@ -20,6 +20,7 @@ import { makeShortcutsCard } from './shortcuts-card.ts';
 import { makeSystemCard } from './system-card.ts';
 import type { ShortcutHost } from '../app-shortcut.ts';
 import type { GlobalSettings } from './use-global-settings.ts';
+import type { HotkeysSettings } from './use-hotkeys-settings.ts';
 import type { RemoteData } from './use-remote-data.ts';
 
 /** 系统分区的输入。 */
@@ -28,6 +29,8 @@ export interface SystemTabProps {
   readonly busy: boolean;
   /** 全局开关（本分区只读系统三项）。 */
   readonly global: GlobalSettings;
+  /** 九个悬停键：快捷键卡直接改绑。 */
+  readonly hotkeys: HotkeysSettings;
   /** 测试通知的结论与触发入口。 */
   readonly perm: { readonly msg: Feedback; test(): void };
   /** 页面级一次性拉取的结果（落盘位置）。 */
@@ -56,7 +59,7 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
   const FsCard = makeFsCard(rt);
 
   return function SystemTab(props: SystemTabProps) {
-    const { busy, global, perm, remote, dirty, backup, maintenance } = props;
+    const { busy, global, hotkeys, perm, remote, dirty, backup, maintenance } = props;
     return h('div', {
       className: 'dsh-pet-cfg__group',
       children: [
@@ -76,7 +79,14 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
           onExport: backup.exportNow,
           onPick: backup.pick,
         }),
-        h(ShortcutsCard, { key: 'shortcuts' }),
+        h(ShortcutsCard, {
+          key: 'shortcuts',
+          hotkeys: hotkeys.values,
+          onAssign: hotkeys.setKey,
+          onReset: hotkeys.reset,
+          disabled: busy,
+          dirty,
+        }),
         // 文件与目录：路径、可删性、运行时与卸载都在一张卡里；读不到 meta 就整块不出现
         // （缺路径提示比给错路径更安全）。
         remote.paths ? h(FsCard, { key: 'fs', paths: remote.paths }) : null,

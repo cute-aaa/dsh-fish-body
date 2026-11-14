@@ -5,8 +5,9 @@
  * 必须始终成立：同一份输入必得同一棵树，层级顺序稳定。
  * @module dsh-fish-body/src/shared/menu/tree
  */
-import { DISPLAY_HOTKEY_HINTS, DISPLAY_ORDER } from '../display-hotkey.ts';
+import { displayHotkeyHints, DISPLAY_ORDER } from '../display-hotkey.ts';
 import { RENDERERS } from '../config.ts';
+import type { HotkeyMap } from '../hotkeys.ts';
 import { SIZE_MAX, SIZE_MIN, SIZE_STEP } from '../pet-size.ts';
 import { type Animations, type Category, type PetDisplay, type PoolEntryItem, type RendererKind } from '../types.ts';
 import { switchableProviders, type VoiceProviderView } from '../voice-providers.ts';
@@ -45,14 +46,14 @@ const DISPLAY_LABELS: Readonly<Record<PetDisplay, string>> = {
 /** 「显示位置」子菜单：两端注入同一份，文案与设置页的显示位置下拉框一致。
  *  两端各写一份必然漂移，而这一项语义对称：桌面端用它把宠物送走，浏览器端用它送到桌面。
  *  「都不」是单向门（恢复入口是设置页），其余三个值都能从某一端改回来。
- *  右侧键帽由 `1`-`4` 数字键的同一份顺序派生，改顺序只改 {@link DISPLAY_ORDER}。 */
-export const displayMenuBranch = (): MenuBranch => ({
+ *  右侧键帽由 `hotkeys` 配置派生（见 shared/hotkeys），改绑之后菜单跟着变。 */
+export const displayMenuBranch = (hotkeys?: HotkeyMap): MenuBranch => ({
   label: '显示位置',
   children: DISPLAY_ORDER.map((display, index): MenuLeaf => ({
     label: DISPLAY_LABELS[display],
     action: 'set-display',
     display,
-    hint: DISPLAY_HOTKEY_HINTS[index],
+    hint: displayHotkeyHints(hotkeys)[index],
   })),
 });
 

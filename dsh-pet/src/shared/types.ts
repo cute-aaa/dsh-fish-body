@@ -4,6 +4,7 @@
  * 纯类型与常量，无 React / DOM 依赖。
  * @module dsh-fish-body/src/shared/types
  */
+import type { HotkeyMap } from './hotkeys.ts';
 
 /** 支持的角落。 */
 export type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
@@ -147,6 +148,9 @@ export interface Pet {
   physics?: PhysicsParams;
   /** 全局默认：是否锁定在当前屏幕——抛掷与自主漫游都只在当前所在那块屏内活动 */
   confineToScreen?: boolean;
+  /** 全局：九个悬停键的键位（由 main 条目顶层那一段吹入，改动见 shared/hotkeys）。
+   *  缺省 = 出厂键位；两端（网页 / 桌面）都用这一份，因此菜单键帽与实际判定永远一致。 */
+  hotkeys?: HotkeyMap;
   /** 条目级：睡觉期间被手动打扰时弹的拒绝台词（非空字符串数组，随机挑一句）。 */
   sleepRefuseTexts?: string[];
   /** 条目级：入睡时弹的台词（播「开始」时随机挑一句）。 */

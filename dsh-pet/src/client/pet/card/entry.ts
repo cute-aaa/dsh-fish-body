@@ -5,7 +5,6 @@
  * @module dsh-fish-body/src/client/pet/card/entry
  */
 import {
-  CHAT_HOTKEY_HINT,
   createHearHold,
   isCaptureHotkey,
   mountChatDialog,
@@ -14,8 +13,9 @@ import {
 } from '../../../shared/chat/index.ts';
 import { captureDisplayFrame } from '../../../shared/chat/capture.ts';
 import { displayOfHotkey } from '../../../shared/display-hotkey.ts';
-import { SLEEP_HOTKEY_HINT, isSleepHotkey } from '../../../shared/sleep-hotkey.ts';
-import { TODO_HOTKEY_HINT, isTodoHotkey } from '../../../shared/todo/hotkey.ts';
+import { hotkeyHint, type HotkeyMap } from '../../../shared/hotkeys.ts';
+import { isSleepHotkey } from '../../../shared/sleep-hotkey.ts';
+import { isTodoHotkey } from '../../../shared/todo/hotkey.ts';
 import type { PetDisplay, PoolEntryItem, RendererKind } from '../../../shared/types.ts';
 import { bindOpenChat } from './open-chat.ts';
 import { playPetHook } from '../sfx.ts';
@@ -380,17 +380,22 @@ export function createCardEntry(rt: CardEntryRuntime) {
         }),
       [cfgRef],
     );
-    // 悬停键共用一次挂载：L 开对话、按住 M 说话、S 截图、Z 切换睡/醒、D 开关待办、1-4 切显示位置。
+    // 悬停键共用一次挂载：对话 / 按住说话 / 截图 / 睡醒 / 待办 / 四个显示位置。
+    // 具体是哪个键来自 `hotkeys` 配置（设置页「快捷键」卡可改绑），每次按键现读 cfgRef，
+    // 因此保存后立刻按新键生效，不必重建监听。
     // 全部只在鼠标停在这只宠物上时生效；按住说话另有一条——焦点在宠物自己的弹窗里也算，
     // 但在弹窗输入框里打字时不算（否则拼音里的 m 会被当成开录，见 createHearHold）。
     useEffect(() => {
+      /** 现读当前键位表；cfgRef 是稳定引用，这里读到的永远是最新那份配置。 */
+      const keys = (): HotkeyMap | undefined => cfgRef.current.hotkeys;
       // 挂载时注册一次监听，但始终调用最新的闭包（它们读 ref，不能捕获旧值）。
       const offChat = bindOpenChat({
         stage: stageGetterRef.current(),
         isHovered: () => hoverRef.current,
+        keys,
         openChat: (image) => (image === undefined ? openChatRef.current() : openChatWithImageRef.current(image)),
       });
-      // 按住 M：按下开录、松手收尾。状态机自己管自动重复与松开，这里只管把事件送进去。
+      // 按住说话：按下开录、松手收尾。状态机自己管自动重复与松开，这里只管把事件送进去。
       const hearHold = createHearHold({
         isArmed: () => {
           if (hoverRef.current) return true;
@@ -398,6 +403,7 @@ export function createCardEntry(rt: CardEntryRuntime) {
           const active = document.activeElement;
           return !!chat && !!active && chat.el.contains(active);
         },
+        keys,
         onPress: () => startChatHearRef.current(),
         onRelease: () => stopChatHearRef.current(),
       });
@@ -407,23 +413,23 @@ export function createCardEntry(rt: CardEntryRuntime) {
           return;
         }
         if (!hoverRef.current) return;
-        const display = displayOfHotkey(e);
+        const display = displayOfHotkey(e, keys());
         if (display !== undefined) {
           e.preventDefault();
           switchDisplayRef.current(display);
           return;
         }
-        if (isCaptureHotkey(e)) {
+        if (isCaptureHotkey(e, keys())) {
           e.preventDefault();
           screenshotRef.current();
           return;
         }
-        if (isSleepHotkey(e)) {
+        if (isSleepHotkey(e, keys())) {
           e.preventDefault();
           toggleSleepRef.current();
           return;
         }
-        if (!isTodoHotkey(e)) return;
+        if (!isTodoHotkey(e, keys())) return;
         e.preventDefault();
         toggleTodoRef.current();
       };
@@ -435,7 +441,8 @@ export function createCardEntry(rt: CardEntryRuntime) {
         document.removeEventListener('keydown', onKeyDown, true);
         document.removeEventListener('keyup', onKeyUp, true);
       };
-    }, []);
+      // cfgRef 是稳定引用（ref 对象本身不变），列进依赖只为满足规则；监听仍然只注册一次。
+    }, [cfgRef]);
     // 菜单的动作面里含「对话」一条，回调注册一次即可：弹窗句柄在闭包里。
     live.current.placeTip = placeTip;
     live.current.tipOn = () => card.state.tipOn;
@@ -454,9 +461,12 @@ export function createCardEntry(rt: CardEntryRuntime) {
       // 该条目没配 animations.sleep 就整项不出现——与配置注释「不写 = 没有睡觉功能」一致。
       const asleep = live.current.flow?.sleeping() ?? false;
       const canSleep = (cfgRef.current.animations.sleep ?? []).length > 0;
+      // 键帽一律现读配置：改绑之后菜单右侧的灰字立刻跟着变。
+      const keys = cfgRef.current.hotkeys;
+      const sleepHint = hotkeyHint(keys, 'sleep');
       const sleepItem: MenuNode = asleep
-        ? { label: '起来', action: 'wake', hint: SLEEP_HOTKEY_HINT }
-        : { label: '睡觉', action: 'sleep', hint: SLEEP_HOTKEY_HINT };
+        ? { label: '起来', action: 'wake', hint: sleepHint }
+        : { label: '睡觉', action: 'sleep', hint: sleepHint };
       // 模型/皮肤子菜单：与渲染方式配套——live2d 列 `.model3.json`，layered 列可切换的皮肤 id。
       // 两者都写同一个 `pets[].model` 字段，只是文案不同（「模型」vs「皮肤」）。
       const rendererNow = cfgRef.current.renderer ?? 'webm';
@@ -479,9 +489,9 @@ export function createCardEntry(rt: CardEntryRuntime) {
       // 桌面专属的两项（打开软件、重载配置）在网页端没有对应动作，不出现。
       const tools: MenuNode[] = [
         { label: '查看余额', action: 'show-balance' },
-        { label: '待办事项', action: 'todo', hint: TODO_HOTKEY_HINT },
+        { label: '待办事项', action: 'todo', hint: hotkeyHint(keys, 'todo') },
         { label: '碎碎念', action: 'whisper' },
-        { label: '对话', action: 'chat', hint: CHAT_HOTKEY_HINT },
+        { label: '对话', action: 'chat', hint: hotkeyHint(keys, 'chat') },
         ...(memes ? [memes] : []),
         ...(canSleep ? [sleepItem] : []),
         // 渲染方式：三种后端互斥，切完由宿主回成品聚合 → 容器重渲染 → stage 即时重建。
@@ -498,7 +508,7 @@ export function createCardEntry(rt: CardEntryRuntime) {
       ];
       const tail: MenuNode[] = [
         // 显示位置子菜单与桌面端同一份；改成不含 web 的值后本宠物会从页面消失。
-        displayMenuBranch(),
+        displayMenuBranch(keys),
         // 重启插件：宿主重新组合本插件（有 HMR 时连新构建的宿主代码一起换上），页面随后自动刷新。
         { label: '重启插件', action: 'reload-plugin' },
         { label: '回到初始位置', action: 'home' },

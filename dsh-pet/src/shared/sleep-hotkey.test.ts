@@ -5,7 +5,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SLEEP_HOTKEY_HINT, isSleepHotkey } from './sleep-hotkey.ts';
+import { DEFAULT_HOTKEYS, hotkeyHint } from './hotkeys.ts';
+import { isSleepHotkey } from './sleep-hotkey.ts';
 import type { HotkeyEvent } from './hotkey.ts';
 
 /** 只造判据用到的字段，不需要真的 KeyboardEvent。 */
@@ -45,6 +46,13 @@ describe('isSleepHotkey —— 裸按 Z 才切换', () => {
   });
 
   test('菜单文案与按键同一份事实', () => {
-    assert.equal(SLEEP_HOTKEY_HINT, 'Z 键');
+    assert.equal(hotkeyHint(DEFAULT_HOTKEYS, 'sleep'), 'Z 键');
+    assert.equal(hotkeyHint({ ...DEFAULT_HOTKEYS, sleep: 'k' }, 'sleep'), 'K 键');
+  });
+
+  test('改绑之后认新键、不再认旧键', () => {
+    const map = { ...DEFAULT_HOTKEYS, sleep: 'k' };
+    assert.equal(isSleepHotkey(ev({ key: 'k' }), map), true);
+    assert.equal(isSleepHotkey(ev({ key: 'z' }), map), false);
   });
 });

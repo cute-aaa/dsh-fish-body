@@ -9,7 +9,8 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CAPTURE_HOTKEY_HINT, isCaptureHotkey, isChatHotkey, isTypingTarget, type HotkeyEvent } from './hotkey.ts';
+import { DEFAULT_HOTKEYS, hotkeyHint } from '../hotkeys.ts';
+import { isCaptureHotkey, isChatHotkey, isTypingTarget, type HotkeyEvent } from './hotkey.ts';
 
 /** 只造判据用到的字段，不需要真的 KeyboardEvent。 */
 const ev = (over: Partial<HotkeyEvent> = {}): HotkeyEvent => ({
@@ -78,7 +79,8 @@ describe('isCaptureHotkey', () => {
   });
 
   test('文案与按键同一份事实', () => {
-    assert.equal(CAPTURE_HOTKEY_HINT, 'S 键');
+    assert.equal(hotkeyHint(DEFAULT_HOTKEYS, 'capture'), 'S 键');
+    assert.equal(hotkeyHint(DEFAULT_HOTKEYS, 'chat'), 'L 键');
   });
 });
 

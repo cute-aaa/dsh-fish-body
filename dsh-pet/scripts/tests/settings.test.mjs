@@ -296,6 +296,10 @@ async function open(
       }
       return route.fulfill({ json: moveStatus() });
     }
+    if (path === '/dsh-pet-7340/layout/size') {
+      const which = new URL(request.url()).searchParams.get('which');
+      return route.fulfill({ json: { ok: true, which, path: '/test/fish-body/' + which, files: 2, bytes: 4194304 } });
+    }
     if (path === '/dsh-pet-7340/pick-folder') {
       return route.fulfill({ json: { ok: true, path: pickPath } });
     }
@@ -830,10 +834,16 @@ test('system → files & folders: move the skin folder, see progress, then get a
 
   // 皮肤那一行的「更改位置…」（两行里的第二个）。
   await page.getByRole('button', { name: 'Change location…', exact: true }).nth(1).click();
-  // 原生选择框被点掉后进入确认弹窗：先把「旧位置会被移除」讲清楚。
-  const dialog = page.getByRole('dialog', { name: 'Move folder' });
+  // 第一步是说明：先把「会整体迁移、旧位置会被移除」和「当前有多少东西」讲清楚。
+  await page.getByText('Where should “Skin folder” go?', { exact: true }).waitFor();
+  await page.getByText('2 files · 4.0 MB', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Choose a new location…', exact: true }).click();
+  // 第二步是确认弹窗：旧位置与新位置并排摆出来。
+  const dialog = page.getByRole('dialog', { name: 'Migrate to a new location' });
   await dialog.waitFor();
-  await dialog.getByRole('button', { name: 'Change location…', exact: true }).click();
+  assert.equal(await dialog.getByText('From: /test/fish-body/skin', { exact: true }).count(), 1);
+  assert.equal(await dialog.getByText('To: /test/moved-skin', { exact: true }).count(), 1);
+  await dialog.getByRole('button', { name: 'Start migrating', exact: true }).click();
 
   // 请求体带的是 which=skin 与选中的绝对路径。
   assert.deepEqual(await page.evaluate(() => null), null);
@@ -844,4 +854,58 @@ test('system → files & folders: move the skin folder, see progress, then get a
   await page.getByRole('button', { name: 'Restart now', exact: true }).click();
   await page.waitForFunction(() => true);
   assert.ok(harness.restarts.length >= 1, '重启按钮应当真的打了 /plugin-restart');
+});
+
+test('system → shortcuts: rebind a hover key, then save writes it into hotkeys', async (t) => {
+  const { page, writes } = await open(t, { viewport: { width: 900, height: 1600 } });
+  await tab(page, 'System').click();
+  const fold = page.getByRole('button', { name: /Shortcuts/ });
+  await fold.waitFor();
+  await fold.click();
+
+  // 对话那一行的键帽：出厂是 L。
+  const keycap = page.getByRole('button', { name: /^Open chat：L 键$/ });
+  await keycap.waitFor();
+  await keycap.click();
+  // 捕获态：键帽文字换成「按一个键…」。
+  await page
+    .getByRole('button', { name: /^Open chat：L 键$/ })
+    .getByText('Press a key…')
+    .waitFor();
+  await page.keyboard.press('k');
+  // 改绑后键帽显示新键。
+  await page.getByRole('button', { name: /^Open chat：K 键$/ }).waitFor();
+
+  await apply(page);
+  const body = writes.at(-1);
+  assert.equal(body.hotkeys.chat, 'k', '改绑要随保存写进 hotkeys');
+  assert.equal(body.hotkeys.sleep, 'z', '没改的键照旧带出去');
+  assert.equal(Object.keys(body.hotkeys).length, 9, '九个键整段写，不留半份');
+});
+
+test('system → shortcuts: giving a key that is already taken swaps the two', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 1600 } });
+  await tab(page, 'System').click();
+  const fold = page.getByRole('button', { name: /Shortcuts/ });
+  await fold.waitFor();
+  await fold.click();
+
+  // 把 Z（睡觉）给了对话：睡觉那一行应当拿到对话原来的 L。
+  await page.getByRole('button', { name: /^Open chat：L 键$/ }).click();
+  await page.keyboard.press('z');
+  await page.getByRole('button', { name: /^Open chat：Z 键$/ }).waitFor();
+  await page.getByRole('button', { name: /^Sleep \/ wake：L 键$/ }).waitFor();
+});
+
+test('system → shortcuts: Escape cancels the capture without changing anything', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 1600 } });
+  await tab(page, 'System').click();
+  const fold = page.getByRole('button', { name: /Shortcuts/ });
+  await fold.waitFor();
+  await fold.click();
+
+  await page.getByRole('button', { name: /^Todo list：D 键$/ }).click();
+  await page.getByText('Press a key…', { exact: true }).waitFor();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /^Todo list：D 键$/ }).waitFor();
 });
