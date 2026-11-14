@@ -27,6 +27,48 @@ AI 生成动画的配方     源视频 → 透明动画的管线    运行在 DS
 
 ---
 
+## 本仓库：`dsh-fish-body`（`dsh-pet` 的 fork）
+
+本仓库不是上游的发布分支，而是**本地 fork**：包名与插件 entry id 改为 `dsh-fish-body`，在 `dsh-pet v0.4.7` 之上加了下面这些能力。上游的素材链（① 提示词 → ② 素材生成 → ③ 插件）原样保留。
+
+| 相对上游的差异 | 说明                                                                                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 三种渲染后端   | `webm` / `layered`（分层 PNG 皮肤）/ `live2d`（Cubism 模型），统一的 `Renderer` 接口 + 注册表，右键「渲染方式」与设置页切换即时重建舞台                           |
+| 语音           | 免费链 = 本地 GSV（GPT-SoVITS `api_v2`）+ 在线 edge；**云端 DeepSeek TTS** 是显式开关（按量计费，默认关），可用时排链首、失败自动回落免费链，**永不进自动回退链** |
+| 看屏幕与避让   | 桌面端定时截图 → 一句话（默认关）；前台全屏 / 白名单程序时自动躲开                                                                                                |
+| 多素材根       | `assets.resourceDirs`：主池根之外再挂最多 8 个素材根，顺序即优先级，同 id 先到先得                                                                                |
+| 独立模式       | `dsh-pet-standalone` CLI：不起 DSH 直接跑桌宠（宿主半边跑在伪 ctx 上）                                                                                            |
+| 桌面壳         | 按需下载 Electron 运行时（不随包分发），支持自选运行时目录                                                                                                        |
+
+### 构建与部署
+
+```sh
+cd dsh-pet
+npm install          # 首次
+npm run build        # tsdown → lib/、desktop shared-core、tsc → lib/types
+```
+
+挂载到 DSH 的方式（一次性）：
+
+1. `$DSH_HOME/plugins/dsh-fish-body` 做 junction / 软链指向本仓库的 `dsh-pet/`（跨盘请用联结点，pnpm 的 `link:` 跨盘会拼坏路径）；
+2. profile 的 `package.json` 依赖写成 `link:../../plugins/dsh-fish-body`，并在 `dsh.profile.bundles` 里登记 `dsh-fish-body`；
+3. 重启该 profile。改 `src/host/**` 或 `src/shared/**` 后必须 `npm run build` **并重启 profile**；只改 `src/client/**` 也要 build（`lib/client.js` 没有 HMR），再刷新页面。
+
+### 维护与回滚
+
+| 想做的事                       | 怎么做                                                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| 重启插件（免重启整个 profile） | 设置页「系统 → 维护动作」的「重启」，或 `POST <插件路由>/plugin-restart`                                               |
+| 升级前留一份底                 | `cd dsh-pet && npm run rollback -- snapshot --label before-upgrade`（可选 `--with-config` 连 `config/` 一起拍）        |
+| 看有哪些底                     | `npm run rollback -- list`                                                                                             |
+| 退回上一个可用状态             | `npm run rollback -- restore <id>`（默认干跑，看清将覆盖哪些路径后再加 `--apply`；恢复前会自动再拍一份 `pre-restore`） |
+| 数据布局回滚                   | `node scripts/migrate-layout.mjs --revert` 先干跑，确认后加 `--apply`                                                  |
+| 把设置恢复为内置默认           | 设置页「系统 → 维护动作 → 重置设置」                                                                                   |
+
+回滚只碰 `lib/`、`package.json`、`cordis.patch.yml`（可选 `config/`），**不碰** `data/`、`skin/`、`assets/pet/` 这些用户自己的东西。
+
+---
+
 ## 快速开始（安装插件）
 
 两种装法，任选一种：
@@ -360,7 +402,7 @@ AI 提示词 → 绿幕视频 → 透明动画 → 插件，换角色、换动�
 ## 许可
 
 - 代码：MIT
-- 素材（动画/提示词/源视频）：允许开源使用，具体授权参考角色原型的形象授权（见下方「形象授权」）
+- **素材（动画 / 提示词 / 源视频 / 分层皮肤 / live2d 模型 / 音效 / 表情包 / 图集）：不随 MIT，禁止商用**；允许开源使用，具体授权参考角色原型的形象授权（见下方「形象授权」）。第三方组件、字体与 Live2D Cubism Core 的许可逐项写在 [NOTICE](NOTICE) 里
 - **二次创作（二创）约定**：基于本项目的衍生 / 改版 / 换皮作品，在 **GitHub 仓库、产品官网等公开渠道**上须附上原作者 GitHub 地址：<https://github.com/PC2005-cloud/dsh-pet>
 - **形象出处**：宠物形象为社区二创的 DeepSeek「大肥鱼」（鲸鱼娘），**非 DeepSeek 官方形象**；原型「溟月」出自 B 站 [@上善无形](https://space.bilibili.com/4456176)，DeepSeek 版（女仆鲸鱼娘）设计出自 B 站 [@ZipZipPipe](https://space.bilibili.com/4168597)
 - **形象授权**：[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans)（署名 · 非商业 · 相同方式共享），[声明原文](https://www.bilibili.com/opus/1247156596114456581)：「大肥鱼是遵守CC BY-NC-SA 4.0协议的形象，不可以以任何形式商业化。若您非常喜爱该形象，希望其拥有实体，您可以自行定制。」
