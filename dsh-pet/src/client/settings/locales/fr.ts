@@ -296,6 +296,35 @@ export const fr: Record<Key, string> = {
   trayToggle: 'Zone de notification',
   trayToggleHint:
     "Affiche une icône dans la zone de notification (barre de menus sur macOS) dès que le mode bureau démarre. Elle liste tous les compagnons de la configuration et permet de basculer chacun entre bureau et web / aucun — y compris ceux qui ne sont pas sur le bureau et n'ont donc aucune fenêtre à cliquer droit. Une fois désactivée, ramener un compagnon sur le bureau exige d'ouvrir le navigateur (la page de configuration, ou un clic droit sur le compagnon web). Windows range déjà ces icônes dans le panneau « icônes masquées ». Mode bureau uniquement.",
+  screenTitle: 'Écran et esquive',
+  screenHint:
+    "Lecture d'écran : capture l'écran de temps en temps, laisse le modèle courant y jeter un œil et dis une phrase dans une bulle (bulle seule, jamais lue). Esquive : masque la mascotte de bureau tant qu'une application plein écran ou une application listée est au premier plan, puis la remet quand tu changes. Les deux sont désactivées par défaut ; les interrupteurs et les minutages se règlent ici.",
+  screenDesktopOnly:
+    "Mode bureau uniquement : la mascotte du navigateur ne peut pas capturer l'écran et n'a pas de fenêtre à masquer.",
+  screenSectionRead: "Lecture d'écran",
+  screenReadToggle: "Dire une phrase sur l'écran",
+  screenIdleOnlyLabel: 'Seulement quand DSH est inactif',
+  screenIntervalLabel: 'Intervalle minimal',
+  screenIdleSecLabel: "Seuil d'inactivité",
+  screenQuietLabel: 'Heures calmes',
+  screenQuietFromLabel: 'De',
+  screenQuietToLabel: 'À',
+  screenQuietHint:
+    "Remplis les deux en HH:MM ; rien n'est capturé dans cette plage (ex. 23:00 à 08:00, le passage de minuit est accepté). Vide = désactivé.",
+  screenUnitSec: 's',
+  screenUnitMs: 'ms',
+  screenSectionAvoid: 'Esquive',
+  screenAvoidFullscreenLabel: 'Masquer en plein écran',
+  screenAvoidMaximizeLabel: 'Compter le maximisé',
+  screenAvoidDelayLabel: 'Délai avant de masquer',
+  screenAvoidRestoreLabel: 'Délai avant de revenir',
+  screenAvoidPollLabel: 'Intervalle de sondage',
+  screenAvoidAppsLabel: 'Masquer pour les applis listées',
+  screenAppsLabel: "Liste d'applis",
+  screenAppsHint:
+    'Séparées par des virgules, 50 maximum. Ce qui finit par .exe compare le nom du processus ; le reste cherche dans le titre de la fenêtre.',
+  screenNote:
+    "Chaque lecture est une requête d'image et coûte de l'argent : l'intervalle minimal plafonne la dépense. Elle utilise le modèle de murmures, ou le modèle de conversation actuel si vide — il doit accepter les images. L'esquive n'existe que sous Windows, ne masque que les fenêtres de la mascotte et ne rallume jamais celles que tu as masquées toi-même.",
   voiceTitle: 'Synthèse vocale',
   voiceHint:
     "Quatre interrupteurs et une voix : chaque type de parole a son propre interrupteur, aucun ne dépend d'un autre. Tout est désactivé par défaut et écrit dans la configuration utilisateur lors de l'enregistrement (jamais immédiatement).",

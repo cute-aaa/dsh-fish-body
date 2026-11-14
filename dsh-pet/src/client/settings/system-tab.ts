@@ -16,10 +16,12 @@ import { makeFsCard } from './fs-card.ts';
 import { makeMaintenanceCard } from './maintenance-card.ts';
 import type { MaintenanceActions } from './panels.ts';
 import type { SettingsRuntime } from './runtime.ts';
+import { makeScreenCard } from './screen-card.ts';
 import { makeShortcutsCard } from './shortcuts-card.ts';
 import { makeSystemCard } from './system-card.ts';
 import type { ShortcutHost } from '../app-shortcut.ts';
 import type { GlobalSettings } from './use-global-settings.ts';
+import type { ScreenSettings } from './use-screen-settings.ts';
 import type { HotkeysSettings } from './use-hotkeys-settings.ts';
 import type { RemoteData } from './use-remote-data.ts';
 
@@ -41,6 +43,8 @@ export interface SystemTabProps {
   readonly backup: SettingsBackupState;
   /** 重启插件与重置设置。 */
   readonly maintenance: MaintenanceActions;
+  /** 看屏幕与避让的十三项。 */
+  readonly screen: ScreenSettings;
 }
 
 /**
@@ -57,9 +61,10 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
   const ShortcutsCard = makeShortcutsCard(rt, ctx);
   const MaintenanceCard = makeMaintenanceCard(rt);
   const FsCard = makeFsCard(rt);
+  const ScreenCard = makeScreenCard(rt);
 
   return function SystemTab(props: SystemTabProps) {
-    const { busy, global, hotkeys, perm, remote, dirty, backup, maintenance } = props;
+    const { busy, global, hotkeys, perm, remote, dirty, backup, maintenance, screen } = props;
     return h('div', {
       className: 'dsh-pet-cfg__group',
       children: [
@@ -72,6 +77,8 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
           onTestNotification: perm.test,
           dirty,
         }),
+        // 看屏幕与避让：十三项时机全在这张卡里，紧跟系统卡（同为「插件与本机的关系」）。
+        h(ScreenCard, { key: 'screen', busy, screen, dirty }),
         // 维护动作紧跟系统卡：备份/恢复与具体设置项无关，也不产生「未保存改动」。
         h(BackupCard, {
           key: 'backup',

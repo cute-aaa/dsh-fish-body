@@ -7,6 +7,7 @@
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import type { FolderTarget } from '../../../shared/folders.ts';
 import type { HotkeyMap } from '../../../shared/hotkeys.ts';
+import { screenWritePatch, type ScreenConfig } from '../../../shared/screen-config.ts';
 import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../../shared/types.ts';
 import type { ModelCatalogGroup } from '../picker/index.ts';
 import type { MergedConfig } from './read.ts';
@@ -136,6 +137,8 @@ export interface SaveFields {
   animationWeights: Weights;
   /** 九个悬停键（main 条目顶层那一段，见 shared/hotkeys）。 */
   hotkeys: HotkeyMap;
+  /** 看屏幕与避让的十三项（保存时摊成十三个平键，键名与配置文件一致）。 */
+  screen: ScreenConfig;
 }
 
 /** 保存结果：调用方按 `kind` 分支，不再猜 HTTP 细节。 */
@@ -179,6 +182,8 @@ export function buildSaveBody(fields: SaveFields): Record<string, unknown> {
     font: fields.font,
     animationWeights: fields.animationWeights,
     hotkeys: fields.hotkeys,
+    // 看屏幕 / 避让：十三个平键由共享映射展开（键名与配置文件逐字一致）
+    ...screenWritePatch(fields.screen),
   };
 }
 

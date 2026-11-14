@@ -25,6 +25,7 @@ import type { HotkeysSettings } from './use-hotkeys-settings.ts';
 import type { RemoteData } from './use-remote-data.ts';
 import type { SessionFishState } from './use-session-fish.ts';
 import type { SettingsBackupState } from './use-settings-backup.ts';
+import type { ScreenSettings } from './use-screen-settings.ts';
 import type { SfxSettings } from './use-sfx-settings.ts';
 import type { ModelSettings } from './use-model-settings.ts';
 import type { PetList } from './use-pet-list.ts';
@@ -59,6 +60,8 @@ export interface SettingsPanelDeps {
   readonly perm: { readonly msg: Feedback; test(): void };
   /** 备份与恢复。 */
   readonly backup: SettingsBackupState;
+  /** 看屏幕与避让的十三项（「系统」分区的同一张卡）。 */
+  readonly screen: ScreenSettings;
   /** 重启插件与重置设置。 */
   readonly maintenance: MaintenanceActions;
   /** 未保存改动查询口：各卡片据此在卡头上画圆点。 */
@@ -106,6 +109,7 @@ export function makeSettingsPanels(
         remote: deps.remote,
         dirty: deps.dirty,
         backup: deps.backup,
+        screen: deps.screen,
         maintenance: deps.maintenance,
       }),
   });

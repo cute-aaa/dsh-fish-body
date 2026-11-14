@@ -22,7 +22,10 @@ import {
 import type { ForegroundSnapshot } from './foreground.ts';
 
 /** 主屏：3840×2160，任务栏 72px（工作区高度 2088）。 */
-const MONITOR = { bounds: { x: 0, y: 0, width: 3840, height: 2160 }, workArea: { x: 0, y: 0, width: 3840, height: 2088 } };
+const MONITOR = {
+  bounds: { x: 0, y: 0, width: 3840, height: 2160 },
+  workArea: { x: 0, y: 0, width: 3840, height: 2088 },
+};
 
 /** 造一帧前台快照。 */
 function snap(over: Partial<ForegroundSnapshot> = {}): ForegroundSnapshot {
@@ -108,7 +111,14 @@ describe('avoidWantHide', () => {
 
 describe('advanceAvoid —— 延迟与恢复延迟', () => {
   test('delay 未到不躲，到了才躲', () => {
-    const first = advanceAvoid({ phase: 'idle', sinceMs: 0, nowMs: 1000, wantHide: true, delayMs: 1500, restoreMs: 800 });
+    const first = advanceAvoid({
+      phase: 'idle',
+      sinceMs: 0,
+      nowMs: 1000,
+      wantHide: true,
+      delayMs: 1500,
+      restoreMs: 800,
+    });
     assert.deepEqual(first, { phase: 'pending-hide', sinceMs: 1000, hide: false });
     const early = advanceAvoid({ ...first, nowMs: 2000, wantHide: true, delayMs: 1500, restoreMs: 800 });
     assert.equal(early.hide, false);
@@ -122,7 +132,14 @@ describe('advanceAvoid —— 延迟与恢复延迟', () => {
   });
 
   test('条件消失后要等 restore 才回来，期间仍是 hidden 一侧', () => {
-    const hiding = advanceAvoid({ phase: 'hidden', sinceMs: 0, nowMs: 10, wantHide: false, delayMs: 0, restoreMs: 800 });
+    const hiding = advanceAvoid({
+      phase: 'hidden',
+      sinceMs: 0,
+      nowMs: 10,
+      wantHide: false,
+      delayMs: 0,
+      restoreMs: 800,
+    });
     assert.deepEqual(hiding, { phase: 'pending-show', sinceMs: 10, hide: true });
     assert.equal(avoidHidden(hiding.phase), true);
     const stillWaiting = advanceAvoid({ ...hiding, nowMs: 500, wantHide: false, delayMs: 0, restoreMs: 800 });
@@ -132,17 +149,38 @@ describe('advanceAvoid —— 延迟与恢复延迟', () => {
   });
 
   test('恢复等待期里条件又成立 → 立刻回到 hidden，不重新计时', () => {
-    const r = advanceAvoid({ phase: 'pending-show', sinceMs: 100, nowMs: 300, wantHide: true, delayMs: 1500, restoreMs: 800 });
+    const r = advanceAvoid({
+      phase: 'pending-show',
+      sinceMs: 100,
+      nowMs: 300,
+      wantHide: true,
+      delayMs: 1500,
+      restoreMs: 800,
+    });
     assert.deepEqual(r, { phase: 'hidden', sinceMs: 300, hide: true });
   });
 
   test('等待躲下去的过程中条件消失 → 回 idle，不躲', () => {
-    const r = advanceAvoid({ phase: 'pending-hide', sinceMs: 100, nowMs: 200, wantHide: false, delayMs: 1500, restoreMs: 800 });
+    const r = advanceAvoid({
+      phase: 'pending-hide',
+      sinceMs: 100,
+      nowMs: 200,
+      wantHide: false,
+      delayMs: 1500,
+      restoreMs: 800,
+    });
     assert.deepEqual(r, { phase: 'idle', sinceMs: 200, hide: false });
   });
 
   test('时钟回拨不会把宠物永久藏起来', () => {
-    const r = advanceAvoid({ phase: 'hidden', sinceMs: 5_000, nowMs: 1_000, wantHide: false, delayMs: 0, restoreMs: 800 });
+    const r = advanceAvoid({
+      phase: 'hidden',
+      sinceMs: 5_000,
+      nowMs: 1_000,
+      wantHide: false,
+      delayMs: 0,
+      restoreMs: 800,
+    });
     assert.equal(r.phase, 'pending-show');
     // 回拨后 waited 按 0 算：要等时间重新走够 restore 才恢复
     const again = advanceAvoid({ ...r, nowMs: 1_700, wantHide: false, delayMs: 0, restoreMs: 800 });

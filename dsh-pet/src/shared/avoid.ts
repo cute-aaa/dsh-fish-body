@@ -189,7 +189,9 @@ export function advanceAvoid(input: AvoidTickInput): AvoidTickResult {
         : { phase: 'pending-show', sinceMs: now, hide: true };
     case 'pending-show':
       if (input.wantHide) return { phase: 'hidden', sinceMs: now, hide: true };
-      return waited >= restore ? { phase: 'idle', sinceMs: now, hide: false } : { phase: 'pending-show', sinceMs: since, hide: true };
+      return waited >= restore
+        ? { phase: 'idle', sinceMs: now, hide: false }
+        : { phase: 'pending-show', sinceMs: since, hide: true };
     default:
       if (!input.wantHide) return { phase: 'idle', sinceMs: since, hide: false };
       // delay 为 0：这一拍就直接躲（用户显式要求「立刻」）

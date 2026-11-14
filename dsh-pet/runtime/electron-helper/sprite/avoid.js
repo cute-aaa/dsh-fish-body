@@ -103,7 +103,9 @@
         hidden = next.hide;
         bridge.setAvoidHidden(hidden);
         // 一行状态日志：这是背景行为，出问题时只能靠它确认「到底躲了没有、什么时候回来的」
-        console.info('[fish-body] 避让' + (hidden ? '隐藏' : '恢复') + ' pet=' + petId + ' 原因=' + (wanted.reason || '—'));
+        console.info(
+          '[fish-body] 避让' + (hidden ? '隐藏' : '恢复') + ' pet=' + petId + ' 原因=' + (wanted.reason || '—'),
+        );
       }
       report(snapshot, wanted.reason);
     });

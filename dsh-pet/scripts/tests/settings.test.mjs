@@ -992,3 +992,42 @@ test('search: 按当前值跨分区定位，点结果切分区并高亮命中项
   await box.press('Escape');
   await page.locator('.dsh-pet-cfg__panel').waitFor();
 });
+
+test('system → screen: switches and timings all reach the save body', async (t) => {
+  const { page, writes } = await open(t, { viewport: { width: 900, height: 2200 } });
+  await tab(page, 'System').click();
+
+  // 卡头：「看屏幕与避让」
+  await page.getByText('Screen & avoidance', { exact: true }).waitFor();
+
+  // 三个开关默认全关：全屏躲开、最大化、白名单。
+  const fullscreen = page.getByRole('checkbox', { name: /Hide on fullscreen/ });
+  await fullscreen.waitFor();
+  assert.equal(await fullscreen.isChecked(), false, '出厂默认关着');
+  await fullscreen.check();
+
+  // 时机项：最短间隔与躲开延迟都在界面上改。
+  await page.getByLabel('Minimum interval').fill('90');
+  await page.getByLabel('Hide delay').fill('2000');
+
+  // 白名单：开关打开后输入框才可用，逗号分隔会切成数组。
+  const appsSwitch = page.getByRole('checkbox', { name: /Hide for listed apps/ });
+  const appsInput = page.getByLabel('App list');
+  assert.equal(await appsInput.isDisabled(), true, '开关关着时白名单输入不可用');
+  await appsSwitch.check();
+  await appsInput.fill('chrome.exe, 哔哩哔哩');
+
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    await page.screenshot({ path: join(process.env.DSH_PET_UI_ARTIFACTS, 'screen-card.png') });
+  }
+
+  await apply(page);
+  const body = writes.at(-1);
+  assert.equal(body.avoidFullscreenEnabled, true, '开关随保存写进配置');
+  assert.equal(body.screenReadIntervalSec, 90, '最短间隔按秒写');
+  assert.equal(body.avoidDelayMs, 2000, '躲开延迟按毫秒写');
+  assert.equal(body.avoidAppsEnabled, true);
+  assert.deepEqual(body.avoidApps, ['chrome.exe', '哔哩哔哩'], '逗号分隔切成数组，原样保留写法');
+  assert.equal(body.screenReadEnabled, false, '没动的开关照旧带出去');
+});

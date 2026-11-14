@@ -295,6 +295,35 @@ export const de: Record<Key, string> = {
   trayToggle: 'System-Tray',
   trayToggleHint:
     'Zeigt im Desktop-Modus ein Tray-Symbol (Windows: Infobereich, macOS: Menüleiste). Es listet alle Pets der Konfiguration und schaltet die Anzeige um – auch für Pets, die gerade nicht auf dem Desktop sind und kein Fenster zum Rechtsklicken haben. Ohne Tray lässt sich ein Pet nur über den Browser (Einstellungsseite oder Rechtsklick auf das Web-Pet) zurück auf den Desktop holen. Windows blendet das Symbol ohnehin in die „ausgeblendeten Symbole" aus. Nur Desktop-Modus.',
+  screenTitle: 'Bildschirm & Ausweichen',
+  screenHint:
+    'Bildschirmlesen: nimmt alle paar Minuten ein Bild auf, lässt das aktuelle Modell einen Blick darauf werfen und sagt einen Satz in einer Blase (nur Blase, nie gesprochen). Ausweichen: versteckt das Desktop-Haustier, solange eine Vollbild-App oder eine gelistete App im Vordergrund ist, und holt es beim Wechsel zurück. Beides ist standardmäßig aus; Schalter und Zeitpunkte stehen hier.',
+  screenDesktopOnly:
+    'Nur im Desktop-Modus: das Haustier im Browser kann den Bildschirm nicht aufnehmen und hat kein Fenster zum Verstecken.',
+  screenSectionRead: 'Bildschirmlesen',
+  screenReadToggle: 'Einen Satz zum Bildschirm sagen',
+  screenIdleOnlyLabel: 'Nur wenn DSH untätig ist',
+  screenIntervalLabel: 'Kürzester Abstand',
+  screenIdleSecLabel: 'Ruheschwelle',
+  screenQuietLabel: 'Ruhezeiten',
+  screenQuietFromLabel: 'Von',
+  screenQuietToLabel: 'Bis',
+  screenQuietHint:
+    'Beide als HH:MM ausfüllen; in diesem Zeitraum wird nichts aufgenommen (z. B. 23:00 bis 08:00, über Mitternacht erlaubt). Leer = aus.',
+  screenUnitSec: 's',
+  screenUnitMs: 'ms',
+  screenSectionAvoid: 'Ausweichen',
+  screenAvoidFullscreenLabel: 'Bei Vollbild verstecken',
+  screenAvoidMaximizeLabel: 'Maximiert zählt mit',
+  screenAvoidDelayLabel: 'Verzögerung bis zum Verstecken',
+  screenAvoidRestoreLabel: 'Verzögerung bis zum Zurückkommen',
+  screenAvoidPollLabel: 'Abfrageintervall',
+  screenAvoidAppsLabel: 'Bei gelisteten Apps verstecken',
+  screenAppsLabel: 'App-Liste',
+  screenAppsHint:
+    'Kommagetrennt, höchstens 50. Einträge mit .exe vergleichen den Prozessnamen exakt; alles andere sucht im Fenstertitel.',
+  screenNote:
+    'Jedes Lesen ist eine Bildanfrage und kostet Geld, deshalb begrenzt der kürzeste Abstand die Kosten. Genutzt wird das Flüstermodell, bei leerem Feld das aktuelle Chat-Modell — es muss Bilder akzeptieren. Ausweichen gibt es nur unter Windows, versteckt nur die Fenster des Haustiers und zeigt nie eines, das du selbst versteckt hast.',
   voiceTitle: 'Sprachausgabe',
   voiceHint:
     'Vier Schalter und eine Stimme: Jede Art von Sprachausgabe hat ihren eigenen Schalter, keiner hängt von einem anderen ab. Standardmäßig alle aus; wird beim „Speichern" in die Benutzerkonfiguration geschrieben (kein sofortiges Schreiben).',

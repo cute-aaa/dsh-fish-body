@@ -7,6 +7,7 @@
 import { DEFAULT_FONT } from '../../../shared/fonts.ts';
 import { normalizeHotkeys, type HotkeyMap } from '../../../shared/hotkeys.ts';
 import { DEFAULT_PHYSICS } from '../../../shared/physics.ts';
+import { screenConfigOf, type ScreenConfig } from '../../../shared/screen-config.ts';
 import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../../shared/types.ts';
 import { parseWeights } from '../../../shared/weights.ts';
 
@@ -34,6 +35,8 @@ export interface MainConfigPatch {
   chatAnimationEnabled?: boolean;
   confineToScreen?: boolean;
   trayEnabled?: boolean;
+  /** 看屏幕与避让的十三项（已归一化：缺键与越界都按运行期口径夹过）。 */
+  screen?: ScreenConfig;
   /** 手动播报开关：手动触发的碎碎念与对话回复；缺省表示这次响应里没有可信值。 */
   voiceEnabled?: boolean;
   /** 语音音色 id（宿主已按白名单校验，客户端原样展示）。 */
@@ -99,6 +102,8 @@ export function readMainConfig(merged: MergedConfig): MainConfigPatch | null {
   if (typeof main.chatAnimationEnabled === 'boolean') patch.chatAnimationEnabled = main.chatAnimationEnabled;
   if (typeof main.confineToScreen === 'boolean') patch.confineToScreen = main.confineToScreen;
   if (typeof main.trayEnabled === 'boolean') patch.trayEnabled = main.trayEnabled;
+  // 看屏幕 / 避让：十三个平键收成一个嵌套值，归一化与宿主读配置时同一份函数。
+  patch.screen = screenConfigOf(main);
   if (typeof main.voiceEnabled === 'boolean') patch.voiceEnabled = main.voiceEnabled;
   if (typeof main.voiceName === 'string') patch.voiceName = main.voiceName;
   if (typeof main.voiceWhisperEnabled === 'boolean') patch.voiceWhisperEnabled = main.voiceWhisperEnabled;

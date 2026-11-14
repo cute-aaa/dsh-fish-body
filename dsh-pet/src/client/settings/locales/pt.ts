@@ -295,6 +295,35 @@ export const pt: Record<Key, string> = {
   trayToggle: 'Bandeja do sistema',
   trayToggleHint:
     'Mostra um ícone na área de notificação (barra de menus no macOS) quando o modo desktop inicia. Ele lista todos os pets da configuração e alterna a exibição de cada um — inclusive os que estão fora do desktop agora e não têm janela para clicar com o botão direito. Sem ele, para trazer um pet de volta ao desktop é preciso abrir o navegador (a página de configuração, ou clicar com o botão direito no pet na web). O Windows já esconde ícones de terceiros na gaveta "ícones ocultos". Só afeta o modo desktop.',
+  screenTitle: 'Tela e desvio',
+  screenHint:
+    'Leitura de tela: captura a tela de tempos em tempos, deixa o modelo atual dar uma olhada e diz uma frase num balão (só balão, nunca falado). Desvio: esconde o pet do desktop enquanto um app em tela cheia ou um app da lista estiver na frente, e devolve ao trocar. Os dois vêm desligados; interruptores e tempos ficam aqui.',
+  screenDesktopOnly:
+    'Só no modo desktop: o pet no navegador não consegue capturar a tela e não tem janela para esconder.',
+  screenSectionRead: 'Leitura de tela',
+  screenReadToggle: 'Dizer uma frase sobre a tela',
+  screenIdleOnlyLabel: 'Só com o DSH ocioso',
+  screenIntervalLabel: 'Intervalo mínimo',
+  screenIdleSecLabel: 'Limite de ociosidade',
+  screenQuietLabel: 'Horas de silêncio',
+  screenQuietFromLabel: 'De',
+  screenQuietToLabel: 'Até',
+  screenQuietHint:
+    'Preencha os dois como HH:MM; nada é capturado nesse intervalo (ex.: 23:00 até 08:00, atravessar a meia-noite é permitido). Vazio = desligado.',
+  screenUnitSec: 's',
+  screenUnitMs: 'ms',
+  screenSectionAvoid: 'Desvio',
+  screenAvoidFullscreenLabel: 'Esconder em tela cheia',
+  screenAvoidMaximizeLabel: 'Maximizado conta',
+  screenAvoidDelayLabel: 'Atraso para esconder',
+  screenAvoidRestoreLabel: 'Atraso para voltar',
+  screenAvoidPollLabel: 'Intervalo de sondagem',
+  screenAvoidAppsLabel: 'Esconder para apps listados',
+  screenAppsLabel: 'Lista de apps',
+  screenAppsHint:
+    'Separados por vírgula, até 50. O que termina em .exe compara o nome do processo exato; o resto procura no título da janela.',
+  screenNote:
+    'Cada leitura é uma requisição de imagem e custa dinheiro, por isso o intervalo mínimo limita o gasto. Usa o modelo de sussurros ou, se estiver vazio, o modelo de conversa atual — ele precisa aceitar imagens. O desvio só existe no Windows, esconde apenas as janelas do pet e nunca revela pets que você mesmo escondeu.',
   voiceTitle: 'Voz',
   voiceHint:
     'Quatro interruptores e uma voz: cada tipo de fala tem o próprio interruptor e nenhum depende de outro. Tudo desligado por padrão; gravado na configuração do usuário ao "Salvar" (nunca na hora).',

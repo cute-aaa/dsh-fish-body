@@ -43,6 +43,7 @@ function sources() {
       chatFlags: { whisperImageEnabled: false, chatImageEnabled: true, chatAnimationEnabled: false },
     },
     look: { physics: { gravity: 1 }, weights: { idle: 1 }, font: { family: 'candy' } },
+    screen: { values: { readEnabled: true, avoidApps: ['chrome.exe'] }, appsText: 'chrome.exe' },
     fish: { draft: { enabled: true } },
   };
 }

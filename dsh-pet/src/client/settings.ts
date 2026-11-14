@@ -53,6 +53,7 @@ import { usePermissionTest } from './settings/use-permission-test.ts';
 import { usePetList } from './settings/use-pet-list.ts';
 import { useRemoteData } from './settings/use-remote-data.ts';
 import { useRevert } from './settings/use-revert.ts';
+import { useScreenSettings } from './settings/use-screen-settings.ts';
 import { useSessionFish } from './settings/use-session-fish.ts';
 import { useSettingsBackup } from './settings/use-settings-backup.ts';
 import { useSfxSettings } from './settings/use-sfx-settings.ts';
@@ -126,6 +127,8 @@ export function makePetConfigSection(
     const voice = useVoiceSettings(rt);
     const model = useModelSettings(rt);
     const look = useAppearanceSettings(rt);
+    // 看屏幕与避让：十三项时机（间隔 / 空闲 / 静默时段 / 延迟 / 节拍 / 白名单），随保存整包写入。
+    const screen = useScreenSettings(rt);
     // 一次性拉取的宿主数据：落盘位置（系统分区的两张卡）与候选模型清单（对话分区的下拉框）。
     const remote = useRemoteData(rt);
     // 头像上传不走「保存」；测试通知的反馈与保存反馈分开放。
@@ -144,6 +147,7 @@ export function makePetConfigSection(
     const applyVoice = voice.apply;
     const applyModel = model.apply;
     const applyLook = look.apply;
+    const applyScreen = screen.apply;
     const applyConfig = useCallback(
       (merged: MergedConfig): void => {
         // 条目列表与全局字段各取一份：前者给标签条与保存时的写回计划，后者给各分区卡片。
@@ -157,10 +161,11 @@ export function makePetConfigSection(
         applyVoice(patch);
         applyModel(patch);
         applyLook(patch);
+        applyScreen(patch);
         // 刚读到 / 刚重置：表单即将等于这份权威值，基线跟着走（会话鱼那半截由 markFish 补）。
         setBaseline({ ...baselineFromConfig(entries, patch), fish: fishBaselineRef.current });
       },
-      [replace, applyGlobal, applyHotkeys, applySfx, applyVoice, applyModel, applyLook],
+      [replace, applyGlobal, applyHotkeys, applySfx, applyVoice, applyModel, applyLook, applyScreen],
     );
 
     // 备份与恢复：导出只读不写；恢复要先过确认弹窗，写成功后用它回填表单并推进基线。
@@ -187,7 +192,7 @@ export function makePetConfigSection(
     useEffect(() => attachTipLayer(), []);
 
     // 此刻的表单快照：形状与基线一致，diff 之后才知道哪些字段还没保存。
-    const snapshot = makeSnapshot({ list, global, hotkeys, sfx, voice, model, look, fish });
+    const snapshot = makeSnapshot({ list, global, hotkeys, sfx, voice, model, look, fish, screen });
     snapshotRef.current = snapshot;
 
     const paths = baseline === null ? NO_PATHS : diffSnapshot(baseline, snapshot);
@@ -222,6 +227,7 @@ export function makePetConfigSection(
           voice,
           model,
           look,
+          screen: screen.values,
         }),
       busy: () => busy,
       setBusy,
@@ -293,6 +299,7 @@ export function makePetConfigSection(
       fish,
       perm: { msg: permission.message, test: permission.test },
       backup,
+      screen,
       maintenance: { restart, reset: write.requestReset },
       dirty,
     };

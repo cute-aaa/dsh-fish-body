@@ -278,6 +278,33 @@ export const zh = {
   trayToggle: '系统托盘',
   trayToggleHint:
     '桌面模式启动后在通知区域（macOS 为菜单栏）常驻一个图标，列出配置里的全部宠物，勾选就能切换显示位置——包括当前不在桌面、没有窗口可右键的那些。关掉之后要把宠物叫回桌面，只能开浏览器用设置页，或在网页端那只宠物身上右键。Windows 本来就会把它折叠进「隐藏的图标」面板。仅影响桌面模式。',
+  screenTitle: '看屏幕与避让',
+  screenHint:
+    '识屏：隔一段时间截一张屏幕，交给当前模型看一眼，用一句话弹气泡说出来（只出气泡、不念）。避让：前台是全屏程序、或你指定的程序时，把桌面宠物藏起来，切走再回来。两件事默认都关，开关与时机都在这里配。',
+  screenDesktopOnly: '仅桌面模式生效：浏览器里的宠物没有截屏能力，也没有窗口可以躲。',
+  screenSectionRead: '看屏幕',
+  screenReadToggle: '看屏幕说一句',
+  screenIdleOnlyLabel: '只在 DSH 空闲时拍',
+  screenIntervalLabel: '最短间隔',
+  screenIdleSecLabel: '空闲判定',
+  screenQuietLabel: '静默时段',
+  screenQuietFromLabel: '开始',
+  screenQuietToLabel: '结束',
+  screenQuietHint: '这两个框填 HH:MM，这段时间内一张都不拍（例：23:00 → 08:00，允许跨午夜）。留空 = 不设静默时段。',
+  screenUnitSec: '秒',
+  screenUnitMs: '毫秒',
+  screenSectionAvoid: '躲开',
+  screenAvoidFullscreenLabel: '全屏时躲开',
+  screenAvoidMaximizeLabel: '最大化也算',
+  screenAvoidDelayLabel: '躲开延迟',
+  screenAvoidRestoreLabel: '恢复延迟',
+  screenAvoidPollLabel: '轮询节拍',
+  screenAvoidAppsLabel: '白名单程序前台时躲开',
+  screenAppsLabel: '白名单',
+  screenAppsHint:
+    '逗号分隔，最多 50 条。以 .exe 结尾按进程名精确匹配（如 chrome.exe）；其它按窗口标题包含（如 哔哩哔哩）。',
+  screenNote:
+    '识屏每拍一次就是一次读图请求（花钱），最短间隔是费用上限；读图用的是「碎碎念模型」，留空则用当前对话的模型——那个模型必须支持读图。避让只支持 Windows，且只藏宠物自己的窗口，你手动隐藏的宠物不会被放出来。',
   voiceTitle: '语音播报',
   voiceHint:
     '桌宠出声的四个开关与音色：每类语音各一个开关，互不从属。默认全关，随「保存」写入用户配置（不做即时写入）。',

@@ -294,6 +294,35 @@ export const en: Record<Key, string> = {
   trayToggle: 'System tray',
   trayToggleHint:
     'Shows a tray icon (notification area on Windows, menu bar on macOS) once desktop mode is running. It lists every pet in the config and toggles each one between desktop and web/none — including pets that are currently off the desktop and therefore have no window to right-click. With it off, bringing a pet back to the desktop requires opening the browser (the settings page, or right-clicking a web pet there). Windows already folds third-party icons into the "hidden icons" overflow. Desktop mode only.',
+  screenTitle: 'Screen & avoidance',
+  screenHint:
+    'Screen reading: capture the screen every so often, let the current model look at it, and say one line in a bubble (bubble only, never spoken). Avoidance: hide the desktop pet while a fullscreen app or a listed app is in front, and show it again when you switch away. Both are off by default; switches and timing live here.',
+  screenDesktopOnly:
+    'Desktop mode only: a pet living in the browser cannot capture the screen and has no window to hide.',
+  screenSectionRead: 'Screen reading',
+  screenReadToggle: 'Say one line about the screen',
+  screenIdleOnlyLabel: 'Only while DSH is idle',
+  screenIntervalLabel: 'Minimum interval',
+  screenIdleSecLabel: 'Idle threshold',
+  screenQuietLabel: 'Quiet hours',
+  screenQuietFromLabel: 'From',
+  screenQuietToLabel: 'To',
+  screenQuietHint:
+    'Fill both as HH:MM; nothing is captured inside that window (e.g. 23:00 to 08:00, crossing midnight is allowed). Leave empty to disable.',
+  screenUnitSec: 's',
+  screenUnitMs: 'ms',
+  screenSectionAvoid: 'Avoidance',
+  screenAvoidFullscreenLabel: 'Hide on fullscreen',
+  screenAvoidMaximizeLabel: 'Maximized counts',
+  screenAvoidDelayLabel: 'Hide delay',
+  screenAvoidRestoreLabel: 'Restore delay',
+  screenAvoidPollLabel: 'Poll interval',
+  screenAvoidAppsLabel: 'Hide for listed apps',
+  screenAppsLabel: 'App list',
+  screenAppsHint:
+    'Comma separated, up to 50. Entries ending in .exe match the process name exactly; anything else matches a window-title substring.',
+  screenNote:
+    'Every screen read is one image request and costs money, so the minimum interval caps the cost. It uses the whisper model, or the current chat model when that is empty — that model must accept images. Avoidance is Windows-only, hides only the pet windows, and never reveals pets you hid yourself.',
   voiceTitle: 'Voice',
   voiceHint:
     'Four switches plus a voice: each kind of speech has its own switch and none of them depends on another. All off by default; written to the user config on "Save" (never written immediately).',

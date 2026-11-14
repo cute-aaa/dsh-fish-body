@@ -98,6 +98,8 @@ tags:
     description: 语音合成——参数校验、排队与缓存都在宿主，成功时直接返回音频文件（格式由合成实现决定）
   - name: Desktop
     description: 桌面端——重载、退出与 Electron 运行时（状态、下载、指定本地目录）
+  - name: Screen
+    description: 看屏幕与避让——HasHelper 问「这一拍拍不拍」、交帧、手动请求、前台快照上报与状态读取
   - name: Layout
     description: 位置变更——数据根与皮肤目录换位置、原生目录选择框
 
@@ -4723,6 +4725,170 @@ paths:
           $ref: "#/components/responses/MethodNotAllowed"
         "413":
           description: 备份体超过上限（`payload-too-large`）。
+
+  /dsh-pet-7340/screen/tick:
+    get:
+      tags: [Screen]
+      operationId: screenTick
+      summary: 问一句「这一拍拍不拍屏幕」
+      description: |
+        桌面 Helper 每 5 秒问一次（宿主推不动 Helper：Windows 上 Electron 主进程收不到 piped stdin，
+        节奏只能由 Helper 主动问）。宿主按十三个配置项与当前忙闲回答，**无副作用**：
+
+        判定顺序（先命中先返回）：开关关着 `disabled` → 有手动请求 `manual` → 最短间隔未到 `throttled`
+        → DSH 忙 `busy` → 静默时段 `quiet` → 可以拍 `ready`。
+
+        手动请求**只有真的拍下去**才被消费（`capture: true` 且 `reason: manual`）。
+      parameters:
+        - $ref: "#/components/parameters/PetIdQuery"
+      responses:
+        "200":
+          description: 判定结论。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, capture, reason, petId]
+                properties:
+                  ok:
+                    type: boolean
+                  capture:
+                    type: boolean
+                  reason:
+                    type: string
+                    enum: [disabled, manual, throttled, busy, quiet, ready]
+                  petId:
+                    type: string
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/screen/frame:
+    post:
+      tags: [Screen]
+      operationId: screenFrame
+      summary: 交一帧屏幕，换回一句话
+      description: |
+        Helper 截到帧后调用。宿主：校验图片 → 记下间隔 → 交给附件服务（与对话配图同一套存储）
+        → 用候选模型链读图（`whisperModel` 优先，留空用当前对话的模型）→ 把结果写进该宠物的
+        `say` 叶子（只出气泡、不念）。
+
+        **持锁时不读图**：先门禁后花钱（回 `locked`）。识屏开关关着回 `unsupported`。
+        读图失败时 `reason` 为 `generate-error`，`message` 里带「模型可能不支持读图」。
+        `?debug=1`（或宿主以 `DSH_PET_SCREEN_DEBUG=1` 启动）会把这一帧另存一份到
+        `<用户根>/screen-frame.jpg`，用于排查 4K/150% 黑图。
+      parameters:
+        - $ref: "#/components/parameters/PetIdQuery"
+        - name: debug
+          in: query
+          required: false
+          description: 为 `1` 时额外把这一帧写到用户根（调图用，正常链路不落盘）。
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attachment]
+              properties:
+                attachment:
+                  type: object
+                  required: [mediaType, data]
+                  properties:
+                    mediaType:
+                      type: string
+                    data:
+                      type: string
+                      description: base64（规范编码；上限 900k 字符）。
+                width:
+                  type: number
+                height:
+                  type: number
+      responses:
+        "200":
+          description: |
+            成功：`{ ok: true, petId, text, bytes, mediaType, atMs }`（`debugFile` 只在调图时出现）。
+            业务失败同样是 `200` + `FailureResponse`（`unsupported` / `locked` / `bad-request` /
+            `generate-error` / `provider-missing`）。
+        "400":
+          description: 请求体不是合法 JSON（`invalid-json`）。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/screen/request:
+    post:
+      tags: [Screen]
+      operationId: screenRequest
+      summary: 手动请求拍一张
+      description: |
+        记一个「待处理的手动请求」，下一拍 `/screen/tick` 会回 `capture: true` + `reason: manual`
+        （跳过最短间隔、DSH 忙闲与静默时段三张门）。识屏总开关关着时回 `unsupported`——
+        设置页按钮与右键菜单据此置灰，不必等下一拍才发现没反应。
+      parameters:
+        - $ref: "#/components/parameters/PetIdQuery"
+      responses:
+        "200":
+          description: '已记下（`{ ok: true, petId, pending: true }`）或开关没开（`unsupported`）。'
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/screen/event:
+    post:
+      tags: [Screen]
+      operationId: screenEvent
+      summary: Helper 上报前台窗口快照
+      description: |
+        避让判定在渲染端（`shared/avoid`），结果在这里落一份最近状态，供设置页显示
+        「当前前台：…（未触发）」。**只存最近一帧**，不是审计日志；字段超长会被截断。
+      parameters:
+        - $ref: "#/components/parameters/PetIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind:
+                  type: string
+                  enum: [foreground]
+                app:
+                  type: string
+                title:
+                  type: string
+                decision:
+                  type: string
+                  enum: [hide, show]
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: '已记录（`{ ok: true }`）；`kind` 不是 `foreground` 时 `bad-request`。'
+        "400":
+          description: 请求体不是合法 JSON（`invalid-json`）。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/screen/state:
+    get:
+      tags: [Screen]
+      operationId: screenState
+      summary: 读识屏与避让的当前状态
+      description: |
+        给设置页读：归一化后的十三个配置项、待处理的手动请求、上次识屏结论、最近一帧前台快照。
+        全是**进程级瞬时状态**（重启插件即从零开始），不落盘。
+      parameters:
+        - $ref: "#/components/parameters/PetIdQuery"
+      responses:
+        "200":
+          description: |
+            `{ ok: true, petId, screen, manualPending, lastMs, last?, foreground? }`。
+            `last` 是上次识屏结论（成功带 `text`，失败带 `reason` / `message`）；
+            `foreground` 是 Helper 最近上报的前台快照与判定。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
 
 components:
   parameters:

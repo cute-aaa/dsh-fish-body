@@ -21,6 +21,7 @@ import {
   syncConfig,
   type SaveFields,
 } from './http.ts';
+import { SCREEN_DEFAULTS } from '../../../shared/screen-config.ts';
 
 /** 一次请求的记录。 */
 interface Call {
@@ -243,9 +244,17 @@ describe('buildSaveBody —— 请求体字段', () => {
       chatImageLimit: 10,
       font: {},
       animationWeights: { idle: 10, turn: 5, move: 5 },
+      screen: SCREEN_DEFAULTS,
     } as unknown as SaveFields;
     assert.deepEqual(Object.keys(buildSaveBody(fields)).sort(), [
       'animationWeights',
+      'avoidApps',
+      'avoidAppsEnabled',
+      'avoidDelayMs',
+      'avoidFullscreenEnabled',
+      'avoidMaximizeEnabled',
+      'avoidPollMs',
+      'avoidRestoreDelayMs',
       'chatAnimationEnabled',
       'chatImageEnabled',
       'chatImageLimit',
@@ -257,6 +266,12 @@ describe('buildSaveBody —— 请求体字段', () => {
       'notificationsEnabled',
       'pets',
       'physics',
+      'screenReadEnabled',
+      'screenReadIdleOnly',
+      'screenReadIdleSec',
+      'screenReadIntervalSec',
+      'screenReadQuietFrom',
+      'screenReadQuietTo',
       'sfx',
       'sfxEnabled',
       'sfxKeepAlive',
@@ -292,6 +307,7 @@ describe('buildSaveBody —— 请求体字段', () => {
       chatMemoryRounds: 0,
       chatImageLimit: 3,
       font: { size: 20 },
+      screen: SCREEN_DEFAULTS,
     } as unknown as SaveFields;
     const body = buildSaveBody(fields);
     assert.equal(body.chatMemoryRounds, 0);

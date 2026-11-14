@@ -75,9 +75,13 @@ function startForegroundWatch(pollMs, onLine, onError) {
   currentPollMs = ms;
   const script = PS_SCRIPT.replace('POLL_MS', String(ms));
   try {
-    child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], {
-      windowsHide: true,
-    });
+    child = spawn(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      {
+        windowsHide: true,
+      },
+    );
   } catch (e) {
     if (onError) onError(e);
     child = null;

@@ -74,5 +74,8 @@ export function parseForegroundLine(line: unknown): ForegroundSnapshot | null {
  */
 export function normalizeAppName(app: unknown): string {
   if (typeof app !== 'string') return '';
-  return app.trim().replace(/\.exe$/i, '').toLowerCase();
+  return app
+    .trim()
+    .replace(/\.exe$/i, '')
+    .toLowerCase();
 }

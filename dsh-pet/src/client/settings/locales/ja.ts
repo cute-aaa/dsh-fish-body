@@ -293,6 +293,34 @@ export const ja: Record<Key, string> = {
   trayToggle: 'システムトレイ',
   trayToggleHint:
     'デスクトップモード起動後、通知領域（macOS ではメニューバー）にアイコンを常駐させ、設定に含まれるすべてのペットを一覧表示します。チェックを入れると、そのペットの表示位置を切り替えられます——現在デスクトップに表示されておらず、右クリックできるウィンドウがないペットも含みます。オフにすると、ペットをデスクトップに戻すにはブラウザで設定ページを開くか、Web 側のペットを右クリックするしかありません。Windows では元々「隠れたアイコン」に折りたたまれます。デスクトップモードのみに影響します。',
+  screenTitle: '画面の読み取りと回避',
+  screenHint:
+    '読み取り：ときどき画面を撮って今のモデルに見せ、ひとこと吹き出しで言います（音声なし）。回避：全画面のアプリや指定したアプリが前面にある間はデスクトップのペットを隠し、切り替えると戻します。どちらも既定はオフで、スイッチとタイミングはここで設定します。',
+  screenDesktopOnly: 'デスクトップ版のみ有効：ブラウザ側のペットは画面を撮れず、隠す窓もありません。',
+  screenSectionRead: '画面の読み取り',
+  screenReadToggle: '画面を見てひとこと言う',
+  screenIdleOnlyLabel: 'DSH が空いている時だけ',
+  screenIntervalLabel: '最短間隔',
+  screenIdleSecLabel: 'アイドル判定',
+  screenQuietLabel: '静かな時間帯',
+  screenQuietFromLabel: '開始',
+  screenQuietToLabel: '終了',
+  screenQuietHint:
+    'どちらも HH:MM で入力。その時間帯は一枚も撮りません（例 23:00 → 08:00、日をまたげます）。空欄なら無効。',
+  screenUnitSec: '秒',
+  screenUnitMs: 'ミリ秒',
+  screenSectionAvoid: '回避',
+  screenAvoidFullscreenLabel: '全画面のとき隠す',
+  screenAvoidMaximizeLabel: '最大化も含める',
+  screenAvoidDelayLabel: '隠すまでの遅延',
+  screenAvoidRestoreLabel: '戻すまでの遅延',
+  screenAvoidPollLabel: 'ポーリング間隔',
+  screenAvoidAppsLabel: '指定アプリが前面なら隠す',
+  screenAppsLabel: 'アプリ一覧',
+  screenAppsHint:
+    'カンマ区切り・最大 50 件。.exe で終わる項目はプロセス名の完全一致、それ以外はウィンドウタイトルの部分一致。',
+  screenNote:
+    '画面の読み取りは 1 回ごとに画像リクエスト（課金）です。最短間隔が費用の上限になります。使うのは「つぶやきモデル」で、空なら現在の対話モデル——そのモデルが画像に対応している必要があります。回避は Windows のみ、ペットの窓だけを隠し、手動で隠したペットは戻しません。',
   voiceTitle: '音声読み上げ',
   voiceHint:
     'ペットが音を出すための4つのスイッチと声質：音声の種類ごとに独立したスイッチがあり、どれも他のスイッチには従いません。デフォルトはすべてオフで、「保存」時にユーザー設定へ書き込まれます（即時書き込みはしません）。',

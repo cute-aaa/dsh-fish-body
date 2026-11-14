@@ -209,6 +209,22 @@ export function normalizeAvoidApps(raw: unknown): string[] {
 }
 
 /**
+ * `ScreenConfig` → 配置文件里的十三个平键（写盘 / 请求体用）。
+ *
+ * 与 {@link screenConfigOf} 互为逆运算：设置页拿到的是嵌套形状，`PUT /config` 与
+ * `assets/config.jsonc` 要的是平键。映射表本身只写一份（{@link SCREEN_KEY_FIELD}），
+ * 这里只是反向查表——加一个键忘记同步会在这里被类型检查逮住。
+ *
+ * @param config - 归一化后的配置。
+ * @returns 键名与配置文件一致的普通对象（可直接 JSON 化）。
+ */
+export function screenWritePatch(config: ScreenConfig): Record<ScreenConfigKey, unknown> {
+  const out = {} as Record<ScreenConfigKey, unknown>;
+  for (const key of SCREEN_CONFIG_KEYS) out[key] = config[SCREEN_KEY_FIELD[key]];
+  return out;
+}
+
+/**
  * 把一份配置（条目顶层）读成 `ScreenConfig`：缺键与非法值一律回到默认，数值越界夹到边界。
  *
  * @param conf - 成品配置里某个条目的顶层对象（`readAllConfig` 的 `cfg[entry]`）。

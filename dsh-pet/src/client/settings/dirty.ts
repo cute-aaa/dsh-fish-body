@@ -10,6 +10,7 @@
  */
 import type { HotkeyMap } from '../../shared/hotkeys.ts';
 import type { SessionFishSettings } from '../../shared/session-fish.ts';
+import type { ScreenConfig } from '../../shared/screen-config.ts';
 import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../shared/types.ts';
 import type { ConfigEntry, MainConfigPatch } from './config/index.ts';
 import type { GlobalFlags } from './global-flags.ts';
@@ -65,6 +66,8 @@ export interface FormSnapshot {
   readonly model?: Partial<ModelSnapshot>;
   readonly look?: Partial<LookSnapshot>;
   readonly fish?: SessionFishSettings | null;
+  /** 看屏幕与避让的十三项（嵌套形状，与 shared/screen-config 一致）。 */
+  readonly screen?: ScreenConfig;
 }
 
 /**
@@ -109,6 +112,7 @@ export function baselineFromConfig(entries: readonly ConfigEntry[], patch: MainC
       chatAnimationEnabled: patch.chatAnimationEnabled,
     },
     look: { physics: patch.physics, weights: patch.animationWeights, font: patch.font },
+    screen: patch.screen,
   };
 }
 
@@ -131,6 +135,8 @@ const TAB_PREFIXES: ReadonlyArray<readonly [string, SettingsTabId]> = [
   ['global.confineToScreen', 'system'],
   // 九个悬停键在「系统」分区的快捷键卡里改。
   ['hotkeys', 'system'],
+  // 看屏幕与避让整段都在「系统」分区的同一张卡里。
+  ['screen', 'system'],
 ];
 
 /** 普通对象判定：数组与 null 都不算。 */

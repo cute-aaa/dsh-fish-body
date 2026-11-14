@@ -297,6 +297,35 @@ export const es: Record<Key, string> = {
   trayToggle: 'Bandeja del sistema',
   trayToggleHint:
     'Muestra un icono en la bandeja (área de notificaciones en Windows, barra de menús en macOS) cuando el modo escritorio está activo. Lista todas las mascotas de la configuración y alterna cada una entre escritorio y web/ninguno, incluidas las que ahora no están en el escritorio y no tienen ventana donde hacer clic derecho. Con esto desactivado, para devolver una mascota al escritorio hay que abrir el navegador (la página de configuración o el clic derecho sobre la mascota web). Windows ya oculta los iconos de terceros en «iconos ocultos». Solo afecta al modo escritorio.',
+  screenTitle: 'Pantalla y evitación',
+  screenHint:
+    'Lectura de pantalla: captura la pantalla cada cierto tiempo, deja que el modelo actual la mire y di una frase en un globo (solo globo, sin voz). Evitación: oculta la mascota de escritorio mientras una app a pantalla completa o una app de la lista esté delante, y vuelve a mostrarla al cambiar. Ambas están desactivadas por defecto; los interruptores y los tiempos se configuran aquí.',
+  screenDesktopOnly:
+    'Solo en modo escritorio: la mascota del navegador no puede capturar la pantalla ni tiene ventana que ocultar.',
+  screenSectionRead: 'Lectura de pantalla',
+  screenReadToggle: 'Decir una frase sobre la pantalla',
+  screenIdleOnlyLabel: 'Solo con DSH inactivo',
+  screenIntervalLabel: 'Intervalo mínimo',
+  screenIdleSecLabel: 'Umbral de inactividad',
+  screenQuietLabel: 'Horas silenciosas',
+  screenQuietFromLabel: 'Desde',
+  screenQuietToLabel: 'Hasta',
+  screenQuietHint:
+    'Rellena ambos como HH:MM; no se captura nada en esa franja (p. ej. 23:00 a 08:00, se permite cruzar medianoche). Vacío = desactivado.',
+  screenUnitSec: 's',
+  screenUnitMs: 'ms',
+  screenSectionAvoid: 'Evitación',
+  screenAvoidFullscreenLabel: 'Ocultar en pantalla completa',
+  screenAvoidMaximizeLabel: 'Contar maximizado',
+  screenAvoidDelayLabel: 'Retardo al ocultar',
+  screenAvoidRestoreLabel: 'Retardo al volver',
+  screenAvoidPollLabel: 'Intervalo de sondeo',
+  screenAvoidAppsLabel: 'Ocultar con las apps listadas',
+  screenAppsLabel: 'Lista de apps',
+  screenAppsHint:
+    'Separadas por comas, hasta 50. Lo que acaba en .exe compara el nombre del proceso exacto; lo demás busca en el título de la ventana.',
+  screenNote:
+    'Cada lectura es una petición de imagen y cuesta dinero, por eso el intervalo mínimo limita el gasto. Usa el modelo de susurros o, si está vacío, el modelo de chat actual: debe aceptar imágenes. La evitación solo existe en Windows, oculta únicamente las ventanas de la mascota y nunca muestra mascotas que ocultaste tú.',
   voiceTitle: 'Voz',
   voiceHint:
     'Cuatro interruptores y una voz: cada tipo de locución tiene su propio interruptor y ninguno depende de otro. Todo desactivado por defecto; se escribe en la configuración del usuario al "Guardar" (nunca al instante).',

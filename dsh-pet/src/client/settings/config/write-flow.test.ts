@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import { DEFAULT_FONT } from '../../../shared/fonts.ts';
 import { DEFAULT_HOTKEYS } from '../../../shared/hotkeys.ts';
 import { DEFAULT_PHYSICS } from '../../../shared/physics.ts';
+import { SCREEN_DEFAULTS } from '../../../shared/screen-config.ts';
 import type { SaveFields } from './http.ts';
 import { createWriteFlow, type SavedScope, type WriteFlowDeps } from './write-flow.ts';
 
@@ -30,6 +31,7 @@ const fields: SaveFields = {
     } as never,
   ],
   hotkeys: DEFAULT_HOTKEYS,
+  screen: SCREEN_DEFAULTS,
   notificationsEnabled: true,
   sfxEnabled: true,
   sfxKeepAlive: true,
