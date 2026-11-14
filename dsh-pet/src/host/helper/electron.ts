@@ -1,10 +1,13 @@
 /**
- * Electron 定位与下载：找已安装的二进制，缺失时按需下载并解压。
+ * Electron 定位、下载与运行时状态：找已安装的二进制，缺失时自动下载并解压。
  *
- * 不负责启动进程（归 ./child）；下载失败记日志后返回 undefined，由调用方降级为仅浏览器模式。
- * 必须始终成立：解析结果只来自显式候选、DSH_PET_ELECTRON_PATH 与 `<数据根>/runtime/electron`；
- * 不借用宿主安装目录里的 electron npm 包（#297：那是 pnpm 重排依赖时要替换的目录）。
+ * 不负责启动进程（归 ./child）；下载失败记日志并留下提示，由调用方降级为仅浏览器模式。
+ * 必须始终成立：解析结果只来自显式候选、`DSH_PET_ELECTRON_PATH`、用户指定的目录与
+ * `<数据根>/runtime/electron`；不借用宿主安装目录里的 electron npm 包（#297：那是 pnpm 重排依赖时要替换的目录）。
  * 运行时**不在 cache 里**：删 cache 不该逼用户重下 350 MB，删 runtime 才应该。
+ *
+ * 下载默认走国内镜像链（见 {@link electronMirrors}）：官方 GitHub releases 在国内经常连不上，
+ * 而「桌面窗口打不开」是用户最难自查的故障之一。
  * @module dsh-fish-body/src/host/helper/electron
  */
 import { dirname, join, resolve } from 'node:path';
@@ -137,6 +140,14 @@ const ELECTRON_REL =
 let resolvedUserRoot: string | undefined;
 
 /**
+ * 用户指定的运行时目录（`config/locations.json` 的 `runtime`，由装配期注入）。
+ *
+ * 存在的理由：用户可能早就下过一份 Electron（别的插件、别的机器拷来的），或者把 `runtime/`
+ * 挪到了更大的盘上。写死 `<根>/runtime/electron` 会逼他再下 350 MB。
+ */
+let resolvedRuntimeDir: string | undefined;
+
+/**
  * 记下装配期选定的数据根（只由 `createHostSetup` 调一次）。
  *
  * @param root - 数据根绝对路径。
@@ -146,7 +157,16 @@ export function setUserRoot(root: string): void {
 }
 
 /**
- * 当前实际生效的数据根。
+ * 记下用户指定的运行时目录（装配期与「设置页选了目录」时各调一次）。
+ *
+ * @param dir - 目录绝对路径；`undefined` 表示回到默认位置。
+ */
+export function setRuntimeDir(dir: string | undefined): void {
+  resolvedRuntimeDir = dir;
+}
+
+/**
+ * 当前生效的数据根。
  *
  * @param dshHome - `$DSH_HOME`（缺省按环境推导）。
  * @returns 绝对路径。
@@ -156,15 +176,16 @@ export function currentUserRoot(dshHome: string = dshHomeDir()): string {
 }
 
 /**
- * Electron 运行时落地目录（`<数据根>/runtime/electron`）—— 下载解压的目标，也是设置页里
- * 那行「运行时」让用户清理的目录。解析与下载都必须走这里：同一个目录字面量在别处再写一遍，
- * 改了一处另一处没改，设置页就会显示一个永远不存在的路径。
+ * Electron 运行时落地目录：用户指定的目录优先，否则 `<数据根>/runtime/electron`。
+ *
+ * 下载解压的目标与设置页那行「运行时」显示的都是它。解析与下载必须走这里：同一个目录字面量
+ * 在别处再写一遍，改了一处另一处没改，设置页就会显示一个永远不存在的路径。
  *
  * @param dshHome - `$DSH_HOME`；缺省按 `dshHomeDir()` 推导。
  * @returns 绝对路径（不判断存在性）。
  */
 export function electronRuntimeDir(dshHome: string = dshHomeDir()): string {
-  return join(currentUserRoot(dshHome), 'runtime', 'electron');
+  return resolvedRuntimeDir ?? join(currentUserRoot(dshHome), 'runtime', 'electron');
 }
 
 /**
@@ -189,6 +210,8 @@ export function legacyElectronDir(dshHome: string = dshHomeDir()): string {
 export function electronLandingDir(dshHome: string = dshHomeDir()): string {
   const next = electronRuntimeDir(dshHome);
   if (existsSync(next)) return next;
+  // 用户指定过目录就不再回落旧位置：那是另外两个目录，回落会让人以为设置没生效。
+  if (resolvedRuntimeDir !== undefined) return next;
   const legacy = legacyElectronDir(dshHome);
   if (existsSync(legacy)) return legacy;
   return next;
@@ -232,8 +255,8 @@ export function readElectronVersion(electronExe: string): string | undefined {
 export interface EnsureElectronOptions {
   /** Electron 版本号（默认 43.3.0，可被 DSH_PET_ELECTRON_VERSION 覆盖）。 */
   version?: string;
-  /** 下载镜像（默认 npmmirror，可被 DSH_PET_ELECTRON_MIRROR 覆盖）。 */
-  mirror?: string;
+  /** 下载镜像链覆盖（缺省见 {@link electronMirrors}）。 */
+  mirrors?: readonly string[];
   /** 单次下载超时（默认 10 分钟）。 */
   timeoutMs?: number;
   /**
@@ -253,14 +276,129 @@ export interface ElectronDownloadLog {
 }
 
 /**
- * 进程内下载并解压 Electron 到 `<数据根>/runtime/electron`。
+ * 默认镜像链（按顺序尝试）。
+ *
+ * 为什么不是只有一个官方地址：官方 releases 走 GitHub，国内直连经常超时；而「下不下来」这件事
+ * 用户几乎无法自查（日志里只有一句 ETIMEDOUT）。链上三个国内源都是整包镜像，校验文件与官方同源：
+ * - `cdn.npmmirror.com/binaries/electron/`：直连 CDN，不经过 302，是首选；
+ * - `npmmirror.com/mirrors/electron/`：官方文档写的那个别名，会 302 到上面那条；
+ * - GitHub releases：海外网络与「国内镜像同步失败」时的兜底。
+ *
+ * `ELECTRON_MIRROR` / `DSH_PET_ELECTRON_MIRROR` 给了就**只用它**（用户显式指定优先于我们猜）；
+ * `DSH_PET_ELECTRON_MIRRORS` 用逗号分隔可以整套替换。
+ *
+ * @param env - 环境变量（测试注入）。
+ * @returns 镜像基址列表（末尾带 `/`）。
+ */
+export function electronMirrors(env: NodeJS.ProcessEnv = process.env): string[] {
+  const list = (env.DSH_PET_ELECTRON_MIRRORS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value !== '');
+  if (list.length > 0) return list.map(withSlash);
+  const single = (env.DSH_PET_ELECTRON_MIRROR ?? env.ELECTRON_MIRROR ?? '').trim();
+  if (single !== '') return [withSlash(single)];
+  return [
+    'https://cdn.npmmirror.com/binaries/electron/',
+    'https://npmmirror.com/mirrors/electron/',
+    'https://github.com/electron/electron/releases/download/',
+  ];
+}
+
+/** 补齐末尾斜杠：`@electron/get` 的拼接是 `mirror + customDir + '/' + name`，少一个斜杠就少一层。 */
+function withSlash(value: string): string {
+  return value.endsWith('/') ? value : value + '/';
+}
+
+/** 一次下载的实时进度（给设置页与弹窗用；宿主内只有一份，跟着 in-flight 下载走）。 */
+export interface ElectronDownloadProgress {
+  /** 是否正在下载。 */
+  readonly active: boolean;
+  /** 已传字节。 */
+  readonly doneBytes: number;
+  /** 总字节（服务端没给 Content-Length 时为 0）。 */
+  readonly totalBytes: number;
+  /** 当前镜像。 */
+  readonly mirror?: string;
+  /** 失败原因（`active=false` 且非空表示上一次失败了）。 */
+  readonly error?: string;
+}
+
+/** 当前/最近一次下载的进度。 */
+let downloadProgress: ElectronDownloadProgress = { active: false, doneBytes: 0, totalBytes: 0 };
+
+/**
+ * 读当前下载进度。
+ *
+ * @returns 进度快照。
+ */
+export function electronDownloadProgress(): ElectronDownloadProgress {
+  return downloadProgress;
+}
+
+/** 缺失提示：运行时不见了（首次使用 / 用户手删 / 下载失败）时置位，弹窗据它决定要不要出现。 */
+export interface RuntimePrompt {
+  /** 是否需要让用户知道。 */
+  readonly needed: boolean;
+  /** 置位原因。 */
+  readonly reason?: 'missing' | 'deleted' | 'failed';
+  /** 置位时间（ms；客户端据此判「这条提示是不是新的」）。 */
+  readonly since?: number;
+}
+
+/** 当前提示状态。 */
+let runtimePrompt: RuntimePrompt = { needed: false };
+
+/** 上一次读到的「装没装」，用来发现「装过又没了」（用户手删）。 */
+let lastKnownInstalled: boolean | undefined;
+
+/** 桌面模式是否需要运行时（由 desktop/spawn 注入：无桌面宠物且无托盘时不该下载 350 MB）。 */
+let runtimeWanted = false;
+
+/**
+ * 告诉本模块「当前有没有人在等桌面窗口」。
+ *
+ * @param wanted - true = 桌面宠物或托盘需要窗口。
+ */
+export function setRuntimeWanted(wanted: boolean): void {
+  runtimeWanted = wanted;
+}
+
+/**
+ * 置位「需要运行时」的提示。
+ *
+ * @param reason - 置位原因。
+ */
+export function requestRuntimePrompt(reason: NonNullable<RuntimePrompt['reason']>): void {
+  runtimePrompt = { needed: true, reason, since: Date.now() };
+}
+
+/** 清掉提示（下载成功 / 用户指定了已有目录）。 */
+export function clearRuntimePrompt(): void {
+  runtimePrompt = { needed: false };
+}
+
+/**
+ * 读当前提示。
+ *
+ * @returns 提示快照。
+ */
+export function readRuntimePrompt(): RuntimePrompt {
+  return runtimePrompt;
+}
+
+/**
+ * 进程内下载并解压 Electron 到运行时目录。
  *
  * 不 spawn 子进程：CLI node 与 Electron 宿主（DSH Desktop）里都可用，也避开了 process.execPath 在
  * 宿主里指向宿主 exe 而崩溃。已存在则原样返回；失败返回 undefined（不影响 DSH 与浏览器 overlay）。
+ *
+ * 镜像按 {@link electronMirrors} 的顺序逐个试：一个源连不上（国内最常见）就换下一个，
+ * 全部失败才报错——报错里带上「试过哪些源」，用户拿去搜或换环境变量才有依据。
  */
 export async function ensureElectronDownload(options: EnsureElectronOptions = {}): Promise<string | undefined> {
   const version = options.version || process.env.DSH_PET_ELECTRON_VERSION || '43.3.0';
-  const mirror = options.mirror || process.env.DSH_PET_ELECTRON_MIRROR || 'https://npmmirror.com/mirrors/electron/';
+  const mirrors = options.mirrors ?? electronMirrors();
   const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
   const targetDir = electronLandingDir();
   const exe = join(targetDir, ELECTRON_REL);
@@ -287,12 +425,41 @@ export async function ensureElectronDownload(options: EnsureElectronOptions = {}
     info(`Electron cache is empty or not a regular file: ${exe}`, 'Electron 缓存无效，准备重新下载');
   }
   info(`Electron not found, downloading v${version} (${PLAT}-${process.arch}) ...`, `正在下载 Electron ${version}`);
+  downloadProgress = {
+    active: true,
+    doneBytes: 0,
+    totalBytes: 0,
+    ...(mirrors[0] === undefined ? {} : { mirror: mirrors[0] }),
+  };
 
+  const attempts: string[] = [];
   try {
     // 目录创建也可能失败（权限不足、同名文件等），与下载失败一样降级到浏览器宠物。
     mkdirSync(targetDir, { recursive: true });
-    // 官方 @electron/get 下载：负责 URL 拼装、镜像、SHA256 校验（sumchecker）、下载缓存
-    // （同一版本只下载一次，之后命中缓存秒回）。超时用 AbortController 传给 fetch。
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    downloadProgress = { active: false, doneBytes: 0, totalBytes: 0, error: reason };
+    fail(`cannot create ${targetDir}: ${reason}`, `无法创建运行时目录：${reason}`);
+    warn('desktop pet unavailable. Set DSH_PET_ELECTRON_PATH to an existing Electron, or retry later.');
+    return undefined;
+  }
+
+  // 按需加载：静态 import 会把它连同 got/fs-extra 一串依赖钉进每个产物的启动路径，
+  // 而独立应用模式下这条路径不执行。
+  let downloadArtifact: typeof import('@electron/get').downloadArtifact | undefined;
+  let extract: typeof import('@electron-internal/extract-zip').default | undefined;
+  try {
+    ({ downloadArtifact } = await import('@electron/get'));
+    ({ default: extract } = await import('@electron-internal/extract-zip'));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    downloadProgress = { active: false, doneBytes: 0, totalBytes: 0, error: reason };
+    fail(`cannot load download dependencies: ${reason}`, `下载组件不可用：${reason}`);
+    return undefined;
+  }
+
+  for (const mirror of mirrors) {
+    // 每个镜像一个独立的超时：一个源卡住不该把整条链拖死。
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort(new Error(`Electron download timed out after ${timeoutMs}ms`)),
@@ -301,9 +468,7 @@ export async function ensureElectronDownload(options: EnsureElectronOptions = {}
     timer.unref?.();
     let nextLogAt = Date.now() + 3000;
     try {
-      // 按需加载：静态 import 会把它连同 got/fs-extra 一串依赖钉进每个产物的启动路径，
-      // 而独立应用模式下这条路径不执行。
-      const { downloadArtifact } = await import('@electron/get');
+      info(`downloading from ${mirror} ...`, `正在从 ${mirror} 下载`);
       const zipPath = await downloadArtifact({
         version: `v${version}`,
         artifactName: 'electron',
@@ -312,13 +477,21 @@ export async function ensureElectronDownload(options: EnsureElectronOptions = {}
         cacheRoot: electronDownloadCacheDir(),
         // platform/arch 不传：@electron/get 用宿主平台与架构自动推断
         // （getHostArch 还处理 arm → armv7l 特例，比显式传 process.arch 更准）
-        mirrorOptions: { mirror: mirror.replace(/\/$/, '') + '/' },
+        mirrorOptions: { mirror },
         downloadOptions: {
           signal: controller.signal,
           quiet: true, // 关掉 @electron/get 自己的进度条（stdout 走宿主日志，不进 bridge 协议）
           getProgressCallback: async (progress: { transferred: number; total: number | null }) => {
+            // 进度态每拍都更新（设置页/弹窗直接读它），日志仍按 3s 节流。
+            downloadProgress = {
+              active: true,
+              doneBytes: progress.transferred,
+              totalBytes: progress.total ?? 0,
+              mirror,
+            };
+            if (!progress.total) return;
             const now = Date.now();
-            if (!progress.total || now < nextLogAt) return;
+            if (now < nextLogAt) return;
             nextLogAt = now + 3000;
             const doneMb = (progress.transferred / 1024 / 1024).toFixed(1);
             const totalMb = (progress.total / 1024 / 1024).toFixed(1);
@@ -329,27 +502,42 @@ export async function ensureElectronDownload(options: EnsureElectronOptions = {}
       });
       const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
       info(`download complete (${seconds}s), extracting to ${targetDir} ...`, `下载完成（${seconds}s），正在解压`);
+      downloadProgress = {
+        active: true,
+        doneBytes: downloadProgress.doneBytes,
+        totalBytes: downloadProgress.totalBytes,
+        mirror,
+      };
       // 解压用官方 extract-zip（electron 43 官方安装同款）：纯 Node + native binding，跨平台一致，
       // 正确处理 symlink 与文件权限，不需要系统 unzip/tar/powershell。
-      // 必须动态 import：该包是 N-API 原生模块，预编译产物没有 Android target，静态 import 会在模块
-      // 求值期就 throw，让只想用 Web 模式的用户整个 entry 激活失败；按需加载后失败只落进本函数 catch。
-      const { default: extract } = await import('@electron-internal/extract-zip');
       await extract(zipPath, { dir: targetDir });
       if (!isNonEmptyFile(exe)) {
         throw new Error(`Electron zip extracted, but ${ELECTRON_REL} is missing, empty or not a regular file`);
       }
       const readySeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+      downloadProgress = {
+        active: false,
+        doneBytes: downloadProgress.doneBytes,
+        totalBytes: downloadProgress.totalBytes,
+        mirror,
+      };
       info(`ready in ${readySeconds}s: ${exe}`, `Electron 就绪（${readySeconds}s），正在启动桌宠`, true);
       return exe;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      attempts.push(`${mirror} → ${reason}`);
+      warn(`download failed from ${mirror}: ${reason}`);
+      options.onLog?.({ text: `镜像 ${mirror} 下载失败，换下一个`, level: 'info', done: false });
     } finally {
       clearTimeout(timer);
     }
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    fail(`ensure failed: ${reason}`, `Electron 下载失败：${reason}`);
-    warn('desktop pet unavailable. Set DSH_PET_ELECTRON_PATH to an existing Electron, or retry later.');
-    return undefined;
   }
+
+  const reason = attempts.length === 0 ? '没有可用的下载镜像' : attempts.join('；');
+  downloadProgress = { active: false, doneBytes: 0, totalBytes: 0, error: reason };
+  fail(`ensure failed: ${reason}`, 'Electron 下载失败：所有镜像都没成功');
+  warn('desktop pet unavailable. Set DSH_PET_ELECTRON_PATH to an existing Electron, or retry later.');
+  return undefined;
 }
 
 /**
@@ -366,6 +554,8 @@ export interface ElectronRuntimeStatus {
   readonly installed: boolean;
   /** 版本号（读 `<exe 同级>/version`；读不到时省略）。 */
   readonly version?: string;
+  /** 目录来源：默认位置（`<根>/runtime/electron`）还是用户指定的目录。 */
+  readonly source?: 'default' | 'custom';
 }
 
 /**
@@ -378,27 +568,86 @@ export function electronRuntimeStatus(): ElectronRuntimeStatus {
   const exe = join(dir, ELECTRON_REL);
   const installed = isNonEmptyFile(exe);
   const version = installed ? readElectronVersion(exe) : undefined;
-  return { dir, exe, installed, ...(version === undefined ? {} : { version }) };
+  const source: 'default' | 'custom' = resolvedRuntimeDir === undefined ? 'default' : 'custom';
+  return { dir, exe, installed, source, ...(version === undefined ? {} : { version }) };
 }
 
-/** 进程内正在进行的下载（设置页「下载运行时」与桌面模式启动会撞车，共用同一份）。 */
-let inflightDownload: Promise<string | undefined> | undefined;
+/** 设置页与弹窗一起用的完整快照：状态 + 下载进度 + 缺失提示。 */
+export interface RuntimeSnapshot {
+  /** 有没有装、装在哪。 */
+  readonly runtime: ElectronRuntimeStatus;
+  /** 当前/最近一次下载的进度。 */
+  readonly download: ElectronDownloadProgress;
+  /** 缺不缺东西（客户端据此决定弹不弹窗）。 */
+  readonly prompt: RuntimePrompt;
+  /** 桌面模式是否正等着运行时（false 时下载与提示都不该发生）。 */
+  readonly wanted: boolean;
+}
 
+/**
+ * 读一次完整快照，并在读的时候发现「装过又没了」。
+ *
+ * 为什么检测放在读里：用户删掉 `runtime/electron` 时宿主没有任何事件可监听（那是一次文件系统操作），
+ * 唯一会被周期性调用的入口就是这里——设置页与弹窗都会轮询它，于是「缺失」这件事在下一次读时浮现。
+ *
+ * @returns 快照。
+ */
+export function runtimeSnapshot(): RuntimeSnapshot {
+  const runtime = electronRuntimeStatus();
+  if (lastKnownInstalled === true && !runtime.installed && runtimeWanted) {
+    // 从「装过」到「没了」：九成是用户手删了 runtime/ 目录。给一次提示，别让桌面窗口静悄悄消失。
+    requestRuntimePrompt('deleted');
+  }
+  lastKnownInstalled = runtime.installed;
+  if (runtime.installed && runtimePrompt.needed) clearRuntimePrompt();
+  return { runtime, download: downloadProgress, prompt: runtimePrompt, wanted: runtimeWanted };
+}
+
+/**
+ * 这个目录里是否有一份可用的 Electron（用户「选已下载的目录」时校验）。
+ *
+ * 只认本平台的可执行文件，不做「大概像」的猜测：指错目录比拒绝更贵——桌面窗口会一直起不来，
+ * 而用户以为设置成功了。
+ *
+ * @param dir - 候选目录。
+ * @returns 目录里有本平台 Electron 可执行文件时为 true。
+ */
+export function isElectronDir(dir: string): boolean {
+  return isNonEmptyFile(join(dir, ELECTRON_REL));
+}
+
+/** 进程内正在进行的下载（设置页「下载运行时」、弹窗与桌面模式启动会撞车，共用同一份）。 */
+let inflightDownload: Promise<string | undefined> | undefined;
 /**
  * 启动一次后台下载（已在下载则复用同一个 promise）。
  *
- * 设置页的「下载运行时」按钮走这里：不阻塞响应，界面自己轮询状态。
- * 桌面模式首次开窗也走 ensureElectronDownload，两者共用 in-flight 状态，不会下两份。
+ * 设置页的「下载运行时」与缺失弹窗都走这里，桌面模式首次开窗也走 ensureElectronDownload，
+ * 三者共用 in-flight 状态，不会下两份。
  *
  * @param options - 与 {@link ensureElectronDownload} 相同。
  * @returns `started=false` 表示已经有一个下载在跑（本次没有新起）。
  */
 export function downloadElectronInBackground(options: EnsureElectronOptions = {}): { readonly started: boolean } {
   if (inflightDownload !== undefined) return { started: false };
-  inflightDownload = ensureElectronDownload(options).finally(() => {
-    inflightDownload = undefined;
-  });
+  inflightDownload = ensureElectronDownload(options)
+    .then((exe) => {
+      if (exe !== undefined) clearRuntimePrompt();
+      else requestRuntimePrompt('failed');
+      return exe;
+    })
+    .finally(() => {
+      inflightDownload = undefined;
+    });
   return { started: true };
+}
+
+/**
+ * 是否已经有一个下载在跑。
+ *
+ * @returns 正在下载时为 true。
+ */
+export function isElectronDownloading(): boolean {
+  return inflightDownload !== undefined;
 }
 
 /**

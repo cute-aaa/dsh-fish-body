@@ -6,25 +6,42 @@
  * @module dsh-fish-body/src/host/helper-process
  */
 export {
+  clearRuntimePrompt,
+  currentUserRoot,
   defaultElectronExe,
   defaultHelperMain,
   defaultLaunch,
-  currentUserRoot,
-  dshHomeDir,
   downloadElectronInBackground,
+  dshHomeDir,
   electronDownloadCacheDir,
+  electronDownloadProgress,
   electronLandingDir,
+  electronMirrors,
   electronRuntimeDir,
   electronRuntimeStatus,
   ensureElectronDownload,
   hasGraphicalDisplay,
+  isElectronDir,
+  isElectronDownloading,
   legacyElectronDir,
   packageRoot,
   readElectronVersion,
+  readRuntimePrompt,
+  requestRuntimePrompt,
   resolveElectronPath,
+  runtimeSnapshot,
+  setRuntimeDir,
+  setRuntimeWanted,
   setUserRoot,
 } from './helper/electron.ts';
-export type { ElectronDownloadLog, ElectronRuntimeStatus, EnsureElectronOptions } from './helper/electron.ts';
+export type {
+  ElectronDownloadLog,
+  ElectronDownloadProgress,
+  ElectronRuntimeStatus,
+  EnsureElectronOptions,
+  RuntimePrompt,
+  RuntimeSnapshot,
+} from './helper/electron.ts';
 export { BRIDGE_PREFIX } from './helper/bridge.ts';
 export type { BridgeHandler, BridgeRequest, BridgeResponse } from './helper/bridge.ts';
 export {

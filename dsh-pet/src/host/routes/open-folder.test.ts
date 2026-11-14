@@ -245,7 +245,9 @@ describe('全局目录（which=pool-root / animations / memes / user-root）', (
     assert.equal(resolveGlobalFolder('data', dirs), paths.dataDir);
     assert.equal(resolveGlobalFolder('cache', dirs), paths.cacheDir);
     assert.equal(resolveGlobalFolder('runtime', dirs), paths.runtimeDir);
-    assert.equal(resolveGlobalFolder('pets', dirs), paths.petsDir);
+    assert.equal(resolveGlobalFolder('skin-root', dirs), paths.skinsDir);
+    // pets 是旧前端的类别名，仍指向同一个（改名后的）目录
+    assert.equal(resolveGlobalFolder('pets', dirs), paths.skinsDir);
     assert.equal(resolveGlobalFolder('assets', dirs), paths.assetsDir);
     // 旧类别仍然可用，值指向新布局里的位置
     assert.equal(resolveGlobalFolder('user-root', dirs), paths.root);

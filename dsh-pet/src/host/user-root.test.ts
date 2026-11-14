@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { ROOT_POINTER_FILE } from './locations.ts';
 import { LEGACY_ROOT_DIR_NAME, ROOT_DIR_NAME, resolveUserRoot, type RootFs } from './user-root.ts';
 
 /** 每个用例一个独立的 `$DSH_HOME`，结束后清理。 */
@@ -94,6 +95,10 @@ describe('resolveUserRoot', () => {
         calls.push('exists:' + path);
         return path === legacyRoot;
       },
+      readFileSync: () => {
+        // 没有数据根指针：解析走默认位置。
+        throw new Error('ENOENT');
+      },
       renameSync: (from, to) => {
         calls.push('rename:' + from + '->' + to);
         throw new Error('EXDEV: cross-device link not permitted');
@@ -117,6 +122,8 @@ describe('resolveUserRoot', () => {
     const result = resolveUserRoot({ dshHome, fs, log: r.log });
 
     assert.deepEqual(calls, [
+      // 先看数据根指针文件（位置可改），没有再按默认位置走换名：
+      'exists:' + join(dshHome, ROOT_POINTER_FILE),
       'exists:' + root,
       'exists:' + legacyRoot,
       // 换名重试一次（Windows 上刚退出的进程常把目录句柄占一拍），两次都失败才复制
@@ -137,6 +144,9 @@ describe('resolveUserRoot', () => {
     const legacyRoot = join(dshHome, LEGACY_ROOT_DIR_NAME);
     const fs: RootFs = {
       existsSync: (path) => path === legacyRoot,
+      readFileSync: () => {
+        throw new Error('ENOENT');
+      },
       renameSync: () => {
         throw new Error('EPERM');
       },

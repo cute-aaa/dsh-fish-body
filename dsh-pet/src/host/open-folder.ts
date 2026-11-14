@@ -17,7 +17,7 @@ import type { RendererKind, SfxFolderTarget } from '../shared/types.ts';
 /**
  * 合法的素材目录类别：与设置页上的按钮一一对应。
  *
- * 五个是旧布局与包内默认；`pool-*` 五个指向共享资源池（A 方案的池根 `skin/`）：
+ * 五个是旧布局与包内默认；`pool-*` 五个指向内置皮肤池（池根 `assets/pet/`）：
  * 资源目录（按渲染方式）、渲染方式兜底音效、全局音效、webm 平铺动画。
  */
 export const FOLDER_TARGETS: readonly SfxFolderTarget[] = PET_FOLDER_TARGETS;
@@ -68,8 +68,10 @@ export function resolveGlobalFolder(
       return paths.cacheDir;
     case 'runtime':
       return paths.runtimeDir;
+    // `pets` 是旧前端的类别名（那时用户皮肤目录叫 pets/）：留作别名，别让旧页面上的按钮变成 400。
+    case 'skin-root':
     case 'pets':
-      return paths.petsDir;
+      return paths.skinsDir;
     case 'assets':
       return paths.assetsDir;
     case 'pool-root':

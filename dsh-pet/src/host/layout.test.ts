@@ -41,7 +41,7 @@ describe('userLayoutDirs', () => {
       paths.desktopCacheDir,
       paths.runtimeDir,
       paths.electronDir,
-      paths.petsDir,
+      paths.skinsDir,
       paths.assetsDir,
       paths.animationDir,
       join(paths.animationDir, 'webm'),
@@ -67,9 +67,9 @@ describe('userLayoutDirs', () => {
     assert.equal(paths.dataDir, join(root, 'data'));
     assert.equal(paths.voiceCacheDir, join(root, 'cache', 'voice'));
     assert.equal(paths.electronDir, join(root, 'runtime', 'electron'));
-    assert.equal(paths.petsDir, join(root, 'pets'));
+    assert.equal(paths.skinsDir, join(root, 'skin'));
     assert.equal(paths.animationDir, join(root, 'assets', 'animation'));
-    assert.equal(paths.poolDir, join(root, 'assets', 'skin'));
+    assert.equal(paths.poolDir, join(root, 'assets', 'pet'));
     assert.equal(paths.fishSkinDir, join(root, 'assets', 'session-fish'));
   });
 
@@ -95,7 +95,7 @@ describe('userLayoutDirs', () => {
     assertHas(dirs, join(pool, 'layered'));
     assertHas(dirs, join(pool, 'sound'));
     assert.equal(
-      dirs.some((dir) => dir.startsWith(join(root, 'assets', 'skin'))),
+      dirs.some((dir) => dir.startsWith(join(root, 'assets', 'pet'))),
       false,
     );
   });

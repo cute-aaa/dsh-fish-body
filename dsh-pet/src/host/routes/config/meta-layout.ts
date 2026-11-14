@@ -4,7 +4,8 @@
  * 为什么扁平 + `depth` 而不是嵌套：渲染端只需要按 depth 画 `├─ / └─`，不需要递归组件，
  * 服务端也不用担心客户端把结构猜错——顺序即展示顺序，树形是画出来的，不是算出来的。
  *
- * 只读盘判存在性（`exists`），不建目录、不写文件；节点上的 `note` 只是给 UI 的小徽标（可删 / 需要下载）。
+ * 只读盘判存在性（`exists`），不建目录、不写文件。节点上不再带「能不能删」这类徽标：
+ * 那句话换个场景就未必成立，界面上改由客户端按 `key` 取一句「这个目录存什么」（见 `client/settings/tree-notes`）。
  * @module dsh-fish-body/src/host/routes/config/meta-layout
  */
 import { existsSync } from 'node:fs';
@@ -13,14 +14,11 @@ import type { GlobalFolderTarget } from '../../../shared/folders.ts';
 import type { UserPaths } from '../../user-layout.ts';
 import { PACKAGE_MEMES_DIR, PACKAGE_ROOT, PACKAGE_SOUND_DIR } from '../../paths.ts';
 
-/** 节点上的小徽标：`disposable` = 删了会自动重建，`download` = 删了要重新下载。 */
-export type MetaNodeBadge = 'disposable' | 'download';
-
 /** 树里的一个节点。 */
 export interface MetaNode {
-  /** 稳定键：客户端按它取图标/文案，不翻译也不拼接。 */
+  /** 稳定键：客户端按它取说明文案，不翻译也不拼接。 */
   readonly key: string;
-  /** 展示用的相对路径（相对数据根；池根在根外时给绝对路径）。 */
+  /** 展示用的相对路径（相对数据根；皮肤/池根在根外时给绝对路径）。 */
   readonly rel: string;
   /** 这一行自己的名字（目录名或文件名）；树形靠缩进表达层级，不必每行重复父路径。 */
   readonly name: string;
@@ -34,13 +32,11 @@ export interface MetaNode {
   readonly exists: boolean;
   /** 可打开的目录类别（文件与包内只读没有）。 */
   readonly open?: GlobalFolderTarget;
-  /** 小徽标。 */
-  readonly badge?: MetaNodeBadge;
 }
 
 /** 生成节点所需的输入。 */
 export interface MetaLayoutInput {
-  /** 数据根路径表（池根已按 `assets.pool` 解析）。 */
+  /** 数据根路径表（池根已按 `assets.pool` 解析、皮肤目录已按 `locations.skin` 解析）。 */
   readonly paths: UserPaths;
 }
 
@@ -69,13 +65,7 @@ export function displayRel(root: string, target: string): string {
 export function layoutNodes(input: MetaLayoutInput): MetaNode[] {
   const { paths } = input;
   const rel = (target: string): string => displayRel(paths.root, target);
-  const dir = (
-    key: string,
-    target: string,
-    depth: number,
-    open?: GlobalFolderTarget,
-    badge?: MetaNodeBadge,
-  ): MetaNode => ({
+  const dir = (key: string, target: string, depth: number, open?: GlobalFolderTarget): MetaNode => ({
     key,
     rel: rel(target),
     name: basename(target),
@@ -84,7 +74,6 @@ export function layoutNodes(input: MetaLayoutInput): MetaNode[] {
     depth,
     exists: existsSync(target),
     ...(open === undefined ? {} : { open }),
-    ...(badge === undefined ? {} : { badge }),
   });
   const file = (key: string, target: string, depth: number): MetaNode => ({
     key,
@@ -106,18 +95,19 @@ export function layoutNodes(input: MetaLayoutInput): MetaNode[] {
     dir('data', paths.dataDir, 1, 'data'),
     file('data.memory', paths.memory, 2),
     file('data.todos', paths.todos, 2),
-    dir('cache', paths.cacheDir, 1, 'cache', 'disposable'),
-    dir('cache.voice', paths.voiceCacheDir, 2, undefined, 'disposable'),
-    dir('cache.download', paths.downloadCacheDir, 2, undefined, 'disposable'),
-    dir('cache.desktop', paths.desktopCacheDir, 2, undefined, 'disposable'),
+    dir('cache', paths.cacheDir, 1, 'cache'),
+    dir('cache.voice', paths.voiceCacheDir, 2),
+    dir('cache.download', paths.downloadCacheDir, 2),
+    dir('cache.desktop', paths.desktopCacheDir, 2),
     dir('runtime', paths.runtimeDir, 1, 'runtime'),
-    dir('runtime.electron', paths.electronDir, 2, 'runtime', 'download'),
-    dir('pets', paths.petsDir, 1, 'pets'),
+    dir('runtime.electron', paths.electronDir, 2, 'runtime'),
+    // 用户皮肤（`skin/`）排在素材前面：它是用户自己的东西，素材是随包 / 共享的。
+    dir('skin', paths.skinsDir, 1, 'skin-root'),
     dir('assets', paths.assetsDir, 1, 'assets'),
     dir('assets.animation', paths.animationDir, 2),
     dir('assets.sound', paths.soundDir, 2),
     dir('assets.memes', paths.memesDir, 2),
-    dir('assets.skin', paths.poolDir, 2, 'pool-root'),
+    dir('assets.pet', paths.poolDir, 2, 'pool-root'),
     dir('assets.sessionFish', paths.fishSkinDir, 2, 'fish-skin'),
     file('logs', paths.logsFile, 1),
   ];

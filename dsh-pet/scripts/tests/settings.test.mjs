@@ -128,9 +128,25 @@ async function open(
     fishWrites = [],
     restarts = [],
     restores = [],
+    runtimePosts = [],
+    movePosts = [],
     errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   t.after(() => assert.deepEqual(errors, []));
+  // 搬迁的桩：默认「没搬过」；用例可以把它改成在搬 / 已搬完。
+  let pickPath = '/test/moved-skin';
+  let moveStatus = () => ({
+    busy: false,
+    phase: 'copying',
+    copiedBytes: 0,
+    totalBytes: 0,
+    copiedFiles: 0,
+    totalFiles: 0,
+    current: '',
+    needsRestart: false,
+    root: '/test/fish-body',
+    skin: '/test/fish-body/skin',
+  });
   await page.route('**/dsh-pet-7340/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -149,6 +165,8 @@ async function open(
       return route.fulfill({
         json: {
           root: '/test/fish-body',
+          rootSource: 'default',
+          skin: '/test/fish-body/skin',
           layout: [
             {
               key: 'root',
@@ -189,17 +207,16 @@ async function open(
               depth: 1,
               exists: true,
               open: 'cache',
-              badge: 'disposable',
             },
             {
-              key: 'pets',
-              rel: 'pets',
-              name: 'pets',
-              path: '/test/fish-body/pets',
+              key: 'skin',
+              rel: 'skin',
+              name: 'skin',
+              path: '/test/fish-body/skin',
               kind: 'dir',
               depth: 1,
               exists: true,
-              open: 'pets',
+              open: 'skin-root',
             },
             {
               key: 'assets',
@@ -245,11 +262,42 @@ async function open(
       });
     }
     if (path === '/dsh-pet-7340/desktop/runtime') {
+      if (request.method() === 'POST') {
+        runtimePosts.push(request.postDataJSON());
+        return route.fulfill({
+          json: {
+            started: true,
+            installed: false,
+            runtime: { dir: '/test/fish-body/runtime/electron', exe: '', installed: false, source: 'default' },
+            download: {
+              active: true,
+              doneBytes: 1024,
+              totalBytes: 4096,
+              mirror: 'https://cdn.npmmirror.com/binaries/electron/',
+            },
+            prompt: { needed: true, reason: 'missing', since: 1 },
+            wanted: true,
+          },
+        });
+      }
       return route.fulfill({
         json: {
-          runtime: { dir: '/test/fish-body/runtime/electron', exe: '', installed: false },
+          runtime: { dir: '/test/fish-body/runtime/electron', exe: '', installed: false, source: 'default' },
+          download: { active: false, doneBytes: 0, totalBytes: 0 },
+          prompt: { needed: false },
+          wanted: true,
         },
       });
+    }
+    if (path === '/dsh-pet-7340/layout/location') {
+      if (request.method() === 'POST') {
+        movePosts.push(request.postDataJSON());
+        return route.fulfill({ json: { ok: true, started: true, busy: true, phase: 'copying', needsRestart: false } });
+      }
+      return route.fulfill({ json: moveStatus() });
+    }
+    if (path === '/dsh-pet-7340/pick-folder') {
+      return route.fulfill({ json: { ok: true, path: pickPath } });
     }
     if (path === '/dsh-pet-7340/session-fish') {
       if (request.method() === 'PUT') {
@@ -285,7 +333,21 @@ async function open(
   });
   await page.goto(`${url}/?lang=${lang}`);
   await page.locator('.dsh-pet-cfg').waitFor();
-  return { page, writes, fishWrites, restarts, restores };
+  return {
+    page,
+    writes,
+    fishWrites,
+    restarts,
+    restores,
+    runtimePosts,
+    movePosts,
+    setPickPath: (value) => {
+      pickPath = value;
+    },
+    setMoveStatus: (fn) => {
+      moveStatus = fn;
+    },
+  };
 }
 
 /** 点「应用」并等到「已保存」出现（两段写入都完成了）。 */
@@ -691,12 +753,25 @@ test('system → files & folders: one card holding the data-root tree, runtime s
   // 树行 = 7 条布局节点 + 1 条包内只读参考；同一路径不该画两遍。
   await page.locator('.dsh-pet-cfg__treeRow').first().waitFor();
   assert.equal(await page.locator('.dsh-pet-cfg__treeRow').count(), 8);
-  // 徽标：可删 / 只读；目录名带尾斜杠，文件名不带。
+  // 徽标只剩「只读」（不再有「可删」）；目录名带尾斜杠，文件名不带。
   const badges = await page.locator('.dsh-pet-cfg__treeBadge').allInnerTexts();
-  assert.deepEqual(badges, ['deletable', 'read-only']);
+  assert.deepEqual(badges, ['read-only']);
   const names = await page.locator('.dsh-pet-cfg__treeName').allInnerTexts();
   assert.ok(names.includes('config/'), 'arr: ' + names.join(','));
   assert.ok(names.includes('logs.txt'));
+  // 每一行后面跟着一句「这个目录存什么」。
+  const descs = await page.locator('.dsh-pet-cfg__treeDesc').allInnerTexts();
+  assert.ok(
+    descs.some((text) => /settings|config/i.test(text)),
+    'desc: ' + descs.join(' | '),
+  );
+  assert.equal(
+    descs.some((text) => /delet|remov/i.test(text)),
+    false,
+    '说明里不该出现「可删」类断言',
+  );
+  // 数据根与皮肤目录各有一行，且都能改位置。
+  assert.equal(await page.getByRole('button', { name: 'Change location…', exact: true }).count(), 2);
   // 运行时：未安装时按钮可点，文案给出状态。
   assert.equal(await page.getByText('Not installed', { exact: true }).count(), 1);
   assert.equal(await page.getByRole('button', { name: 'Download runtime', exact: true }).isEnabled(), true);
@@ -708,4 +783,65 @@ test('system → files & folders: one card holding the data-root tree, runtime s
     await page.waitForTimeout(400);
     await page.screenshot({ path: join(process.env.DSH_PET_UI_ARTIFACTS, 'system-files-open.png') });
   }
+});
+
+test('system → files & folders: move the skin folder, see progress, then get a restart prompt', async (t) => {
+  const harness = await open(t, { viewport: { width: 900, height: 1600 } });
+  const { page } = harness;
+  harness.setPickPath('/test/moved-skin');
+  // 第一次 GET 说「还在搬」，之后说「搬完了，需要重启」。
+  let polls = 0;
+  harness.setMoveStatus(() => {
+    polls += 1;
+    return polls < 2
+      ? {
+          busy: true,
+          which: 'skin',
+          phase: 'copying',
+          copiedBytes: 2048,
+          totalBytes: 4096,
+          copiedFiles: 1,
+          totalFiles: 2,
+          current: 'cat-config.json',
+          needsRestart: false,
+          root: '/test/fish-body',
+          skin: '/test/fish-body/skin',
+        }
+      : {
+          busy: false,
+          which: 'skin',
+          phase: 'cleaning',
+          copiedBytes: 4096,
+          totalBytes: 4096,
+          copiedFiles: 2,
+          totalFiles: 2,
+          current: '',
+          needsRestart: true,
+          movedTo: '/test/moved-skin',
+          root: '/test/fish-body',
+          skin: '/test/fish-body/skin',
+        };
+  });
+
+  await tab(page, 'System').click();
+  const fold = page.getByRole('button', { name: /Files & folders/ });
+  await fold.waitFor();
+  await fold.click();
+
+  // 皮肤那一行的「更改位置…」（两行里的第二个）。
+  await page.getByRole('button', { name: 'Change location…', exact: true }).nth(1).click();
+  // 原生选择框被点掉后进入确认弹窗：先把「旧位置会被移除」讲清楚。
+  const dialog = page.getByRole('dialog', { name: 'Move folder' });
+  await dialog.waitFor();
+  await dialog.getByRole('button', { name: 'Change location…', exact: true }).click();
+
+  // 请求体带的是 which=skin 与选中的绝对路径。
+  assert.deepEqual(await page.evaluate(() => null), null);
+  await page.getByText(/Moved to \/test\/moved-skin/).waitFor();
+  assert.deepEqual(harness.movePosts, [{ which: 'skin', path: '/test/moved-skin' }]);
+  // 结论行给出「重启插件后生效」+ 一个立即重启按钮。
+  assert.equal(await page.getByText('Takes effect after a plugin restart', { exact: true }).count(), 1);
+  await page.getByRole('button', { name: 'Restart now', exact: true }).click();
+  await page.waitForFunction(() => true);
+  assert.ok(harness.restarts.length >= 1, '重启按钮应当真的打了 /plugin-restart');
 });

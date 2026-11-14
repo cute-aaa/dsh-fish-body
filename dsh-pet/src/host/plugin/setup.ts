@@ -20,7 +20,8 @@ import { createFileLogger, isFileLogger, setDefaultLogger, type FileLogger, type
 import { MenuRegistry } from '../menu.ts';
 import { animSubdirFor, PACKAGE_MEMES_DIR, PACKAGE_ROOT, PACKAGE_SOUND_DIR } from '../paths.ts';
 import { migrateElectronRuntime, migrateLayout } from '../migrate-layout.ts';
-import { setUserRoot } from '../helper-process.ts';
+import { setRuntimeDir, setUserRoot } from '../helper-process.ts';
+import { readLocations, resolveSkinDir } from '../locations.ts';
 import { userPaths, type UserPaths } from '../user-layout.ts';
 import { resolveUserRoot, type RootLog } from '../user-root.ts';
 import { POOL_LAYER_DIR, POOL_SOUND_DIR, isReservedAssetRoot } from '../../shared/pool.ts';
@@ -63,6 +64,10 @@ export interface StandaloneBalanceAuth {
 
 /** 装配产物：apply 后续逻辑与路由层共用的对象。 */
 export interface HostSetup {
+  /** $DSH_HOME：数据根指针文件写在这里（位置可改的后端）。 */
+  readonly dshHome: string;
+  /** 数据根是怎么选出来的：默认位置 / 指针文件 / 环境变量（设置页据此说明）。 */
+  readonly rootSource: 'default' | 'pointer' | 'env';
   /** 本插件的数据根（配置与用户素材都收敛于此） */
   readonly userRoot: string;
   /** 数据根的完整路径表（唯一真源：任何模块都不得再自己拼路径字面量）。 */
@@ -140,8 +145,13 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
   const migration = migrateLayout({ root: userRoot, legacyRoot: rootResult.legacyRoot, log: noteSink });
   const runtimeMove = migrateElectronRuntime({ dshHome, root: userRoot, log: noteSink });
 
+  // 位置指针：皮肤目录与运行时目录可以指到数据根之外（`config/locations.json`）。
+  // 必须在算路径表之前读——皮肤目录是配置扫描的输入，晚一步就会读错目录。
+  const locations = readLocations(userRoot);
+  setRuntimeDir(locations.runtime);
+
   // 路径表：池根要等配置读出来才知道（`assets.pool`），先用默认值算一份给 logger 用。
-  const pathsForLog = userPaths(userRoot);
+  const pathsForLog = userPaths(userRoot, { skin: resolveSkinDir(userRoot, locations) });
 
   // 统一日志出口（单文件、按大小截断，见 ./log-file）：桌面版 DSH 没有控制台，ctx.logger 只写
   // stdout 等于把排障信息丢掉；base 保留终端输出。
@@ -210,7 +220,7 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
 
   const legacyUserConfigPath = pathsForLog.legacyMainConfig;
 
-  const petConfigDir = pathsForLog.petsDir;
+  const petConfigDir = pathsForLog.skinsDir;
 
   // 配置路径集（readAllConfig 的唯一输入：内置默认 + 用户主配置 + 文件宠物目录）
   const configPaths: ConfigPaths = {
@@ -247,27 +257,24 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
   const soundUserRoot = pathsForLog.soundDir;
 
   /**
-   * 共享资源池的根：`assets.pool`（相对数据根或绝对路径），默认 `<数据根>/assets/skin`。
+   * 内置皮肤池的根：`assets.pool`（相对数据根或绝对路径），默认 `<数据根>/assets/pet`。
    *
    * 每次都现读配置：池根是用户随时会改的环境参数，装配期只算一次会让改完配置要重启。
    * 读配置失败按默认处理——池是可选布局，配错不该让宿主报错。
    *
-   * 旧布局回落：默认位置还不存在、而老的 `<数据根>/skin/` 还在（迁移被占用跳过之类），就用老的——
-   * 用户的皮肤池不会因为一次改名突然变空。
+   * 刻意没有「旧位置回落」：`<数据根>/skin/` 在新布局里是用户皮肤目录，
+   * 再拿它当池读等于把用户的皮肤当内置素材，比池空着更糟（迁移那一步会把旧池搬到 assets/pet）。
    */
   const poolRootOf = (): string => {
-    const legacyPool = join(userRoot, 'skin');
-    const fallback = (resolved: string): string =>
-      !existsSync(resolved) && existsSync(legacyPool) ? legacyPool : resolved;
     try {
-      return fallback(resolvePoolRoot(userRoot, readAllConfig(configPaths).main?.assets));
+      return resolvePoolRoot(userRoot, readAllConfig(configPaths).main?.assets);
     } catch {
-      return fallback(resolvePoolRoot(userRoot, undefined));
+      return resolvePoolRoot(userRoot, undefined);
     }
   };
 
   // 最终路径表：池根要按配置解析，所以这里是 userPaths 的第二次调用（第一次只给 logger 用）。
-  const paths = userPaths(userRoot, { pool: poolRootOf() });
+  const paths = userPaths(userRoot, { pool: poolRootOf(), skin: resolveSkinDir(userRoot, locations) });
 
   // 初始化的目录结构：布局约定的那些目录 + 池的约定目录，启动时就建出来，并给每个目录写一句备注。
   // 这样「打开文件夹」永远不用先问「要不要创建」，用户也不必先去文档里抄目录名；
@@ -405,6 +412,8 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
   const nextExternalWorkSeq = (): number => (externalWorkSeq += 1);
 
   return {
+    dshHome,
+    rootSource: rootResult.source,
     userRoot,
     paths,
     log,

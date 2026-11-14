@@ -6,16 +6,21 @@
  * @module dsh-fish-body/src/host/pool/resolve
  */
 import { isAbsolute, join, normalize, relative, resolve } from 'node:path';
-import { POOL_DEFAULT_DIR, POOL_LAYER_DIR, POOL_SOUND_DIR } from '../../shared/pool.ts';
+import { POOL_DEFAULT_DIR, POOL_LAYER_DIR, POOL_LEGACY_DIRS, POOL_SOUND_DIR } from '../../shared/pool.ts';
 import type { RendererKind } from '../../shared/types.ts';
 
 /** 三渲染方式的白名单（顺序即池内目录的探测顺序）。 */
 const RENDERER_ORDER: readonly RendererKind[] = ['layered', 'live2d', 'webm'];
 
+/** 历史默认值只提示一次：每次读配置都喊一遍会把日志刷满。 */
+let legacyPoolWarned = false;
+
 /**
- * 池根：`assets.pool` 是相对用户根（默认 `skin`）或绝对路径。
+ * 池根：`assets.pool` 是相对用户根（默认 `assets/pet`）或绝对路径。
  *
- * 缺省、空串、非字符串、写坏了一律回落 `<用户根>/skin`——池是可选布局，配错不该让宿主报错。
+ * 缺省、空串、非字符串、写坏了一律回落 `<用户根>/assets/pet`——池是可选布局，配错不该让宿主报错。
+ * 命中 {@link POOL_LEGACY_DIRS} 的旧默认值同样按默认处理：那些值是我们自己写进用户配置的，
+ * 归一是升级的一部分，不该变成一次「皮肤消失」。
  *
  * @param userRoot - 本插件的用户数据根。
  * @param assets - 成品配置里读到的 `assets` 段（`unknown`：可能来自用户手改）。
@@ -28,6 +33,13 @@ export function resolvePoolRoot(userRoot: string, assets: unknown): string {
       : undefined;
   const value = typeof raw === 'string' ? raw.trim() : '';
   if (value === '') return join(userRoot, POOL_DEFAULT_DIR);
+  if (POOL_LEGACY_DIRS.includes(value.split('\\').join('/'))) {
+    if (!legacyPoolWarned) {
+      legacyPoolWarned = true;
+      console.warn(`[fish-body] assets.pool=${value} 是旧默认路径，已按新的 ${POOL_DEFAULT_DIR} 处理`);
+    }
+    return join(userRoot, POOL_DEFAULT_DIR);
+  }
   return isAbsolute(value) ? normalize(value) : join(userRoot, value);
 }
 

@@ -15,7 +15,7 @@ DSH 设置 → 「桌宠配置」：
 - **显示位置**（display）：web=仅浏览器 / desktop=仅桌面 / both=两者都显示 / none=都不显示
 - **余额功能**：勾选后该宠物才会触发余额动画并显示余额气泡（服务商未登记余额接口时改为弹文字说明气泡）
 - **多开**：添加/删除宠物，每只宠物独立 id、大小、位置
-- **种类（pet pack）**：`pets/` 目录里的角色包也会列在宠物列表里（按种类分组），同样能改名称/大小/位置/显示方式/四个开关/实例人设；每组的「+」在该种类下新建实例。保存时 main 写 `config/main-config.jsonc`，文件宠物写回各自角色包配置（顶层动画池与人设原样保留）；每种至少留一只，删最后一只会被拒绝
+- **种类（pet pack）**：`skin/` 目录里的角色包也会列在宠物列表里（按种类分组），同样能改名称/大小/位置/显示方式/四个开关/实例人设；每组的「+」在该种类下新建实例。保存时 main 写 `config/main-config.jsonc`，文件宠物写回各自角色包配置（顶层动画池与人设原样保留）；每种至少留一只，删最后一只会被拒绝
 - **物理参数**：拖拽抛掷手感（重力 / 弹性 / 地面摩擦 / 总力度 / 顶部反弹 / 宠物互撞 / 碰撞震动 / 倾斜控制重力 / 摇一摇抛出）也能在设置页图形化改，不用去手改配置文件。碰撞震动（`physics.hapticEnabled`，默认开）在撞墙、落地、撞顶与宠物互撞时各震一下：Chrome / Edge 等浏览器可用，iOS 与 Via 这类 WebView 套壳浏览器不生效，系统勿扰模式会挡住振动。宠物互撞（`physics.petCollision`，默认开）按动量守恒弹开（质量 ∝ 尺寸²）。体感拆成两个开关：倾斜控制重力（`physics.tiltGravity`，默认关）用手机倾斜方向代替固定向下的重力（`gravity` 为 0 时无从取值，等同关闭）；摇一摇抛出（`physics.shakeThrow`，默认关）沿甩动方向把宠物甩出去（力度 = 基准 × `throwPower`），与重力大小无关，`gravity` 设 0 也能甩着玩。两个都只在 HTTPS 或 localhost 下有效
 - **AI 模型**：碎碎念与对话可以**各自指定模型**——设置页「AI 模型」每项一个下拉框（与 DSH 对话框右下角的模型选择器同款：搜索框 + 按服务商分组的清单，选项同源）；选「跟随当前对话」= 用当前对话的模型，指定了但调用失败会自动回落到当前对话的模型重试一次
 - 点「保存」**即时生效**（无需刷新）；「同步」把包内 `config.jsonc` 的**原文**（含注释与全部高级字段）整份写入用户配置——既回到默认，又留下一份可直接编辑的完整配置
@@ -61,7 +61,7 @@ DSH 设置 → 「桌宠配置」：
 
 ### 备份与恢复
 
-设置页「系统 → 备份与恢复」把三份**可编辑设置的原文**打成一份 JSON：`main-config.jsonc`（主配置与宠物列表）、`pets/<名>-config.json(c)`（每个文件宠物）、`session-fish.json`（会话鱼）。导出再恢复之后，注释与字段顺序都不变。
+设置页「系统 → 备份与恢复」把三份**可编辑设置的原文**打成一份 JSON：`main-config.jsonc`（主配置与宠物列表）、`skin/<名>-config.json(c)`（每个文件宠物）、`session-fish.json`（会话鱼）。导出再恢复之后，注释与字段顺序都不变。
 
 - **不含**：宠物头像图片、对话记忆 `memory.json`、待办数据、日志，以及浏览器 `localStorage` 里的位置记忆。
 - **恢复是覆盖**：同名文件被写回快照内容，写之前每个被覆盖的文件会在同目录留一份 `<文件>.bak-<时间戳>`；备份里没有的种类文件不会被删除。
@@ -94,21 +94,21 @@ DSH 设置 → 「桌宠配置」：
 
 ## 方式四：额外宠物（pet pack）——添加新「种类」
 
-方式一~三都只调整**默认宠物的实例**（数量/大小/位置），动画池始终是全局一份。要添加**全新种类的宠物**（独立动画池 + 自己的素材），在用户数据根下建 `pets/` 目录：
+方式一~三都只调整**默认宠物的实例**（数量/大小/位置），动画池始终是全局一份。要添加**全新种类的宠物**（独立动画池 + 自己的素材），在用户数据根下建 `skin/` 目录：
 
 ```
 $DSH_HOME/fish-body/
 ├─ config/main-config.jsonc         ← 主宠物配置（现有，不动）
 ├─ assets/animation/webm/*.webm     ← 主宠物素材（现有，只属于 main）
-└── pets/
+└── skin/
    ├── pig-config.json          ← 额外宠物 pig 的配置（命名词干 = 种类名，实例 id 任意）
    └── pig-animation/*.webm     ← pig 自己的动画素材（直接平铺，仿 assets/animation）
 ```
 
-每只额外宠物 = 一个 `-config.json` + 一个 `-animation/` 目录，同前缀配对；扫描 `pets/` 自动发现，浏览器与桌面同时生效。一个 `-config.json` 定义**一个「种类」**（动画池 + 素材目录），`pets` 数组可放该种类的**任意多只实例**（共享动画池与素材）：
+每只额外宠物 = 一个 `-config.json` + 一个 `-animation/` 目录，同前缀配对；扫描 `skin/` 自动发现，浏览器与桌面同时生效。一个 `-config.json` 定义**一个「种类」**（动画池 + 素材目录），`pets` 数组可放该种类的**任意多只实例**（共享动画池与素材）：
 
 ```jsonc
-// pets/pig-config.json —— 与 main-config.jsonc 同构的完整配置
+// skin/pig-config.json —— 与 main-config.jsonc 同构的完整配置
 {
   "notificationsEnabled": true,
   "pets": [
@@ -161,7 +161,7 @@ $DSH_HOME/fish-body/
 
 规则（与主宠物**严格隔离**，绝不混用）：
 
-- **素材只查自己的**：素材目录名 = 文件名前缀（`pets/pig-config.json` → `pets/pig-animation/`），该种类所有实例共用；动画 URL `/thumb/<前缀>/<名>.webm`，查不到即 404——绝不落到 `assets/animation` 或包内素材
+- **素材只查自己的**：素材目录名 = 文件名前缀（`skin/pig-config.json` → `skin/pig-animation/`），该种类所有实例共用；动画 URL `/thumb/<前缀>/<名>.webm`，查不到即 404——绝不落到 `assets/animation` 或包内素材
 - **动画池不回落全局**：`animations` / `animationWeights` 必须写全（缺失即配置错误）
 - **`animations.sleep` 是可选段**（睡觉动作）：不写 = 该种类没有睡觉功能，右键菜单不出现「睡觉」，其余动画不受影响。写了就是「套」的数组，每套 `{ start, loop, end }` 三段各是候选数组；入睡时整套随机挑一套，三段都从这套里取，进段时再在段内随机挑一个（避开刚播完的那个）。结构见包内 `assets/config.jsonc` 的 `sleep` 注释
 - **睡觉文案按种类各写一份**：`sleepStartTexts` / `sleepEndTexts` / `sleepRefuseTexts`，不写就跟随内置那份；`eventsRefreshSec.sleepTalk` 是梦话周期（秒，默认 60）
@@ -172,11 +172,11 @@ $DSH_HOME/fish-body/
 
 ## 资源池（assets）——共享皮肤 / 模型 / 动画 / 音效
 
-旧的平铺布局（`pet/<材料根>-skin|sound|animation`）在启动时**自动搬进 `pets/` 与 `assets/`**（不覆盖、不删源，见 `docs/目录布局.md`）；在此之外还有一个可选的共享池：
+旧的平铺布局（`pet/<材料根>-skin|sound|animation`）在启动时**自动搬进 `skin/` 与 `assets/`**（不覆盖、不删源，见 `docs/目录布局.md`）；在此之外还有一个可选的共享池：
 放一份素材，所有宠物都能用。池根由 `assets.pool` 决定（只读 `main` 条目）：
 
 ```jsonc
-"assets": { "pool": "assets/skin" }   // 相对数据根（默认），也可以写绝对路径，例如 "D:/pets/shared"
+"assets": { "pool": "assets/pet" }   // 相对数据根（默认），也可以写绝对路径，例如 "D:/skin/shared"
 ```
 
 目录约定（`<数据根>` 例如 `D:\NodeJs\DSH_home\fish-body\`；完整树与迁移表见 `docs/目录布局.md`）：
@@ -185,15 +185,15 @@ $DSH_HOME/fish-body/
 <数据根>/
 ├─ config/                        # 设置
 ├─ data/                          # 对话记忆与待办
-├─ runtime/electron/              # Electron 运行时（删了要重新下载，不属于缓存）
-├─ cache/                         # 唯一允许随手删的目录（voice / download / desktop）
-├─ pets/                          # 文件宠物：<名>-config.json + <名>-animation/ + <名>-sound/ + <名>-memes/
+├─ runtime/electron/              # Electron 运行时（桌面窗口的可执行文件）
+├─ cache/                         # 缓存：voice（语音合成结果）/ download（安装包）/ desktop（窗口 profile）
+├─ skin/                          # 你自己的皮肤：<名>-config.json + <名>-animation/ + <名>-sound/ + <名>-memes/
 └─ assets/                        # 素材（所有宠物共用）
    ├─ animation/{webm,mov}/       # main 的动画
    ├─ sound/                      # 用户级共享音效
    ├─ memes/                      # 用户级表情包
    ├─ session-fish/               # 会话鱼皮肤
-   └─ skin/                       # 共享资源池（assets.pool 的默认值）
+   └─ pet/                        # 内置皮肤池（assets.pool 的默认值）
       ├─ layered/
       │  ├─ character1/
       │  │  ├─ manifest.json        # 结构文件（任意名；manifest.json 优先，其次含 rig/schema 的 json）
@@ -213,31 +213,46 @@ $DSH_HOME/fish-body/
          └─ common-drag.wav          # 任意前缀次之（同事件多份按文件名排序取第一个）
 ```
 
-- **`pets[].model` 语义不变**，宿主按「先 pack 后池」解析：`pets/<素材根>-skin/<model>/` 存在就用它，
-  缺失才回落到 `assets/skin/layered/<model>/`（live2d 同理回落到 `assets/skin/live2d/<model 所在目录>`）。
-  动画同理：先 `pets/<素材根>-animation/webm/`，再 `assets/skin/webm/`，最后用户目录（`assets/animation/webm`）与包内素材。
-- **`pool` 是保留字**：不能当 pet pack 的文件名前缀（`pets/pool-config.json` 会被跳过并告警一次，
+- **`pets[].model` 语义不变**，宿主按「先 pack 后池」解析：`skin/<素材根>-skin/<model>/` 存在就用它，
+  缺失才回落到 `assets/pet/layered/<model>/`（live2d 同理回落到 `assets/pet/live2d/<model 所在目录>`）。
+  动画同理：先 `skin/<素材根>-animation/webm/`，再 `assets/pet/webm/`，最后用户目录（`assets/animation/webm`）与包内素材。
+- **`pool` 是保留字**：不能当 pet pack 的文件名前缀（`skin/pool-config.json` 会被跳过并告警一次，
   `POST /pet-config` 里传 `entry: "pool"` 会被拒）。
-- **`assets/skin` 不存在 = 空池**：不报错、不告警，行为与没有这段配置完全一样。
+- **`assets/pet` 不存在 = 空池**：不报错、不告警，行为与没有这段配置完全一样。
   （插件启动时会把池根与 `layered / live2d / webm / sound` 建出来，所以「刚装好」看到的是空目录而不是不存在。）
-- **启动时初始化的目录**：数据根下六个分组（`config` / `data` / `cache` / `runtime` / `pets` / `assets`）、
+- **启动时初始化的目录**：数据根下六个分组（`config` / `data` / `cache` / `runtime` / `skin` / `assets`）、
   `assets/animation/{webm,mov}`、`assets/{sound,memes,session-fish}`、池根的 `layered` / `live2d` / `webm` / `sound`
   四个目录，以及各渲染方式的兜底音效目录（`<池>/layered/sound` 等）。只建目录、不写占位文件；
-  每个目录在 Windows 上还会写一句备注（`desktop.ini` 的 `InfoTip`，说明它是干什么的、能不能删）。
+  每个目录在 Windows 上还会写一句备注（`desktop.ini` 的 `InfoTip`，说明它存什么）。
   建不出来的只记一行日志，插件照常可用。
-- **`pets/<素材根>-*` 是内置素材，`assets/skin/` 是用户素材**：`pets/` 跟着 pack 安装/升级/迁移走，
-  `assets/skin/` 是「我自己补的，一份给所有宠物用」。解析顺序仍是**先 pack 后池**，所以内置那套优先、
+- **`skin/<素材根>-*` 是内置素材，`assets/pet/` 是用户素材**：`skin/` 跟着 pack 安装/升级/迁移走，
+  `assets/pet/` 是「我自己补的，一份给所有宠物用」。解析顺序仍是**先 pack 后池**，所以内置那套优先、
   池只做补充与替换的落点；右键「皮肤 / 模型」菜单里池里的条目带「（池）」标记。
 - 池里的音效**必须带前缀**（结构文件基名 / 目录名 / 渲染方式名 / 任意前缀）——池是共享的，
-  裸 `click.wav` 会串到别的宠物头上；只有 `assets/skin/sound/` 认无前缀写法。
+  裸 `click.wav` 会串到别的宠物头上；只有 `assets/pet/sound/` 认无前缀写法。
 - 设置页「音效」分区每行第二行显示**实际命中的绝对路径**；没命中池时会提示「建议放这里：
-  `assets/skin/layered/<皮肤>/<皮肤>-click.wav`」。每行右侧都有「打开文件夹」：命中时打开该文件所在的
+  `assets/pet/layered/<皮肤>/<皮肤>-click.wav`」。每行右侧都有「打开文件夹」：命中时打开该文件所在的
   那一类目录，未命中时打开建议落点；目录不存在会先问是否创建。
 - 设置页「系统 → 文件与目录」整棵树每行都有「打开文件夹」
-  （走 `POST /open-folder?which=root|config|data|cache|runtime|pets|assets|…`，不需要宠物参数）。
+  （走 `POST /open-folder?which=root|config|data|cache|runtime|skin-root|assets|…`，不需要宠物参数；
+  `pets` 是 `skin-root` 的旧名，仍可用）。
 - 「打开文件夹」交给**系统的默认处理程序**（Windows 走 ShellExecute，macOS 走 LaunchServices，Linux 走
   `xdg-open`），不是写死资源管理器：把默认文件管理器换成第三方工具时照样生效。
 - 全部路径都过「规范化 + 池根内校验」：`..`、绝对路径片段一律拒绝，池根配到别的盘也只在池根内解析。
+
+### 位置可以改到哪里
+
+三处位置都能指到别处（设置页「系统 → 文件与目录」里各有入口，也可以手写）：
+
+| 想改什么 | 记在哪 | 缺省 |
+| --- | --- | --- |
+| 整个数据根 | `$DSH_HOME/fish-body-root.json`（`{ "schema": 1, "root": "D:/data/fish-body" }`） | `$DSH_HOME/fish-body` |
+| 用户皮肤目录 | `<数据根>/config/locations.json` 的 `skin` | `<数据根>/skin` |
+| Electron 运行时 | 同上的 `runtime`（也可 `POST /desktop/runtime { action: "dir" }`） | `<数据根>/runtime/electron` |
+
+优先级固定：环境变量 `DSH_PET_USER_ROOT` > 指针文件 > 缺省。指针指向的目录不存在时**回落到缺省位置**
+并在日志里说明——「换盘后没挂载」不该变成一次空数据启动。搬动由 `POST /layout/location` 完成：
+复制 → 核对文件数与字节数 → 通过才删旧位置（失败两份都留），成功后需要重启插件生效。
 
 ## 音效段（sfx）
 

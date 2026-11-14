@@ -74,7 +74,7 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `PUT /dsh-pet-7340/config`           | 保存用户层配置（白名单重建，用户手写的精调字段会保留）                                                                 |
 | `POST /dsh-pet-7340/config`          | 用内置默认整份覆盖用户配置，即「恢复默认」                                                                             |
 | `POST /dsh-pet-7340/pet-display`     | **改单只宠物的显示位置**（`web` / `desktop` / `both` / `none`），只传 `{ id, display }`                                |
-| `POST /dsh-pet-7340/pet-config`      | **按种类写回全部实例**（`{ entry, pets }`，`entry` = `pets/<名>-config.json` 的前缀）；白名单重建，顶层动画池与人设保留|
+| `POST /dsh-pet-7340/pet-config`      | **按种类写回全部实例**（`{ entry, pets }`，`entry` = `skin/<名>-config.json` 的前缀）；白名单重建，顶层动画池与人设保留|
 | `POST /dsh-pet-7340/reload`          | 重载桌面端（重启桌面宠物进程，按最新配置重建窗口）                                                                     |
 | `GET /dsh-pet-7340/settings-backup`  | **导出设置备份**：主配置、每个种类配置与会话鱼设置的**原文**（JSONC 注释与字段顺序都保留）                             |
 | `POST /dsh-pet-7340/settings-backup` | **用备份恢复**：先整体预检再原子写回，覆盖前把现有文件留成 `<文件>.bak-<时间戳>`；空串表示删掉那一层                   |
@@ -108,7 +108,7 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `GET /dsh-pet-7340/attachment?id=`           | **取图**：把对话记忆里 `image.attachmentId`（`sha256:…`）换回图片                                                                                                                                                                |
 | `GET /dsh-pet-7340/logo?root=`               | 宠物头像：缺省回插件 logo（`assets/logo.png`）；带 `root=<素材根>` 时回该 pet pack 上传的头像，没有就回默认                                                                                                                      |
 | `GET /dsh-pet-7340/character?root=`          | **角色参考图**：按素材根回一张官方设定图（png / jpg / webp / gif），第三方自建生图时对齐角色用；**不代调生图模型**，出图与计费都在调用方                                                                                         |
-| `POST /dsh-pet-7340/pet-avatar?root=`        | **上传头像**：`{ base64 }`，覆盖写 `pets/<素材根>-avatar.<ext>`；`root=main`（内置）被拒                                                                                                                                        |
+| `POST /dsh-pet-7340/pet-avatar?root=`        | **上传头像**：`{ base64 }`，覆盖写 `skin/<素材根>-avatar.<ext>`；`root=main`（内置）被拒                                                                                                                                        |
 
 ## 八、工作状态（外部写入）
 

@@ -101,18 +101,21 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__folderBtn{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}',
   '.dsh-pet-cfg__cmd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-label);line-height:18px;word-break:break-all;user-select:text;padding:6px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-sm);background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-primary)}',
 
-  // 目录树：等宽前缀画 `├─ / └─ / │`，名字与徽标跟在同一行。
+  // 目录树：等宽前缀画 `├─ / └─ / │`，名字后面跟一句「这个目录存什么」。
   // 缩进靠前缀字符串本身（`white-space:pre`），所以层级不会因为字号或缩放而错位。
-  '.dsh-pet-cfg__tree{display:flex;flex-direction:column;gap:2px;min-width:0;padding:2px 0;overflow-x:auto}',
-  '.dsh-pet-cfg__treeRow{display:flex;align-items:center;gap:8px;min-width:max-content;font-size:var(--pcg-fs-label);line-height:18px}',
-  '.dsh-pet-cfg__treePrefix{flex:none;white-space:pre;user-select:none;color:var(--dsw-alias-label-tertiary);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace}',
+  // 说明允许换行：它是给人读的整句，截断或横向滚动都只会让人放弃读它。
+  '.dsh-pet-cfg__tree{display:flex;flex-direction:column;gap:2px;min-width:0;padding:2px 0}',
+  '.dsh-pet-cfg__treeRow{display:grid;grid-template-columns:auto minmax(0,max-content) minmax(0,1fr) auto;align-items:baseline;gap:8px;font-size:var(--pcg-fs-label);line-height:18px}',
+  '.dsh-pet-cfg__treePrefix{grid-column:1;white-space:pre;user-select:none;color:var(--dsw-alias-label-tertiary);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace}',
   // 名字可选中复制：排障时用户要能直接把 logs.txt 的路径贴出来。
-  '.dsh-pet-cfg__treeName{color:var(--dsw-alias-label-primary);font-weight:400;white-space:nowrap;user-select:text}',
+  '.dsh-pet-cfg__treeName{grid-column:2;color:var(--dsw-alias-label-primary);font-weight:400;white-space:nowrap;user-select:text}',
+  // 说明：次要色、小半档，长度不受限（换行而不是省略号）。
+  '.dsh-pet-cfg__treeDesc{grid-column:3;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:var(--pcg-fs-meta);line-height:16px;word-break:break-word}',
+  '.dsh-pet-cfg__treeRow>.dsh-pet-cfg__folderBtn{grid-column:4;justify-self:start}',
   // 还没产生的目录降一级：与「有东西」区分开，避免用户去找不存在的文件夹。
   '.dsh-pet-cfg__treeRow.is-missing .dsh-pet-cfg__treeName{color:var(--dsw-alias-label-tertiary)}',
-  // 徽标：可删 / 需下载 / 只读。只靠描边与字色区分，不上底色（一列徽标涂色会盖过目录名）。
-  '.dsh-pet-cfg__treeBadge{flex:none;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}',
-  '.dsh-pet-cfg__treeBadge.is-download{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}',
+  // 只读参考那一组的徽标：只靠描边与字色区分，不上底色（一列徽标涂色会盖过目录名）。
+  '.dsh-pet-cfg__treeBadge{grid-column:4;justify-self:start;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}',
 
   // 未保存改动的圆点：跟着分区标签或卡头走，只占 6px，不换行。
   '.dsh-pet-cfg__dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-business-primary);vertical-align:middle}',

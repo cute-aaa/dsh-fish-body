@@ -39,14 +39,14 @@ after(() => {
 function makeCase(): { paths: ConfigPaths; userRoot: string; target: () => BackupTarget; publishes: () => number } {
   const dir = join(root, 'case-' + String(++seq));
   const userRoot = join(dir, 'user');
-  // 新布局：主配置与会话鱼设置都在 `<用户根>/config/`，文件宠物在 `<用户根>/pets/`
+  // 新布局：主配置与会话鱼设置都在 `<用户根>/config/`，文件宠物在 `<用户根>/skin/`
   const layout = userPaths(userRoot);
   mkdirSync(layout.configDir, { recursive: true });
-  mkdirSync(layout.petsDir, { recursive: true });
+  mkdirSync(layout.skinsDir, { recursive: true });
   const paths: ConfigPaths = {
     defaultFile: join(dir, 'assets-config.jsonc'),
     userFile: layout.mainConfig,
-    petDir: layout.petsDir,
+    petDir: layout.skinsDir,
   };
   writeFileSync(paths.defaultFile, DEFAULT_CONFIG, 'utf8');
   let publishes = 0;

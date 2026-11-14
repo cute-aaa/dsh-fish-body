@@ -14,6 +14,7 @@ import type { RouteResult } from '../http.ts';
  */
 export type ResultReason =
   | 'bad-request'
+  | 'busy'
   | 'generate-error'
   | 'internal-error'
   | 'invalid-json'
@@ -25,6 +26,7 @@ export type ResultReason =
   | 'lock-required'
   | 'locked'
   | 'method-not-allowed'
+  | 'no-electron'
   | 'no-sleep-animations'
   | 'not-found'
   | 'payload-too-large'

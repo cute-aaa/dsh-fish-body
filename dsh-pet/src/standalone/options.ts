@@ -77,7 +77,7 @@ export function configPathsFor(root: string, home: string): ConfigPaths {
     defaultFile: join(root, 'assets', 'config.jsonc'),
     userFile: paths.mainConfig,
     legacyUserFile: paths.legacyMainConfig,
-    petDir: paths.petsDir,
+    petDir: paths.skinsDir,
   };
 }
 

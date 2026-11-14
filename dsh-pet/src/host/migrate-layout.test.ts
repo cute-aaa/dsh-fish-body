@@ -1,6 +1,6 @@
 /**
  * 内层布局迁移（src/host/migrate-layout.ts）的契约：
- * 旧平铺目录搬进 `config/ data/ cache/ runtime/ pets/ assets/`、目标已存在就跳过源、
+ * 旧平铺目录搬进 `config/ data/ cache/ runtime/ skin/ assets/`、目标已存在就跳过源、
  * 幂等（第二次什么都不搬）、回执 `.layout.json` 可被 readReceipt 读回；
  * 另外钉住「数据根之外的 Electron 运行时」那一条搬迁。
  * 用真实临时目录：这份代码的价值就在真实的重命名/复制行为。
@@ -31,7 +31,7 @@ describe('migrateLayout —— 两个根并存（旧根已经整理成新布局�
     try {
       seedDir(legacy, 'config', 'main-config.jsonc', '{"pets":[]}');
       seedDir(legacy, 'data', 'memory.json', '{}');
-      seedDir(legacy, 'assets/skin/layered', 'manifest.json', '{}');
+      seedDir(legacy, 'assets/pet/layered', 'manifest.json', '{}');
       // 新根已经有 logs.txt：整组搬迁不该因为它「源与目标同路径」而刷 occupied，
       // 也不该去新根里找 logs.txt 当源（legacyOnly）。
       writeFileSync(join(root, 'logs.txt'), 'new log', 'utf8');
@@ -72,7 +72,7 @@ describe('migrateLayout', () => {
       assert.deepEqual(result.failed, []);
 
       assert.equal(readFileSync(join(root, 'assets', 'animation', 'wave.webm'), 'utf8'), 'webm');
-      assert.equal(readFileSync(join(root, 'pets', 'cat-config.json'), 'utf8'), '{"pets":[]}');
+      assert.equal(readFileSync(join(root, 'skin', 'cat-config.json'), 'utf8'), '{"pets":[]}');
       assert.equal(readFileSync(join(root, 'cache', 'voice', 'a.mp3'), 'utf8'), 'mp3');
       assert.equal(readFileSync(join(root, 'config', 'main-config.jsonc'), 'utf8'), '{"pets":[]}');
 
@@ -115,7 +115,13 @@ describe('migrateLayout', () => {
 
       assert.deepEqual(second.moved, []);
       assert.deepEqual(second.failed, []);
-      assert.ok(second.skipped.every((item) => item.reason === 'missing'));
+      // 带守门的 `skin → assets/pet` 在第二次会命中「不像池」，其余全是「源不存在」。
+      assert.ok(
+        second.skipped.every(
+          (item) => item.reason === 'missing' || (item.move.guard === 'pool' && item.reason === 'not-pool'),
+        ),
+        '第二次不该再命中任何「目标已存在」：' + JSON.stringify(second.skipped.map((i) => [i.move.from, i.reason])),
+      );
       // 第二次没有搬过东西，就不该重新写一份回执（写盘是可观测副作用）
       const receipt = readReceipt(root);
       assert.ok(receipt);
@@ -129,7 +135,7 @@ describe('migrateLayout', () => {
     const root = tempRoot();
     try {
       seedDir(root, 'pet', 'keep.txt', 'old');
-      seedDir(root, 'pets', 'keep.txt', 'new');
+      seedDir(root, 'skin', 'keep.txt', 'new');
 
       const result = migrateLayout({ root });
 
@@ -137,7 +143,7 @@ describe('migrateLayout', () => {
       assert.ok(occupied, 'pet → pets 应当出现在 skipped 里');
       assert.equal(occupied.reason, 'occupied');
       assert.equal(readFileSync(join(root, 'pet', 'keep.txt'), 'utf8'), 'old');
-      assert.equal(readFileSync(join(root, 'pets', 'keep.txt'), 'utf8'), 'new');
+      assert.equal(readFileSync(join(root, 'skin', 'keep.txt'), 'utf8'), 'new');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -165,6 +171,82 @@ describe('migrateLayout', () => {
       layoutMoves().some((move) => move.to === 'data/logs.txt'),
       false,
     );
+  });
+});
+
+describe('migrateLayout —— 池与用户皮肤的守门（skin 同名，含义在这一次改名里反了过来）', () => {
+  test('旧布局的 <根>/skin 是池：搬进 assets/pet', () => {
+    const root = tempRoot('fish-body-poolguard-');
+    try {
+      // 池的特征：渲染方式层目录，顶层没有 *-config.json。
+      seedDir(root, 'skin/layered', 'manifest.json', '{}');
+      seedDir(root, 'skin/webm', 'wave.webm', 'webm');
+
+      const result = migrateLayout({ root });
+
+      assert.ok(
+        result.moved.some((move) => move.to === 'assets/pet'),
+        '池应当被搬进 assets/pet',
+      );
+      assert.equal(readFileSync(join(root, 'assets', 'pet', 'layered', 'manifest.json'), 'utf8'), '{}');
+      assert.equal(existsSync(join(root, 'skin')), false, '搬完源目录不该还在');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('已经是用户皮肤的 <根>/skin：一个文件都不动', () => {
+    const root = tempRoot('fish-body-skinguard-');
+    try {
+      seedDir(root, 'skin', 'cat-config.json', '{"pets":[]}');
+      seedDir(root, 'skin/cat-animation', 'wave.webm', 'webm');
+      // 同时存在一个真池，确认「不是池的那条」不会顺手把它也搬了。
+      seedDir(root, 'skin/layered', 'manifest.json', '{}');
+
+      const result = migrateLayout({ root });
+
+      const guarded = result.skipped.find((item) => item.move.guard === 'pool');
+      // skin 顶层有 cat-config.json → 不是池，守门判定为 not-pool（不搬）。
+      assert.ok(guarded, '带守门的那条必须出现在 skipped 里');
+      assert.equal(guarded.reason, 'not-pool');
+      assert.equal(readFileSync(join(root, 'skin', 'cat-config.json'), 'utf8'), '{"pets":[]}');
+      assert.equal(existsSync(join(root, 'assets', 'pet')), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('池先搬、皮肤后搬：两条同时存在时各自到位', () => {
+    const root = tempRoot('fish-body-poolorder-');
+    try {
+      // 旧布局：`skin/` 是池，`pets/` 是用户皮肤。
+      seedDir(root, 'skin/live2d', 'model3.json', '{}');
+      seedDir(root, 'pets', 'cat-config.json', '{"pets":[]}');
+
+      migrateLayout({ root });
+
+      assert.equal(readFileSync(join(root, 'assets', 'pet', 'live2d', 'model3.json'), 'utf8'), '{}');
+      assert.equal(readFileSync(join(root, 'skin', 'cat-config.json'), 'utf8'), '{"pets":[]}');
+      assert.equal(existsSync(join(root, 'pets')), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('上一版的池（assets/skin）搬进 assets/pet', () => {
+    const root = tempRoot('fish-body-poolinassets-');
+    try {
+      seedDir(root, 'assets/skin/layered', 'manifest.json', '{}');
+      seedDir(root, 'assets/skin/sound', 'click.wav', 'wav');
+
+      const result = migrateLayout({ root });
+
+      assert.ok(result.moved.some((move) => move.from === 'assets/skin'));
+      assert.equal(readFileSync(join(root, 'assets', 'pet', 'layered', 'manifest.json'), 'utf8'), '{}');
+      assert.equal(existsSync(join(root, 'assets', 'skin')), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

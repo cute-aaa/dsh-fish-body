@@ -5,28 +5,82 @@
  * 依赖（PetRouteDeps）显式传入，模块内不读全局、不建状态。
  * @module dsh-fish-body/src/host/routes/desktop
  */
-import { downloadElectronInBackground, electronRuntimeStatus } from '../helper-process.ts';
+import { downloadElectronInBackground, isElectronDir, runtimeSnapshot, setRuntimeDir } from '../helper-process.ts';
+import { patchLocations, readLocations } from '../locations.ts';
+import { pathsOf } from './paths.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import type { RouteResult } from '../http.ts';
 import { failResult, methodNotAllowed, okResult } from './result.ts';
+
+/**
+ * 读请求体里的 `action`：缺省（空体 / 无 action）按下载处理，保持老前端的调用方式。
+ *
+ * 路由层给的是原始文本，这里自己解析；解析失败按空对象处理 → 落到默认的 download 分支。
+ */
+function actionOf(body: unknown): { action: string; dir?: string } {
+  let raw: Record<string, unknown> = {};
+  if (typeof body === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(body);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) raw = parsed as Record<string, unknown>;
+    } catch {
+      raw = {};
+    }
+  } else if (body && typeof body === 'object') {
+    raw = body as Record<string, unknown>;
+  }
+  const action = typeof raw.action === 'string' && raw.action !== '' ? raw.action : 'download';
+  return { action, dir: typeof raw.dir === 'string' ? raw.dir.trim() : undefined };
+}
 
 /** 桌面端生命周期领域：未命中返回 undefined，命中返回应答。 */
 export async function handleDesktopRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
   const { log, optionalService, requestRestart } = deps;
   const { method, rest } = input;
 
-  // 运行时（Electron）：设置页「文件与目录」那行显示状态、按钮触发下载。
-  // 独立成 GET/POST 而不是塞进 /config/meta：下载要能在界面里被反复轮询，而 meta 是慢变的只读快照。
+  // 运行时（Electron）：设置页「文件与目录」与缺失弹窗共用。
+  // 独立成 GET/POST 而不是塞进 /config/meta：下载进度每几秒就变，而 meta 是慢变的只读快照。
   if (rest === 'desktop/runtime') {
-    if (method === 'GET') return okResult({ runtime: electronRuntimeStatus() });
+    if (method === 'GET') return okResult(runtimeSnapshot());
     if (method !== 'POST') return methodNotAllowed();
-    const already = electronRuntimeStatus();
-    if (already.installed) return okResult({ started: false, installed: true, runtime: already });
-    // 不 await：347 MB 要下几分钟，界面靠轮询 GET 看进度。
-    const { started } = downloadElectronInBackground({
-      onLog: (event: { text: string }) => log.info('[fish-body] ' + event.text),
-    });
-    return okResult({ started, installed: false, runtime: electronRuntimeStatus() });
+    const { action, dir } = actionOf(input.body);
+    const already = runtimeSnapshot();
+    if (action === 'download') {
+      if (already.runtime.installed) return okResult({ started: false, installed: true, ...already });
+      // 不 await：几百 MB 要下几分钟，界面靠轮询 GET 看进度。
+      const { started } = downloadElectronInBackground({
+        onLog: (event: { text: string }) => log.info('[fish-body] ' + event.text),
+        logger: log,
+      });
+      return okResult({ started, installed: false, ...runtimeSnapshot() });
+    }
+    if (action === 'dir') {
+      if (dir === undefined || dir === '') return failResult('bad-request', '缺少目录路径');
+      if (!isElectronDir(dir)) {
+        return failResult('no-electron', '这个目录里没有可用的 Electron 可执行文件：' + dir);
+      }
+      try {
+        // 写进 locations.json：重启后仍生效（进程内的目录只影响本次）。
+        patchLocations(pathsOf(deps).root, { runtime: dir });
+        setRuntimeDir(dir);
+        // 换目录等于换了一份可执行文件：桌面窗口要按新路径重建。
+        setImmediate(() => void requestRestart());
+        return okResult({ ...runtimeSnapshot(), saved: true });
+      } catch (e) {
+        return failResult('generate-error', e instanceof Error ? e.message : String(e));
+      }
+    }
+    if (action === 'reset') {
+      try {
+        patchLocations(pathsOf(deps).root, { runtime: null });
+        setRuntimeDir(readLocations(pathsOf(deps).root).runtime);
+        setImmediate(() => void requestRestart());
+        return okResult({ ...runtimeSnapshot(), saved: true });
+      } catch (e) {
+        return failResult('generate-error', e instanceof Error ? e.message : String(e));
+      }
+    }
+    return failResult('bad-request', 'action 只能是 download / dir / reset');
   }
 
   // 桌面端「重载配置」（右键菜单 → POST /reload）：重启桌面 Helper，全部窗口按最新配置重建。

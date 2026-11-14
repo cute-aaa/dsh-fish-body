@@ -45,13 +45,15 @@ test('Electron 安装目录无法创建时返回 undefined，不产生未处理�
     rmSync(dir, { recursive: true, force: true });
   });
   process.env.DSH_HOME = dir;
-  // 跨平台复现：同名普通文件阻止创建目录，不依赖 chmod 或管理员权限。
-  writeFileSync(join(dir, 'electron'), 'occupied');
+  // 跨平台复现：同名普通文件阻止创建目录（`<数据根>/runtime` 是文件 → 建不出 `runtime/electron`），
+  // 不依赖 chmod 或管理员权限。
+  mkdirSync(join(dir, 'fish-body'), { recursive: true });
+  writeFileSync(join(dir, 'fish-body', 'runtime'), 'occupied');
   const warnings: string[] = [];
   t.mock.method(console, 'warn', (message: string) => warnings.push(message));
   t.mock.method(console, 'log', () => {});
   assert.equal(await ensureElectronDownload(), undefined);
-  assert.ok(warnings.some((message) => message.includes('ensure failed:')));
+  assert.ok(warnings.some((message) => message.includes('cannot create')));
   assert.ok(warnings.some((message) => message.includes('DSH_PET_ELECTRON_PATH')));
 });
 
@@ -234,7 +236,7 @@ test('Electron cache validation: an empty file enters the download path and repo
   // 非法版本 + 仅回环的镜像：这个用例绝不能真的下载运行时。
   const result = await ensureElectronDownload({
     version: 'invalid-version',
-    mirror: 'http://127.0.0.1:1/',
+    mirrors: ['http://127.0.0.1:1/'],
     timeoutMs: 200,
     onLog: (e) => logs.push(e.text),
   });

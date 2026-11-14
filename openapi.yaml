@@ -97,7 +97,9 @@ tags:
   - name: Voice
     description: 语音合成——参数校验、排队与缓存都在宿主，成功时直接返回音频文件（格式由合成实现决定）
   - name: Desktop
-    description: 桌面端——重载、退出与 Electron 运行时（状态与下载触发）
+    description: 桌面端——重载、退出与 Electron 运行时（状态、下载、指定本地目录）
+  - name: Layout
+    description: 位置变更——数据根与皮肤目录换位置、原生目录选择框
 
 paths:
   /dsh-pet-7340/state:
@@ -1409,9 +1411,9 @@ paths:
             目录类别。素材类（需要 `?pet=`）：旧布局五项：`sound`（`pet/<素材根>-sound/`）、
             `skin`（皮肤目录，live2d 取模型所在层）、`animation`（动画同目录）、`user`（用户共享
             `main-sound/`，仅 main 链）、`package`（包内 `assets/sound/`）；共享资源池五项（A 方案，
-            池根见 `assets.pool`，默认 `<用户根>/skin`）：`pool-layered`（`skin/layered/<皮肤>`）、
-            `pool-live2d`（`skin/live2d/<模型目录>`）、`pool-webm`（`skin/webm/`）、
-            `pool-sound`（`skin/<渲染方式>/sound/`）、`pool-global-sound`（`skin/sound/`）。
+            池根见 `assets.pool`，默认 `<用户根>/assets/pet`）：`pool-layered`（`pet/layered/<皮肤>`）、
+            `pool-live2d`（`pet/live2d/<模型目录>`）、`pool-webm`（`pet/webm/`）、
+            `pool-sound`（`pet/<渲染方式>/sound/`）、`pool-global-sound`（`pet/sound/`）。
             池的素材类别只在宠物自己的渲染方式下有效，否则回 `not-found`。
 
             全局类（**不需要** `?pet=`，设置页「落盘位置」卡的按钮用）：`pool-root`（池根）、
@@ -1574,7 +1576,7 @@ paths:
                         relative:
                           type: string
                           description: 相对用户根的 posix 路径，设置页直接展示。
-                          example: skin/layered/character1/character1-click.wav
+                          example: assets/pet/layered/character1/character1-click.wav
                         absolute:
                           type: string
                           description: 建议位置的绝对路径。
@@ -2680,12 +2682,23 @@ paths:
                 properties:
                   root:
                     type: string
-                    description: 数据根绝对路径（`$DSH_HOME/fish-body`）
+                    description: |
+                      数据根绝对路径（默认 `$DSH_HOME/fish-body`）。
+                      用户可以用 `$DSH_HOME/fish-body-root.json` 或 `DSH_PET_USER_ROOT` 把它指到别处。
+                  rootSource:
+                    type: string
+                    enum: [default, pointer, env]
+                    description: 数据根是怎么选出来的（默认位置 / 指针文件 / 环境变量）。
+                  skin:
+                    type: string
+                    description: |
+                      用户皮肤目录绝对路径（默认 `<数据根>/skin`，可被 `config/locations.json` 指到别处）。
+                      每种皮肤是 `<名>-config.json` + `<名>-animation/` 等一套。
                   layout:
                     type: array
                     description: |
                       数据根下的目录树（顺序即展示顺序，`depth` 表示层级）。
-                      `cache/*` 带 `badge: disposable`（可随手删），`runtime/electron` 带 `badge: download`（删了要重新下载）。
+                      节点不再带「能不能删」的徽标：说明由客户端按 `key` 取一句「这个目录存什么」。
                     items:
                       $ref: "#/components/schemas/MetaNode"
                   readonly:
@@ -2713,13 +2726,14 @@ paths:
                   pool:
                     type: string
                     description: |
-                      共享资源池根绝对路径（`assets.pool`，默认 `<数据根>/assets/skin`）。
+                      内置皮肤池根绝对路径（`assets.pool`，默认 `<数据根>/assets/pet`）。
                       池里按 `layered/`、`live2d/`、`webm/`、`sound/` 四类放素材，所有宠物共用。
+                      旧默认值（`skin` / `assets/skin`）按默认处理，避免升级后指向一个空目录。
                   todos:
                     type: string
                     description: |
                       待办数据文件绝对路径（`<数据根>/data/todos.json`）。
-                      一份用户级数据、不分宠物：清单正文、到期时间与完成状态都在这里，删掉等于清空待办。
+                      一份用户级数据、不分宠物：清单正文、到期时间与完成状态都在这里。
                   logs:
                     type: string
                     description: |
@@ -2736,47 +2750,185 @@ paths:
     get:
       tags: [Desktop]
       operationId: getDesktopRuntime
-      summary: 读 Electron 运行时状态
+      summary: 读 Electron 运行时状态、下载进度与缺失提示
       description: |
-        设置页「文件与目录 → 运行时」那行的数据源：装没装、装在哪、什么版本。
-        运行时落在 `<数据根>/runtime/electron`，**不在 cache 里**——删 cache 不该逼用户重下 350 MB。
+        设置页「文件与目录 → 运行时」与缺失弹窗共用的数据源：装没装、装在哪、下载到哪了、
+        要不要弹「需要运行时」。运行时默认落在 `<数据根>/runtime/electron`（可用 `action=dir` 指到别处），
+        **不在 cache 里**——删 cache 不该逼用户重下 350 MB。
+
+        读这个端点本身也是「检测」：上一次读还是装好的、这一次不是了，且桌面模式正等着它，
+        宿主会把 `prompt.reason` 置成 `deleted`（用户手动删掉了运行时目录）。
       responses:
         "200":
-          description: 运行时状态
+          description: 快照
           content:
             application/json:
               schema:
-                type: object
-                required: [ok, runtime]
-                properties:
-                  ok:
-                    type: boolean
-                  runtime:
-                    $ref: "#/components/schemas/RuntimeStatus"
+                $ref: "#/components/schemas/RuntimeSnapshot"
     post:
       tags: [Desktop]
-      operationId: downloadDesktopRuntime
-      summary: 触发 Electron 运行时下载
+      operationId: manageDesktopRuntime
+      summary: 下载运行时 / 指定本地目录 / 回到默认位置
       description: |
-        幂等：已经装好时回 `started:false, installed:true`；已有一个下载在跑时回 `started:false`。
-        不阻塞响应（一次下载几分钟），界面用 GET 轮询状态。
+        请求体 `{ action }`，缺省等于 `download`：
+
+        - `download`：幂等，已经装好回 `installed:true`，已有一个下载在跑回 `started:false`。
+          不阻塞响应（一次几百 MB），界面用 GET 轮询进度。镜像按国内优先的链逐个尝试。
+        - `dir`：把运行时指向用户已经下好的目录。目录里必须有本平台的 Electron 可执行文件，
+          否则回 `{ ok:false, reason:"no-electron" }`。写入 `config/locations.json` 并重启桌面窗口。
+        - `reset`：删掉自定义目录，回到 `<数据根>/runtime/electron`。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [download, dir, reset]
+                  default: download
+                dir:
+                  type: string
+                  description: 仅 `action=dir` 时使用：已下载 Electron 的目录绝对路径。
       responses:
         "200":
-          description: 下载已起步（或本来就不需要）
+          description: |
+            成功时是 {@link RuntimeSnapshot} 再加 `started` / `installed` / `saved`；
+            失败时是标准失败实体（`reason` 为 `no-electron` / `bad-request` / `generate-error`）。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeSnapshot"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/layout/location:
+    get:
+      tags: [Layout]
+      operationId: getLayoutLocation
+      summary: 读位置搬迁进度与当前生效位置
+      description: |
+        位置变更（数据根 / 用户皮肤目录）是后台任务：POST 只把它跑起来，界面用这个端点轮询进度。
+        `busy:false` 之后看 `error`（失败，旧位置仍在）或 `needsRestart`（成功，重启插件生效）。
+      responses:
+        "200":
+          description: 搬迁状态 + 当前生效位置
           content:
             application/json:
               schema:
                 type: object
-                required: [ok, started, installed]
+                required: [busy, phase, needsRestart]
+                properties:
+                  busy:
+                    type: boolean
+                  which:
+                    type: string
+                    enum: [root, skin]
+                  phase:
+                    type: string
+                    enum: [copying, cleaning]
+                  copiedBytes:
+                    type: integer
+                  totalBytes:
+                    type: integer
+                  copiedFiles:
+                    type: integer
+                  totalFiles:
+                    type: integer
+                  current:
+                    type: string
+                    description: 正在复制的相对路径
+                  error:
+                    type: string
+                    description: 上一次没搬成的原因（旧位置仍在）
+                  needsRestart:
+                    type: boolean
+                  movedTo:
+                    type: string
+                  root:
+                    type: string
+                  skin:
+                    type: string
+    post:
+      tags: [Layout]
+      operationId: moveLayoutLocation
+      summary: 开始把数据根 / 皮肤目录搬到新位置
+      description: |
+        复制 → 核对（文件数与字节数）→ 通过才删旧位置；核对不上时两份都保留。
+        成功写落点：数据根写 `$DSH_HOME/fish-body-root.json`，皮肤目录写 `<数据根>/config/locations.json`。
+        **不在进程内热切**：日志文件与 store 都绑在旧根上，界面需要重启插件（`POST /plugin-restart`）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [which, path]
+              properties:
+                which:
+                  type: string
+                  enum: [root, skin]
+                path:
+                  type: string
+                  description: 目标目录绝对路径（必须为空或不存在）。
+      responses:
+        "200":
+          description: |
+            `{ started:true, ...状态 }`；被拒时是失败实体（`reason` 为 `busy` / `bad-request`）。
+          content:
+            application/json:
+              schema:
+                type: object
                 properties:
                   ok:
                     type: boolean
                   started:
                     type: boolean
-                  installed:
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/pick-folder:
+    post:
+      tags: [Layout]
+      operationId: pickFolder
+      summary: 弹出系统「选择目录」对话框
+      description: |
+        浏览器拿不到绝对路径，所以由宿主在**自己所在的机器**上弹系统对话框。
+        没有图形环境（服务器 / 容器）或平台不支持时回 `reason: unsupported`，界面展开手输框。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: 对话框标题
+                start:
+                  type: string
+                  description: 初始目录（平台支持时生效）
+      responses:
+        "200":
+          description: |
+            选中时 `{ ok:true, path }`；取消时 `{ ok:false, reason:"cancelled" }`；
+            弹不出来时 `{ ok:false, reason:"unsupported", message }`。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
                     type: boolean
-                  runtime:
-                    $ref: "#/components/schemas/RuntimeStatus"
+                  path:
+                    type: string
+                  reason:
+                    type: string
+                    enum: [cancelled, unsupported]
+                  message:
+                    type: string
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
@@ -5992,11 +6144,8 @@ components:
           type: string
           description: |
             可打开的目录类别（`POST /open-folder?which=<值>`）：root / config / data / cache /
-            runtime / pets / assets / pool-root / fish-skin 等。文件与包内只读没有这个字段。
-        badge:
-          type: string
-          enum: [disposable, download]
-          description: 小徽标——`disposable` = 可随手删，`download` = 删了要重新下载
+            runtime / skin-root / assets / pool-root / fish-skin 等（`pets` 是 `skin-root` 的旧名，
+            仍可用）。文件与包内只读没有这个字段。
 
     RuntimeStatus:
       type: object
@@ -6005,7 +6154,7 @@ components:
       properties:
         dir:
           type: string
-          description: 运行时目录（`<数据根>/runtime/electron`；迁移未完成时可能是旧位置）
+          description: 运行时目录（默认 `<数据根>/runtime/electron`；可用 `action=dir` 指到别处）
         exe:
           type: string
           description: 可执行文件期望路径
@@ -6015,6 +6164,68 @@ components:
         version:
           type: string
           description: 版本号（读 `<exe 同级>/version`；读不到时省略）
+        source:
+          type: string
+          enum: [default, custom]
+          description: 目录来源——默认位置还是用户指定的目录
+
+    RuntimeSnapshot:
+      type: object
+      description: |
+        运行时快照：状态 + 下载进度 + 「要不要弹窗」。缺失弹窗与设置页那行「运行时」共用它。
+      required: [runtime]
+      properties:
+        runtime:
+          $ref: "#/components/schemas/RuntimeStatus"
+        download:
+          type: object
+          description: 当前/最近一次下载的进度
+          properties:
+            active:
+              type: boolean
+            doneBytes:
+              type: integer
+            totalBytes:
+              type: integer
+            mirror:
+              type: string
+              description: 正在用的镜像基址
+            error:
+              type: string
+              description: 上一次失败的原因（所有镜像都没成功时才有）
+        prompt:
+          type: object
+          description: 「需要运行时」的提示；`needed:false` 时客户端不弹
+          properties:
+            needed:
+              type: boolean
+            reason:
+              type: string
+              enum: [missing, deleted, failed]
+              description: 首次缺失 / 装过又没了（用户手删）/ 下载失败
+            since:
+              type: integer
+              description: 置位时间（ms）；客户端据此判断「这条提示是不是新的」
+        wanted:
+          type: boolean
+          description: 桌面模式是否正等着运行时（纯网页用户为 false，既不下载也不弹窗）
+        started:
+          type: boolean
+          description: 本次 POST 是否真的起了一个下载（`action=download` 才有）
+        installed:
+          type: boolean
+          description: 此刻是否已装（`action=download` 才有）
+        saved:
+          type: boolean
+          description: 位置是否已写入（`action=dir` / `action=reset` 才有）
+        ok:
+          type: boolean
+          description: 失败时是 `false`（配合 `reason` / `message`）
+        reason:
+          type: string
+          description: 失败原因（`no-electron` / `bad-request` / `generate-error`）
+        message:
+          type: string
 
     ModelSelection:
       type: object

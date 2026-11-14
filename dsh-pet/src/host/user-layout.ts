@@ -1,11 +1,12 @@
 /**
  * 用户数据根的目录布局：全插件唯一的路径表，以及初始化 / 展示用的分组清单。
  *
- * 布局刻意分成四类，删一类不影响另一类：
- * - `config/` + `data/` = 用户的东西（设置、记忆、待办），删了等于重置；
- * - `runtime/` = 需要下载的运行时（Electron），删了要重新下载；
- * - `cache/` = 唯一允许随手删的目录（语音缓存、安装包缓存、桌面窗口 profile），删了会自动重建；
- * - `pets/` + `assets/` = 素材，删了宠物还在、只是没东西可放。
+ * 布局分成四类，各自的存在理由不同：
+ * - `config/` + `data/` = 用户的东西（设置、记忆、待办）；
+ * - `runtime/` = 运行时（Electron），跟缓存分开存放；
+ * - `cache/` = 缓存（语音合成结果、安装包、桌面窗口 profile），内容随时可以重新生成；
+ * - `skin/` + `assets/` = 素材：`skin/` 是用户自己的皮肤（每种一套 `<名>-*` 文件与目录），
+ *   `assets/` 是随包 / 共享的素材，其中 `assets/pet/` 是内置皮肤池。
  *
  * 只做路径推导与静态清单，不读盘、不建目录、不判断存在性（存在性归 routes/config/meta-layout 与 layout.ts）。
  * 必须始终成立：任何模块都不得再自己 `join(userRoot, 'main-animation')`——路径字面量只写在这一份表里，
@@ -23,12 +24,12 @@ export type LayoutKey =
   | 'data'
   | 'cache'
   | 'runtime'
-  | 'pets'
+  | 'skin'
   | 'assets'
   | 'assets.animation'
   | 'assets.sound'
   | 'assets.memes'
-  | 'assets.skin'
+  | 'assets.pet'
   | 'assets.sessionFish'
   | 'logs';
 
@@ -38,9 +39,9 @@ export type LayoutKey =
  * 全部是绝对路径；构造时只拼字符串，不碰磁盘。
  */
 export interface UserPaths {
-  /** 数据根（`<DSH_HOME>/fish-body`）。 */
+  /** 数据根（默认 `<DSH_HOME>/fish-body`，可用指针文件或环境变量指向别处）。 */
   readonly root: string;
-  /** 设置目录：主配置 / 会话鱼设置 / 语音接入。 */
+  /** 设置目录：主配置 / 会话鱼设置 / 语音接入 / 位置指针。 */
   readonly configDir: string;
   /** 用户主配置（JSONC，可手改；「同步」写它的原文）。 */
   readonly mainConfig: string;
@@ -50,13 +51,15 @@ export interface UserPaths {
   readonly sessionFish: string;
   /** 本地语音接入配置。 */
   readonly voiceProviders: string;
+  /** 位置指针（皮肤目录 / 运行时目录可改到数据根之外，记在这里）。 */
+  readonly locations: string;
   /** 数据目录：对话记忆与待办。 */
   readonly dataDir: string;
   /** 对话记忆。 */
   readonly memory: string;
   /** 待办清单。 */
   readonly todos: string;
-  /** 缓存根（唯一允许随手删的目录）。 */
+  /** 缓存根（语音合成结果 / 安装包 / 桌面窗口 profile 都在这下面）。 */
   readonly cacheDir: string;
   /** 语音合成缓存。 */
   readonly voiceCacheDir: string;
@@ -64,12 +67,12 @@ export interface UserPaths {
   readonly downloadCacheDir: string;
   /** 桌面窗口的 Chromium profile（Electron 的 userData）。 */
   readonly desktopCacheDir: string;
-  /** 运行时根（需要下载的东西放这里，不属于缓存）。 */
+  /** 运行时根。 */
   readonly runtimeDir: string;
-  /** Electron 运行时落地目录。 */
+  /** Electron 运行时默认落地目录（`locations.runtime` 可把它指到别处）。 */
   readonly electronDir: string;
-  /** 文件宠物目录（`<名>-config.json` + `<名>-animation/` 这一套）。 */
-  readonly petsDir: string;
+  /** 用户皮肤目录（`<名>-config.json` + `<名>-animation/` 这一套）；`locations.skin` 可改位置。 */
+  readonly skinsDir: string;
   /** 素材根。 */
   readonly assetsDir: string;
   /** 用户动画目录（main 的动画；下面按扩展名再分子目录）。 */
@@ -78,7 +81,7 @@ export interface UserPaths {
   readonly soundDir: string;
   /** 用户级表情包目录。 */
   readonly memesDir: string;
-  /** 共享资源池的默认根（`assets.pool` 未配时的默认值）。 */
+  /** 内置皮肤池的默认根（`assets.pool` 未配时的默认值）。 */
   readonly poolDir: string;
   /** 会话鱼皮肤目录。 */
   readonly fishSkinDir: string;
@@ -90,13 +93,15 @@ export interface UserPaths {
 export interface UserLayoutOptions {
   /** `assets.pool` 的解析结果（绝对路径）；缺省用 {@link UserPaths.poolDir}。 */
   readonly pool?: string;
+  /** 用户皮肤目录的解析结果（`locations.skin`，绝对路径）；缺省 `<根>/skin`。 */
+  readonly skin?: string;
 }
 
 /**
  * 拼出数据根的完整路径表。
  *
- * @param root - 数据根（`<DSH_HOME>/fish-body`）。
- * @param options - 池根覆盖等可选参数。
+ * @param root - 数据根（默认 `<DSH_HOME>/fish-body`）。
+ * @param options - 池根 / 皮肤目录覆盖等可选参数。
  * @returns 路径表；所有字段都是绝对路径。
  */
 export function userPaths(root: string, options: UserLayoutOptions = {}): UserPaths {
@@ -112,6 +117,7 @@ export function userPaths(root: string, options: UserLayoutOptions = {}): UserPa
     legacyMainConfig: join(configDir, 'main-config.json'),
     sessionFish: join(configDir, 'session-fish.json'),
     voiceProviders: join(configDir, 'voice-providers.json'),
+    locations: join(configDir, 'locations.json'),
     dataDir,
     memory: join(dataDir, 'memory.json'),
     todos: join(dataDir, 'todos.json'),
@@ -121,12 +127,12 @@ export function userPaths(root: string, options: UserLayoutOptions = {}): UserPa
     desktopCacheDir: join(cacheDir, 'desktop'),
     runtimeDir,
     electronDir: join(runtimeDir, 'electron'),
-    petsDir: join(root, 'pets'),
+    skinsDir: options.skin ?? join(root, 'skin'),
     assetsDir,
     animationDir: join(assetsDir, 'animation'),
     soundDir: join(assetsDir, 'sound'),
     memesDir: join(assetsDir, 'memes'),
-    poolDir: options.pool ?? join(assetsDir, 'skin'),
+    poolDir: options.pool ?? join(assetsDir, 'pet'),
     fishSkinDir: join(assetsDir, 'session-fish'),
     logsFile: join(root, 'logs.txt'),
   };
@@ -167,7 +173,7 @@ export function layoutDirs(input: LayoutDirInput): string[] {
     paths.desktopCacheDir,
     paths.runtimeDir,
     paths.electronDir,
-    paths.petsDir,
+    paths.skinsDir,
     paths.assetsDir,
     paths.animationDir,
     ...animSubdirs.map((sub) => join(paths.animationDir, sub)),
@@ -182,39 +188,39 @@ export function layoutDirs(input: LayoutDirInput): string[] {
   return [...new Set(out)];
 }
 
-/** 文件夹备注（写进 Windows `desktop.ini` 的 `InfoTip`）：一段话说明这个目录是干什么的、能不能删。 */
+/**
+ * 文件夹备注（写进 Windows `desktop.ini` 的 `InfoTip`）：一段话说明这个目录是干什么的。
+ *
+ * 措辞刻意只描述**存了什么**，不写「可以删 / 删了没影响」：那类判断换个场景就不成立
+ * （语音缓存在断网时可复用，安装包缓存在镜像抽风时能救急），用户自己看着办比断言更诚实。
+ */
 export type LayoutNotes = Readonly<Record<LayoutKey, string>>;
 
-/**
- * 目录 → 一句话说明。
- *
- * 宿主侧只维护中文：它是**磁盘上的备注**，跟着目录走，不跟界面语言走——为了这句备注在 8 种界面语言里
- * 各写一份、再在 Explorer 里按语言切换，维护成本远大于收益。界面里的树用客户端字典（同一套键名）。
- */
+/** 目录 → 一句话说明（宿主侧只有中文：它是磁盘上的备注，跟着目录走，不跟界面语言走）。 */
 export const LAYOUT_NOTES: LayoutNotes = {
-  config: '设置：主配置 / 会话鱼 / 语音接入。删掉会丢设置。',
-  data: '对话记忆与待办。删掉会丢聊天记录和待办。',
-  cache: '可随意删除：语音缓存、安装包缓存、桌面窗口缓存。删了会自动重建或重下，不影响设置。',
-  runtime: '运行时（Electron 桌面窗口用）。不属于缓存：删掉 cache 不会影响它，删它要重新下载。',
-  pets: '文件宠物：每种一套 <名>-config.json + <名>-animation/ + <名>-sound/ + <名>-memes/。',
-  assets: '素材：动画、音效、表情、皮肤池、会话鱼皮肤。所有宠物共用。',
+  config: '设置：主配置 / 会话鱼 / 语音接入。',
+  data: '对话记忆与待办。',
+  cache: '缓存：语音合成结果、Electron 安装包、桌面窗口 profile。',
+  runtime: '运行时：Electron 桌面窗口用。',
+  skin: '用户皮肤：每种一套 <名>-config.json + <名>-animation/ + <名>-sound/ + <名>-memes/。',
+  assets: '素材：动画、音效、表情、内置皮肤池、会话鱼皮肤。所有宠物共用。',
   'assets.animation': 'main 宠物的动画（webm / mov）；文件名就是动作名。',
   'assets.sound': '用户级音效：click.wav 这类无前缀文件对所有宠物生效。',
   'assets.memes': '用户级表情包图片；加图不必改包。',
-  'assets.skin': '共享皮肤池（layered / live2d / webm / sound）；所有宠物共用一份。',
+  'assets.pet': '内置皮肤池（layered / live2d / webm / sound）；所有宠物共用一份。',
   'assets.sessionFish': '会话鱼皮肤：图片 / 动图 / 视频放进来，设置页点「重新扫描」即可选中。',
   logs: '运行日志（1 MB 上限，写满只留最新 512 KB）；反馈问题时附上它。',
 };
 
 /** 数据根自己的备注：一眼看出这个目录归谁、里面有什么。 */
 export const ROOT_NOTE =
-  'dsh-fish-body 数据根：config（设置）/ data（记忆待办）/ runtime（Electron）/ cache（可随手删）/ pets / assets 全在这里。';
+  'dsh-fish-body 数据根：config（设置）/ data（记忆待办）/ cache（缓存）/ runtime（Electron）/ skin（用户皮肤）/ assets（素材与内置皮肤池）。';
 
 /**
  * 目录 → 备注文案（初始化目录时逐个写进 `desktop.ini`）。
  *
- * 池根可能被 `assets.pool` 指到数据根之外：仍然写备注——它是插件逻辑上拥有的目录，
- * 用户从设置页点「打开」看到的就是它。
+ * 皮肤目录与池根都可能被指到数据根之外：仍然写备注——它们是插件逻辑上拥有的目录，
+ * 用户从设置页点「打开」看到的就是它们。
  *
  * @param paths - 路径表。
  * @returns 目录绝对路径到说明的映射（顺序无关）。
@@ -225,17 +231,17 @@ export function layoutNotes(paths: UserPaths): ReadonlyMap<string, string> {
     [paths.configDir, LAYOUT_NOTES.config],
     [paths.dataDir, LAYOUT_NOTES.data],
     [paths.cacheDir, LAYOUT_NOTES.cache],
-    [paths.voiceCacheDir, '语音合成缓存：删了下次说话重新合成，不影响设置。'],
-    [paths.downloadCacheDir, 'Electron 安装包下载缓存：删了下次需要下载运行时再下一遍。'],
-    [paths.desktopCacheDir, '桌面窗口的 Chromium profile：删了窗口状态（位置/缩放）与会话鱼位置重置。'],
+    [paths.voiceCacheDir, '语音合成缓存：文本对应的音频文件。'],
+    [paths.downloadCacheDir, 'Electron 安装包下载缓存：已下好的 zip 与校验文件。'],
+    [paths.desktopCacheDir, '桌面窗口的 Chromium profile：窗口位置/缩放与会话鱼位置。'],
     [paths.runtimeDir, LAYOUT_NOTES.runtime],
-    [paths.electronDir, 'Electron 运行时（约 350 MB）：删了桌面模式要重新下载；删除 cache/ 不影响这里。'],
-    [paths.petsDir, LAYOUT_NOTES.pets],
+    [paths.electronDir, 'Electron 运行时（约 350 MB）：桌面窗口的可执行文件。'],
+    [paths.skinsDir, LAYOUT_NOTES.skin],
     [paths.assetsDir, LAYOUT_NOTES.assets],
     [paths.animationDir, LAYOUT_NOTES['assets.animation']],
     [paths.soundDir, LAYOUT_NOTES['assets.sound']],
     [paths.memesDir, LAYOUT_NOTES['assets.memes']],
-    [paths.poolDir, LAYOUT_NOTES['assets.skin']],
+    [paths.poolDir, LAYOUT_NOTES['assets.pet']],
     [paths.fishSkinDir, LAYOUT_NOTES['assets.sessionFish']],
   ]);
 }

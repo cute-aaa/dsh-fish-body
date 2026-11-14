@@ -64,18 +64,23 @@ function getConfig(deps: PetRouteDeps): RouteResult {
  * 文件与目录卡的数据源：一个数据根、一棵树、一组包内只读参考、运行时状态。
  *
  * 树在服务端生成：路径字面量只存在于 `host/user-layout`，客户端只负责画 `├─`。
- * 池根每次现取（用户随时会改 `assets.pool`），所以覆盖 `paths.poolDir` 再摊平。
+ * 池根与皮肤目录每次现取（用户随时会改 `assets.pool` 或换位置），所以覆盖路径表再摊平。
  */
 function getMeta(deps: PetRouteDeps): RouteResult {
   const paths = pathsOf(deps);
   const pool = typeof deps.poolRoot === 'function' ? deps.poolRoot() : paths.poolDir;
   const withPool = paths.poolDir === pool ? paths : { ...paths, poolDir: pool };
+  const rootSource = (deps as { rootSource?: 'default' | 'pointer' | 'env' }).rootSource ?? 'default';
   return okResult({
     // 数据根与它的树：设置页那张卡的全部内容。
     root: paths.root,
+    // 数据根是默认位置还是用户自己指的（卡片上要如实说明，不然「改了没生效」没法解释）。
+    rootSource,
+    // 用户皮肤目录：可以指到数据根之外，所以单独给一份（树上也会出现在根外）。
+    skin: paths.skinsDir,
     layout: layoutNodes({ paths: withPool }),
     readonly: readonlyNodes(),
-    // 运行时（Electron）：有没有装、什么版本——那一行要显示状态与「下载」按钮。
+    // 运行时（Electron）：有没有装、什么版本、是不是自定义目录。
     runtime: electronRuntimeStatus(),
     // 兼容字段（老前端与只读脚本还在读）：路径本身不重复出现在新卡片里。
     user: paths.mainConfig,

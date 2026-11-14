@@ -13,6 +13,7 @@ import { takeMenuEvents } from './menu-service.ts';
 import { getStateSnapshot } from './state-service.ts';
 import { dicts, makePetConfigSection, NS, petBridge } from './settings.ts';
 import { initNotify } from './notify.ts';
+import { makeRuntimePrompt } from './runtime-prompt.ts';
 import { mountBaifan } from './baifan.ts';
 import { makeBaifanLayer } from './baifan/layer.ts';
 import { installCommandFaces, type CommandFace, type CommandUiLike } from './command-faces.ts';
@@ -216,6 +217,15 @@ export function makeFactory(): (require: (mod: string) => any) => any {
       // 会话鱼浮层：排在桌宠之后、吃白饭之前；层本身 click-through，只有鱼与气泡接收指针。
       ctx.slots.inject('shell.overlay', function* () {
         yield ctx.slots.register({ name: 'shell.overlay', id: 'session-fish', order: 1050 }, SessionFishLayer);
+      });
+
+      // 运行时缺失弹窗：宿主说「桌面窗口缺 Electron」时出现，带下载进度与「用已下载的目录」退路。
+      // 独立于宠物显示——桌面窗口起不来时，宠物本身可能一个都不在页面上。
+      const RuntimePrompt = makeRuntimePrompt({ h, useState, useEffect, useRef, useCallback, t });
+      ctx.slots.inject('shell.overlay', function* () {
+        yield ctx.slots.register({ name: 'shell.overlay', id: 'runtime-prompt', order: 1200 }, () =>
+          h(RuntimePrompt, {}),
+        );
       });
 
       // 当前会话上报：零渲染组件，只在会话切换时把 sessionId 告诉宿主（宿主据此 ack 已完成的鱼）。

@@ -24,8 +24,11 @@ export const PET_FOLDER_TARGETS: readonly SfxFolderTarget[] = [
 /**
  * 全局目录类别：与宠物无关，宿主直接回一个固定目录。
  *
- * 前七个是数据根下的分组（`root` / `config` / `data` / `cache` / `runtime` / `pets` / `assets`）；
- * 后五个是历史取值（`user-root` / `animations` / `memes` / `fish-skin` / `pool-root`），
+ * 七个当前取值对应数据根下的分组（`root` / `config` / `data` / `cache` / `runtime` / `assets`）
+ * 与用户皮肤目录（`skin-root`，位置可改到数据根之外）；`skin` 这个字面量留给素材级目录
+ * （`<皮肤>/<名>-skin/`），两者不能同名，否则素材按钮会被全局分支抢走。
+ *
+ * 后六个是历史取值（`pets` / `user-root` / `animations` / `memes` / `fish-skin` / `pool-root`），
  * 保留是因为老前端的请求还会带它们——删掉只会让旧页面上的按钮变成 bad-request。
  */
 export const GLOBAL_FOLDER_TARGETS = [
@@ -34,8 +37,9 @@ export const GLOBAL_FOLDER_TARGETS = [
   'data',
   'cache',
   'runtime',
-  'pets',
+  'skin-root',
   'assets',
+  'pets',
   'user-root',
   'animations',
   'memes',

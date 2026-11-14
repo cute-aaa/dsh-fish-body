@@ -157,11 +157,11 @@ dsh plugin --profile <profile> remove dsh-fish-body
 ├─ data/                       数据：memory.json（对话记忆）/ todos.json（待办）
 ├─ runtime/                    Electron 运行时（约 350 MB）
 ├─ cache/                      唯一允许随手删的目录（voice / download / desktop）
-├─ pets/                       文件宠物：<名>-config.json + <名>-animation/ …
+├─ skin/                       文件宠物：<名>-config.json + <名>-animation/ …
 └─ assets/                     素材：animation / sound / memes / skin（共享皮肤池）/ session-fish
 ```
 
-`cache/` 可随手删，`runtime/` 删了要重新下载，`config/` + `data/` 是你的设置与数据。只卸插件、留着整根，下次装回来设置与对话记忆都还在；要彻底重来就把 `<数据根>` 整个删掉。这些目录在设置页「系统 → 文件与目录」里逐行列出，每行一个「打开文件夹」，删之前可以先点开看一眼。
+`cache/` 是缓存（语音合成结果、Electron 安装包、桌面窗口 profile），`runtime/` 放 Electron 运行时，`config/` + `data/` 是你的设置与数据。只卸插件、留着整根，下次装回来设置与对话记忆都还在；要彻底重来就把 `<数据根>` 整个删掉。这些目录在设置页「系统 → 文件与目录」里逐行列出，每行一个「打开文件夹」，删之前可以先点开看一眼。
 
 ## 下一步
 

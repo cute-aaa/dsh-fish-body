@@ -115,6 +115,12 @@ export interface PetRouteDeps {
   readonly playback: PlaybackStore;
   /** 用户数据根。 */
   readonly userRoot: string;
+  /**
+   * `$DSH_HOME`：数据根指针文件就写在这里（位置可改的后端）。
+   *
+   * 缺省由路由按宿主环境现取；测试注入一个临时目录，免得测试往真实 DSH 目录里写指针。
+   */
+  readonly dshHome?: string;
   /** 数据根路径表（装配期给的唯一真源；缺省时路由按 userRoot 现算，见 ./paths.ts）。 */
   readonly paths?: UserPaths;
   /** 占用锁。 */

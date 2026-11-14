@@ -21,16 +21,19 @@ import {
 const USER = resolve(sep, 'u', 'fish-body');
 
 describe('resolvePoolRoot', () => {
-  test('缺省 / 空串 / 非法：回落 <用户根>/assets/skin', () => {
-    assert.equal(resolvePoolRoot(USER, undefined), join(USER, 'assets', 'skin'));
-    assert.equal(resolvePoolRoot(USER, {}), join(USER, 'assets', 'skin'));
-    assert.equal(resolvePoolRoot(USER, { pool: '   ' }), join(USER, 'assets', 'skin'));
-    assert.equal(resolvePoolRoot(USER, { pool: 42 }), join(USER, 'assets', 'skin'));
-    assert.equal(resolvePoolRoot(USER, 'nope'), join(USER, 'assets', 'skin'));
+  test('缺省 / 空串 / 非法：回落 <用户根>/assets/pet', () => {
+    assert.equal(resolvePoolRoot(USER, undefined), join(USER, 'assets', 'pet'));
+    assert.equal(resolvePoolRoot(USER, {}), join(USER, 'assets', 'pet'));
+    assert.equal(resolvePoolRoot(USER, { pool: '   ' }), join(USER, 'assets', 'pet'));
+    assert.equal(resolvePoolRoot(USER, { pool: 42 }), join(USER, 'assets', 'pet'));
+    assert.equal(resolvePoolRoot(USER, 'nope'), join(USER, 'assets', 'pet'));
   });
 
   test('相对路径拼在用户根下；绝对路径原样使用', () => {
-    assert.equal(resolvePoolRoot(USER, { pool: 'assets/skin' }), join(USER, 'assets', 'skin'));
+    assert.equal(resolvePoolRoot(USER, { pool: 'assets/pet' }), join(USER, 'assets', 'pet'));
+    // 旧默认值（我们自己写进用户配置的）按默认处理，避免升级后池指向一个空目录：
+    assert.equal(resolvePoolRoot(USER, { pool: 'assets/skin' }), join(USER, 'assets', 'pet'));
+    assert.equal(resolvePoolRoot(USER, { pool: 'skin' }), join(USER, 'assets', 'pet'));
     assert.equal(resolvePoolRoot(USER, { pool: 'my-pool' }), join(USER, 'my-pool'));
     const abs = join(sep, 'mnt', 'pool');
     assert.equal(resolvePoolRoot(USER, { pool: abs }), abs);
@@ -54,7 +57,7 @@ describe('insideRoot', () => {
 });
 
 describe('池目录派生', () => {
-  const root = join(USER, 'assets', 'skin');
+  const root = join(USER, 'assets', 'pet');
 
   test('渲染方式目录与音效目录', () => {
     assert.equal(poolLayerDir(root, 'layered'), join(root, 'layered'));
@@ -89,10 +92,7 @@ describe('池目录派生', () => {
 
 describe('displayPathOf', () => {
   test('用户根内折成 posix 相对路径；根外原样给绝对路径', () => {
-    assert.equal(
-      displayPathOf(USER, join(USER, 'assets', 'skin', 'sound', 'click.wav')),
-      'assets/skin/sound/click.wav',
-    );
+    assert.equal(displayPathOf(USER, join(USER, 'assets', 'pet', 'sound', 'click.wav')), 'assets/pet/sound/click.wav');
     const outside = join(sep, 'mnt', 'pool', 'sound', 'click.wav');
     assert.equal(displayPathOf(USER, outside), outside.replace(/\\/g, '/'));
   });

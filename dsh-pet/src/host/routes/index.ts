@@ -16,6 +16,7 @@ import { handleChatRoutes } from './chat.ts';
 import { handleConfigRoutes } from './config/index.ts';
 import { handleDesktopRoutes } from './desktop.ts';
 import { handleInteractionRoutes } from './interaction.ts';
+import { handleLayoutRoutes } from './layout.ts';
 import { handleMenuRoutes } from './menu.ts';
 import { handleMotionRoutes } from './motion.ts';
 import { handleOpenFolderRoutes } from './open-folder.ts';
@@ -36,6 +37,7 @@ import type { PetRouteDeps, RouteHandler } from './types.ts';
 const HANDLERS: readonly RouteHandler[] = [
   handleConfigRoutes,
   handleDesktopRoutes,
+  handleLayoutRoutes,
   handleMenuRoutes,
   handleStateRoutes,
   handleSessionRoutes,

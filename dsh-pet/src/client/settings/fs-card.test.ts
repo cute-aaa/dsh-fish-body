@@ -1,11 +1,12 @@
 /**
  * 「文件与目录」卡（src/client/settings/fs-card.ts）的契约测试。
  *
- * 四条契约：
+ * 五条契约：
  *   1. 默认收起，正文仍挂在树上（收起只是裁高度），`aria-controls` 与正文 id 成对；
  *   2. 树每行只出现一次、带前缀与名字；可打开的行带 `which`，不可打开的行（文件 / 包内只读）没有；
- *   3. `cache` 与 `runtime/electron` 带徽标（可删 / 需下载），其余没有；
- *   4. 卸载命令用 meta 里的 profile；反推不出来时用 `<profile>` 占位符。
+ *   3. 树里**没有**「可删 / 需下载」这类徽标，改由每一行后面的一句说明表达（漏登记说明的行只显示名字）；
+ *   4. 数据根与皮肤目录各有一行位置，且都带「更改位置…」（位置可改是这张卡的硬要求）；
+ *   5. 卸载命令用 meta 里的 profile；反推不出来时用 `<profile>` 占位符。
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,6 +44,9 @@ const noEffect = (() => undefined) as never;
 const dict: Record<string, string> = {
   uninstallCmd: 'dsh plugin --profile {profile} remove dsh-fish-body',
   uninstallStep3: '删除 {root}',
+  fsLocationChange: '更改位置…',
+  'fsDesc.cache': '缓存：语音合成结果、Electron 安装包、桌面窗口 profile。',
+  'fsDesc.config': '设置：主配置、会话鱼、语音接入。',
 };
 
 function make(initial: boolean, seen: boolean[] = []) {
@@ -69,17 +73,19 @@ const layout: MetaNode[] = [
   { ...node('root', 'fish-body', 0, { open: 'root' }), rel: 'fish-body/' },
   node('config', 'config', 1, { open: 'config' }),
   node('data', 'data', 1, { open: 'data' }),
-  node('cache', 'cache', 1, { open: 'cache', badge: 'disposable' }),
-  node('cache.voice', 'voice', 2, { badge: 'disposable' }),
+  node('cache', 'cache', 1, { open: 'cache' }),
+  node('cache.voice', 'voice', 2),
   node('runtime', 'runtime', 1, { open: 'runtime' }),
-  node('runtime.electron', 'electron', 2, { open: 'runtime', badge: 'download' }),
-  node('pets', 'pets', 1, { open: 'pets' }),
+  node('runtime.electron', 'electron', 2, { open: 'runtime' }),
+  node('skin', 'skin', 1, { open: 'skin-root' }),
   node('assets', 'assets', 1, { open: 'assets' }),
   { ...node('logs', 'logs.txt', 1, { kind: 'file' }), path: 'D:/u/fish-body/logs.txt', rel: 'logs.txt' },
 ];
 
 const meta: ConfigMeta = {
   root: 'D:/u/fish-body',
+  rootSource: 'default',
+  skin: 'D:/u/fish-body/skin',
   layout,
   readonly: [{ ...node('pkg.config', 'config.jsonc', 0, { kind: 'pkg' }), path: 'D:/pkg/assets/config.jsonc' }],
   runtime: {
@@ -87,6 +93,7 @@ const meta: ConfigMeta = {
     exe: 'D:/u/fish-body/runtime/electron/electron.exe',
     installed: true,
     version: '43.3.0',
+    source: 'default',
   },
   user: 'D:/u/fish-body/config/main-config.jsonc',
   default: 'D:/pkg/assets/config.jsonc',
@@ -156,32 +163,65 @@ describe('fs-card —— 一张卡讲完文件在哪', () => {
     assert.equal(openOf('pkg.config'), undefined);
   });
 
-  test('徽标只给 cache 与 runtime/electron', () => {
+  test('树里没有「可删 / 需下载」徽标，改成每行后面的一句说明', () => {
     const tree = make(true)({ paths: meta });
     const rows = allByClass(tree, 'dsh-pet-cfg__treeRow');
-    const badgeOf = (key: string): unknown => {
+    // 徽标只剩只读参考那一组（那一组本来是「不能改」的信息，不是「能不能删」）。
+    const badges = allByClass(tree, 'dsh-pet-cfg__treeBadge').map((item) => String(item.props.children));
+    assert.deepEqual(badges, ['fsBadgeReadonly']);
+
+    const descOf = (key: string): unknown => {
       const row = rows.find((item) => item.props.key === key);
-      const badge = flatten(row?.props.children).find((item) =>
-        String(item.props?.className ?? '').includes('dsh-pet-cfg__treeBadge'),
+      const desc = flatten(row?.props.children).find((item) =>
+        String(item.props?.className ?? '').includes('dsh-pet-cfg__treeDesc'),
       );
-      return badge?.props.children;
+      return desc?.props.children;
     };
-    assert.equal(badgeOf('cache'), 'fsBadgeDisposable');
-    assert.equal(badgeOf('runtime.electron'), 'fsBadgeDownload');
-    assert.equal(badgeOf('config'), undefined);
-    assert.equal(badgeOf('data'), undefined);
+    assert.equal(descOf('cache'), dict['fsDesc.cache']);
+    assert.equal(descOf('config'), dict['fsDesc.config']);
+    // 没登记说明的节点只显示名字（不会把半截字典键印到界面上）。
+    assert.equal(descOf('pkg.config'), undefined);
   });
 
-  test('运行时行显示版本与状态', () => {
+  test('数据根与皮肤目录各有一行位置，且都能改', () => {
+    const tree = make(true)({ paths: meta });
+    const texts = flatten(tree)
+      .map((item) => item.props?.children)
+      .filter((value): value is string => typeof value === 'string');
+    assert.ok(texts.includes('D:/u/fish-body'), '数据根绝对路径要显示');
+    assert.ok(texts.includes('D:/u/fish-body/skin'), '皮肤目录绝对路径要显示');
+    const changes = allByClass(tree, 'dsh-pet-cfg__btn').filter((item) => item.props.children === '更改位置…');
+    assert.equal(changes.length, 2, '两处位置各一个「更改位置」');
+  });
+
+  test('运行时行显示版本、来源与状态', () => {
     const tree = make(true)({ paths: meta });
     const texts = flatten(tree)
       .map((item) => item.props?.children)
       .filter((value): value is string => typeof value === 'string');
     assert.ok(texts.some((text) => text.startsWith('fsRuntimeReady') && text.includes('43.3.0')));
-    // 已装时按钮存在但禁用（删了也能从这里重下，所以按钮始终在）。
+    assert.ok(texts.includes('fsRuntimeDefault'), '来源要说清楚（默认位置）');
+    // 已装时按钮是「重新下载」且可用：运行时可能被换版本、被搬到别的盘，按钮该一直能点。
     const buttons = allByClass(tree, 'dsh-pet-cfg__btn');
-    const disabled = buttons.filter((button) => button.props.disabled === true);
-    assert.equal(disabled.length, 1, '只有「下载运行时」在已装时禁用');
+    const download = buttons.find((button) => button.props.children === 'fsRuntimeRedownload');
+    assert.ok(download, '已装时下载按钮文案变成「重新下载」');
+    assert.equal(download?.props.disabled, false);
+    assert.equal(buttons.filter((button) => button.props.disabled === true).length, 0);
+    // 默认位置没有「回到默认位置」按钮。
+    assert.equal(
+      buttons.some((button) => button.props.children === 'fsRuntimeReset'),
+      false,
+    );
+  });
+
+  test('运行时指到自定义目录时给出「回到默认位置」', () => {
+    const custom: ConfigMeta = {
+      ...meta,
+      runtime: { ...meta.runtime!, source: 'custom', dir: 'E:/electron' },
+    };
+    const tree = make(true)({ paths: custom });
+    const buttons = allByClass(tree, 'dsh-pet-cfg__btn');
+    assert.ok(buttons.some((button) => button.props.children === 'fsRuntimeReset'));
   });
 
   test('卸载命令用 meta 的 profile；没有 profile 时用占位符', () => {
@@ -198,5 +238,12 @@ describe('fs-card —— 一张卡讲完文件在哪', () => {
     const tree = make(true)({ paths: meta });
     const notes = allByClass(tree, 'dsh-pet-cfg__note').map((item) => String(item.props.children));
     assert.ok(notes.some((text) => text.includes('D:/u/fish-body')));
+  });
+
+  test('老宿主给的 meta 缺字段时按空树渲染，不把设置页带崩', () => {
+    const legacy = { root: 'D:/u', layout: undefined, readonly: undefined } as unknown as ConfigMeta;
+    const tree = make(true)({ paths: legacy });
+    assert.equal(allByClass(tree, 'dsh-pet-cfg__treeRow').length, 0);
+    assert.ok(byClass(tree, 'dsh-pet-cfg__foldToggle'), '标题行仍在');
   });
 });

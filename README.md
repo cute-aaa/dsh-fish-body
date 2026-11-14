@@ -307,7 +307,7 @@ AI 提示词 → 绿幕视频 → 透明动画 → 插件，换角色、换动�
 │  ├─ voice/                  语音合成缓存（命中即免合成）
 │  ├─ download/               Electron 安装包下载缓存
 │  └─ desktop/                桌面窗口的 Chromium profile
-├─ pets/                      文件宠物：一种一套
+├─ skin/                      文件宠物：一种一套
 │  ├─ pig-config.json         <名>-config.json 定义一种「种类」
 │  ├─ pig-animation/{webm,mov} 同一前缀的动画目录
 │  ├─ pig-sound/              同一前缀的音效目录（可选）
@@ -320,7 +320,7 @@ AI 提示词 → 绿幕视频 → 透明动画 → 插件，换角色、换动�
    └─ session-fish/           会话鱼皮肤（图片 / 动图 / 视频）
 ```
 
-`cache/` 可随手删，`runtime/` 删了要重新下载，`config/` + `data/` 是你的设置与数据。设置页「系统 → 文件与目录」显示的就是这棵树，每行一个「打开文件夹」。
+`cache/` 是缓存（语音合成结果、Electron 安装包、桌面窗口 profile），`runtime/` 放 Electron 运行时，`config/` + `data/` 是你的设置与数据。设置页「系统 → 文件与目录」显示的就是这棵树，每行一个「打开文件夹」。
 
 ## 项目结构
 

@@ -65,12 +65,12 @@ describe('configPathsFor —— 配置路径推导（host/index.ts 那份的镜�
       defaultFile: join('/pkg', 'assets', 'config.jsonc'),
       userFile: join('/home/.dsh', 'fish-body', 'config', 'main-config.jsonc'),
       legacyUserFile: join('/home/.dsh', 'fish-body', 'config', 'main-config.json'),
-      petDir: join('/home/.dsh', 'fish-body', 'pets'),
+      petDir: join('/home/.dsh', 'fish-body', 'skin'),
     });
     // 同一份口径再与 userPaths 对一遍：字面量漂移时这里先红
     assert.equal(paths.userFile, layout.mainConfig);
     assert.equal(paths.legacyUserFile, layout.legacyMainConfig);
-    assert.equal(paths.petDir, layout.petsDir);
+    assert.equal(paths.petDir, layout.skinsDir);
   });
 });
 

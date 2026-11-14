@@ -13,11 +13,14 @@ import type { DesktopPets } from './pets.ts';
 import { toBridgeResponse } from './bridge-response.ts';
 import {
   HelperProcess,
+  clearRuntimePrompt,
   defaultElectronExe,
   dshHomeDir,
   ensureElectronDownload,
   hasGraphicalDisplay,
+  requestRuntimePrompt,
   resolveElectronPath,
+  setRuntimeWanted,
 } from '../../helper-process.ts';
 
 /** DesktopSpawn的输入。 */
@@ -157,7 +160,10 @@ export function createDesktopSpawn(deps: DesktopSpawnInput) {
   const startHelper = (): void => {
     if (inProcessHost) return; // 应用模式：不探测、不下载 Electron
     if (helper || electronEnsure || disposed) return;
-    if (!getHasDesktopPet() && !(desktopModeEverActive && getTrayOn())) {
+    const needed = getHasDesktopPet() || (desktopModeEverActive && getTrayOn());
+    // 让运行时模块知道「有没有人在等窗口」：没有桌面宠物时删掉 runtime/ 不该触发下载与提示。
+    setRuntimeWanted(needed);
+    if (!needed) {
       // 诊断日志（issue #168）：这条短路不打日志，就是「桌面模式凭空消失：无进程、无目录、无提示」
       // 的直接成因。用 info 而非 warn——纯网页用户这是正常状态；只打一次避免刷屏。
       // 托盘关掉后这里也会命中：没人需要那个图标，空常驻没有意义。
@@ -192,6 +198,9 @@ export function createDesktopSpawn(deps: DesktopSpawnInput) {
       `[fish-body] 未找到 Electron 可执行文件：DSH_HOME=${dshHomeDir()}，查找路径=${defaultElectronExe()}` +
         `，DSH_PET_ELECTRON_PATH=${process.env.DSH_PET_ELECTRON_PATH ?? '(未设置)'}`,
     );
+    // 先置提示再下载：界面据此弹一条「正在自动下载」，用户至少知道那 350 MB 在干什么；
+    // 下载本身仍然自动开始（保留原来的行为，不额外要一次确认）。
+    requestRuntimePrompt('missing');
     log.warn(`[fish-body] 开始下载 Electron 到 ${defaultElectronExe()} ...`);
     electronEnsure = ensureElectronDownload({
       // 下载全过程写进工作状态气泡（用户没有控制台，只能靠它看进度与失败原因）
@@ -202,8 +211,11 @@ export function createDesktopSpawn(deps: DesktopSpawnInput) {
     })
       .then((path) => {
         if (path) {
+          clearRuntimePrompt();
           launchHelper(path);
         } else {
+          // 失败也留提示：界面会把原因与「改用已下载的目录」一起给出来。
+          requestRuntimePrompt('failed');
           log.warn(
             '[fish-body] Electron download failed; desktop pet unavailable. Set DSH_PET_ELECTRON_PATH and restart, or retry later.',
           );

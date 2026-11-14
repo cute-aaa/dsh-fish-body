@@ -59,12 +59,12 @@ before(async () => {
   const home = join(dir, 'home');
   process.env.DSH_HOME = home;
   process.env.DSH_PET_IN_PROCESS = '1';
-  // 新布局：数据根 `<DSH_HOME>/fish-body`，主配置在 `config/`、文件宠物在 `pets/`
+  // 新布局：数据根 `<DSH_HOME>/fish-body`，主配置在 `config/`、文件宠物在 `skin/`
   const userLayout = userPaths(join(home, 'fish-body'));
   mkdirSync(userLayout.configDir, { recursive: true });
-  mkdirSync(userLayout.petsDir, { recursive: true });
+  mkdirSync(userLayout.skinsDir, { recursive: true });
   file = userLayout.mainConfig;
-  packFile = join(userLayout.petsDir, 'pack-config.jsonc');
+  packFile = join(userLayout.skinsDir, 'pack-config.jsonc');
   writeFileSync(file, JSON.stringify({ trayEnabled: false, pets: [pet('alpha'), pet('beta')] }));
   const logger = { info() {}, warn() {}, error() {}, debug() {} };
   context = createStandaloneContext({ port: 0, logger });

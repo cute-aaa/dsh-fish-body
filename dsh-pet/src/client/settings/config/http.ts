@@ -11,11 +11,10 @@ import type { ModelCatalogGroup } from '../picker/index.ts';
 import type { MergedConfig } from './read.ts';
 
 /** 树里的一个节点（宿主按 `user-layout` 生成，见 `host/routes/config/meta-layout`）。 */
-/** 树里的一个节点（宿主按 `user-layout` 生成，见 `host/routes/config/meta-layout`）。 */
 export interface MetaNode {
-  /** 稳定键：不翻译也不拼接，只用于取徽标/提示。 */
+  /** 稳定键：不翻译也不拼接，只用于取说明（`tree-notes` 的 `fsDesc.<key>`）。 */
   key: string;
-  /** 展示用路径（相对数据根；池根在根外时是绝对路径）。 */
+  /** 展示用路径（相对数据根；皮肤/池根在根外时是绝对路径）。 */
   rel: string;
   /** 这一行自己的名字（目录名或文件名）。 */
   name: string;
@@ -27,8 +26,6 @@ export interface MetaNode {
   exists: boolean;
   /** 可打开的目录类别。 */
   open?: FolderTarget;
-  /** 小徽标：可随手删 / 删了要重下。 */
-  badge?: 'disposable' | 'download';
 }
 
 /** Electron 运行时状态（设置页那行「运行时」）。 */
@@ -37,15 +34,46 @@ export interface RuntimeStatus {
   exe: string;
   installed: boolean;
   version?: string;
+  /** 目录来源：默认位置还是用户指定的目录。 */
+  source?: 'default' | 'custom';
+}
+
+/** 一次下载的进度（`/desktop/runtime` 的 `download` 字段）。 */
+export interface RuntimeDownload {
+  active: boolean;
+  doneBytes: number;
+  totalBytes: number;
+  mirror?: string;
+  error?: string;
+}
+
+/** 「需要运行时」的提示（弹窗据 `needed` 决定出不出现）。 */
+export interface RuntimePromptState {
+  needed: boolean;
+  reason?: 'missing' | 'deleted' | 'failed';
+  since?: number;
+}
+
+/** `/desktop/runtime` 的完整快照。 */
+export interface RuntimeSnapshot {
+  runtime?: RuntimeStatus;
+  download?: RuntimeDownload;
+  prompt?: RuntimePromptState;
+  /** 桌面模式是否正等着运行时。 */
+  wanted?: boolean;
 }
 
 export interface ConfigMeta {
-  /** 数据根（`$DSH_HOME/fish-body`）。 */
+  /** 数据根（默认 `$DSH_HOME/fish-body`，可被指针文件或环境变量改到别处）。 */
   root: string;
   /** 目录树（顺序即展示顺序）。 */
   layout: MetaNode[];
   /** 包内只读参考（默认配置与随包素材）。 */
   readonly: MetaNode[];
+  /** 用户皮肤目录（可能被 `locations.json` 指到数据根之外）。 */
+  skin?: string;
+  /** 数据根是怎么选出来的：默认位置 / 指针文件 / 环境变量。 */
+  rootSource?: 'default' | 'pointer' | 'env';
   /** 运行时状态：有没有装、装在哪。 */
   runtime?: RuntimeStatus;
   /** 插件本体目录（卸载时「不要手删」的就是它）。 */
@@ -55,7 +83,7 @@ export interface ConfigMeta {
   animations: string;
   /** 用户表情包目录（加图不必改包）。 */
   memes?: string;
-  /** 共享资源池的根（`assets.pool`，默认 `<数据根>/assets/skin`）。 */
+  /** 内置皮肤池的根（`assets.pool`，默认 `<数据根>/assets/pet`）。 */
   pool?: string;
   /** 待办数据文件（一份用户级数据，不分宠物）。 */
   todos?: string;
