@@ -69,15 +69,15 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 ## 五、改配置与重载
 
-| 接口                                 | 功能                                                                                                                   |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `PUT /dsh-pet-7340/config`           | 保存用户层配置（白名单重建，用户手写的精调字段会保留）                                                                 |
-| `POST /dsh-pet-7340/config`          | 用内置默认整份覆盖用户配置，即「恢复默认」                                                                             |
-| `POST /dsh-pet-7340/pet-display`     | **改单只宠物的显示位置**（`web` / `desktop` / `both` / `none`），只传 `{ id, display }`                                |
-| `POST /dsh-pet-7340/pet-config`      | **按种类写回全部实例**（`{ entry, pets }`，`entry` = `skin/<名>-config.json` 的前缀）；白名单重建，顶层动画池与人设保留|
-| `POST /dsh-pet-7340/reload`          | 重载桌面端（重启桌面宠物进程，按最新配置重建窗口）                                                                     |
-| `GET /dsh-pet-7340/settings-backup`  | **导出设置备份**：主配置、每个种类配置与会话鱼设置的**原文**（JSONC 注释与字段顺序都保留）                             |
-| `POST /dsh-pet-7340/settings-backup` | **用备份恢复**：先整体预检再原子写回，覆盖前把现有文件留成 `<文件>.bak-<时间戳>`；空串表示删掉那一层                   |
+| 接口                                 | 功能                                                                                                                    |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `PUT /dsh-pet-7340/config`           | 保存用户层配置（白名单重建，用户手写的精调字段会保留）                                                                  |
+| `POST /dsh-pet-7340/config`          | 用内置默认整份覆盖用户配置，即「恢复默认」                                                                              |
+| `POST /dsh-pet-7340/pet-display`     | **改单只宠物的显示位置**（`web` / `desktop` / `both` / `none`），只传 `{ id, display }`                                 |
+| `POST /dsh-pet-7340/pet-config`      | **按种类写回全部实例**（`{ entry, pets }`，`entry` = `skin/<名>-config.json` 的前缀）；白名单重建，顶层动画池与人设保留 |
+| `POST /dsh-pet-7340/reload`          | 重载桌面端（重启桌面宠物进程，按最新配置重建窗口）                                                                      |
+| `GET /dsh-pet-7340/settings-backup`  | **导出设置备份**：主配置、每个种类配置与会话鱼设置的**原文**（JSONC 注释与字段顺序都保留）                              |
+| `POST /dsh-pet-7340/settings-backup` | **用备份恢复**：先整体预检再原子写回，覆盖前把现有文件留成 `<文件>.bak-<时间戳>`；空串表示删掉那一层                    |
 
 ## 六、第三方菜单项
 
@@ -108,7 +108,7 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `GET /dsh-pet-7340/attachment?id=`           | **取图**：把对话记忆里 `image.attachmentId`（`sha256:…`）换回图片                                                                                                                                                                |
 | `GET /dsh-pet-7340/logo?root=`               | 宠物头像：缺省回插件 logo（`assets/logo.png`）；带 `root=<素材根>` 时回该 pet pack 上传的头像，没有就回默认                                                                                                                      |
 | `GET /dsh-pet-7340/character?root=`          | **角色参考图**：按素材根回一张官方设定图（png / jpg / webp / gif），第三方自建生图时对齐角色用；**不代调生图模型**，出图与计费都在调用方                                                                                         |
-| `POST /dsh-pet-7340/pet-avatar?root=`        | **上传头像**：`{ base64 }`，覆盖写 `skin/<素材根>-avatar.<ext>`；`root=main`（内置）被拒                                                                                                                                        |
+| `POST /dsh-pet-7340/pet-avatar?root=`        | **上传头像**：`{ base64 }`，覆盖写 `skin/<素材根>-avatar.<ext>`；`root=main`（内置）被拒                                                                                                                                         |
 
 ## 八、工作状态（外部写入）
 
@@ -119,28 +119,35 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 ## 九、语音
 
-| 接口                             | 功能                                                                         |
-| -------------------------------- | ---------------------------------------------------------------------------- |
-| `POST /dsh-pet-7340/voice/speak` | 合成并返回音频：`{ text, voice?, rate? }`；同一输入命中缓存，队列最多排 3 个 |
-| `POST /dsh-pet-7340/voice/hear`  | 识别音频回文字：`{ audio }`，16kHz/单声道/PCM16 WAV 的 base64                |
-| `GET /dsh-pet-7340/voice/voices` | 可用音色列表 + 合成链状态；前端拿它渲染选择器，不要硬编码 id                 |
-| `GET /dsh-pet-7340/voice/provider-config?provider=` | 读一个实现的接入配置：`values`（普通项）+ `secrets`（密钥**配没配**，值从不回传） |
-| `POST /dsh-pet-7340/voice/provider-config` | 写接入配置：`{ provider, patch, clear? }`；普通项进 `voice-providers.json`，密钥项进 DSH 凭据库 |
-| `POST /dsh-pet-7340/voice/provider-voice` | 切某个实现的音色：`{ provider, voice }`，立即落盘（不是「保存」的一部分） |
+| 接口                                                | 功能                                                                                                                                   |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /dsh-pet-7340/voice/speak`                    | 合成并返回音频：`{ text, voice?, rate? }`；同一输入命中缓存，队列最多排 3 个                                                           |
+| `POST /dsh-pet-7340/voice/hear`                     | 识别音频回文字：`{ audio }`，16kHz/单声道/PCM16 WAV 的 base64                                                                          |
+| `GET /dsh-pet-7340/voice/voices`                    | 可用音色列表 + 合成链状态；前端拿它渲染选择器，不要硬编码 id                                                                           |
+| `GET /dsh-pet-7340/voice/provider-config?provider=` | 读一个实现的接入配置：`values`（普通项）+ `secrets`（密钥**配没配**，值从不回传）                                                      |
+| `POST /dsh-pet-7340/voice/provider-config`          | 写接入配置：`{ provider, patch, clear? }`；普通项进 `voice-providers.json`，密钥项进 DSH 凭据库；声明了 `options` 的字段只收候选值之一 |
+| `POST /dsh-pet-7340/voice/provider-voice`           | 切某个实现的音色：`{ provider, voice }`，立即落盘（不是「保存」的一部分）                                                              |
 
-合成链是「注册的第三方在前、内置 edge 收尾」，任一环失败就**静默**落到下一环（用户只会听到换了嗓子）。
+合成链是「注册的**免费**第三方在前、内置 edge 收尾」，任一环失败就**静默**落到下一环（用户只会听到换了嗓子）。
+**按量计费的实现不进这条链**（`billable`）：被「可用」自动选中等于替用户花钱。它只在用户打开自己的付费开关
+（今天只有云端 TTS 的 `useCloud`）时被排到链首，自己失败则回落免费链——失败的那次请求不计费，所以回落不增加成本。
 `/voice/voices` 的 `providers[]` 因此有两个互不替代的字段：`reason` 是「这一环现在能不能用」，
 `lastError` 是「通着但上一句念失败了」（参考音频坏了、上游 `/tts` 报错…，合成成功即消失）——
 后者是「本地音色其实没用上」唯一可见的线索，设置页的接入卡把它当警告显示。
 
-**密钥不进配置文件**：`kind: password` 且声明了 `credentialRef` 的字段（今天只有云端骨架的 `apiKey`）
+**密钥不进配置文件**：`kind: password` 且声明了 `credentialRef` 的字段（今天只有云端 TTS 的 `apiKey`）
 写进 DSH 凭据库——配置文件会被备份、会被贴进 issue。写入语义：`patch` 里非空才写、**空串是「不改」**
 （值不回传，界面只能给空框），要删必须放进 `clear`。宿主凭据库没有写入能力时（独立模式的替身只有
 `resolve`）回 `unsupported`，不静默丢弃用户填的密钥。
+`credentialFallbacks` 是**只读**回退：云端 TTS 声明了 `DEEPSEEK_API_KEY`，本机已有它时设置页直接显示「已保存」，
+不用再粘一次；保存与清除永远只动主引用，不会连宿主的模型凭据一起删。
 
-**云端 TTS 目前是骨架**（`id: cloud`）：只声明配置项（服务地址 / 模型 / 音色 / API Key），`availability()`
-恒为假、`synthesize()` 明确抛「尚未接入」。这不是偷懒——骨架期一旦放行，回退链就会把它排在本地语音之前，
-每句话先失败一次再落到下一环，用户只觉得变慢了。
+**云端 TTS 接的是 DeepSeek**（`id: cloud`，`POST {baseURL}/v1/tools/tts`）：字段是 `useCloud`（`off`/`on`）、
+`baseURL`（留空用 `https://api.deepseek.com`）、`voice`（`stella` / `tide`）、`apiKey`。
+接口**没有 model 参数、不支持语速、只回 wav / pcm**，所以：`rate` 对它无效（说明写在字段描述里）；
+`format` 固定 `wav`（`pcm` 是裸流，缓存与 `<audio>` 都认不了）；wav 比同长度 mp3 大约 8 倍，
+缓存上限 20 MB 约能存 100 句，靠 LRU 淘汰。计费按字符（汉字算 2 字符，每万字符 3 元、限时 1.5 元）。
+`useCloud` 不是「保存」的一部分：保存后宿主立刻重探一次可用性（`refresh()`），开关与密钥当即生效。
 
 `POST /voice/provider-process` 只跑 `config/voice-providers.json` 里填的启停脚本，**不建控制台窗口**：
 脚本的 stdout/stderr 追加到 `<DSH_HOME>/fish-body/logs/gsv/<provider>-start.log`。这不是风格问题——
@@ -163,24 +170,25 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 五个端点都由桌面 Helper 驱动（宿主推不动 Helper：Windows 上 Electron 主进程收不到 piped stdin），
 第三方一般只需要读状态或手动触发一次。
 
-| 接口                                     | 功能                                                                                                                    |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `GET /dsh-pet-7340/screen/tick?pet=`     | Helper 每 5 秒问一次「这一拍拍不拍」：`{ ok, capture, reason }`，`reason` = `disabled` / `manual` / `throttled` / `busy` / `quiet` / `ready`。**无副作用**；手动请求只有真的拍下去才被消费 |
+| 接口                                     | 功能                                                                                                                                                                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /dsh-pet-7340/screen/tick?pet=`     | Helper 每 5 秒问一次「这一拍拍不拍」：`{ ok, capture, reason }`，`reason` = `disabled` / `manual` / `throttled` / `busy` / `quiet` / `ready`。**无副作用**；手动请求只有真的拍下去才被消费                                                             |
 | `POST /dsh-pet-7340/screen/frame?pet=`   | 交一帧：`{ attachment: { mediaType, data } }` → 读图 → 一句话进 `say` 叶子。持锁时先门禁后花钱（`locked`），开关关着 `unsupported`，读图失败 `generate-error`（文案带「模型可能不支持读图」）。`?debug=1` 会把这一帧另存到 `<用户根>/screen-frame.jpg` |
-| `POST /dsh-pet-7340/screen/request?pet=` | 记一个手动请求（跳过间隔 / 忙闲 / 静默三张门），下一拍 `reason=manual`；开关关着 `unsupported`                        |
-| `POST /dsh-pet-7340/screen/event?pet=`   | Helper 上报最近一帧前台快照（`kind: foreground`），只存最近一条，供设置页显示「当前前台 …」                             |
-| `GET /dsh-pet-7340/screen/state?pet=`    | 读十三个归一化后的配置项 + `manualPending` / `lastMs` / `last`（上次结论）/ `foreground`（最近前台与判定）               |
+| `POST /dsh-pet-7340/screen/request?pet=` | 记一个手动请求（跳过间隔 / 忙闲 / 静默三张门），下一拍 `reason=manual`；开关关着 `unsupported`                                                                                                                                                         |
+| `POST /dsh-pet-7340/screen/event?pet=`   | Helper 上报最近一帧前台快照（`kind: foreground`），只存最近一条，供设置页显示「当前前台 …」                                                                                                                                                            |
+| `GET /dsh-pet-7340/screen/state?pet=`    | 读十三个归一化后的配置项 + `manualPending` / `lastMs` / `last`（上次结论）/ `foreground`（最近前台与判定）                                                                                                                                             |
 
 十三个配置键（`screenRead*` 六个、`avoid*` 七个，平键写在配置顶层、拍平时收成 `pet.screen`）见
 [`docs/交接-P4.md`](docs/交接-P4.md) 第三节；越界值运行期夹取、写盘整包拒绝。
 
 ## 十二、会话鱼
+
 | 接口                                        | 功能                                                                                                                      |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `GET /dsh-pet-7340/session-fish`            | 读会话鱼设置（独立文件 `<数据根>/config/session-fish.json`；文件缺失/损坏时回默认值）                                      |
+| `GET /dsh-pet-7340/session-fish`            | 读会话鱼设置（独立文件 `<数据根>/config/session-fish.json`；文件缺失/损坏时回默认值）                                     |
 | `PUT /dsh-pet-7340/session-fish`            | 保存设置：只传要改的字段；未知键/类型错/越界 → `bad-request`，写盘失败 → `settings-write-failed`（旧值保留）              |
 | `POST /dsh-pet-7340/session-fish`           | 用户动作：`{ action: "focus" \| "close", sessionId, blank?, running? }`；`focus` 在已完成时让鱼消失，`close` 隐藏到下一轮 |
-| `GET /dsh-pet-7340/session-fish/skins`      | 列可选皮肤：用户目录 `<数据根>/assets/session-fish/` 在前、包内 `assets/webm/` 在后（同名以用户为准），附 `defaultSkin`  |
+| `GET /dsh-pet-7340/session-fish/skins`      | 列可选皮肤：用户目录 `<数据根>/assets/session-fish/` 在前、包内 `assets/webm/` 在后（同名以用户为准），附 `defaultSkin`   |
 | `GET /dsh-pet-7340/session-fish/skin?name=` | 取一份皮肤文件（图片 / 动图 / webm）；名字非法或扩展名不支持 → `400`，不存在 → `404` 文本                                 |
 | `POST /dsh-pet-7340/session-fish/claim`     | 认领一条播报的出声权：`{ sessionId, lineSeq }` → `{ granted }`；每个 `(会话, 序号)` 全机器只授予一次                      |
 
