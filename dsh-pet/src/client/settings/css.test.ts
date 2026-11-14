@@ -104,6 +104,12 @@ describe('injectSettingsCss —— 设置页样式注入', () => {
       assert.ok(tag.textContent.includes('.dsh-pet-cfg__seg{'), '分区标签条的样式必须在');
       assert.ok(tag.textContent.includes('.dsh-pet-cfg__switch input[type=checkbox]'), '开关视觉的样式必须在');
       assert.ok(tag.textContent.includes('.dsh-pet-cfg__dot{'), '未保存改动的圆点样式必须在');
+      // 降级块只能压时长：位移在开关里承载的是状态，一刀切 transform 会把「开」和「关」画成同一个样子。
+      assert.equal(
+        /prefers-reduced-motion[\s\S]*?transform:none/.test(tag.textContent),
+        false,
+        'prefers-reduced-motion 不许写 transform:none',
+      );
     } finally {
       restore();
     }

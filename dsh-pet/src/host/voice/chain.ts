@@ -6,7 +6,7 @@
  * 每一环自带超时与错误归一：超时按失败处理，失败的原样抛 VoiceSynthError 给 speak 决定是否继续。
  * 内置 edge 额外重试一次：它偶发「第一次调用失败」（见 docs 交接-P3 踩坑 23）。
  * 不查缓存、不落盘：那些在 speak.ts。
- * @module dsh-pet/src/host/voice/chain
+ * @module dsh-fish-body/src/host/voice/chain
  */
 import { synthesize, VoiceSynthError, type SynthInput } from './edge.ts';
 import { BUILTIN_VOICE_ID, voiceProviderEntries, type VoiceProvider } from './registry.ts';

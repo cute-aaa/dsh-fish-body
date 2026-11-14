@@ -8,7 +8,7 @@
  * 内存有上限（超了丢最旧）。批次提交走同步写，所以退出与 dispose 只需补「已出缓冲、尚未提交」
  * 的文本，不必猜异步写有没有完成（exit 里异步 IO 本就不会执行）。
  * 单文件按大小截断、不轮转多份：超过 maxBytes 时只保留尾部 keepBytes。
- * @module dsh-pet/src/host/log-file
+ * @module dsh-fish-body/src/host/log-file
  */
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';

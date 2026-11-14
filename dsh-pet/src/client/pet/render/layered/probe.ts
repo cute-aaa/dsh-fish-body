@@ -8,7 +8,7 @@
  * 纯计算（{@link alphaBoxOf} / {@link boxToSource}）与 DOM 探测（{@link measureVisualTopRatio} /
  * {@link measureLayerBox}）分开：前者可脱 canvas 断言，后者只在挂载时跑一次。
  * 本模块同时被浏览器渲染器与桌面 Helper（`layered-core.js`）使用——两端各写一套探测必然漂移。
- * @module dsh-pet/src/client/pet/render/layered/probe
+ * @module dsh-fish-body/src/client/pet/render/layered/probe
  */
 
 /** 内容顶探测的画布边长（px）：够分辨 1.5% 的位置，又把像素读回压到 4096 个。 */

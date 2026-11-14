@@ -4,7 +4,7 @@
  * 锁的语义是「这段时间这只宠物归我指挥」：拿到之后宿主的自主行为会停，第三方也不能抢。
  * 刷新页面时旧页面的 JS 被直接销毁、来不及放锁，所以锁号记在 sessionStorage 里——
  * 同一标签页刷新后还在，下次开演先拿它续期，续得上说明那本来就是我的。
- * @module dsh-pet/src/client/baifan/lock
+ * @module dsh-fish-body/src/client/baifan/lock
  */
 import { CFG } from './constants.ts';
 import type { Transport } from './transport.ts';

@@ -4,7 +4,7 @@
  * 为什么拆三段而不是一个大字符串：三者变化原因不同——调间距字号只动 tokens，换控件外观只动 controls，
  * 重排卡片与栅格只动 cards；本文件只负责「按顺序拼好并注入一次」。
  * 注入按 `data-plugin-css` 去重，同一页面重复渲染设置页不会长第二份样式；没有 document 时静默返回。
- * @module dsh-pet/src/client/settings/css
+ * @module dsh-fish-body/src/client/settings/css
  */
 import { CARDS_CSS } from './style/cards.ts';
 import { CONTROLS_CSS } from './style/controls.ts';

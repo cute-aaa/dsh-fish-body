@@ -4,10 +4,10 @@
  * 优先级（高 → 低，与 host/sfx/order 的层序一致）：
  * 池资源目录（结构文件基名 / 目录名前缀）→ 池渲染方式兜底（`<渲染方式>-<事件>`）→ 池全局音效
  * （无前缀优先）→ 旧皮肤目录（位置即身份）→ `-sound/`（带皮肤前缀 → 不带）→ 动画同目录 →
- * `<用户根>/main-sound/` → 包内 `assets/sound/` → 内置默认。
+ * `<数据根>/assets/sound/` → 包内 `assets/sound/` → 内置默认。
  * 事件槽永远有值（除睡眠两段没有默认），动画音与 hook 只收录真正匹配到的。
  * 纯函数：输入是清单，不读盘；唯一的副作用是「池全局同事件多份」时的一次告警回调。
- * @module dsh-pet/src/host/sfx/index-build
+ * @module dsh-fish-body/src/host/sfx/index-build
  */
 import { COLLISION_SLOTS, DEFAULT_EVENT_FILES } from '../../shared/sfx/defaults.ts';
 import { parseSfxFileName, stripAudioExt, type ParsedSfxName } from '../../shared/sfx/names.ts';

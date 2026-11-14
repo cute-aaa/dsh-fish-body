@@ -3,7 +3,7 @@
  * 与人格来源注册表同是 Map 不是单槽——多种后端并存，运行时按配置选一个。
  * 模块单例：注册返回 disposer，测试用 {@link resetRenderers} 复位。
  * 只登记与查找，不实例化、不挂载、不读配置。
- * @module dsh-pet/src/client/pet/render/registry
+ * @module dsh-fish-body/src/client/pet/render/registry
  */
 import type { Renderer, RendererFactory } from './types.ts';
 

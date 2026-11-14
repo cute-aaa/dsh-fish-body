@@ -1,6 +1,6 @@
 /**
  * 会话鱼路由：读设置、写设置（校验/落盘/发布）、focus/close 动作与错误矩阵。
- * @module dsh-pet/src/host/routes/session-fish.test
+ * @module dsh-fish-body/src/host/routes/session-fish.test
  */
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';

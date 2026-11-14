@@ -3,7 +3,7 @@
  * 不负责何时点亮与动画联动：tick 判定、抽动画、打日志都在 PetCard；也不负责外观，哑组件在 client/bubble.ts。
  * 依赖注入的 react 与两个气泡组件；三个停留计时器都归本模块清理。
  * 不变量：同一时刻只渲染一个气泡，优先级依次为终态任务、说话、余额、非终态任务。
- * @module dsh-pet/src/client/pet/card/bubble-slots
+ * @module dsh-fish-body/src/client/pet/card/bubble-slots
  */
 import { balancePageCount as balancePageCountOf, type BalanceState } from '../../../shared/balance/index.ts';
 import {

@@ -34,10 +34,10 @@ dsh --version   # 验证 dsh 命令可用
 
 ```sh
 # dsh web
-dsh plugin --profile web add dsh-pet
+dsh plugin --profile web add dsh-fish-body
 
 # 桌面应用（Electron 版）
-dsh plugin --profile desktop add dsh-pet
+dsh plugin --profile desktop add dsh-fish-body
 ```
 
 > **兼容性**：本插件当前在 dsh **`0.2.2-rc.1`** 下开发并测试（`dsh --version` 可查看你的版本）。建议使用相同版本；其他版本如遇问题欢迎反馈。
@@ -59,7 +59,7 @@ npm run build       # 必须手动跑一次（克隆后 npm install 不再自动
 
 # ④ 安装到 DSH（file: 指向**插件目录**——上面 cd 进去的那一层，用构建好的 lib）
 #    --profile 填实际在用的那个：dsh web → web；桌面应用 → desktop
-dsh plugin --profile web add file:D:/path/to/dsh-pet/dsh-pet
+dsh plugin --profile web add file:D:/path/to/dsh-fish-body/dsh-pet
 ```
 
 > 注：`npm run build`（即 `scripts/prepare.js`）才产出**完整可安装**的 lib——除 tsdown 构建外还构建桌面共享核心（`shared-core.js`）、生成类型声明并收敛发布 `files` 清单；裸 `tsdown` 构建会缺桌面运行时与类型。发布与打包（`npm publish` / `npm pack`）时由 `prepack` 自动调用它，克隆仓库后需手动跑一次。
@@ -83,7 +83,7 @@ dsh plugin --profile web add file:D:/path/to/dsh-pet/dsh-pet
 需要 Node.js，跨平台通用：
 
 ```sh
-npm install -g dsh-pet        # 必须 npm 装；dsh plugin add 会装进 profile，bin 不在 PATH 上
+npm install -g dsh-fish-body  # 必须 npm 装；dsh plugin add 会装进 profile，bin 不在 PATH 上
 dsh-pet-standalone            # http://127.0.0.1:3080/dsh-pet-7340/（端口占用则顺延）
 dsh-pet-standalone --check    # 只体检，不启动
 dsh-pet-standalone --port 3100
@@ -102,7 +102,7 @@ npm run standalone     # Node 形态启动，等同 dsh-pet-standalone
 ### 打包成 exe
 
 ```sh
-npm run ensure:electron   # 首次：解析本机 Electron 解压目录（没有则下载到 ~/.dsh/electron）
+npm run ensure:electron   # 首次：解析本机 Electron 解压目录（没有则下载到 ~/.dsh/fish-body/runtime/electron）
 npm run dist              # electron-builder 打包
 ```
 
@@ -115,22 +115,22 @@ npm run dist              # electron-builder 打包
 
 - **能用**：动画链、点击/拖拽/甩抛、右键菜单、多开、自定义动画与表情包、pet pack。
 - **不可用**：余额、碎碎念、对话、系统通知——没有 DSH 的凭据与模型连接，接口返回带 `reason` 的结构化失败（见 [API.md](API.md)）。
-- **配置**：与 DSH 同一份（`$DSH_HOME/dsh-pet/main-config.jsonc` → 包内默认）。
+- **配置**：与 DSH 同一份（`$DSH_HOME/fish-body/config/main-config.jsonc` → 包内默认）。
 - **只显示** `display` 含 `desktop` / `both` 的实例；端口默认 3080（占用则顺延）。
-- **可与 DSH 内运行同时开**，但共用 `%APPDATA%\dsh-pet-electron-helper`，可能互相踩缓存（仅告警）。
+- **可与 DSH 内运行同时开**，但共用同一个桌面窗口 profile（`<数据根>/cache/desktop`），可能互相踩缓存（仅告警）。
 
 ## 安装后你会看到什么
 
 默认配置是 `display: "both"`（浏览器与桌面都显示），所以重开 DSH 之后会依次出现两处，不必手动开：
 
 1. **浏览器端先出现。** 宠物落在界面右上角（默认角落，设置页可改），此时桌面上还是空的。
-2. **宿主自动补桌面运行时。** 本机没有 Electron 时，插件会自己下载一份（落在 `~/.dsh/electron`，同一版本只下一次；默认走 npmmirror 镜像）。进度直接打在 DSH 的控制台里，形如：
+2. **宿主自动补桌面运行时。** 本机没有 Electron 时，插件会自己下载一份（落在 `~/.dsh/fish-body/runtime/electron`，同一版本只下一次；默认走 npmmirror 镜像）。进度直接打在 DSH 的控制台里，形如：
 
    ```
-   [dsh-pet] Electron not found, downloading to <用户目录>/.dsh/electron/electron.exe ...
+   [dsh-pet] Electron not found, downloading to <数据根>/runtime/electron/electron.exe ...
    [dsh-pet] Electron not found, downloading v43.3.0 (win32-x64) ...
    [dsh-pet] downloading 42.3MB / 104.1MB
-   [dsh-pet] download complete (37.5s), extracting to <用户目录>/.dsh/electron ...
+   [dsh-pet] download complete (37.5s), extracting to <数据根>/runtime/electron ...
    ```
 
    这一步在**后台**进行，浏览器里的宠物照常可用；要等多久取决于网速（几十秒到几分钟），期间不用管它。
@@ -140,7 +140,28 @@ npm run dist              # electron-builder 打包
    - **设置页**：选中该宠物 →「显示位置」下拉框 → 仅浏览器 / 仅桌面 / 两者都显示 / 都不显示；
    - **宠物右键**：菜单里的「显示位置」子菜单 → 仅网页 / 仅桌面 / 两者 / 都不（不用回设置页）。
 
-> 本机已有 `~/.dsh/electron`（之前下载过或跑过 `npm run ensure:electron`）或设了 `DSH_PET_ELECTRON_PATH` 指向现成可执行文件时，第 2 步会跳过，桌面端几乎立刻出现。下载失败**只影响桌面模式**：控制台会给出提示，浏览器里的宠物不受影响；网络受限时可以设 `DSH_PET_ELECTRON_MIRROR` 换镜像、`DSH_PET_ELECTRON_VERSION` 指定版本，重启后再试。
+> 本机已有 `~/.dsh/fish-body/runtime/electron`（之前下载过或跑过 `npm run ensure:electron`）或设了 `DSH_PET_ELECTRON_PATH` 指向现成可执行文件时，第 2 步会跳过，桌面端几乎立刻出现。下载失败**只影响桌面模式**：控制台会给出提示，浏览器里的宠物不受影响；网络受限时可以设 `DSH_PET_ELECTRON_MIRROR` 换镜像、`DSH_PET_ELECTRON_VERSION` 指定版本，重启后再试。
+
+## 卸载
+
+```sh
+# --profile 同安装：dsh web → web；桌面应用 → desktop
+dsh plugin --profile <profile> remove dsh-fish-body
+```
+
+插件本体在 profile 的 `node_modules` 里，上面这条就卸掉了；**用户数据不在包内**，留在数据根 `<DSH_HOME>/fish-body/`（Windows 上例如 `D:\NodeJs\DSH_home\fish-body\`），删不删自己定：
+
+```
+<DSH_HOME>/fish-body/
+├─ config/                     设置：main-config.jsonc / session-fish.json / voice-providers.json
+├─ data/                       数据：memory.json（对话记忆）/ todos.json（待办）
+├─ runtime/                    Electron 运行时（约 350 MB）
+├─ cache/                      唯一允许随手删的目录（voice / download / desktop）
+├─ pets/                       文件宠物：<名>-config.json + <名>-animation/ …
+└─ assets/                     素材：animation / sound / memes / skin（共享皮肤池）/ session-fish
+```
+
+`cache/` 可随手删，`runtime/` 删了要重新下载，`config/` + `data/` 是你的设置与数据。只卸插件、留着整根，下次装回来设置与对话记忆都还在；要彻底重来就把 `<数据根>` 整个删掉。这些目录在设置页「系统 → 文件与目录」里逐行列出，每行一个「打开文件夹」，删之前可以先点开看一眼。
 
 ## 下一步
 

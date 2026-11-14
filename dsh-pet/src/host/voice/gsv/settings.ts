@@ -5,7 +5,7 @@
  * 写死会让「不可用」的理由变成假的（目录不存在 vs 根本没配），排障时看不出该改哪一项。
  * 读的是 `<userRoot>/voice-providers.json` 的 `gsv` 段（见 ./store.ts），每次现读现用，改配置不必重启插件。
  * 只解析不校验：缺项一律空串，由 provider 用「未配置 xx」这个理由让链跳到下一环。
- * @module dsh-pet/src/host/voice/gsv/settings
+ * @module dsh-fish-body/src/host/voice/gsv/settings
  */
 
 /** GSV 服务的默认地址：与本机 voice-local 的 gsv.bat 一致（9880 是 api_v2 的默认端口）。 */

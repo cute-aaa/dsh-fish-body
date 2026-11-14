@@ -4,7 +4,7 @@
  * 从 `fish-tab` 里抽出来的唯一原因：这三件事都能脱离 React 断言，混在组件里只能靠整页渲染去验。
  * 皮肤清单是只读的（`GET /session-fish/skins`），列表里没有的皮肤不可能是当前值——
  * 文件被删掉后那一项显示成「已失效」，但不会挡住保存。
- * @module dsh-pet/src/client/settings/fish-skins
+ * @module dsh-fish-body/src/client/settings/fish-skins
  */
 import { SESSION_FISH_SKIN_DEFAULT } from '../../shared/session-fish.ts';
 import type { SessionFishSkinOption } from '../session-fish/api.ts';

@@ -3,7 +3,7 @@
  *
  * 用在这条链上：模型回复 / 配置台词 / 碎碎念 → 合成前清洗 → GSV 或 edge。
  * 只删表情区与它们的连接件，汉字、标点、音标与普通拉丁字母都不动。
- * @module dsh-pet/src/host/voice/emoji
+ * @module dsh-fish-body/src/host/voice/emoji
  */
 
 /**

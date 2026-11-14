@@ -1,17 +1,22 @@
 /**
  * 设置页「音效」分区的状态：把成品配置的 `sfx` 段与宿主索引拼成一张可编辑的槽位表。
  *
+ * 两个口径必须分开：**开关**说的是运行时响不响，「匹配」说的是有没有文件可响。
+ * 解析结果把两者都收成 `null`，所以这里额外算一张「开关全开」的预览视图（见 {@link switchesIgnored}）：
+ * 徽标与试听看预览视图（关掉开关也照样能先听一遍），checkbox 看配置里的真实开关。
+ *
  * 只改本地状态、随「保存」整包写回；试听直接走共享播放器（不落盘、不进配置）。
  * 索引是宿主扫盘算出来的「这台机器上实际有什么」：卡片上的文件名与来源都由它决定，
  * 用户改开关只是往 `sfx` 段里补一条覆盖，不改自动匹配的结果；hook 可以在这一页登记名字。
  * owns only 开关编辑、hook 登记与试听，never 保存、加载与顶层三件套（那两个在 use-global-settings）。
- * @module dsh-pet/src/client/settings/use-sfx-settings
+ * @module dsh-fish-body/src/client/settings/use-sfx-settings
  */
 import { petBridge } from './bridge.ts';
 import { loadSfxIndex, sfxUrl } from '../pet/sfx.ts';
 import { playSfx } from '../../shared/sfx/player.ts';
 import { resolveSfx } from '../../shared/sfx/resolve.ts';
 import { SFX_EVENT_SLOTS, SFX_HOOK_NAME_RE, BUILTIN_HOOKS } from '../../shared/sfx/types.ts';
+import { slotSwitchOn, switchesIgnored } from './sfx-view.ts';
 import type { MainConfigPatch } from './config/index.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import type {
@@ -30,12 +35,19 @@ import type { FolderTarget } from '../../shared/folders.ts';
 export interface SfxSlotView {
   /** 槽位。 */
   readonly slot: SfxEventSlot;
-  /** 生效文件名；空串 = 这一槽不响。 */
+  /** 生效文件名；空串 = 这一槽没匹配到文件，试听无从谈起。 */
   readonly file: string;
   /** 文件从哪来（池 / 皮肤 / 声音目录 / 动画同目录 / 用户 / 内置默认 / 配置覆盖）。 */
   readonly origin: SfxOrigin | 'none';
-  /** 当前是否出声。 */
+  /**
+   * 槽位开关是否开着（决定「运行时响不响」）。
+   *
+   * 与 {@link SfxSlotView.matched} 是**两件事**：关掉开关只让运行时静音，
+   * 不该顺手把「有没有文件」也抹掉——那样试听就没法在开启之前先听一遍。
+   */
   readonly enabled: boolean;
+  /** 这一槽有没有匹配到文件（决定「能不能试听」）。 */
+  readonly matched: boolean;
   /** 实际命中的绝对路径（宿主回查；缺省 = 没算出来，只展示文件名）。 */
   readonly path?: string;
   /** 未命中池时「建议放这里」的位置（设置页的第二行就是它）。 */
@@ -142,8 +154,7 @@ function currentPet(): Pet | undefined {
   return petBridge.current[0];
 }
 
-/** 该渲染方式的池资源目录类别。 */
-function poolWhich(renderer: RendererKind): FolderTarget {
+/** 该渲染方式的池资源目录类别。 */ function poolWhich(renderer: RendererKind): FolderTarget {
   if (renderer === 'layered') return 'pool-layered';
   if (renderer === 'live2d') return 'pool-live2d';
   return 'pool-webm';
@@ -225,16 +236,19 @@ export function useSfxSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCallba
   }, []);
 
   const config = withEdits(base, edits);
-  const plan = resolveSfx({ index, layers: [config], lane: 'web' });
+  // 预览口径：把开关当成全开，只回答「有没有文件」。徽标与试听都用它，
+  // 免得「关掉开关」被误读成「没有文件」。
+  const preview = resolveSfx({ index, layers: [switchesIgnored(config)], lane: 'web' });
   const renderer = rendererOf(currentPet());
   const slots: SfxSlotView[] = SFX_EVENT_SLOTS.map((slot) => {
-    const cue = plan.slot(slot);
+    const view = preview.slot(slot);
     const path = index?.paths?.[slot];
     const suggestion = index?.suggestions?.[slot];
-    const origin = cue?.origin ?? 'none';
+    const origin = view?.origin ?? 'none';
     return {
-      enabled: cue !== null,
-      file: cue?.file ?? '',
+      enabled: slotSwitchOn(config.events, slot),
+      file: view?.file ?? '',
+      matched: view !== null,
       origin,
       slot,
       which: whichOf(origin, suggestion, renderer),
@@ -251,7 +265,7 @@ export function useSfxSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCallba
       .sort(),
   ];
   const hooks: SfxHookView[] = hookNames.map((name) => {
-    const cue = plan.hook(name);
+    const cue = preview.hook(name);
     const path = index?.hookPaths?.[name];
     const origin = cue?.origin ?? 'none';
     return {
@@ -265,11 +279,12 @@ export function useSfxSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCallba
     };
   });
 
+  // 试听一律走「忽略开关」的口径：开关说的是运行时响不响，不是能不能被听一遍。
   const trySlot = useCallback(
     (slot: SfxEventSlot): void => {
       const pet = currentPet();
       if (pet === undefined) return;
-      const cue = resolveSfx({ index, layers: [withEdits(base, edits)], lane: 'web' }).slot(slot);
+      const cue = resolveSfx({ index, layers: [switchesIgnored(withEdits(base, edits))], lane: 'web' }).slot(slot);
       if (cue === null) return;
       playSfx(sfxUrl(pet, cue.file), { volume: cue.volume, throttleMs: 0, throttleKey: 'preview:' + slot });
     },
@@ -280,7 +295,7 @@ export function useSfxSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCallba
     (hook: string): void => {
       const pet = currentPet();
       if (pet === undefined) return;
-      const cue = resolveSfx({ index, layers: [withEdits(base, edits)], lane: 'web' }).hook(hook);
+      const cue = resolveSfx({ index, layers: [switchesIgnored(withEdits(base, edits))], lane: 'web' }).hook(hook);
       if (cue === null) return;
       playSfx(sfxUrl(pet, cue.file), { volume: cue.volume, throttleMs: 0, throttleKey: 'preview:hook:' + hook });
     },

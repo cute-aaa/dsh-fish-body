@@ -5,7 +5,7 @@
  * 它们一起变（改外观需求常常同时动字体与物理卡），而不是因为行数。
  * `apply` 接成品配置里能信的那部分，回放同一组控件；加载状态与写盘都不在这里。
  * owns only 这三个字段的编辑态，never 保存、加载与其它分区的字段。
- * @module dsh-pet/src/client/settings/use-appearance-settings
+ * @module dsh-fish-body/src/client/settings/use-appearance-settings
  */
 import { DEFAULT_FONT } from '../../shared/fonts.ts';
 import { DEFAULT_PHYSICS } from '../../shared/physics.ts';

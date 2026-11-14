@@ -38,6 +38,8 @@ function resolveElectronDist() {
   const candidates = [
     process.env.DSH_PET_ELECTRON_DIST,
     process.env.DSH_PET_ELECTRON_PATH ? dirname(process.env.DSH_PET_ELECTRON_PATH) : undefined,
+    // 运行时现在在数据根里（旧位置仍认可，见 docs/目录布局.md）。
+    join(dshHome, 'fish-body', 'runtime', 'electron'),
     join(dshHome, 'electron'),
   ].filter((value) => Boolean(value));
   for (const dir of candidates) {

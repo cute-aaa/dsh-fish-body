@@ -1,7 +1,7 @@
 /**
  * 对话弹窗的样式与尺寸参数：两端注入同一份 CSS。
  * 只放静态字符串与常量，不建 DOM、不读运行时状态。
- * @module dsh-pet/src/shared/chat/styles
+ * @module dsh-fish-body/src/shared/chat/styles
  */
 
 /** 弹窗样式。

@@ -3,7 +3,7 @@
  *
  * 全部读写 state.globals（main 条目的全局字段），由 ./pets 的保存一并提交。
  * 卡片按 builder 数组返回，渲染时机由 ./pets 决定——这里不自己找容器。
- * @module dsh-pet/src/standalone/settings-page/script/globals
+ * @module dsh-fish-body/src/standalone/settings-page/script/globals
  */
 
 /** 生成全局卡片片段。 */

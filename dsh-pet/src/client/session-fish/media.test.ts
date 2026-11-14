@@ -1,7 +1,7 @@
 /**
  * 会话鱼皮肤渲染：视频 / 图片两种元素、地址编码、宽高比换算与失败回落。
  * 用真实 React 静态渲染（无 DOM、无网络）。
- * @module dsh-pet/src/client/session-fish/media.test
+ * @module dsh-fish-body/src/client/session-fish/media.test
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

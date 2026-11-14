@@ -3,7 +3,7 @@
  *
  * 路由层只认这个 deps 表，不认识 apply 的闭包；素材路径与协议细节归 ../http.ts。
  * 必须始终成立：HTTP 前缀路由与桌面 Helper 管道消费同一个 handlePetRoute（两端行为严格一致）。
- * @module dsh-pet/src/host/plugin/http-route
+ * @module dsh-fish-body/src/host/plugin/http-route
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { ROUTE_SEGMENT } from '../../shared/constants.ts';
@@ -102,13 +102,13 @@ export function registerHttpRoute(ctx: HostContext, handlePetRoute: HttpRouteHan
                 sendJson(res, 413, failureBody('payload-too-large', 'request body too large'));
               else if (code !== 'client-aborted') {
                 // 未预期异常：真实原因只进日志，响应里只回分类文案（可能含绝对路径，不外泄）
-                ctx.logger?.warn?.(`[dsh-pet] route failed: ${e instanceof Error ? e.message : String(e)}`);
-                sendJson(res, 500, failureBody('internal-error', 'dsh-pet: internal error'));
+                ctx.logger?.warn?.(`[fish-body] route failed: ${e instanceof Error ? e.message : String(e)}`);
+                sendJson(res, 500, failureBody('internal-error', 'fish-body: internal error'));
               }
             }
           }
         },
       }),
-    `dsh-pet: ${ROUTE_SEGMENT} asset route`,
+    `fish-body: ${ROUTE_SEGMENT} asset route`,
   );
 }

@@ -6,7 +6,7 @@
  * 按下反馈放在 `:active`（`transform:scale(.98)`，80ms），这是本页唯一的「按下去有反应」的手感来源。
  * 下拉浮层（`dsh-pet-mp__*` 模型选择器 / `dsh-pet-sel__*` 通用单选）是既有实现原样搬入：
  * 原生 `<select>` 的展开面板由系统绘制，字号与圆角不受 token 控制，与同排输入框不同源。
- * @module dsh-pet/src/client/settings/style/controls
+ * @module dsh-fish-body/src/client/settings/style/controls
  */
 
 /** 焦点环：所有可聚焦控件共用一条规则，避免每个控件各写一份。 */
@@ -45,16 +45,26 @@ export const CONTROLS_CSS = [
   '.dsh-pet-cfg__btn.is-text{min-height:22px;padding:0 6px;border-color:transparent;color:var(--dsw-alias-label-secondary);font-size:var(--pcg-fs-meta)}',
   '@media (hover:hover){.dsh-pet-cfg__btn.is-text:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}}',
 
-  // 开关：视觉是 34×20 的轨道 + 16 的 thumb，语义仍是 checkbox（这些开关随「保存」整包落盘）。
+  // 开关：视觉是 34×20 的轨道 + 16 的圆点，语义仍是 checkbox（这些开关随「保存」整包落盘）。
+  // 圆点必须是真节点而非 `input::after`：input 是替换元素，伪元素在部分引擎里不生成，
+  // 那时开关只剩一条会换色的色条。input 透明铺在轨道正上方，点轨道等于点它，label 不会二次触发。
   '.dsh-pet-cfg__switch{display:flex;align-items:center;min-width:0;font-size:var(--pcg-fs-body);color:var(--dsw-alias-label-primary)}',
-  '.dsh-pet-cfg__switch>label{display:inline-flex;align-items:center;gap:8px;min-width:0;cursor:pointer}',
-  '.dsh-pet-cfg__switch>label>span{min-width:0;overflow-wrap:anywhere}',
-  '.dsh-pet-cfg__switch input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:none;position:relative;box-sizing:border-box;width:34px;height:20px;margin:0;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);background:var(--dsw-alias-interactive-bg-hover);cursor:pointer;transition:background var(--pcg-dur-fast) var(--pcg-ease),border-color var(--pcg-dur-fast) var(--pcg-ease)}',
-  '.dsh-pet-cfg__switch input[type=checkbox]::after{content:"";position:absolute;top:1px;left:1px;width:16px;height:16px;border-radius:50%;background:var(--dsw-alias-switch-thumb,var(--dsw-alias-bg-layer-1));border:1px solid var(--dsw-alias-border-l2);transition:transform var(--pcg-dur-fast) var(--pcg-ease),border-color var(--pcg-dur-fast) var(--pcg-ease)}',
-  '.dsh-pet-cfg__switch input[type=checkbox]:checked{background:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}',
-  '.dsh-pet-cfg__switch input[type=checkbox]:checked::after{transform:translateX(14px);border-color:var(--dsw-alias-state-business-primary)}',
-  '.dsh-pet-cfg__switch input[type=checkbox]:disabled{opacity:.45;cursor:default}',
-  '.dsh-pet-cfg__switch input[type=checkbox]:focus-visible{outline:none;box-shadow:0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}',
+  '.dsh-pet-cfg__switch>label{position:relative;display:inline-flex;align-items:center;gap:8px;min-width:0;cursor:pointer}',
+  '.dsh-pet-cfg__switch input[type=checkbox]{appearance:none;-webkit-appearance:none;position:absolute;top:50%;left:0;z-index:1;width:34px;height:20px;margin:0;padding:0;border:0;background:transparent;opacity:0;cursor:pointer;transform:translateY(-50%)}',
+  '.dsh-pet-cfg__switch input[type=checkbox]:disabled{cursor:default}',
+  '.dsh-pet-cfg__swTrack{position:relative;flex:none;box-sizing:border-box;width:34px;height:20px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);background:var(--dsw-alias-interactive-bg-hover);transition:background var(--pcg-dur-fast) var(--pcg-ease),border-color var(--pcg-dur-fast) var(--pcg-ease),transform 80ms var(--pcg-ease)}',
+  // 圆点的垂直居中交给 `margin:auto` 而不是写死 `top`：留白由浏览器按剩余空间平分，
+  // 125% / 150% 缩放这种小数像素下也不会一边 1px、一边 2px 地「看着偏上」。
+  // 直径 14（内容 12 + 1px 描边）：上下各留 2px 轨道底色，圆点和轨道描边不会再糊成一片。
+  '.dsh-pet-cfg__swKnob{position:absolute;top:0;bottom:0;left:2px;width:12px;height:12px;margin:auto 0;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;background:var(--dsw-alias-switch-thumb,var(--dsw-alias-bg-layer-1));transition:transform var(--pcg-dur-fast) var(--pcg-ease),border-color var(--pcg-dur-fast) var(--pcg-ease)}',
+  '.dsh-pet-cfg__swText{min-width:0;overflow-wrap:anywhere}',
+  '@media (hover:hover){.dsh-pet-cfg__switch>label:hover>input[type=checkbox]:not(:disabled)+.dsh-pet-cfg__swTrack{border-color:var(--dsw-alias-border-l3)}}',
+  // 按下反馈：整条轨道轻微内缩，与按钮的 `:active` 同一档手感。
+  '.dsh-pet-cfg__switch>label:active>.dsh-pet-cfg__swTrack{transform:scale(.96)}',
+  '.dsh-pet-cfg__switch input[type=checkbox]:checked+.dsh-pet-cfg__swTrack{background:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}',
+  '.dsh-pet-cfg__switch input[type=checkbox]:checked+.dsh-pet-cfg__swTrack>.dsh-pet-cfg__swKnob{transform:translateX(14px);border-color:var(--dsw-alias-state-business-primary)}',
+  '.dsh-pet-cfg__switch input[type=checkbox]:disabled+.dsh-pet-cfg__swTrack,.dsh-pet-cfg__switch input[type=checkbox]:disabled~.dsh-pet-cfg__swText{opacity:.45}',
+  '.dsh-pet-cfg__switch input[type=checkbox]:focus-visible+.dsh-pet-cfg__swTrack{box-shadow:0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}',
   // 父开关关掉时，从属开关整块降透明：一眼看出「这一组现在不生效」，而不是逐个阅读禁用原因。
   '.dsh-pet-cfg__switch.is-muted>label{opacity:.45}',
 

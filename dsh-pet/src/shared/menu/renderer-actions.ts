@@ -5,7 +5,7 @@
  * 只产出菜单数据与判据，不碰 DOM、不读配置：皮肤清单与模型声明本身由两端的渲染器解析后传入，
  * 本模块只认「组 → 条目」这一层中性结构，浏览器（card/entry）与桌面（sprite/menu）共用同一份。
  * 必须始终成立：同一份输入必得同一棵树；空组被丢弃，没有可点条目时不产出空的「动作」。
- * @module dsh-pet/src/shared/menu/renderer-actions
+ * @module dsh-fish-body/src/shared/menu/renderer-actions
  */
 import { type Animations, type RendererKind } from '../types.ts';
 import { buildMenuTree, MOTION_RESET } from './tree.ts';

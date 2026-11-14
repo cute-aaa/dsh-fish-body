@@ -6,7 +6,7 @@
  * 声明式 `fields` 只描述「这实现需要哪些配置项」，设置页据此生成控件（T3.6），本模块不读配置。
  * 模块单例：注册返回 disposer；测试用 {@link resetVoiceProviders} 复位。
  * 只登记、排序与探测可用性，不合成、不缓存。
- * @module dsh-pet/src/host/voice/registry
+ * @module dsh-fish-body/src/host/voice/registry
  */
 import type { AudioClip } from './audio.ts';
 

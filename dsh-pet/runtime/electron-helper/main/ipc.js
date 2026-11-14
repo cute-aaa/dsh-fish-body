@@ -5,7 +5,7 @@ const { decideWindowIgnore } = require('../pointer-target.js');
  * 渲染端到主进程的 ipc：窗口跟随、飞行状态、碰撞转发、穿透翻转、输入租约与菜单首项（打开软件 / 打开 AI 设置）。
  *
  * 唯一的窗口状态入口是 windows 模块导出的方法与 state；本模块不自己存任何状态。
- * @module dsh-pet/runtime/electron-helper/main/ipc
+ * @module dsh-fish-body/runtime/electron-helper/main/ipc
  */
 
 /**
@@ -178,7 +178,7 @@ function registerIpc({ ipcMain, petWindows, shell, openTarget, petRoute }) {
       }
     }
     shell.openExternal(target).catch((error) => {
-      console.error('[dsh-pet-desktop-helper] openExternal failed:', error);
+      console.error('[fish-body-desktop] openExternal failed:', error);
     });
   };
 
@@ -194,7 +194,7 @@ function registerIpc({ ipcMain, petWindows, shell, openTarget, petRoute }) {
     if (openTarget === 'desktop') {
       // 协议未注册（绿色版 / 注册表被清）时回落成打开站点，至少不是"点了没反应"
       focusDesktopApp().catch((error) => {
-        console.error('[dsh-pet-desktop-helper] open dsh:// failed, falling back to site:', error);
+        console.error('[fish-body-desktop] open dsh:// failed, falling back to site:', error);
         openSite(url);
       });
       return;
@@ -206,7 +206,7 @@ function registerIpc({ ipcMain, petWindows, shell, openTarget, petRoute }) {
   ipcMain.on('pet:focus-host', () => {
     if (openTarget !== 'desktop') return;
     focusDesktopApp().catch((error) => {
-      console.warn('[dsh-pet-desktop-helper] focus host failed:', error && error.message);
+      console.warn('[fish-body-desktop] focus host failed:', error && error.message);
     });
   });
 

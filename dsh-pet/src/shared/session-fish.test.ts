@@ -1,6 +1,6 @@
 /**
  * 会话鱼 wire 解析与展示判定：形状容错、气泡窗口、播报去重、上限排序。
- * @module dsh-pet/src/shared/session-fish.test
+ * @module dsh-fish-body/src/shared/session-fish.test
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

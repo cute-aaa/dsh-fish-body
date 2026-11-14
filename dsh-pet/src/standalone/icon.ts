@@ -3,7 +3,7 @@
  *
  * 两个本机服务（独立模式监听器与应用模式路由）共用本模块；读取结果按进程缓存，
  * 文件缺失时回 undefined，由调用方回 404——不在缺图时静默给一张占位图。
- * @module dsh-pet/src/standalone/icon
+ * @module dsh-fish-body/src/standalone/icon
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

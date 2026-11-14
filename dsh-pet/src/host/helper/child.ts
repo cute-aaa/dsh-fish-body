@@ -3,13 +3,20 @@
  *
  * 不决定何时重启（归 ./restart），不解析 Electron 路径（归 ./electron）。
  * 必须始终成立：新旧进程绝不重叠，stop 之后不得再写管道。
- * @module dsh-pet/src/host/helper/child
+ * @module dsh-fish-body/src/host/helper/child
  */
 import { mkdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { BRIDGE_PREFIX } from './bridge.ts';
 import type { BridgeHandler, BridgeRequest, BridgeResponse } from './bridge.ts';
-import { defaultHelperMain, defaultLaunch, dshHomeDir, readElectronVersion, shouldForceXWayland } from './electron.ts';
+import {
+  currentUserRoot,
+  defaultHelperMain,
+  defaultLaunch,
+  dshHomeDir,
+  readElectronVersion,
+  shouldForceXWayland,
+} from './electron.ts';
 import {
   HELPER_STABLE_MS,
   HELPER_STOP_TIMEOUT_MS,
@@ -63,7 +70,13 @@ type Logger = {
  * `'0'` / `'false'` / `'1'` 都进纯 Node 模式；运行期再 delete 已经晚了，模块加载器在进程启动时就定了。
  */
 export function helperSpawnEnv(hostPid: number, extra?: Record<string, string | undefined>): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, DSH_PET_HOST_PID: String(hostPid), ...extra };
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    DSH_PET_HOST_PID: String(hostPid),
+    // 实际生效的数据根：桌面窗口的 Chromium profile 必须落在同一个根下（选根可能回落到旧根）。
+    DSH_PET_USER_ROOT: currentUserRoot(),
+    ...extra,
+  };
   delete env.ELECTRON_RUN_AS_NODE;
   return env;
 }

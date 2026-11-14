@@ -4,7 +4,7 @@
  * 不负责设置语义与校验（见 ai-config），也不决定文件该放在哪个目录。
  * 必须始终成立：写入先在空临时文件上收紧权限再原子替换；
  * 读取拒绝符号链接、超限文件与过宽的 ACL。
- * @module dsh-pet/src/standalone/ai-storage
+ * @module dsh-fish-body/src/standalone/ai-storage
  */
 import { execFileSync } from 'node:child_process';
 import {

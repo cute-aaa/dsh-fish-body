@@ -3,7 +3,7 @@
  *
  * 不决定菜单内容（归 ./tree），只负责呈现与事件。
  * 必须始终成立：卸载时必须摘掉全部监听，不留悬挂元素。
- * @module dsh-pet/src/shared/menu/mount
+ * @module dsh-fish-body/src/shared/menu/mount
  */
 import type { ContextMenuMount, MenuBranch, MenuLeaf, MenuNode, MenuSlider } from './types.ts';
 import { pickPanelPosition } from './position.ts';

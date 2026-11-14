@@ -3,7 +3,7 @@
  *
  * 为什么要一个组件：客户端没有「当前选中会话」的公开服务；这个插槽是会话作用域的，注入回调能拿到
  * sessionId，正好是权威信号。只有会话真正切换时才发请求（模块级去重），避免每次重渲染都打一次。
- * @module dsh-pet/src/client/session-fish/reporter
+ * @module dsh-fish-body/src/client/session-fish/reporter
  */
 import type { DependencyList, EffectCallback } from 'react';
 import type { jsx } from 'react/jsx-runtime';

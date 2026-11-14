@@ -1,32 +1,35 @@
 /**
  * 「打开文件夹」的平台命令（src/host/open-folder.ts）：目录类别 → 目录由 routes 的测试覆盖，
- * 这里只管**交给谁打开**——Windows 走 ShellExecute（PowerShell 的 Start-Process），
- * 路径经环境变量传递而不是拼命令行，macOS / Linux 用各自的「默认处理程序」入口。
+ * 这里只管**交给谁打开**——Windows 走 ShellExecute（`rundll32 url.dll,FileProtocolHandler`），
+ * macOS / Linux 用各自的「默认处理程序」入口。
  * 只算命令描述，不真的拉子进程（不弹窗口）。
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { openCommandOf, WINDOWS_OPEN_ENV } from './open-folder.ts';
+import { openCommandOf } from './open-folder.ts';
 
 describe('openCommandOf', () => {
   const target = 'D:\\NodeJs\\DSH_home\\dsh-pet\\skin\\layered\\feiyu-05';
 
-  test('Windows：交给 PowerShell 的 Start-Process（ShellExecute），路径只走环境变量', () => {
+  test('Windows：交给 ShellExecute（rundll32 FileProtocolHandler），跟随默认文件管理器', () => {
     const spec = openCommandOf(target, 'win32');
     assert.ok(spec);
-    assert.equal(spec.command, 'powershell.exe');
-    assert.equal(spec.env?.[WINDOWS_OPEN_ENV], target);
-    const command = spec.args.join(' ');
-    assert.ok(command.includes('Start-Process'));
-    assert.ok(command.includes('$env:' + WINDOWS_OPEN_ENV));
-    // 路径绝不出现在命令行里：否则 & ^ % 与引号都得在这里重写一套转义。
+    assert.equal(spec.command, 'rundll32.exe');
+    assert.deepEqual(spec.args, ['url.dll,FileProtocolHandler', target]);
+  });
+
+  test('Windows：不走 powershell Start-Process（隐藏 + detach 会把 SW_HIDE 传给目标窗口）', () => {
+    const spec = openCommandOf(target, 'win32');
+    assert.ok(spec);
+    // 这一条是线上回归的护栏：Start-Process 在宿主的隐藏子进程里会把目录开成隐藏窗口，
+    // 表现是「点了没反应」。任何时候都别把它加回来。
+    assert.notEqual(spec.command, 'powershell.exe', '不许用 PowerShell 打开文件夹');
     assert.equal(
-      spec.args.some((arg) => arg.includes(target)),
+      spec.args.some((arg) => arg.includes('Start-Process')),
       false,
+      '命令行里不许再出现 Start-Process',
     );
-    assert.ok(spec.args.includes('-NoProfile'));
-    assert.ok(spec.args.includes('-NonInteractive'));
   });
 
   test('macOS：open（LaunchServices，跟随系统默认）', () => {

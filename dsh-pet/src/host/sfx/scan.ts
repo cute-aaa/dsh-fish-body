@@ -3,7 +3,7 @@
  *
  * 只读目录、不判定优先级（归 ./index-build），不碰 HTTP。目录不存在一律当作空，
  * 所以「一个音效文件都没有」与「目录还没建」走同一条路径，调用方不必分支。
- * @module dsh-pet/src/host/sfx/scan
+ * @module dsh-fish-body/src/host/sfx/scan
  */
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -15,7 +15,7 @@ export interface SfxDirs {
   readonly skinDir?: string;
   /** 素材根自有声音目录 `pet/<素材根>-sound/`。 */
   readonly soundDir?: string;
-  /** 用户级共享声音目录 `<用户根>/main-sound/`（仅 main 链有）。 */
+  /** 用户级共享声音目录 `<数据根>/assets/sound/`（仅 main 链有）。 */
   readonly userSoundDir?: string;
   /** 包内默认声音目录 `assets/sound/`。 */
   readonly packageSoundDir: string;
@@ -45,7 +45,7 @@ export interface SfxSources {
   readonly bySkin: Readonly<Record<string, readonly string[]>>;
   /** `-sound/` 里的文件名。 */
   readonly sound: readonly string[];
-  /** `<用户根>/main-sound/` 里的文件名。 */
+  /** `<数据根>/assets/sound/` 里的文件名。 */
   readonly user: readonly string[];
   /** 动画目录里的文件名（动作音）。 */
   readonly animation: readonly string[];

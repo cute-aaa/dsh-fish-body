@@ -2,7 +2,7 @@
  * layered 皮肤的装配数学：把「运行时姿态」折成每层的平移 / 旋转 / 缩放 / 透明度，并画到画布。
  * 只做纯计算与绘制，不持有图片、不读时钟、不碰 DOM 以外的画布；动画驱动在渲染器里。
  * 层序以 manifest 的 layers 顺序为准（后画压前画），张嘴素材插在基础嘴层之后。
- * @module dsh-pet/src/client/pet/render/layered/rig
+ * @module dsh-fish-body/src/client/pet/render/layered/rig
  */
 import type { SkinManifest } from './types.ts';
 import type { AlphaBox } from './probe.ts';

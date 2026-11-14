@@ -15,7 +15,7 @@
  *
  * 认句按**序号**而不是文本（见 {@link onUtterance}）：文案池每档只有两句，别处念到同一句
  * 会被误判成自己的收尾。跨显示面「只念一次」不在这里，由宿主的 `/session-fish/claim` 裁决。
- * @module dsh-pet/src/client/session-fish/speech
+ * @module dsh-fish-body/src/client/session-fish/speech
  */
 import {
   currentUtteranceSeq,

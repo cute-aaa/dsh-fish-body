@@ -1,7 +1,7 @@
 /**
  * layered 皮肤清单解析与装配数学的契约测试：纯函数，无 DOM / 无图片解码。
  * 覆盖：容错解析、张嘴素材插入、眨眼/视线/尾巴/嘴的姿态折出、命中判定。
- * @module dsh-pet/src/client/pet/render/layered/layered.test
+ * @module dsh-fish-body/src/client/pet/render/layered/layered.test
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

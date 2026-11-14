@@ -1,6 +1,6 @@
 /**
  * 人格来源注册表单元测试：注册、按 id 查、注销与重复 id 拒绝。
- * @module dsh-pet/src/host/persona-source/registry.test
+ * @module dsh-fish-body/src/host/persona-source/registry.test
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

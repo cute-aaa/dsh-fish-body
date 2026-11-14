@@ -5,7 +5,7 @@
  * 分开后「音效总音量」和「播报音量」永远看不到对方；合成一个分区，两套开关的从属关系才读得出来。
  * 两种写入语义仍分开：音效与语音播报随「保存」写，接入配置与音色切换立即落盘（卡片自己说明）。
  * owns only 这一块的装配，never 字段状态与写盘。
- * @module dsh-pet/src/client/settings/audio-tab
+ * @module dsh-fish-body/src/client/settings/audio-tab
  */
 import type { FunctionComponent } from 'react';
 import type { DirtyQuery } from './dirty.ts';

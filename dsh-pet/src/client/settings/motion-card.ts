@@ -5,7 +5,7 @@
  * 随机动作过去用 `input[type=number][readOnly]` 显示——那是一个「看着能改、其实改不了」的假控件，
  * 现在改成纯文本读数：不能编辑的东西就不该长成输入框。
  * 写的是 main 条目，作为所有宠物的全局默认；pet pack 可在自己种类文件里覆盖。
- * @module dsh-pet/src/client/settings/motion-card
+ * @module dsh-fish-body/src/client/settings/motion-card
  */
 import type { FunctionComponent } from 'react';
 import type { Weights } from '../../shared/types.ts';
@@ -51,6 +51,7 @@ export function makeMotionCard(rt: SettingsRuntime): FunctionComponent<MotionCar
             disabled: busy,
           }),
         ),
+        'look.weights.' + key,
       ),
     );
     return h('div', {

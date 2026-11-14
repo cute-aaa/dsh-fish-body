@@ -5,7 +5,7 @@
  * 「保存」只写主配置与种类层，「saveAll」再多写一次会话鱼；两者都返回是否成功，
  * 「确定」据此决定关不关设置页，「重启」据此决定要不要真的重启。
  * 传进来的是回调而不是值：`save` 每次渲染重建，直接捕获状态会拿旧值存盘。
- * @module dsh-pet/src/client/settings/config/write-flow
+ * @module dsh-fish-body/src/client/settings/config/write-flow
  */
 import type { SaveFields } from './http.ts';
 import type { MergedConfig } from './read.ts';

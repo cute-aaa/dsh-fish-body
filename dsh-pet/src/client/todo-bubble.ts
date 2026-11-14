@@ -1,7 +1,7 @@
 /**
  * 待办面板的气泡外壳：把共享面板塞进气泡槽，显隐与优先级都由槽位决定。
  * 只做挂载与卸载，不碰数据与定位；面板本体在 shared/todo/panel。
- * @module dsh-pet/src/client/todo-bubble
+ * @module dsh-fish-body/src/client/todo-bubble
  */
 import { createTodoPanel } from '../shared/todo/panel.ts';
 import type * as ReactNS from 'react';

@@ -6,13 +6,13 @@
  * 绝不留下「主配置已换、会话鱼没换」这种半成品。空串表示这一层在快照拍摄时不存在：
  * 主配置/会话鱼会删掉现有文件（回落到内置默认），种类文件则**不动**（备份里没有的种类不删）。
  * 写完后重读成品、重载会话鱼设置并广播，设置页与浮层无需刷新即可看到恢复结果。
- * @module dsh-pet/src/host/settings-backup/apply
+ * @module dsh-fish-body/src/host/settings-backup/apply
  */
 import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { readAllConfig } from '../config/read.ts';
 import { effectiveUserFile, parseJsoncText } from '../config/jsonc.ts';
-import { SESSION_FISH_FILE, type SessionFishSettingsStore } from '../session-fish/settings.ts';
+import { sessionFishSettingsPath, type SessionFishSettingsStore } from '../session-fish/settings.ts';
 import { parseSettingsBackup, type SettingsBackup } from '../../shared/settings-backup.ts';
 import type { SessionFishSettings } from '../../shared/session-fish.ts';
 import type { ConfigPaths } from '../config/constants.ts';
@@ -144,7 +144,7 @@ export function applySettingsBackup(target: BackupTarget, raw: unknown, now: Dat
 
   const { configPaths, userRoot } = target;
   const mainFile = effectiveUserFile(configPaths) ?? configPaths.userFile;
-  const fishFile = join(userRoot, SESSION_FISH_FILE);
+  const fishFile = sessionFishSettingsPath(userRoot);
   const planned: PlanItem[] = [
     {
       file: mainFile,

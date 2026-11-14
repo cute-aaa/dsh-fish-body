@@ -2,7 +2,7 @@
  * 待办面板的 DOM 骨架与清单渲染：只拼元素、绑事件，不取数、不定位、不关弹窗。
  *
  * 删除做成两步（先变成「确认」，2.5 秒后自动复原）：清单没有撤销，误点一次就没了太容易。
- * @module dsh-pet/src/shared/todo/render
+ * @module dsh-fish-body/src/shared/todo/render
  */
 import { createDuePicker, type DuePicker } from './due-picker.ts';
 import { metaLabel, todoUrgency } from './format.ts';

@@ -2,13 +2,13 @@
  * 会话鱼的皮肤渲染：webm 用 `<video>`，图片/动图用 `<img>`，加载失败回落到内嵌小鱼。
  *
  * 为什么统一走 `/session-fish/skin?name=`：皮肤可能是包内动画，也可能是用户自己放进
- * `session-fish-skin/` 的 gif / png / webm，只有宿主知道该从哪个目录取；前端只认名字，
+ * `assets/session-fish/` 的 gif / png / webm，只有宿主知道该从哪个目录取；前端只认名字，
  * 不拼素材根、也不猜文件在不在（404 就回落，不阻塞其它鱼）。
  *
  * 宽高比：素材尺寸只有加载后才知道，量到就记进共享缓存并回调一次；布局按缓存里的比例算，
  * 所以第一帧用 16:9 兜底、量到真实尺寸后盒子自己长对，不必等一整轮刷新。
  * 比例与「按宽度算高度」的口径在 `shared/session-fish/aspect`（桌面端用同一份）。
- * @module dsh-pet/src/client/session-fish/media
+ * @module dsh-fish-body/src/client/session-fish/media
  */
 import type { Dispatch, SetStateAction } from 'react';
 import type { jsx } from 'react/jsx-runtime';

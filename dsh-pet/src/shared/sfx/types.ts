@@ -3,7 +3,7 @@
  *
  * 类型定义在 shared/types（与 config.jsonc 同构的唯一类型模型处），避免 `types ↔ sfx` 双向 import；
  * 本模块只放「音效领域自己的」取值表。
- * @module dsh-pet/src/shared/sfx/types
+ * @module dsh-fish-body/src/shared/sfx/types
  */
 import type { SfxEventSlot } from '../types.ts';
 

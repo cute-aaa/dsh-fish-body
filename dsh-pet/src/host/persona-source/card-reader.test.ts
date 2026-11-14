@@ -1,6 +1,6 @@
 /**
  * 人设卡读取与投影单元测试：钉住 SillyTavern v2 卡的解析、占位符替换与 PNG tEXt 解包。
- * @module dsh-pet/src/host/persona-source/card-reader.test
+ * @module dsh-fish-body/src/host/persona-source/card-reader.test
  */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

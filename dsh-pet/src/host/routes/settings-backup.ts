@@ -4,7 +4,7 @@
  * 只做协议与编排：读盘的规则在 `../settings-backup/collect`，预检/留底/回滚在 `../settings-backup/apply`。
  * 备份体可能不小，但服务端的请求体总闸是 1 MiB；这里再按快照上限单独挡一次，让「文件太大」
  * 在解析之前就以 413 结束，而不是先读出半个 JSON 再报语法错。
- * @module dsh-pet/src/host/routes/settings-backup
+ * @module dsh-fish-body/src/host/routes/settings-backup
  */
 import { collectSettingsBackup } from '../settings-backup/collect.ts';
 import { applySettingsBackup } from '../settings-backup/apply.ts';

@@ -3,7 +3,7 @@
  *
  * 不负责读写与校验；校验函数从这里取枚举集合，避免各写一份。
  * 必须始终成立：取值域与 shared/types 的联合类型一一对应，改一处必须同步另一处。
- * @module dsh-pet/src/host/config/constants
+ * @module dsh-fish-body/src/host/config/constants
  */
 import { FONT_PRESETS } from '../../shared/fonts.ts';
 import { PET_DISPLAYS, RENDERERS } from '../../shared/config.ts';
@@ -80,7 +80,7 @@ const warnedKeys = new Set<string>();
 export function warnOnce(key: string, message: string): void {
   if (warnedKeys.has(key)) return;
   warnedKeys.add(key);
-  defaultLog('warn', 'dsh-pet: ' + message);
+  defaultLog('warn', 'fish-body: ' + message);
 }
 
 /** 配置路径集（宿主组装好后传入，单一事实来源） */

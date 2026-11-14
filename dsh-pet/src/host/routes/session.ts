@@ -4,7 +4,7 @@
  * 桌面宠物跑在独立渲染进程里，拿不到页面中的会话服务，只能由宿主中转这一次；
  * 写入带 `ts`，消费端据此判断信号是否已处理——页面晚于写入加载时仍能重放一次。
  * 只校验输入并写状态，不判断会话是否存在（那是页面的事），也不碰任何既有叶子。
- * @module dsh-pet/src/host/routes/session
+ * @module dsh-fish-body/src/host/routes/session
  */
 import type { RouteResult } from '../http.ts';
 import { failResult, invalidJson, methodNotAllowed, okResult } from './result.ts';

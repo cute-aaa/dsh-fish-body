@@ -4,7 +4,7 @@
  * 不复用对话附图的压缩链路：对话图按 640 KiB / 2048 长边压成 JPEG 省请求体，头像是方寸小图、
  * 还要保住透明背景，所以这里只缩边、统一编成 PNG，不套质量阶梯。
  * 编码与提交分成两个函数：编码要 canvas，测试环境没有，网络分支才能单独测。
- * @module dsh-pet/src/client/settings/avatar-upload
+ * @module dsh-fish-body/src/client/settings/avatar-upload
  */
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import { bytesToBase64, loadImage } from '../../shared/chat/encode.ts';

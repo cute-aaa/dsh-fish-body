@@ -6,7 +6,7 @@
  * 每次发声只新建 BufferSource，起点精确到样本 0；常驻保活用一个 1 LSB 的循环音源防止 sink 被判静音。
  * WebAudio 不可用、上下文迟迟起不来或素材解码失败时回退 `<audio>`，失败一律静默。
  * 单例：网页端全页一份、桌面端一窗一份；节流按 key 在模块内收口。
- * @module dsh-pet/src/shared/sfx/player
+ * @module dsh-fish-body/src/shared/sfx/player
  */
 
 /** 总音量缺省值：与其余提示音同一档，不抢对话内容。 */
@@ -372,7 +372,7 @@ function startDecode(audio: AudioContext, url: string): void {
     } catch (error) {
       // 解码失败就永久降级到 `<audio>`：不报出来，用户只会觉得"没声音"而查无实据。
       decodeFailed.add(url);
-      console.warn('[dsh-pet] sfx decode failed url=' + url + '：' + String(error));
+      console.warn('[fish-body] sfx decode failed url=' + url + '：' + String(error));
     } finally {
       decoding.delete(url);
     }
@@ -408,13 +408,13 @@ function playFallback(url: string, volume: number): void {
   }
 }
 
-/** 记一次实际走的播放路径：桌面端只转发带 `[dsh-pet]` 的 console，这条能落盘取证。 */
+/** 记一次实际走的播放路径：桌面端只转发带 `[fish-body]` 的 console，这条能落盘取证。 */
 function logPlay(url: string, path: string): void {
   if (playLogsLeft <= 0) return;
   playLogsLeft -= 1;
   const audio = context;
   console.info(
-    '[dsh-pet] sfx play path=' +
+    '[fish-body] sfx play path=' +
       path +
       ' url=' +
       url +
@@ -431,7 +431,7 @@ function logPlay(url: string, path: string): void {
 function logPath(path: 'web-audio' | 'fallback'): void {
   if (loggedPaths.has(path)) return;
   loggedPaths.add(path);
-  console.info('[dsh-pet] sfx path=' + path);
+  console.info('[fish-body] sfx path=' + path);
 }
 
 /** 等指定毫秒；只用于「上下文恢复 / 解码」的兜底超时。 */

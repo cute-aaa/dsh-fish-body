@@ -1,7 +1,7 @@
 /**
  * 悬停快捷键的判据：鼠标停在某只宠物上时，按 `L` 打开对话、按 `S` 截图。
  * 按键规则归 shared/hotkey，本模块只绑定「哪个键 + 菜单文案」。
- * @module dsh-pet/src/shared/chat/hotkey
+ * @module dsh-fish-body/src/shared/chat/hotkey
  */
 import { isBareKey } from '../hotkey.ts';
 import type { HotkeyEvent } from '../hotkey.ts';

@@ -8,7 +8,7 @@
  * 为什么不用运行库的 `model.motion()`：pixi-live2d-display 0.4.0 的 cubism4 后端把所有 motion
  * 塞进同一个队列，`_startMotion` 一进来就 `stopAllMotions()`——点第二个动作会把第一个连同待机一起掐掉。
  * VTube 的用法相反：热键动作叠在待机之上，举手/竖手指/狗尾巴草还能同时保持。
- * @module dsh-pet/runtime/electron-helper/sprite-overlay
+ * @module dsh-fish-body/runtime/electron-helper/sprite-overlay
  */
 'use strict';
 

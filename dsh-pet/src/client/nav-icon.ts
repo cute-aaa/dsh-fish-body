@@ -7,7 +7,7 @@
  * sprite 由宿主在挂载后才注入，装配这一刻取不到，所以字形推迟到认出面板时才解析。
  * 认行只能靠标题文本：投影到 DOM 的只有 label，而 account 行条件出现、位置会漂，不能用 `:nth-child`。
  * 降级：缺 document / MutationObserver、取不到字形时不装（齿轮留着），认不出那一行时什么都不做，只告警。
- * @module dsh-pet/src/client/nav-icon
+ * @module dsh-fish-body/src/client/nav-icon
  */
 
 /** 注入的样式表去重标记（与宠物页面 / 设置页同一套 `data-plugin-css` 约定）。 */
@@ -141,7 +141,7 @@ export function installSectionNavIcon(target: SectionNavIcon): () => void {
   const doc = typeof document === 'undefined' ? undefined : document;
   const Observer = typeof MutationObserver === 'undefined' ? undefined : MutationObserver;
   if (doc === undefined || Observer === undefined || doc.body === null) {
-    console.warn('[dsh-pet] 设置页导航图标不可用：缺少 document / body / MutationObserver（齿轮照旧）');
+    console.warn('[fish-body] 设置页导航图标不可用：缺少 document / body / MutationObserver（齿轮照旧）');
     return () => {};
   }
 
@@ -153,7 +153,7 @@ export function installSectionNavIcon(target: SectionNavIcon): () => void {
   const warnGlyph = (reason: string): void => {
     if (warnedGlyph) return;
     warnedGlyph = true;
-    console.warn('[dsh-pet] 设置页导航图标不可用：' + reason + '（齿轮照旧）');
+    console.warn('[fish-body] 设置页导航图标不可用：' + reason + '（齿轮照旧）');
   };
 
   /** 解析并注入换字形样式；成功一次后不再重算，失败时留待面板下次出现再试。 */
@@ -199,7 +199,7 @@ export function installSectionNavIcon(target: SectionNavIcon): () => void {
     } catch (error) {
       if (!warned) {
         warned = true;
-        console.warn('[dsh-pet] 设置页导航图标补丁异常，本次跳过（齿轮照旧）：' + describe(error));
+        console.warn('[fish-body] 设置页导航图标补丁异常，本次跳过（齿轮照旧）：' + describe(error));
       }
     }
   };

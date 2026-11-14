@@ -1,7 +1,7 @@
 /**
  * 待办面板的悬停快捷键：鼠标停在宠物上时按 `D` 开关面板。
  * 按键规则归 shared/hotkey，本模块只绑定「哪个键 + 菜单文案」。
- * @module dsh-pet/src/shared/todo/hotkey
+ * @module dsh-fish-body/src/shared/todo/hotkey
  */
 import { isBareKey } from '../hotkey.ts';
 import type { HotkeyEvent } from '../hotkey.ts';

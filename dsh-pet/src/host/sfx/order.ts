@@ -4,7 +4,7 @@
  * 存在意义有两条：索引（host/sfx/index-build 指文件名）与取文件（host/routes/assets 找文件）
  * 必须**同一顺序**，否则会出现「索引指了名、路由 404」；设置页的「实际命中路径」也按它回查。
  * 只做顺序编排，不读盘、不判命中；目录不存在由消费方各自退化成「这一层没有」。
- * @module dsh-pet/src/host/sfx/order
+ * @module dsh-fish-body/src/host/sfx/order
  */
 import { join } from 'node:path';
 import type { SfxDirs } from './scan.ts';

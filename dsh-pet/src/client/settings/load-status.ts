@@ -3,7 +3,7 @@
  *
  * 就绪后整块不出现，也不占位——它就是设置页顶部那条临时提示。
  * 失败态用告警色描边而不是只在文字上换色：这一条出现时整页是禁用的，得让人一眼看出「现在什么都改不了」。
- * @module dsh-pet/src/client/settings/load-status
+ * @module dsh-fish-body/src/client/settings/load-status
  */
 import type { FunctionComponent } from 'react';
 import type { LoadState } from './config/index.ts';

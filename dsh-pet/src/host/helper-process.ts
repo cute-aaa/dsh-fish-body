@@ -3,21 +3,28 @@
  *
  * 只做再导出，不含逻辑；子模块按变化原因分居 ./helper/。
  * 必须始终成立：模块外只经本文件使用 Helper 能力，不得旁路拉起进程。
- * @module dsh-pet/src/host/helper-process
+ * @module dsh-fish-body/src/host/helper-process
  */
 export {
   defaultElectronExe,
   defaultHelperMain,
   defaultLaunch,
+  currentUserRoot,
   dshHomeDir,
+  downloadElectronInBackground,
+  electronDownloadCacheDir,
   electronLandingDir,
+  electronRuntimeDir,
+  electronRuntimeStatus,
   ensureElectronDownload,
   hasGraphicalDisplay,
+  legacyElectronDir,
   packageRoot,
   readElectronVersion,
   resolveElectronPath,
+  setUserRoot,
 } from './helper/electron.ts';
-export type { ElectronDownloadLog, EnsureElectronOptions } from './helper/electron.ts';
+export type { ElectronDownloadLog, ElectronRuntimeStatus, EnsureElectronOptions } from './helper/electron.ts';
 export { BRIDGE_PREFIX } from './helper/bridge.ts';
 export type { BridgeHandler, BridgeRequest, BridgeResponse } from './helper/bridge.ts';
 export {

@@ -4,7 +4,7 @@
  * 不负责积分、重力与 DOM 写入，只回答「结算之后我该在哪、速度多少」。
  * 不变量：速度一次算定、双方都写绝对速度，绝不按增量叠加——重叠会持续好几帧，
  * 叠加会让同一对碰撞每帧重复注入动量，速度按帧指数增长。
- * @module dsh-pet/src/client/pet/motion/pet-collision
+ * @module dsh-fish-body/src/client/pet/motion/pet-collision
  */
 import {
   bodyPixelBox,

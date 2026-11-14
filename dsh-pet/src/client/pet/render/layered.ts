@@ -3,7 +3,7 @@
  * 与 webm 不同：没有 video、没有 A/B 缓冲，「动作」就是装配动画（blink/wag/hop/talk/mouth），
  * 播放进度恒为零；运动与交互仍留在卡片层，本模块只提供视觉 + 动作 + 命中判定。
  * 皮肤从 `pet/<素材根>-skin/` 扫描，经宿主 `/skin/<素材根>/<file>` 路由取。
- * @module dsh-pet/src/client/pet/render/layered
+ * @module dsh-fish-body/src/client/pet/render/layered
  */
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import { bubbleAnchorY } from '../../../shared/bubble-anchor.ts';

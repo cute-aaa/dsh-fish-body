@@ -3,7 +3,7 @@
  *
  * 后端就是插件自己的 /logo 与 /pet-avatar——独立模式经 apply() 原样挂载，不另开接口。
  * 超长边的图会先缩到上限再编 PNG；已在上限内则原样上传，透明与动图都不掉。
- * @module dsh-pet/src/standalone/settings-page/script/avatar
+ * @module dsh-fish-body/src/standalone/settings-page/script/avatar
  */
 
 /** 生成头像片段所需的常量；两处都取自插件自己的实现，避免第二份真相。 */

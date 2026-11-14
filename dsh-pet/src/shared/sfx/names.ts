@@ -4,7 +4,7 @@
  * 皮肤身份优先由**所在目录**给出（皮肤根目录里的文件名不需要前缀）；本模块只负责
  * 「目录之外的扁平目录（`-sound/`）里用前缀表达归属」这一种写法，以及槽名/动作名/hook 的判别。
  * 只做字符串处理，不读盘、不知道目录结构。
- * @module dsh-pet/src/shared/sfx/names
+ * @module dsh-fish-body/src/shared/sfx/names
  */
 
 import { BUMP_SLOT, canonicalSlotOf } from './defaults.ts';

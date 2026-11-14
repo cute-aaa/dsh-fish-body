@@ -2,7 +2,7 @@
  * 共享常量叶子：画布几何、播放扩展名与插件 HTTP 挂载路径。
  * 路径对两端语义不同——宿主只认服务端路由段，浏览器才带挂载前缀，因此拆成两个导出。
  * 不 import 任何模块：宿主半侧直接引本文件，不经 shared/index 桶（桶里有 DOM 挂载代码）。
- * @module dsh-pet/src/shared/constants
+ * @module dsh-fish-body/src/shared/constants
  */
 /** thumb 画布高度。 */
 export const CANVAS_H = 360;
@@ -66,6 +66,6 @@ export const ROUTE_PATH = routePathOf(typeof document === 'undefined' ? undefine
 
 /** 播放动画扩展名（集中开关）：默认 .webm（VP9-alpha）两端可直接透明播放；
  *  macOS 的 Safari/WKWebView 不认 webm alpha（渲染黑底），需改为 .mov（HEVC-with-Alpha）——
- *  素材从仓库 Release 的 assets-mov tag 取，放进 main-animation/mov/ 后重新构建；
+ *  素材从仓库 Release 的 assets-mov tag 取，放进 assets/animation/mov/ 后重新构建；
  *  npm 包用户改产物里的同名常量。 */
 export const ANIMATION_EXT = '.webm';

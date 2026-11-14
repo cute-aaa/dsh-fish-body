@@ -5,13 +5,14 @@
  * 排版全丢掉；而这里存的是「本机服务地址 + 当前音色 + 素材目录」这类机器级设置，
  * 独立成一份普通 JSON 既能原子改写，换台机器时也只丢这一份。
  * 只做读写，不校验字段——解析在 ./settings.ts，取值合法性在路由里按扫描结果判。
- * @module dsh-pet/src/host/voice/gsv/store
+ * @module dsh-fish-body/src/host/voice/gsv/store
  */
 import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
+import { userPaths } from '../../user-layout.ts';
 
-/** 配置文件名（放在插件数据根下，与 logs.txt / voice-cache 同级）。 */
+/** 配置文件名（放在 `config/` 下，与会话鱼设置同级）。 */
 export const PROVIDER_CONFIG_FILE = 'voice-providers.json';
 
 /** 取对象；非对象当空对象。 */
@@ -22,10 +23,10 @@ function recordOf(value: unknown): Record<string, unknown> {
 /**
  * 配置文件路径。
  * @param userRoot - 插件数据根（`createHostSetup().userRoot`）。
- * @returns `<userRoot>/voice-providers.json`。
+ * @returns `<userRoot>/config/voice-providers.json`。
  */
 export function providerConfigPath(userRoot: string): string {
-  return join(userRoot, PROVIDER_CONFIG_FILE);
+  return userPaths(userRoot).voiceProviders;
 }
 
 /**

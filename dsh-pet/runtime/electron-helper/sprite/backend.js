@@ -11,7 +11,7 @@
  * 再重启 Helper；否则页面加载到的是旧核心。旧核心少了新导出时本文件会降级（见 optionalProbe / pixelSideOf），
  * 绝不把「核心比本文件旧」变成「宠物窗口还在、画面全透明」。
  * 必须始终成立：任何挂载失败只告警并把舞台留空，绝不抛出到构造链——透明窗口一崩就只剩一个看不见的进程。
- * @module dsh-pet/runtime/electron-helper/sprite-backend
+ * @module dsh-fish-body/runtime/electron-helper/sprite-backend
  */
 'use strict';
 
@@ -45,7 +45,7 @@ function optionalProbe(name) {
   const fn = core ? core[name] : undefined;
   if (typeof fn === 'function') return fn;
   console.warn(
-    '[dsh-pet] layered-core.js 缺少 ' +
+    '[fish-body] layered-core.js 缺少 ' +
       name +
       '（核心比 sprite/backend.js 旧）：已降级为整幅绘制；' +
       '改过 src/client/pet/render/layered 后请重跑 npm run build:desktop-core 再重启桌面 Helper',
@@ -61,7 +61,7 @@ function optionalProbe(name) {
 function pixelSideOf() {
   const fn = typeof S.renderPixelSide === 'function' ? S.renderPixelSide : null;
   if (fn !== null) return fn;
-  console.warn('[dsh-pet] shared-core.js 缺少 renderPixelSide（核心比本文件旧）：按显示尺寸 × DPR 就地算');
+  console.warn('[fish-body] shared-core.js 缺少 renderPixelSide（核心比本文件旧）：按显示尺寸 × DPR 就地算');
   return (css, native, dpr) => {
     const scale = Number.isFinite(dpr) && dpr > 0 ? Math.min(dpr, 2) : 1;
     return Math.max(1, Math.min(Math.round(native) || 1, Math.round(css * scale)));
@@ -406,7 +406,7 @@ async function mountLayered(sprite, host, api) {
     return (region && region.gesture) || id;
   };
   api.ready = true;
-  console.log('[dsh-pet] 桌面 layered 已挂载 pet=' + sprite.pet.id + ' 皮肤=' + root);
+  console.log('[fish-body] 桌面 layered 已挂载 pet=' + sprite.pet.id + ' 皮肤=' + root);
 }
 
 /**
@@ -579,7 +579,7 @@ async function mountLive2d(sprite, host, api) {
     app.destroy(true, { children: true, texture: true, baseTexture: true });
   };
   api.ready = true;
-  console.log('[dsh-pet] 桌面 live2d 已挂载 pet=' + sprite.pet.id + ' 模型=' + chosen);
+  console.log('[fish-body] 桌面 live2d 已挂载 pet=' + sprite.pet.id + ' 模型=' + chosen);
 }
 
 Object.assign(PetSprite.prototype, {
@@ -603,7 +603,7 @@ Object.assign(PetSprite.prototype, {
     const mount = this.renderer === 'live2d' ? mountLive2d : mountLayered;
     mount(this, el, api).catch((error) => {
       console.warn(
-        '[dsh-pet] 桌面 ' +
+        '[fish-body] 桌面 ' +
           this.renderer +
           ' 挂载失败 pet=' +
           this.pet.id +

@@ -101,18 +101,24 @@ export const zh = {
   corruptConfirm: '强行保存',
   corruptBody:
     '用户配置文件解析不了（内容已损坏，不是合法 JSON/JSONC）：{path}。继续保存会按白名单重建这个文件——它里面现有的内容（animations / physics / memes 等自定义字段）会全部丢失。取消 = 不动文件（先去把配置改回合法再保存）；确认 = 强行保存（丢弃文件里现有的内容）。',
-  configMeta: '高级配置（文件）',
-  configMetaHint:
-    '用户配置可覆盖宠物列表 / 动画池 / 播放权重，修改后刷新或重启生效：浏览器端刷新页面，桌面端右键宠物 →「重载配置」（重载全部桌面宠物窗口）；默认配置为完整参考。',
-  defaultConfig: '默认配置（只读，完整参考）',
-  userConfig: '用户配置（自定义覆盖）',
-  todosFile: '待办数据（清单正文、到期时间与完成状态；删掉等于清空待办）',
-  animationDir: '动画素材目录（可自定义/扩充动画）',
-  memesDir: '表情包目录（可自定义/扩充配图）',
-  poolDir: '资源池目录（共享皮肤 / 模型 / 动画 / 音效）',
-  logFile: '日志文件（排障用，可清空）',
-  logFileNote:
-    '桌面版没有控制台，插件的运行日志（启动、桌面宠物崩溃/重启、错误与告警）全部写进这一个文件；反馈问题请附上它。单文件上限 1 MB，写满只留最新的 512 KB。',
+  fsTitle: '文件与目录',
+  fsHint:
+    '插件在本机放下的所有东西：设置、数据、运行时、可删的缓存、素材都在一个数据根里。卸载 = 删掉这个目录（插件本体由 DSH 管理）。',
+  fsRoot: '数据根',
+  fsRootHint: '删掉这个目录 = 配置、记忆、缓存与素材全清（插件本体除外）。',
+  fsTree: '目录结构',
+  fsTreeHint:
+    'config 与 data 是你的设置与数据，别随便删；cache 可以随手删（会自动重建或重下）；runtime 删了要重新下载 Electron；pets 与 assets 放素材，命名规则见 CONFIG.md。',
+  fsBadgeDisposable: '可删',
+  fsBadgeDownload: '需下载',
+  fsBadgeReadonly: '只读',
+  fsReadonly: '包内只读参考',
+  fsRuntime: '运行时',
+  fsRuntimeReady: '已安装',
+  fsRuntimeMissing: '未安装',
+  fsRuntimeDownload: '下载运行时',
+  fsRuntimeDownloading: '正在下载…',
+  fsRuntimeHint: '桌面窗口需要 Electron；删 cache/ 不影响它，删 runtime/ 才需要重新下载。',
   saved: '已保存，桌宠即时生效。',
   loadError: '加载配置失败',
   saveError: '保存配置失败，请检查服务连接、配置目录的写入权限或服务日志。',
@@ -121,7 +127,7 @@ export const zh = {
   retry: '重试',
   invalid: '请检查输入：大小需为正数，边距可为任意数字。',
   extraPetsHint:
-    '另 {n} 个种类来自 pet/ 目录文件（<名>-config.json + <名>-animation/），在上方「种类」条里切换即可修改；保存会写回各自的角色包配置，不混进 main-config.jsonc。',
+    '另 {n} 个种类来自 pets/ 目录文件（<名>-config.json + <名>-animation/），在上方「种类」条里切换即可修改；保存会写回各自的角色包配置，不混进 main-config.jsonc。',
   kindLabel: '种类',
   kindMain: '内置',
   lastOfKind: '「{entry}」只剩这一只，删掉就没有这个种类了。要彻底移除请直接删除该角色包文件。',
@@ -130,7 +136,7 @@ export const zh = {
   notifyToggleHint: '对话完成 / 生成失败 / 权限申请 / 用户选择，在窗口失焦时弹出系统级通知（桌面右下角）。',
   sfxToggle: '音效总开关',
   sfxToggleHint:
-    '按配置与自动匹配到的素材出音；关掉即全程静音。素材不用写配置：把 click.wav 放进皮肤目录、pet/<素材根>-sound/ 或与动画同目录即可自动匹配，没匹配到的用内置默认音。',
+    '按配置与自动匹配到的素材出音；关掉即全程静音。素材不用写配置：把 click.wav 放进皮肤目录、pets/<素材根>-sound/ 或与动画同目录即可自动匹配，没匹配到的用内置默认音。',
   sfxKeepAliveToggle: '音效常驻预热',
   sfxKeepAliveToggleHint:
     '用一个听不见的极小音源一直占着音频输出：久不发声后的第一下也不缺音头；顺带让系统混音器里常驻「Electron」一项可整体调音量。代价：音频设备不空闲、笔记本更费电，音频流活跃期间系统一般不会自动睡眠。',
@@ -141,7 +147,7 @@ export const zh = {
   sfxHint:
     '每个时机播哪个文件由宿主自动匹配：皮肤目录 > -sound 目录 > 动画同目录 > 用户共享 > 包内默认。这里只调开关，响度统一走「全局」里的音效总音量。',
   sfxFileHint:
-    '要换文件：把音频放进皮肤目录（如 pet/xxx-skin/click.wav）或 pet/<素材根>-sound/，文件名即时机名；放好后刷新本页。',
+    '要换文件：把音频放进皮肤目录（如 pets/xxx-skin/click.wav）或 pets/<素材根>-sound/，文件名即时机名；放好后刷新本页。',
   sfxSlotPattern: '命名：{name}.wav 或 <皮肤名>-{name}.wav',
   sfxNone: '无文件',
   sfxTry: '试听',
@@ -311,20 +317,11 @@ export const zh = {
   notifyDenyRejected: '你在权限询问弹窗中选择了「阻止」。',
   notifyDenyError: '申请权限时出错',
   notifyGuide: '引导：点击地址栏左侧 🔒/ⓘ →「网站设置」→「通知」→ 改为「允许」，刷新页面后重试。',
-  storageTitle: '卸载与存储',
-  storageHint: '插件在本机落下的全部位置。删缓存不影响使用（会自动重下/重建）；删「插件用户数据」会丢配置与对话记忆。',
-  'storage.userData':
-    '插件用户数据：自定义配置 main-config.jsonc、对话记忆 memory.json、自定义动画素材 main-animation/、文件宠物 pet/',
-  'storage.electron': '桌面宠物用的 Electron 运行时（体积较大；删除后下次启用桌面模式会自动重新下载）',
-  'storage.desktopCache': '桌面宠物窗口的缓存与主屏缩放缓存（可删，会自动重建）',
-  'storage.electronCache': 'Electron 安装包下载缓存（可删，需要时会重新下载）',
-  'storage.package': '插件本体（由 DSH 管理，用下面的卸载命令移除，不要手删）',
-  storageMissing: '（尚未创建）',
   uninstallTitle: '卸载方法',
-  uninstallStep1: '1. 先退出 DSH（桌面宠物随之退出）；不要在桌宠运行时删除上面的文件。',
+  uninstallStep1: '1. 先退出 DSH（桌面宠物随之退出）；不要在桌宠运行时删除这些文件。',
   uninstallStep2: '2. 卸载插件本体（终端执行，会同时从 profile 的 bundle 层移除）：',
   uninstallStep3:
-    '3. 按需删除上面的位置：缓存类删了无影响；「插件用户数据」删了会丢配置与对话记忆（想保留就先备份其中的 main-config.jsonc）。',
+    '3. 按需删除上面的数据根 {root}：cache/ 删了无影响；删掉 config/ 或 data/ 会丢设置与对话记忆（想保留就先备份 config/main-config.jsonc）。',
   motionTitle: '动作频率',
   motionHint:
     '四个框：待机 / 转向 / 移动可改，随机动作自动算（= 100 − 其余三项）。全局默认，所有宠物共用；pet pack 可在自己种类文件里覆盖。',
@@ -332,7 +329,7 @@ export const zh = {
   'motion.turn': '转向',
   'motion.move': '移动',
   'motion.action': '随机动作',
-  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-fish-body',
   // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
   'fish.intro':
     '每个新建 / 进行中 / 刚结束还没点开的会话，都会派一个「写代码」的小动画跟着；按住拖动可挪位置，点一下开会话，点 × 让这条先走。',
@@ -443,7 +440,7 @@ export const zh = {
   secSpeak: '播报',
   secTiming: '节奏',
   sizesTitle: '每种渲染方式的大小',
-  extraPetsShort: '另 {n} 个种类来自 pet/ 目录',
+  extraPetsShort: '另 {n} 个种类来自 pets/ 目录',
 };
 
 /** 文案键；zh 的键集即全集。 */

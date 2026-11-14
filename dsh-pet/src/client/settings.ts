@@ -6,7 +6,7 @@
  * 这里只剩加载、写盘编排、未保存改动基线、快捷键与外壳，所以照旧不自己拼条目级字段。
  * 基线（最近一次服务端权威值）在加载、保存成功与重置成功后推进；圆点由「基线 vs 当前」的 diff 决定。
  * 保存相关只有一条准则：任何改动都随底部栏落盘，页面自己不做即时写入。
- * @module dsh-pet/src/client/settings
+ * @module dsh-fish-body/src/client/settings
  */
 import { avatarUrl } from '../shared/avatar.ts';
 import type { SessionFishSettings } from '../shared/session-fish.ts';

@@ -4,11 +4,13 @@
  * 负责把 argv 变成选项，并镜像宿主半侧推导出的配置路径；不读文件、不建目录。
  * 路径口径以宿主半侧为准，这里只是只读镜像，测试会钉住两者一致。
  * 必须始终成立：--check 不 apply 也能算出 DSH 会读的配置路径。
- * @module dsh-pet/src/standalone/options
+ * @module dsh-fish-body/src/standalone/options
  */
 import { join } from 'node:path';
 
 import type { ConfigPaths } from '../host/config.ts';
+import { userPaths } from '../host/user-layout.ts';
+import { ROOT_DIR_NAME } from '../host/user-root.ts';
 import { DEFAULT_STANDALONE_PORT } from './server.ts';
 
 /** 解析后的命令行选项。 */
@@ -69,12 +71,13 @@ export function parseArgs(argv: string[]): { options: CliOptions } | { error: st
  * @returns 与宿主半侧一致的路径集。
  */
 export function configPathsFor(root: string, home: string): ConfigPaths {
-  const userRoot = join(home, 'dsh-pet');
+  // 数据根与内层布局只认 user-root / user-layout 一处推导：独立模式不能再拼一套 `dsh-pet/...`。
+  const paths = userPaths(join(home, ROOT_DIR_NAME));
   return {
     defaultFile: join(root, 'assets', 'config.jsonc'),
-    userFile: join(userRoot, 'main-config.jsonc'),
-    legacyUserFile: join(userRoot, 'main-config.json'),
-    petDir: join(userRoot, 'pet'),
+    userFile: paths.mainConfig,
+    legacyUserFile: paths.legacyMainConfig,
+    petDir: paths.petsDir,
   };
 }
 

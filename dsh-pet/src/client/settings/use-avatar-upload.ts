@@ -4,7 +4,7 @@
  * 头像不是配置字段：上传直接落盘，改完不必再点「保存」，所以它的 busy 与保存的 busy 分开。
  * 版本号是给预览用的：同一个 URL 会被浏览器记住，不换版本号上传成功后仍是旧图。
  * owns only 这两项状态与一次上传，never 保存、宠物字段与卡片渲染。
- * @module dsh-pet/src/client/settings/use-avatar-upload
+ * @module dsh-fish-body/src/client/settings/use-avatar-upload
  */
 import type { Pet } from '../../shared/types.ts';
 import type { Feedback } from './feedback.ts';

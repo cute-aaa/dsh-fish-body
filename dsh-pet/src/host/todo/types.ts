@@ -3,7 +3,7 @@
  *
  * 不做 IO、不读时钟：解析失败的条目一律整条丢弃（不让脏数据进内存），由 ./store 决定何时落盘。
  * 与 shared/todo/types 的 wire 字段同名；宿主不 import 共享层（DSH 单文件加载约束）。
- * @module dsh-pet/src/host/todo/types
+ * @module dsh-fish-body/src/host/todo/types
  */
 
 /** 单条待办：磁盘与 HTTP 响应共用。 */

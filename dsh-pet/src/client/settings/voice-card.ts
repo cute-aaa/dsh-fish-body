@@ -5,7 +5,7 @@
  * 音色选择器由外壳注入（与模型卡注入 picker 同构），卡片本身不硬编码任何音色 id。
  * 四类开关排成 2×2：它们互不从属，横向排成一长条会读成「一串同义选项」；
  * 去表情与音量同排——它们是「这一嗓子怎么出声」，跟「说不说」是两件事。
- * @module dsh-pet/src/client/settings/voice-card
+ * @module dsh-fish-body/src/client/settings/voice-card
  */
 import type { FunctionComponent } from 'react';
 import type { SpeakPhase } from '../../shared/voice.ts';
@@ -101,10 +101,10 @@ export function makeVoiceCard(
         cardHead(t('voiceTitle'), t('voiceHint'), 'voice'),
         // 四类语音各一个开关：互不从属，2×2 排布让「同一类」读得出来。
         switchGrid([
-          toggleCell('voiceEnabled', props.enabled, props.busy, props.onToggle),
-          toggleCell('voiceWhisperEnabled', props.whisperEnabled, props.busy, props.onWhisperToggle),
-          toggleCell('voiceTodoEnabled', props.todoEnabled, props.busy, props.onTodoToggle),
-          toggleCell('voiceNotifyEnabled', props.notifyEnabled, props.busy, props.onNotifyToggle),
+          toggleCell('voiceEnabled', props.enabled, props.busy, props.onToggle, 'voice.enabled'),
+          toggleCell('voiceWhisperEnabled', props.whisperEnabled, props.busy, props.onWhisperToggle, 'voice.whisper'),
+          toggleCell('voiceTodoEnabled', props.todoEnabled, props.busy, props.onTodoToggle, 'voice.todo'),
+          toggleCell('voiceNotifyEnabled', props.notifyEnabled, props.busy, props.onNotifyToggle, 'voice.notify'),
         ]),
         h('div', {
           key: 'voices',
@@ -121,6 +121,7 @@ export function makeVoiceCard(
                 onChange: props.onVoiceChange,
               }),
               localActive ? t('voiceNameFallbackHint') : undefined,
+              'voice.name',
             ),
             // 本地音色（GSV）：没有可切音色时整格不出现，不留一个空下拉。
             ...(props.localVoices && props.localVoices.length > 0
@@ -161,9 +162,12 @@ export function makeVoiceCard(
                 },
               }),
               t('voiceVolumeHint'),
+              'voice.volume',
             ),
             // 播报侧开关：合成前清洗文本，与上面四个「说不说」不是一回事。
-            switchGrid([toggleCell('speakStripEmoji', props.stripEmoji, props.busy, props.onStripEmojiToggle)]),
+            switchGrid([
+              toggleCell('speakStripEmoji', props.stripEmoji, props.busy, props.onStripEmojiToggle, 'voice.stripEmoji'),
+            ]),
           ],
         }),
         // 试听：它属于「这一嗓子听起来怎么样」，跟选哪个音色是两件事，所以单独一行。

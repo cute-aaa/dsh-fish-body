@@ -28,9 +28,9 @@ test('cacheKey：同输入稳定，来源/音色/语速/文本任一不同即不
   assert.notEqual(base, cacheKey('edge', 'zh-CN-XiaoxiaoNeural', '+0%', '你好 '), '空格不归一化');
 });
 
-test('cachePath：固定落在 userRoot/voice-cache 下，扩展名由格式决定', () => {
-  assert.equal(cachePath(join('root'), 'abc', 'mp3'), join('root', 'voice-cache', 'abc.mp3'));
-  assert.equal(cachePath(join('root'), 'abc', 'wav'), join('root', 'voice-cache', 'abc.wav'));
+test('cachePath：固定落在 userRoot/cache/voice 下，扩展名由格式决定', () => {
+  assert.equal(cachePath(join('root'), 'abc', 'mp3'), join('root', 'cache', 'voice', 'abc.mp3'));
+  assert.equal(cachePath(join('root'), 'abc', 'wav'), join('root', 'cache', 'voice', 'abc.wav'));
 });
 
 test('findCachedClip：任一已知扩展名命中即返回文件与 mime，空文件不算命中', () =>
@@ -46,7 +46,7 @@ test('findCachedClip：任一已知扩展名命中即返回文件与 mime，空�
 test('ensureCacheDir：目录不存在时创建，重复调用不报错', () =>
   withDir(async (dir) => {
     const created = await ensureCacheDir(dir);
-    assert.equal(created, join(dir, 'voice-cache'));
+    assert.equal(created, join(dir, 'cache', 'voice'));
     await ensureCacheDir(dir);
   }));
 

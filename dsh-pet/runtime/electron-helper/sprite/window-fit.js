@@ -3,7 +3,7 @@
  *
  * 四边都钳：贴顶时窗口停在 y=0，本体在窗口内下移，窗口上方那截余量正好留给气泡。
  * PetSprite 由 sprite.js 定义，本文件只往原型上挂方法，必须在其后加载。
- * @module dsh-pet/runtime/electron-helper/sprite-window-fit
+ * @module dsh-fish-body/runtime/electron-helper/sprite-window-fit
  */
 'use strict';
 

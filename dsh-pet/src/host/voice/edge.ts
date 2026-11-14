@@ -9,7 +9,7 @@
  * 原文即可，再转一次会把 `&` 念成「amp」。协议变动时只需升级依赖，这里不改代码。
  * 不负责缓存、队列与落盘：本模块只保证「给定文本 → 一段 mp3 字节 + MIME」这一件事
  * （落盘与扩展名归 speak.ts，见 voice/audio.ts 的契约）。
- * @module dsh-pet/src/host/voice/edge
+ * @module dsh-fish-body/src/host/voice/edge
  */
 import { DEFAULT_AUDIO_MIME, type AudioClip } from './audio.ts';
 

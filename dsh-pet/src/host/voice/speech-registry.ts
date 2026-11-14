@@ -5,7 +5,7 @@
  * 不是随包内置的实现，所以保留名是 `dsh` 而不是 `edge`。
  * 模块单例：注册返回 disposer；测试用 {@link resetSpeechProviders} 复位。
  * 只登记与查找：不识别、不排队、不设超时（那些归 hear.ts）。
- * @module dsh-pet/src/host/voice/speech-registry
+ * @module dsh-fish-body/src/host/voice/speech-registry
  */
 
 /** 内置来源的名字：宿主自带的识别能力，第三方不能占用。 */

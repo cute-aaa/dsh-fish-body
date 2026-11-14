@@ -6,18 +6,18 @@
  * ./entry（整条目实例）：读路径零副作用，写路径要重建白名单、落盘并（除穿透外）重启 Helper，
  * 七者的失败模式与改动原因都不同。
  * 不校验配置形状（归 ../../config）；依赖由 PetRouteDeps 显式传入，模块内不读全局、不建状态。
- * @module dsh-pet/src/host/routes/config/index
+ * @module dsh-fish-body/src/host/routes/config/index
  */
 import { readAllConfig } from '../../config.ts';
 import { type RouteResult } from '../../http.ts';
 import { join } from 'node:path';
 import { PACKAGE_ROOT } from '../../paths.ts';
-import { profileNameFrom, storageEntries } from '../../storage-paths.ts';
-import { electronLandingDir } from '../../helper-process.ts';
-import { TODO_FILE_NAME } from '../../todo/store.ts';
-import { homedir } from 'node:os';
+import { profileNameFrom } from '../../storage-paths.ts';
+import { electronRuntimeStatus } from '../../helper-process.ts';
 import type { PetRouteDeps, RouteInput } from '../types.ts';
 import { failResult, okResult } from '../result.ts';
+import { pathsOf } from '../paths.ts';
+import { layoutNodes, readonlyNodes } from './meta-layout.ts';
 import { saveConfigRoute } from './save.ts';
 import { setPetDisplay } from './display.ts';
 import { setPetRenderer } from './renderer.ts';
@@ -40,11 +40,11 @@ export async function handleConfigRoutes(deps: PetRouteDeps, input: RouteInput):
   if (input.rest === 'pet-model') return setPetModel(deps, input);
   // 单只宠物某个渲染方式下的画框宽度（右键「大小」子菜单 → POST /pet-size）
   if (input.rest === 'pet-size') return setPetSize(deps, input);
-  // 单只宠物的鼠标穿透（右键「鼠标穿透」/ 设置页勾选框 → POST /pet-click-through）
+  // 单只宠物的鼠标穿透（设置页勾选框 → POST /pet-click-through）
   if (input.rest === 'pet-click-through') return setPetClickThrough(deps, input);
   // 整个种类层的实例写回（设置页改文件宠物的配置 → POST /pet-config）
   if (input.rest === 'pet-config') return savePetLayer(deps, input);
-  // 配置文件路径 + 存储位置清单（设置页「高级配置」与「卸载与存储」展示用）
+  // 文件与目录卡：数据根、目录树、只读参考、运行时状态（设置页「系统 → 文件与目录」）
   if (input.rest === 'config/meta') return getMeta(deps);
   return undefined;
 }
@@ -60,30 +60,33 @@ function getConfig(deps: PetRouteDeps): RouteResult {
   }
 }
 
-/** 路径与存储清单：只读环境与路径，不做业务判断，因此没有失败实体。 */
+/**
+ * 文件与目录卡的数据源：一个数据根、一棵树、一组包内只读参考、运行时状态。
+ *
+ * 树在服务端生成：路径字面量只存在于 `host/user-layout`，客户端只负责画 `├─`。
+ * 池根每次现取（用户随时会改 `assets.pool`），所以覆盖 `paths.poolDir` 再摊平。
+ */
 function getMeta(deps: PetRouteDeps): RouteResult {
-  const { log, memesUserRoot, thumbUserRoot, userConfigPath, userRoot } = deps;
+  const paths = pathsOf(deps);
+  const pool = typeof deps.poolRoot === 'function' ? deps.poolRoot() : paths.poolDir;
+  const withPool = paths.poolDir === pool ? paths : { ...paths, poolDir: pool };
   return okResult({
-    user: userConfigPath,
+    // 数据根与它的树：设置页那张卡的全部内容。
+    root: paths.root,
+    layout: layoutNodes({ paths: withPool }),
+    readonly: readonlyNodes(),
+    // 运行时（Electron）：有没有装、什么版本——那一行要显示状态与「下载」按钮。
+    runtime: electronRuntimeStatus(),
+    // 兼容字段（老前端与只读脚本还在读）：路径本身不重复出现在新卡片里。
+    user: paths.mainConfig,
     default: join(PACKAGE_ROOT, 'assets', 'config.jsonc'),
-    animations: thumbUserRoot,
-    memes: memesUserRoot,
-    // 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）：设置页只展示，不参与任何推导。
-    pool: deps.poolRoot(),
-    // 待办数据文件：一份用户级数据（不分宠物），路径与宿主建库时用的是同一个文件名常量。
-    todos: join(userRoot, TODO_FILE_NAME),
-    // 统一日志出口（就是上面那个 logger 的 file：三种模式都落在 $DSH_HOME/dsh-pet/logs.txt）：
-    // 桌面版没有控制台，用户反馈「宠物不出现 / 闪退」时只能靠这个文件。
-    logs: log.file,
-    // 全部落盘位置（本包用户数据 / Electron 运行时 / 桌面端缓存 / 下载缓存 / 插件本体）：
-    // 前两条直接传真实写入方的路径，不在这里重拼目录名
-    storage: storageEntries({
-      userDataRoot: userRoot,
-      electronDir: electronLandingDir(),
-      home: homedir(),
-      packageRoot: PACKAGE_ROOT,
-    }),
-    // profile 名（拼卸载命令 dsh plugin --profile <名> remove dsh-pet；反推不出时为空串）
+    animations: paths.animationDir,
+    memes: paths.memesDir,
+    pool,
+    todos: paths.todos,
+    logs: deps.log.file,
+    // profile 名（拼卸载命令 dsh plugin --profile <名> remove dsh-fish-body；反推不出时为空串）
     profile: profileNameFrom(PACKAGE_ROOT) ?? '',
+    package: PACKAGE_ROOT,
   });
 }

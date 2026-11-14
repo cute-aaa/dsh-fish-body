@@ -7,7 +7,7 @@
  *
  * 段格式（与 Cubism SDK 的解析循环一致）：`[x0, y0, 类型, …]`，线性/阶跃段跟 2 个数、
  * 贝塞尔段跟 6 个数（两个控制点 + 终点）。末点就是最后一段的终点。
- * @module dsh-pet/src/shared/live2d-motion3
+ * @module dsh-fish-body/src/shared/live2d-motion3
  */
 
 /** 一条曲线在动作末帧的取值。 */

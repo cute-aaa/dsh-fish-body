@@ -4,7 +4,7 @@
  * 只校验「这个名字在这只宠物身上确实有音效」（配置 `sfx.hooks` 或索引里自动匹配到的
  * `hook-<名字>`）然后把指令写进 `pets.<id>.sfx` 叶子，实际发声由两端各自执行。
  * 名字集合由宿主判定而不是渲染端：名字打错时调用方拿到 unknown-hook，而不是「发出了但没声音」。
- * @module dsh-pet/src/host/routes/sfx
+ * @module dsh-fish-body/src/host/routes/sfx
  */
 import { readAllConfig } from '../config.ts';
 import { buildSfxIndex } from '../sfx/index-build.ts';

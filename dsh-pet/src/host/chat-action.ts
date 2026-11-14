@@ -3,7 +3,7 @@
  *
  * 不做生成与落盘（归 ./chat 与 ./plugin/chat-memory），也不写 S；名单与 animations.categories 同源。
  * 与 ./anim 分开：那边回答「/anim 该不该播、播哪个」，这边只服务对话这一条触发路径。
- * @module dsh-pet/src/host/chat-action
+ * @module dsh-fish-body/src/host/chat-action
  */
 
 /**

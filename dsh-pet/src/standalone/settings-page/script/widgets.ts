@@ -3,7 +3,7 @@
  *
  * 只造 DOM 并把编辑回调交回调用方，不持有状态、不发请求——状态归各面板片段。
  * 所有文本都走 textContent，页面里不拼 HTML 字符串，避免配置值被当成标记执行。
- * @module dsh-pet/src/standalone/settings-page/script/widgets
+ * @module dsh-fish-body/src/standalone/settings-page/script/widgets
  */
 
 /** 生成控件层片段。 */

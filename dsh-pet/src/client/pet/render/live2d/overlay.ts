@@ -9,7 +9,7 @@
  * 做法：每条叠加物一个独立队列，在 `internalModel` 的 `beforeModelUpdate` 里依次推进。
  * 那个钩子在 `model.update()` 之前、`loadParameters()` 之前，所以写入只影响本帧，
  * 不会把姿态污染成下一帧的基准。
- * @module dsh-pet/src/client/pet/render/live2d/overlay
+ * @module dsh-fish-body/src/client/pet/render/live2d/overlay
  */
 import { parseMotion3, type MotionFinalValue } from '../../../../shared/live2d-motion3.ts';
 

@@ -6,7 +6,7 @@
  * 层级靠形状与尺寸分开，不再靠在三排里长得一样的方块。
  * 实例的增删与选中都在 `use-pet-list` 里；本分区不持有任何状态。
  * owns only 这一块的装配，never 字段值、保存与头像上传的实现。
- * @module dsh-pet/src/client/settings/pet-tab
+ * @module dsh-fish-body/src/client/settings/pet-tab
  */
 import type { FunctionComponent } from 'react';
 import type { DirtyQuery } from './dirty.ts';
@@ -119,6 +119,8 @@ export function makePetTab(rt: SettingsRuntime): FunctionComponent<PetTabProps> 
         h(PetCard, {
           key: 'card',
           pet: current,
+          // 下标与快照路径对齐：`pets.<下标>` 是这只宠物在配置里的位置。
+          petIndex: list.pets.findIndex((item) => item.id === list.selId),
           busy,
           entryPrompt: list.entryPrompt,
           avatarSrc: avatar.src,

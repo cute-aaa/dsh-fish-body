@@ -12,11 +12,12 @@ import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { collectSettingsBackup } from './collect.ts';
 import { applySettingsBackup, type BackupTarget } from './apply.ts';
 import { SessionFishSettingsStore, sessionFishSettingsPath } from '../session-fish/settings.ts';
+import { userPaths } from '../user-layout.ts';
 import type { ConfigPaths } from '../config/constants.ts';
 import { SETTINGS_BACKUP_KIND, SETTINGS_BACKUP_VERSION } from '../../shared/settings-backup.ts';
 
@@ -34,16 +35,18 @@ after(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-/** 每个用例一套独立目录（内置默认 + 用户层 + pet/ + 用户根）。 */
+/** 每个用例一套独立目录（内置默认 + 用户层 + pets/ + 用户根）。 */
 function makeCase(): { paths: ConfigPaths; userRoot: string; target: () => BackupTarget; publishes: () => number } {
   const dir = join(root, 'case-' + String(++seq));
   const userRoot = join(dir, 'user');
-  const petDir = join(userRoot, 'pet');
-  mkdirSync(petDir, { recursive: true });
+  // 新布局：主配置与会话鱼设置都在 `<用户根>/config/`，文件宠物在 `<用户根>/pets/`
+  const layout = userPaths(userRoot);
+  mkdirSync(layout.configDir, { recursive: true });
+  mkdirSync(layout.petsDir, { recursive: true });
   const paths: ConfigPaths = {
     defaultFile: join(dir, 'assets-config.jsonc'),
-    userFile: join(userRoot, 'main-config.jsonc'),
-    petDir,
+    userFile: layout.mainConfig,
+    petDir: layout.petsDir,
   };
   writeFileSync(paths.defaultFile, DEFAULT_CONFIG, 'utf8');
   let publishes = 0;
@@ -78,7 +81,7 @@ describe('collectSettingsBackup —— 只收原文', () => {
     const { paths, userRoot } = makeCase();
     writeFileSync(paths.userFile, '// 注释保留\n{ "pets": [] }\n', 'utf8');
     writeFileSync(join(paths.petDir, 'cat-config.json'), '{ "pets": [] }', 'utf8');
-    writeFileSync(join(userRoot, 'session-fish.json'), '{ "enabled": false }', 'utf8');
+    writeFileSync(sessionFishSettingsPath(userRoot), '{ "enabled": false }', 'utf8');
 
     const snapshot = collectSettingsBackup({ configPaths: paths, userRoot }, new Date('2026-11-14T03:00:00.000Z'));
     assert.equal(snapshot.kind, SETTINGS_BACKUP_KIND);
@@ -99,7 +102,7 @@ describe('applySettingsBackup —— 预检与写回', () => {
   test('写回三份原文，覆盖前留 .bak，并返回成品', () => {
     const { paths, userRoot, target, publishes } = makeCase();
     writeFileSync(paths.userFile, '{ "pets": [] }', 'utf8');
-    writeFileSync(join(userRoot, 'session-fish.json'), '{ "enabled": true }', 'utf8');
+    writeFileSync(sessionFishSettingsPath(userRoot), '{ "enabled": true }', 'utf8');
     writeFileSync(join(paths.petDir, 'cat-config.json'), '{ "pets": [] }', 'utf8');
 
     const result = applySettingsBackup(
@@ -113,12 +116,12 @@ describe('applySettingsBackup —— 预检与写回', () => {
     );
     assert.equal(result.ok, true, result.ok ? '' : result.message);
     assert.equal(readFileSync(paths.userFile, 'utf8'), '// 新注释\n{ "pets": [] }');
-    assert.equal(readFileSync(join(userRoot, 'session-fish.json'), 'utf8'), '{ "enabled": false }');
+    assert.equal(readFileSync(sessionFishSettingsPath(userRoot), 'utf8'), '{ "enabled": false }');
     assert.equal(readFileSync(join(paths.petDir, 'dog-config.json'), 'utf8'), '{ "pets": [] }');
     // 留底：被覆盖的两个文件各有一份 .bak
-    // 主配置与会话鱼设置都住在用户根下：两份都会被覆盖，各留一份底。
-    const baks = readdirSync(userRoot).filter((name) => name.includes('.bak-'));
-    assert.equal(baks.length, 2, '用户根下应有主配置与会话鱼两份留底');
+    // 主配置与会话鱼设置都住在 config/ 下：两份都会被覆盖，各留一份底。
+    const baks = readdirSync(dirname(paths.userFile)).filter((name) => name.includes('.bak-'));
+    assert.equal(baks.length, 2, 'config/ 下应有主配置与会话鱼两份留底');
     assert.deepEqual(
       readdirSync(paths.petDir).filter((name) => name.includes('.bak-')).length,
       1,
@@ -135,9 +138,9 @@ describe('applySettingsBackup —— 预检与写回', () => {
     assert.equal(result.ok, false);
     assert.equal(result.ok ? '' : result.reason, 'bad-request');
     assert.equal(readFileSync(paths.userFile, 'utf8'), '{ "pets": [] }');
-    assert.equal(existsSync(join(userRoot, 'session-fish.json')), false);
+    assert.equal(existsSync(sessionFishSettingsPath(userRoot)), false);
     assert.deepEqual(
-      readdirSync(userRoot).filter((name) => name.includes('.bak-')),
+      readdirSync(dirname(paths.userFile)).filter((name) => name.includes('.bak-')),
       [],
     );
   });
@@ -159,15 +162,19 @@ describe('applySettingsBackup —— 预检与写回', () => {
   test('空串 = 删掉那一层（回落到内置默认），种类文件不删', () => {
     const { paths, userRoot, target } = makeCase();
     writeFileSync(paths.userFile, '{ "pets": [] }', 'utf8');
-    writeFileSync(join(userRoot, 'session-fish.json'), '{ "enabled": true }', 'utf8');
+    writeFileSync(sessionFishSettingsPath(userRoot), '{ "enabled": true }', 'utf8');
     writeFileSync(join(paths.petDir, 'cat-config.json'), '{ "pets": [] }', 'utf8');
 
     const result = applySettingsBackup(target(), backup({ main: '', sessionFish: '' }));
     assert.equal(result.ok, true, result.ok ? '' : result.message);
     assert.equal(existsSync(paths.userFile), false, '主配置被删掉（回落内置默认）');
-    assert.equal(existsSync(join(userRoot, 'session-fish.json')), false);
+    assert.equal(existsSync(sessionFishSettingsPath(userRoot)), false);
     assert.equal(existsSync(join(paths.petDir, 'cat-config.json')), true, '备份里没有的种类不删');
-    assert.equal(readdirSync(userRoot).filter((name) => name.includes('.bak-')).length, 2, '删掉之前也留底');
+    assert.equal(
+      readdirSync(dirname(paths.userFile)).filter((name) => name.includes('.bak-')).length,
+      2,
+      '删掉之前也留底',
+    );
   });
 
   test('条目名越出 pet/ 目录：拒绝', () => {

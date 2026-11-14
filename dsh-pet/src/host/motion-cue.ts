@@ -5,7 +5,7 @@
  * 不负责运动学：抛掷复用渲染端既有的 startThrow，位置的三条路也都是既有运动学，本层只剩参数
  * 校验与坐标夹取。必须始终成立：`?pet=` 必填且必须真实存在，绝不默认退到列表第一只。
  * 契约见 API.md 与 openapi.yaml。
- * @module dsh-pet/src/host/motion-cue
+ * @module dsh-fish-body/src/host/motion-cue
  */
 
 import { flattenPetList } from './config.ts';

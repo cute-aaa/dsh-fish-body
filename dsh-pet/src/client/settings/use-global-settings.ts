@@ -5,7 +5,7 @@
  * 通知开关比其余几个多一步：开启时借用户手势申请权限，所以「键名 → setter」的查表也放在这里，
  * 卡片只回传键名，权限申请不外泄到卡片里。
  * owns only 这几个布尔值与通知权限申请，never 保存、加载与其它分区字段。
- * @module dsh-pet/src/client/settings/use-global-settings
+ * @module dsh-fish-body/src/client/settings/use-global-settings
  */
 import { requestNotificationPermission } from '../notify.ts';
 import type { MainConfigPatch } from './config/index.ts';

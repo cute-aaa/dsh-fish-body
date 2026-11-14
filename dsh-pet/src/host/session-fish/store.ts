@@ -6,7 +6,7 @@
  * 因为会话鱼要能回答「这一轮是不是整个任务结束了」，而不是只看档位。
  * 必须始终成立：`done` 只在「没有 plan 待确认、不是 goal 中间轮、活动门确认没活」之后才置位；
  * 点进会话（focus）是清掉 done 鱼的唯一入口，关闭（close）只隐藏到下一次 `turn/start`。
- * @module dsh-pet/src/host/session-fish/store
+ * @module dsh-fish-body/src/host/session-fish/store
  */
 import {
   effectiveSessionFishSkin,

@@ -3,7 +3,7 @@
  *
  * 只做浏览器半侧——Vibration API 在 iOS 与桌面端都不存在，调用方不必为此分支。
  * 一次碰撞只震一下：贴地弹跳会连续多帧回报同一次落地，靠「同类撞击冷却窗口」吞掉。
- * @module dsh-pet/src/client/pet/haptics
+ * @module dsh-fish-body/src/client/pet/haptics
  */
 
 /** 同类撞击的冷却窗口（ms）：窗口内重复命中只震一次。 */

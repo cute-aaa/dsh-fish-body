@@ -3,7 +3,7 @@
  * 下方放不下且上方更宽裕时翻到上方，左右钳制在视口内，并给出高度上限——浮层自身不进文档流。
  * 纯函数，不读 `window`：矩形与视口由调用方传入，便于单测与将来的视口外定位。
  * 模型选择器与通用单选下拉共用这一份算术，差异只经 {@link PlacementOptions} 传入，不在调用方各自复制。
- * @module dsh-pet/src/client/settings/panel/placement
+ * @module dsh-fish-body/src/client/settings/panel/placement
  */
 
 /** 浮层与触发器、视口边缘之间的间距。 */

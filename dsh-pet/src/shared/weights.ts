@@ -1,7 +1,7 @@
 /**
  * 动作频率权重的纯计算：夹取与「随机动作」占比推导。
  * 浏览器设置页与独立模式设置页共用同一份规则，避免两边各算一遍。
- * @module dsh-pet/src/shared/weights
+ * @module dsh-fish-body/src/shared/weights
  */
 import type { Weights } from './types.ts';
 

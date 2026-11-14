@@ -3,7 +3,7 @@
  *
  * 开关被拆到两张卡里（音效那三项进「声音」，通知/托盘/锁定屏幕进「系统」），但键名与顺序
  * 只在这里定义一次：`PUT /config` 的字段名就是这些键名，多写一份映射迟早会漂。
- * @module dsh-pet/src/client/settings/global-flags
+ * @module dsh-fish-body/src/client/settings/global-flags
  */
 
 /** 五个全局开关的键名，与成品配置的字段名一致。 */

@@ -5,11 +5,12 @@
  * 删掉任意文件都不影响正确性：下一次请求会重新合成。不负责合成与队列。
  * 扩展名跟着合成产出的 MIME 走（见 voice/audio.ts）：键里不含格式，所以查找要把
  * 已知扩展名都探一遍——GSV 那种 wav 与 edge 那种 mp3 因此能共用一个缓存目录。
- * @module dsh-pet/src/host/voice/cache
+ * @module dsh-fish-body/src/host/voice/cache
  */
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { userPaths } from '../user-layout.ts';
 import { AUDIO_EXTENSIONS, audioMimeOfExt } from './audio.ts';
 
 /** 缓存总量上限（字节）：超过后从最旧的开始删。 */
@@ -23,9 +24,9 @@ export interface CachedClip {
   readonly mime: string;
 }
 
-/** 缓存文件的完整路径：`<userRoot>/voice-cache/<key>.<ext>`。 */
+/** 缓存文件的完整路径：`<数据根>/cache/voice/<key>.<ext>`。 */
 export function cachePath(userRoot: string, key: string, ext: string): string {
-  return join(userRoot, 'voice-cache', `${key}.${ext}`);
+  return join(userPaths(userRoot).voiceCacheDir, `${key}.${ext}`);
 }
 
 /**
@@ -84,7 +85,7 @@ export function cacheKey(source: string, voice: string, rate: string, text: stri
  * @returns 缓存目录绝对路径。
  */
 export async function ensureCacheDir(userRoot: string): Promise<string> {
-  const dir = join(userRoot, 'voice-cache');
+  const dir = userPaths(userRoot).voiceCacheDir;
   await mkdir(dir, { recursive: true });
   return dir;
 }

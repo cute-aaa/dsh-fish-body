@@ -3,7 +3,7 @@
  *
  * 纯函数，当前时刻由调用方传入；面板渲染、排序后的副标题与测试共用这一份口径。
  * 不负责取数与时区换算：`datetime-local` 的读写都按浏览器本地时区，与用户看到的一致。
- * @module dsh-pet/src/shared/todo/format
+ * @module dsh-fish-body/src/shared/todo/format
  */
 import type { TodoItem } from './types.ts';
 

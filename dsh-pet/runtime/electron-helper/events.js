@@ -4,7 +4,7 @@
  * 展示与 tick 回调挂在 PetSprite.prototype 上，必须在 sprite.js 之后加载（顶层就改写原型）；startLoops 是全部轮询的
  * 唯一入口，boot 成功后调用。不负责动画播放与气泡渲染本身（见 sprite.js）。依赖 constants.js / sprite.js。
  *
- * @module dsh-pet/runtime/electron-helper/events
+ * @module dsh-fish-body/runtime/electron-helper/events
  */
 'use strict';
 
@@ -50,18 +50,18 @@ PetSprite.prototype.onWorkTick = function onWorkTick(snapshot, tick) {
   }
   const pool = this.animations.events?.workStatus;
   if (!pool || pool.length === 0) {
-    console.error('[dsh-pet] 配置缺少 animations.events.workStatus，无法播放工作状态动画');
+    console.error('[fish-body] 配置缺少 animations.events.workStatus，无法播放工作状态动画');
     return;
   }
   const idx = S.WORK_STATUS_INDEX[state];
   const slot = pool[idx];
   if (slot === undefined) {
-    console.error('[dsh-pet] work-status 档位索引越界：state=' + state + ' idx=' + idx);
+    console.error('[fish-body] work-status 档位索引越界：state=' + state + ' idx=' + idx);
     return;
   }
   const name = S.pickSlot(slot, this.anim); // 数组槽位档内随机抽 1，避开当前正播动画（与浏览器一致）
   console.log(
-    '[dsh-pet] ' +
+    '[fish-body] ' +
       new Date().toTimeString().slice(0, 8) +
       ' workStatus pet=' +
       this.pet.id +
@@ -109,7 +109,7 @@ PetSprite.prototype.openWorkSession = function openWorkSession() {
   const sessionId = this.workSessionId;
   if (!sessionId) return;
   S.postAction(FOCUS_SESSION_URL, { sessionId }).then((ok) => {
-    if (!ok) console.warn('[dsh-pet] 跳会话：宿主未接受 pet=' + this.pet.id);
+    if (!ok) console.warn('[fish-body] 跳会话：宿主未接受 pet=' + this.pet.id);
   });
   if (window.petBridge && typeof window.petBridge.focusDshHost === 'function') {
     window.petBridge.focusDshHost();
@@ -193,14 +193,14 @@ PetSprite.prototype.showWhisper = function showWhisper(text, image, url, duratio
   if (anim !== false) {
     const pool = this.animations.events?.whisper;
     if (!pool || pool.length === 0) {
-      console.error('[dsh-pet] 配置缺少 animations.events.whisper，无法播放碎碎念动画');
+      console.error('[fish-body] 配置缺少 animations.events.whisper，无法播放碎碎念动画');
       return;
     }
     // 整池随机抽 1 槽（避开当前正播动画，避免连续重复）；槽位若为数组候选再档内随机（与浏览器一致）
     name = S.pickSlot(S.pick(pool, this.anim), this.anim);
   }
   console.log(
-    '[dsh-pet] ' +
+    '[fish-body] ' +
       new Date().toTimeString().slice(0, 8) +
       ' whisper pet=' +
       this.pet.id +
@@ -251,13 +251,13 @@ PetSprite.prototype.showBalanceNow = function showBalanceNow(state, manual) {
   if (p === undefined) return;
   const pool = this.animations.events?.balance;
   if (!pool || pool.length === 0) {
-    console.error('[dsh-pet] 配置缺少 animations.events.balance，无法播放余额事件动画');
+    console.error('[fish-body] 配置缺少 animations.events.balance，无法播放余额事件动画');
     return;
   }
   const idx = S.balanceEventIndex(p);
   const slot = pool[idx];
   if (!slot) {
-    console.error('[dsh-pet] balance 档位索引越界：p=' + p + ' idx=' + idx);
+    console.error('[fish-body] balance 档位索引越界：p=' + p + ' idx=' + idx);
     return;
   }
   const name = S.pickSlot(slot, this.anim); // 数组槽位档内随机抽 1，且避开当前正播动画（避免连续重复，与浏览器一致）
@@ -295,7 +295,7 @@ function applyBalanceNotice(state, explicit) {
   if (notice.show) for (const s of sprites) s.showBalanceNotice(state, explicit);
   // 未登记服务商是配置事实（已由气泡说明），不再刷 console；其余原因照旧显式报错，绝不伪造余额
   if (state.reason !== 'unsupported') {
-    console.error('[dsh-pet] 余额查询失败 reason=' + state.reason + (state.message ? ' ' + state.message : ''));
+    console.error('[fish-body] 余额查询失败 reason=' + state.reason + (state.message ? ' ' + state.message : ''));
   }
 }
 

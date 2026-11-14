@@ -6,7 +6,7 @@
  * 进入按住状态后不再判焦点——开录时输入框已 blur，期间系统持续补发的 keydown 必须照单全收，
  * 漏一个就会往框里灌字符。
  * 只做判定与状态，不碰 DOM 与录音。
- * @module dsh-pet/src/shared/chat/hear-hold
+ * @module dsh-fish-body/src/shared/chat/hear-hold
  */
 import { isBareKey } from '../hotkey.ts';
 import type { HotkeyEvent } from '../hotkey.ts';

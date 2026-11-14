@@ -3,7 +3,7 @@
  *
  * 经典 script：经 index.html 顺序加载、先于 sprite.js / events.js / renderer.js，顶层声明进全局词法环境。
  * 不负责行为与渲染。依赖 shared-core.js 的 window.PetShared 与主进程注入的 query 参数。
- * @module dsh-pet/runtime/electron-helper/constants
+ * @module dsh-fish-body/runtime/electron-helper/constants
  */
 'use strict';
 

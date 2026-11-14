@@ -4,7 +4,7 @@
  * 两张卡写的是两套东西——音色与音量跟「保存」走，接入配置与启停立即落盘——所以只共用同一个
  * `VoiceSettings`，不互相读对方的状态。分区自己不持有状态，也不轮询。
  * owns only 这一块的装配，never 拉取、轮询与提交逻辑。
- * @module dsh-pet/src/client/settings/voice-tab
+ * @module dsh-fish-body/src/client/settings/voice-tab
  */
 import type { FunctionComponent } from 'react';
 import type { DirtyQuery } from './dirty.ts';

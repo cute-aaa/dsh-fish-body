@@ -5,7 +5,7 @@
  * 醒来后回随机链由调用方传入的 pickNext 决定。不依赖 React。
  * 不变量：进入必须先播 start（once）再切 loop（无限播）；入睡过渡里退出时不播 end。
  * 循环段没有 ended——收到就说明前台已被别的动画顶掉，必须重新点名 loop，而不是重播前台。
- * @module dsh-pet/src/client/pet/card/sleep-machine
+ * @module dsh-fish-body/src/client/pet/card/sleep-machine
  */
 import type { SleepState } from '../../../shared/state.ts';
 import type { CardHub } from './hub.ts';

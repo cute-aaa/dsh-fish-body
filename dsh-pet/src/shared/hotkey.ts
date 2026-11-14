@@ -3,7 +3,7 @@
  *
  * 纯函数，两端共用；各功能只声明自己那一个键（见 chat/hotkey 与 todo/hotkey）。
  * 桌面端只在窗口已聚焦时收得到按键——透明穿透窗默认不抢焦点。
- * @module dsh-pet/src/shared/hotkey
+ * @module dsh-fish-body/src/shared/hotkey
  */
 
 /** 判据只读这几个字段，测试可以用普通对象代替 KeyboardEvent。 */

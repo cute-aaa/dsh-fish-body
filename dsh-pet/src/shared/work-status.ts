@@ -3,7 +3,7 @@
  * 宿主半侧有自包含的实现（DSH 单文件加载约束，宿主不 import 本目录），负责监听 DSH 会话事件
  * 聚合成快照并写进 /state 的 sections.workStatus；本模块只有档位常量与叶子解析。
  * 气泡文案不在代码里：浏览器半侧直接读配置的 events.workStatusTexts。纯函数无副作用，不依赖 React / DOM。
- * @module dsh-pet/src/shared/work-status
+ * @module dsh-fish-body/src/shared/work-status
  */
 
 /** 工作状态档位（对应 animations.events.workStatus 数组索引，顺序即档位，勿在中间插入新档）。 */

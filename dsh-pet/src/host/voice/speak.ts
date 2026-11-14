@@ -6,7 +6,7 @@
  * 合成顺序由 voice/chain.ts 决定：可用的第三方在前、内置 edge 收尾，前一环失败自动落到下一环。
  * 落盘也在这里：合成实现只回 `{ data, mime }`（见 voice/audio.ts），扩展名与
  * `/voice/speak` 的 Content-Type 都由这一份 mime 推出来。
- * @module dsh-pet/src/host/voice/speak
+ * @module dsh-fish-body/src/host/voice/speak
  */
 import { rename, rm, writeFile } from 'node:fs/promises';
 import { audioExtOf, normalizeAudioMime } from './audio.ts';
@@ -103,7 +103,7 @@ export function isQueueStale(queuedMs: number, nowMs: number, waitMs: number = S
 
 /** 造语音服务。 */
 export function createVoiceService(options: {
-  /** 用户数据根；缓存落在 `<userRoot>/voice-cache/`。 */
+  /** 用户数据根；缓存落在 `<数据根>/cache/voice/`。 */
   userRoot: string;
   /** 留痕用；不传则静默。只记字数与结果，不记正文（用户内容不进日志）。 */
   log?: { info?(message: string): void; warn?(message: string): void };
@@ -154,12 +154,12 @@ export function createVoiceService(options: {
     for (const origin of cacheOrigins()) {
       const cached = await findCachedClip(userRoot, cacheKeyOf(origin.id, origin.timbre, text, voice, rate));
       if (cached) {
-        log?.info?.(`[dsh-pet] voice speak: cache=hit chars=${text.length} voice=${origin.id} mime=${cached.mime}`);
+        log?.info?.(`[fish-body] voice speak: cache=hit chars=${text.length} voice=${origin.id} mime=${cached.mime}`);
         return { ok: true, file: cached.file, mime: cached.mime };
       }
     }
     if (queueUsed >= MAX_QUEUE) {
-      log?.warn?.(`[dsh-pet] voice speak: queue full (max ${MAX_QUEUE}) chars=${text.length} voice=${source}`);
+      log?.warn?.(`[fish-body] voice speak: queue full (max ${MAX_QUEUE}) chars=${text.length} voice=${source}`);
       return { ok: false, reason: 'voice-busy', message: 'voice queue is full, retry later' };
     }
     const queue: { dropped: boolean; clip: AudioClip | null; file: string; used: string } = {
@@ -186,24 +186,24 @@ export function createVoiceService(options: {
     } catch (error) {
       // 上游细节（含 URL、状态码）不外泄，只留在日志里
       log?.warn?.(
-        `[dsh-pet] voice speak: failed chars=${text.length} voice=${source} ` +
+        `[fish-body] voice speak: failed chars=${text.length} voice=${source} ` +
           `ms=${Date.now() - startedMs} reason=${error instanceof VoiceSynthError ? error.message : String(error)}`,
       );
       return { ok: false, reason: 'generate-error', message: 'voice synthesis failed' };
     }
     if (queue.dropped) {
       log?.warn?.(
-        `[dsh-pet] voice speak: dropped chars=${text.length} voice=${source} queued=${Date.now() - queuedMs}ms`,
+        `[fish-body] voice speak: dropped chars=${text.length} voice=${source} queued=${Date.now() - queuedMs}ms`,
       );
       return dropped();
     }
     // 合成成功却没拿到片段：说明实现自己吞了错误，按失败报，别回一个空文件路径
     if (queue.clip === null) {
-      log?.warn?.(`[dsh-pet] voice speak: empty clip chars=${text.length} voice=${source}`);
+      log?.warn?.(`[fish-body] voice speak: empty clip chars=${text.length} voice=${source}`);
       return { ok: false, reason: 'generate-error', message: 'voice synthesis failed' };
     }
     log?.info?.(
-      `[dsh-pet] voice speak: cache=miss chars=${text.length} voice=${queue.used} ` +
+      `[fish-body] voice speak: cache=miss chars=${text.length} voice=${queue.used} ` +
         `mime=${queue.clip.mime} ms=${Date.now() - startedMs}`,
     );
     return { ok: true, file: queue.file, mime: normalizeAudioMime(queue.clip.mime) };
@@ -260,11 +260,11 @@ async function synthesizeAlongChain(
   for (const [index, link] of links.entries()) {
     try {
       const clip = await link.synthesize(input);
-      if (index > 0) log?.warn?.(`[dsh-pet] voice speak: fell back to ${link.id} (previous link failed)`);
+      if (index > 0) log?.warn?.(`[fish-body] voice speak: fell back to ${link.id} (previous link failed)`);
       return { clip, link };
     } catch (error) {
       last = error instanceof VoiceSynthError ? error : new VoiceSynthError(String(error));
-      log?.warn?.(`[dsh-pet] voice speak: link ${link.id} failed: ${last.message}`);
+      log?.warn?.(`[fish-body] voice speak: link ${link.id} failed: ${last.message}`);
     }
   }
   throw last ?? new VoiceSynthError('voice chain is empty');

@@ -6,7 +6,7 @@
  * 三个开关的说明都长到不适合挂在问号里（讲的是 token 怎么涨的），所以收进卡尾一个折叠：
  * 需要判断成本的人展开就有全部依据，不需要的人只看见三个开关，页面上也不再是三段常显小字。
  * 候选清单拉取失败只在这里提示一行，不阻塞已有配置值的显示与保存。
- * @module dsh-pet/src/client/settings/model-card
+ * @module dsh-fish-body/src/client/settings/model-card
  */
 import type { FunctionComponent } from 'react';
 import type { ModelSelection } from '../../shared/types.ts';
@@ -88,6 +88,7 @@ export function makeModelCard(
         t(label),
         h('input', numberInputProps(value, setter, { step: '1', min: '0', disabled: busy })),
         t(label + 'Hint'),
+        'model.' + label,
       );
 
     /** 「AI 模型」的一格：标签在上、单下拉选择器在下。 */
@@ -104,6 +105,7 @@ export function makeModelCard(
           onChange: (next: ModelSelection) => props.onModelChange(key, next),
         }),
         t('modelFieldHint'),
+        'model.' + key,
       );
     };
 
@@ -138,8 +140,12 @@ export function makeModelCard(
             }),
             switchGrid(
               CHAT_TOGGLES.map((toggle) =>
-                toggleCell(toggle.label, props.values[toggle.key], busy, (value) =>
-                  props.onFlagChange(toggle.key, value),
+                toggleCell(
+                  toggle.label,
+                  props.values[toggle.key],
+                  busy,
+                  (value) => props.onFlagChange(toggle.key, value),
+                  'model.' + toggle.key,
                 ),
               ),
             ),

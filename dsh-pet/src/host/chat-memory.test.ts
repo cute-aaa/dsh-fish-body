@@ -12,11 +12,12 @@
 import { beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { createChatMemory, type ChatMemoryInput } from './plugin/chat-memory.ts';
+import { userPaths } from './user-layout.ts';
 import type { ChatMemoryMessage } from './chat.ts';
 import type { ConfigPaths } from './config.ts';
 import type { PetImageRef } from './image-attachment.ts';
@@ -56,6 +57,9 @@ function tempWorkspace(overlay: Record<string, unknown> = {}) {
     petDir: join(dir, 'pet'), // 不存在 = 无文件宠物
   };
   writeFileSync(configPaths.userFile, JSON.stringify(overlay));
+  // 数据根下先摆好布局的目录（等价于启动时 ensureUserLayout 建出来的那一份）：
+  // 记忆写在 `<用户根>/data/memory.json`，目录不存在时写盘会 ENOENT。
+  mkdirSync(userPaths(join(dir, 'user')).dataDir, { recursive: true });
   return { dir, configPaths, memeDir: join(dir, 'memes'), userRoot: join(dir, 'user') };
 }
 
@@ -97,7 +101,7 @@ function userTextOf(options: Record<string, unknown> | undefined): string {
 
 /** 读回刚落盘的记忆消息（只应有一只宠物一个分桶）。 */
 function readMessages(userRoot: string): ChatMemoryMessage[] {
-  const mem = JSON.parse(readFileSync(join(userRoot, 'memory.json'), 'utf8')) as Record<
+  const mem = JSON.parse(readFileSync(userPaths(userRoot).memory, 'utf8')) as Record<
     string,
     Record<string, { messages: ChatMemoryMessage[] }>
   >;
@@ -428,14 +432,15 @@ describe('createChatMemory —— 提示词注入（配图 / 动作各自独立�
 describe('createChatMemory —— 删除对话记忆', () => {
   /** 预置一份带两轮记忆的文件（时间戳固定，避免依赖真实时钟）。 */
   function seed(userRoot: string): void {
-    mkdirSync(userRoot, { recursive: true });
+    const file = userPaths(userRoot).memory;
+    mkdirSync(dirname(file), { recursive: true });
     const messages = [
       { role: 'user', content: '第一问', ts: 1000 },
       { role: 'assistant', content: '第一答', ts: 1000 },
       { role: 'user', content: '第二问', ts: 2000 },
       { role: 'assistant', content: '第二答', ts: 2000 },
     ];
-    writeFileSync(join(userRoot, 'memory.json'), JSON.stringify({ main: { main: { messages } } }));
+    writeFileSync(file, JSON.stringify({ main: { main: { messages } } }));
   }
 
   test('按 ts 删：命中的轮成对移除，其余轮原样保留', async () => {
@@ -458,11 +463,11 @@ describe('createChatMemory —— 删除对话记忆', () => {
   test('不存在的 ts → removed 为 0，文件内容不变（不因空操作重写记忆）', async () => {
     const ws = tempWorkspace();
     seed(ws.userRoot);
-    const before = readFileSync(join(ws.userRoot, 'memory.json'), 'utf8');
+    const before = readFileSync(userPaths(ws.userRoot).memory, 'utf8');
     try {
       const r = await createMemory('无关', ws).deleteHistory('main', [999]);
       assert.deepEqual(r, { ok: true, removed: 0 });
-      assert.equal(readFileSync(join(ws.userRoot, 'memory.json'), 'utf8'), before);
+      assert.equal(readFileSync(userPaths(ws.userRoot).memory, 'utf8'), before);
     } finally {
       rmSync(ws.dir, { recursive: true, force: true });
     }
@@ -474,7 +479,7 @@ describe('createChatMemory —— 删除对话记忆', () => {
     try {
       const r = await createMemory('无关', ws).deleteHistory('main');
       assert.deepEqual(r, { ok: true, removed: 4 });
-      const mem = JSON.parse(readFileSync(join(ws.userRoot, 'memory.json'), 'utf8')) as Record<string, unknown>;
+      const mem = JSON.parse(readFileSync(userPaths(ws.userRoot).memory, 'utf8')) as Record<string, unknown>;
       assert.deepEqual(mem, {}, '清空后不应残留空条目或空宠物叶子');
     } finally {
       rmSync(ws.dir, { recursive: true, force: true });

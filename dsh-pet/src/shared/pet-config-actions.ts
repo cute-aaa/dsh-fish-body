@@ -8,7 +8,7 @@
  *
  * 不负责：菜单树、文案、可用性判断（那些在 `menu/` 里）；也不重试——这些写入都由宿主写盘并触发
  * 重启，重试只会加重重启竞争。
- * @module dsh-pet/src/shared/pet-config-actions
+ * @module dsh-fish-body/src/shared/pet-config-actions
  */
 import { type PetDisplay, type RendererKind } from './types.ts';
 

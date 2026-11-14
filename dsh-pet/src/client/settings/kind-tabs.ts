@@ -2,7 +2,7 @@
  * 种类标签条：横向列出全部种类（内置 + 各 pet pack），点一下切换当前种类。
  *
  * 只负责「切到哪个种类」；实例的增删与字段编辑由宠物标签条和设置页外壳处理。
- * @module dsh-pet/src/client/settings/kind-tabs
+ * @module dsh-fish-body/src/client/settings/kind-tabs
  */
 import type { FunctionComponent } from 'react';
 import type { PetKind } from './use-pet-list.ts';

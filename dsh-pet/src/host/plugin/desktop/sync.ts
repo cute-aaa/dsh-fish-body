@@ -5,7 +5,7 @@
  * 子进程可重启，改让内嵌 helper 按新配置重建窗口。
  * 不自己停拉进程（归 ./spawn），不重算配置（归 ./pets）。
  * 依赖显式传入（见输入类型），模块内只读一个进程级事实：DSH_PET_IN_PROCESS。
- * @module dsh-pet/src/host/plugin/desktop/sync
+ * @module dsh-fish-body/src/host/plugin/desktop/sync
  */
 import type { DesktopHelperDeps } from './types.ts';
 import type { DesktopPets } from './pets.ts';
@@ -46,7 +46,7 @@ export function createDesktopSync(deps: DesktopSyncInput) {
         startHelper();
       })
       .catch((e: unknown) => {
-        log.warn(`[dsh-pet] 重启桌面 Helper 失败：${e instanceof Error ? e.message : String(e)}`);
+        log.warn(`[fish-body] 重启桌面 Helper 失败：${e instanceof Error ? e.message : String(e)}`);
       });
     return desktopSyncQueue;
   };

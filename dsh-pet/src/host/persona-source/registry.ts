@@ -3,7 +3,7 @@
  * 与语音注册表不同，这里是 Map 不是单槽——多个人格项目可同时注册，由同步器选一个使用。
  * 模块单例：注册返回 disposer，测试用 {@link resetPersonaSources} 复位。
  * 只登记与查找，不读卡、不投影、不写盘。
- * @module dsh-pet/src/host/persona-source/registry
+ * @module dsh-fish-body/src/host/persona-source/registry
  */
 import type { PersonaSource } from './types.ts';
 

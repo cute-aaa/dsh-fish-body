@@ -5,8 +5,8 @@
  * 而本页有 6 个分区、几十个控件，散落的 px 会让「同一层的东西看起来不一样」。
  * 这里只定义尺度与关键帧，颜色一律取 `--dsw-*`（见 `./controls` 与 `./cards`）。
  * 基础层同时负责根容器的排版与降级动效：`prefers-reduced-motion` 下把过渡与动画压到最小，
- * 但保留透明度变化——它承载状态反馈，不该跟着动画一起消失。
- * @module dsh-pet/src/client/settings/style/tokens
+ * 但保留透明度变化——它承载状态反馈，不该跟着动画一起消失；同理，承载状态的位移也必须留着。
+ * @module dsh-fish-body/src/client/settings/style/tokens
  */
 
 /**
@@ -31,9 +31,12 @@ export const TOKENS_CSS = [
   '@keyframes pcg-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
   '@keyframes pcg-fade{from{opacity:0}to{opacity:1}}',
   // 降级：动画与过渡压到 1ms（保留 opacity 的终值），不删规则——删了会让部分状态停在起止帧之间。
+  // **不要在这里加 `transform:none!important`**：位移在有些控件里承载的是**状态**而不是动画
+  // （开关圆点就靠 `translateX` 站到蓝区右侧）。一刀切会把「开」和「关」画成同一个样子，
+  // 而过渡时长已经是 1ms，本来就不会动。
   '@media (prefers-reduced-motion:reduce){',
   '.dsh-pet-cfg *,.dsh-pet-cfg *::before,.dsh-pet-cfg *::after{',
-  'animation-duration:1ms!important;animation-delay:0ms!important;transition-duration:1ms!important;transform:none!important',
+  'animation-duration:1ms!important;animation-delay:0ms!important;transition-duration:1ms!important',
   '}',
   '}',
 ].join('\n');

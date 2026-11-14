@@ -6,11 +6,12 @@
  * 只读：列目录与解析路径，不建目录、不写文件（建目录归 `/open-folder?create=1`）。
  * 必须始终成立：任何用户输入都先过 `isSessionFishSkinName`，再用 `resolveExisting` 兜一次越界，
  * 两道都不放行就当作不存在——皮肤名是 URL 段，绝不能凭它拼出池外的路径。
- * @module dsh-pet/src/host/session-fish/skins
+ * @module dsh-fish-body/src/host/session-fish/skins
  */
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { PACKAGE_ROOT } from '../paths.ts';
+import { userPaths } from '../user-layout.ts';
 import { resolveExisting } from '../http.ts';
 import {
   isSessionFishSkinName,
@@ -20,7 +21,7 @@ import {
 } from '../../shared/session-fish.ts';
 
 /** 用户皮肤目录名（放在插件数据根下，与 `session-fish.json` 同级）。 */
-export const SESSION_FISH_SKIN_DIR = 'session-fish-skin';
+export const SESSION_FISH_SKIN_DIR = 'assets/session-fish';
 
 /** 一次皮肤列举的结果条目。 */
 export interface SessionFishSkinItem {
@@ -36,7 +37,7 @@ export interface SessionFishSkinItem {
 
 /** 皮肤池的两个目录（都存在时才参与列举；不存在只是空池，不报错）。 */
 export interface FishSkinDirs {
-  /** 用户目录：`<用户根>/session-fish-skin`。 */
+  /** 用户目录：`<数据根>/assets/session-fish`。 */
   readonly user: string;
   /** 包内目录：`assets/webm`（现成的一百多段小动作）。 */
   readonly pack: string;
@@ -46,10 +47,10 @@ export interface FishSkinDirs {
  * 用户皮肤目录的绝对路径。
  *
  * @param userRoot - 插件数据根。
- * @returns `<用户根>/session-fish-skin`。
+ * @returns `<数据根>/assets/session-fish`。
  */
 export function fishSkinUserDir(userRoot: string): string {
-  return join(userRoot, SESSION_FISH_SKIN_DIR);
+  return userPaths(userRoot).fishSkinDir;
 }
 
 /**

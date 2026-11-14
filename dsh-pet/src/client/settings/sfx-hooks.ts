@@ -5,10 +5,11 @@
  * 不需要文件选择器。名单里的每一行只说三件事：名字、来源（内置触发点 / 扫描到的文件 / 未匹配）、能做什么。
  * 末尾那句 curl 示例留常显：它是这个功能唯一的用法说明，藏进折叠里等于没写。
  * owns only 这张卡的输入与名单，never 索引构建与写盘。
- * @module dsh-pet/src/client/settings/sfx-hooks
+ * @module dsh-fish-body/src/client/settings/sfx-hooks
  */
 import type { FunctionComponent } from 'react';
 import { SFX_HOOK_NAME_RE } from '../../shared/sfx/types.ts';
+import { NO_DIRTY, type DirtyQuery } from './dirty.ts';
 import { makeFolderButton } from './folder-button.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit } from './ui.ts';
@@ -21,6 +22,8 @@ export interface SfxHooksProps {
   readonly busy: boolean;
   /** 分区状态：名单、登记与删除。 */
   readonly sfx: SfxSettings;
+  /** 未保存改动查询口：被改过的那一条自己亮一颗圆点。 */
+  readonly dirty?: DirtyQuery;
 }
 
 /**
@@ -35,6 +38,7 @@ export function makeSfxHooks(rt: SettingsRuntime): FunctionComponent<SfxHooksPro
 
   return function SfxHooks(props: SfxHooksProps) {
     const { busy, sfx } = props;
+    const dirty = props.dirty ?? NO_DIRTY;
     const { cardHead, note } = makeUiKit({ h, t });
     const [draft, setDraft] = useState('');
     const [error, setError] = useState('');
@@ -55,10 +59,11 @@ export function makeSfxHooks(rt: SettingsRuntime): FunctionComponent<SfxHooksPro
     };
 
     /** 一行：名字、来源、试听、取消登记与路径。 */
-    const row = (view: SfxHookView) =>
-      h('div', {
+    const row = (view: SfxHookView) => {
+      const touched = dirty.has('sfx.hooks.' + view.name);
+      return h('div', {
         key: view.name,
-        className: 'dsh-pet-cfg__row',
+        className: 'dsh-pet-cfg__row' + (touched ? ' is-dirty' : ''),
         children: [
           h('div', {
             key: 'main',
@@ -107,6 +112,7 @@ export function makeSfxHooks(rt: SettingsRuntime): FunctionComponent<SfxHooksPro
           }),
         ],
       });
+    };
 
     return h('div', {
       className: 'dsh-pet-cfg__card',

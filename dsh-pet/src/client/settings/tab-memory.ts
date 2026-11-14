@@ -4,7 +4,7 @@
  * 只记分区 id，不记任何配置值——配置的唯一真源在宿主的配置文件里，这里丢了不影响任何行为。
  * 读到的 id 必须先在分区表里校验：旧版本记下的分区被删掉后要回落默认，否则整页会渲染成空白。
  * 存储访问一律吞错：隐私模式、被策略禁用、没有 DOM 时都退化成「不记忆」，不阻塞设置页。
- * @module dsh-pet/src/client/settings/tab-memory
+ * @module dsh-fish-body/src/client/settings/tab-memory
  */
 import { SETTINGS_TABS, type SettingsTabId } from './tabs.ts';
 

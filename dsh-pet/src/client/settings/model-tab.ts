@@ -4,7 +4,7 @@
  * 候选清单是页面级的一次性拉取（`RemoteData`），拉取失败只影响下拉框，不影响已有值；
  * 所以这张卡同时吃「编辑态」与「远端结果」两样东西，但都不归它拥有。
  * owns only 这一块的装配，never 拉取与字段的编辑态。
- * @module dsh-pet/src/client/settings/model-tab
+ * @module dsh-fish-body/src/client/settings/model-tab
  */
 import type { FunctionComponent } from 'react';
 import type { DirtyQuery } from './dirty.ts';

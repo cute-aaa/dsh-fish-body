@@ -3,7 +3,7 @@
  *
  * 两者都挂在 body 上并用 fixed 定位，避免被面板的滚动容器裁掉；关闭路径统一走 capture 监听，
  * 打开新菜单前一定先关掉旧的。选择器不持有业务状态，值由调用方的 onChange 收走。
- * @module dsh-pet/src/standalone/settings-page/script/overlay
+ * @module dsh-fish-body/src/standalone/settings-page/script/overlay
  */
 
 /** 生成覆盖层片段。 */

@@ -5,13 +5,14 @@
  * 每组返回「若干格」而不是一整块 DOM：由 `pet-card` 决定放进哪个栅格、哪一段小节，
  * 这样加一格字段只动这里，改版式只动那张卡。补丁形状也定义在这里——补丁就是这些控件产生的。
  * 每个字段的说明都挂悬浮气泡（`data-tip`），卡头保留整卡语境的问号。
- * @module dsh-pet/src/client/settings/pet-card-parts
+ * @module dsh-fish-body/src/client/settings/pet-card-parts
  */
 import type { ChangeEvent } from 'react';
 import type { jsx } from 'react/jsx-runtime';
 import type { Corner, Pet, PetDisplay, RendererKind } from '../../shared/types.ts';
 import { PET_DISPLAYS, RENDERERS } from '../../shared/config.ts';
 import { SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
+import type { DirtyQuery } from './dirty.ts';
 import { makeSelect } from './panel/select.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit, numberInputProps } from './ui.ts';
@@ -27,6 +28,10 @@ export interface PetFieldsProps {
   readonly busy: boolean;
   /** 回传字段补丁。 */
   readonly onChange: (patch: PetPatch) => void;
+  /** 这只宠物在快照里的路径前缀（`pets.<下标>`）：每个字段用它拼自己的改动路径。 */
+  readonly path: string;
+  /** 未保存改动查询口：改动的那一格自己亮圆点。 */
+  readonly dirty: DirtyQuery;
 }
 
 /** 四个角落的固定顺序；文案走 `corner.<corner>`。 */
@@ -52,12 +57,15 @@ export interface PetFieldGroups {
  */
 export function makePetFieldGroups(rt: SettingsRuntime): PetFieldGroups {
   const { h, t } = rt;
-  const { field, sizeControl } = makeUiKit({ h, t });
   const Select = makeSelect(rt);
 
-  /** 宠物画框大小：滑块（SIZE_MIN~SIZE_MAX）+ 数字框，两处写同一个值。 */
-  const sizeInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
-    sizeControl(value, disabled, setter, { 'aria-label': t('sizeLabel') });
+  /**
+   * 每组自己的小件集合：`field` 要拿到本页的改动查询口才能标「这一格改过」。
+   *
+   * 每次调用现造一份没有任何开销（全是闭包，不产生新组件类型），
+   * 所以 `Select` 这类**组件**放在工厂里建一次，样式小件随查询口走。
+   */
+  const kitOf = (dirty: DirtyQuery) => makeUiKit({ h, t }, dirty);
 
   /** 百分比输入：默认 20；不设上限（超过 100 只在 size 也够大时才生效）。 */
   const percentInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
@@ -68,82 +76,102 @@ export function makePetFieldGroups(rt: SettingsRuntime): PetFieldGroups {
     h('input', numberInputProps(value, setter, { step: '1', min: '', disabled }));
 
   return {
-    identity: ({ pet, busy, onChange }) => [
-      field(
-        t('nameLabel'),
-        h('input', {
-          type: 'text',
-          className: INPUT_CLASS,
-          value: String(pet.name ?? ''),
-          disabled: busy,
-          maxLength: 50,
-          onChange: (e: ChangeEvent<HTMLInputElement>) => onChange({ name: e.target.value }),
-        }),
-        t('nameHint'),
-      ),
-      field(
-        t('sizeLabel'),
-        sizeInput(pet.size, busy, (v) => onChange({ size: v })),
-        t('sizeHint'),
-      ),
-    ],
+    identity: ({ pet, busy, onChange, path, dirty }) => {
+      const { field, sizeControl } = kitOf(dirty);
+      const sizeInput = (value: number, disabled: boolean, setter: (v: number) => void) =>
+        sizeControl(value, disabled, setter, { 'aria-label': t('sizeLabel') });
+      return [
+        field(
+          t('nameLabel'),
+          h('input', {
+            type: 'text',
+            className: INPUT_CLASS,
+            value: String(pet.name ?? ''),
+            disabled: busy,
+            maxLength: 50,
+            onChange: (e: ChangeEvent<HTMLInputElement>) => onChange({ name: e.target.value }),
+          }),
+          t('nameHint'),
+          path + '.name',
+        ),
+        field(
+          t('sizeLabel'),
+          sizeInput(pet.size, busy, (v) => onChange({ size: v })),
+          t('sizeHint'),
+          path + '.size',
+        ),
+      ];
+    },
 
-    display: ({ pet, busy, onChange }) => [
-      field(
-        t('displayLabel'),
-        h(Select, {
-          label: t('displayLabel'),
-          value: pet.display,
-          options: PET_DISPLAYS.map((d) => ({ id: d, label: t('display.' + d) })),
-          disabled: busy,
-          onChange: (id: string) => onChange({ display: id as PetDisplay }),
-        }),
-        t('displayHint'),
-      ),
-      field(
-        t('rendererLabel'),
-        h(Select, {
-          label: t('rendererLabel'),
-          value: pet.renderer ?? 'webm',
-          options: RENDERERS.map((r) => ({ id: r, label: t('renderer.' + r) })),
-          disabled: busy,
-          onChange: (id: string) => onChange({ renderer: id as RendererKind }),
-        }),
-        t('rendererHint'),
-      ),
-      field(
-        t('sizePercentLabel'),
-        percentInput(pet.sizePercent ?? SIZE_PERCENT_DEFAULT, busy, (v) => onChange({ sizePercent: v })),
-        t('sizePercentHint'),
-      ),
-    ],
+    display: ({ pet, busy, onChange, path, dirty }) => {
+      const { field } = kitOf(dirty);
+      return [
+        field(
+          t('displayLabel'),
+          h(Select, {
+            label: t('displayLabel'),
+            value: pet.display,
+            options: PET_DISPLAYS.map((d) => ({ id: d, label: t('display.' + d) })),
+            disabled: busy,
+            onChange: (id: string) => onChange({ display: id as PetDisplay }),
+          }),
+          t('displayHint'),
+          path + '.display',
+        ),
+        field(
+          t('rendererLabel'),
+          h(Select, {
+            label: t('rendererLabel'),
+            value: pet.renderer ?? 'webm',
+            options: RENDERERS.map((r) => ({ id: r, label: t('renderer.' + r) })),
+            disabled: busy,
+            onChange: (id: string) => onChange({ renderer: id as RendererKind }),
+          }),
+          t('rendererHint'),
+          path + '.renderer',
+        ),
+        field(
+          t('sizePercentLabel'),
+          percentInput(pet.sizePercent ?? SIZE_PERCENT_DEFAULT, busy, (v) => onChange({ sizePercent: v })),
+          t('sizePercentHint'),
+          path + '.sizePercent',
+        ),
+      ];
+    },
 
-    positions: ({ pet, busy, onChange }) => [
-      field(
-        t('cornerLabel'),
-        h(Select, {
-          label: t('cornerLabel'),
-          value: pet.position.corner,
-          options: CORNERS.map((c) => ({ id: c, label: t('corner.' + c) })),
-          disabled: busy,
-          onChange: (id: string) => onChange({ position: { corner: id as Corner } }),
-        }),
-        t('cornerHint'),
-      ),
-      field(
-        t('marginX'),
-        marginInput(pet.position.marginX, busy, (v) => onChange({ position: { marginX: v } })),
-        t('marginXHint'),
-      ),
-      field(
-        t('marginY'),
-        marginInput(pet.position.marginY, busy, (v) => onChange({ position: { marginY: v } })),
-        t('marginYHint'),
-      ),
-    ],
+    positions: ({ pet, busy, onChange, path, dirty }) => {
+      const { field } = kitOf(dirty);
+      return [
+        field(
+          t('cornerLabel'),
+          h(Select, {
+            label: t('cornerLabel'),
+            value: pet.position.corner,
+            options: CORNERS.map((c) => ({ id: c, label: t('corner.' + c) })),
+            disabled: busy,
+            onChange: (id: string) => onChange({ position: { corner: id as Corner } }),
+          }),
+          t('cornerHint'),
+          path + '.position.corner',
+        ),
+        field(
+          t('marginX'),
+          marginInput(pet.position.marginX, busy, (v) => onChange({ position: { marginX: v } })),
+          t('marginXHint'),
+          path + '.position.marginX',
+        ),
+        field(
+          t('marginY'),
+          marginInput(pet.position.marginY, busy, (v) => onChange({ position: { marginY: v } })),
+          t('marginYHint'),
+          path + '.position.marginY',
+        ),
+      ];
+    },
 
-    sizeOverrides: ({ pet, busy, onChange }) =>
-      RENDERERS.map((renderer) => {
+    sizeOverrides: ({ pet, busy, onChange, path, dirty }) => {
+      const { field, sizeControl } = kitOf(dirty);
+      return RENDERERS.map((renderer) => {
         const base = pet.size;
         const own = pet.sizes?.[renderer];
         const write = (v: number): void => {
@@ -173,8 +201,10 @@ export function makePetFieldGroups(rt: SettingsRuntime): PetFieldGroups {
             ],
           }),
           own === undefined ? undefined : t('sizeFollowDefault'),
+          path + '.sizes.' + renderer,
         );
-      }),
+      });
+    },
   };
 }
 

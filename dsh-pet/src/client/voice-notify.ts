@@ -4,7 +4,7 @@
  * 只随 DSH 网页端走，桌面透明窗不参与——与 client/notify.ts 同一条边界：系统通知只弹在
  * 网页端，工作状态播报同理。不写 `say` 叶子、不碰 `voiceTo`：这是工作状态的事，不是气泡的事。
  * 台词只取该档位的 `workStatusTexts`，不念 `task`（任务详情，常是对话片段或路径）。
- * @module dsh-pet/src/client/voice-notify
+ * @module dsh-fish-body/src/client/voice-notify
  */
 import { petBridge } from './settings/bridge.ts';
 import { isPageActive } from './notify.ts';

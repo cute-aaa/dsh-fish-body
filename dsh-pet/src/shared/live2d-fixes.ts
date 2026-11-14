@@ -5,7 +5,7 @@
  * 用 drawable 序号而不是部件名：部件不透明度会连带遮罩一起失效（遮罩按源图 alpha 裁切），
  * 而 `getDrawableOpacity` 只影响可见绘制，遮罩绘制时会被忽略——所以只压这一个访问器。
  * 表按模型文件名索引，换模型不受影响；同一文件被替换后序号可能漂移，届时删掉对应条目即可。
- * @module dsh-pet/src/shared/live2d-fixes
+ * @module dsh-fish-body/src/shared/live2d-fixes
  */
 
 /** 模型文件名（`.model3.json`） → 不参与可见绘制的 drawable 序号。 */

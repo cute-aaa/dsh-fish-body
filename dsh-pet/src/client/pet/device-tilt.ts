@@ -3,7 +3,7 @@
  *
  * 换算与订阅分开：换算纯函数可单测，订阅只碰浏览器 API。
  * 传感器只在安全上下文（HTTPS / localhost）可用——HTTP 下两个事件类型根本不存在，订阅直接空转。
- * @module dsh-pet/src/client/pet/device-tilt
+ * @module dsh-fish-body/src/client/pet/device-tilt
  */
 import type { GravityVector } from '../../shared/physics.ts';
 

@@ -6,7 +6,7 @@
  * 分区按「个体 → 手感 → 声音 → 智能 → 附加 → 维护」排：越靠前越常改，越靠后越是配一次就不动。
  * 标签条是一条等宽分段控件（轨道 + 选中块），窄容器改横向滚动而不是折成两三行。
  * owns only 分区的名字、顺序与标签条交互，never 任何字段状态。
- * @module dsh-pet/src/client/settings/tabs
+ * @module dsh-fish-body/src/client/settings/tabs
  */
 import type { FunctionComponent } from 'react';
 import type { Key } from './locales/index.ts';

@@ -5,17 +5,78 @@
  * 过去每个字段各挂一个问号的做法已废弃——四十个问号把视线切碎，而它们承载的信息大多能从标签本身读出来；
  * 真正会让人踩坑的那几条改由调用方写成常显的 {@link SettingsUiKit.note}。
  * 全部小件只造节点，不含状态；样式规则在 `./css`，文案键在 `./locales`。
- * @module dsh-pet/src/client/settings/ui
+ * @module dsh-fish-body/src/client/settings/ui
  */
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import type * as ReactNS from 'react';
 import type { jsx } from 'react/jsx-runtime';
 import { SIZE_MAX, SIZE_MIN, SIZE_STEP } from '../../shared/pet-size.ts';
 import { NO_DIRTY, type DirtyQuery } from './dirty.ts';
-import type { SettingsRuntime } from './runtime.ts';
+import type { H, JsxElement, SettingsRuntime } from './runtime.ts';
 
 /** 输入框与下拉框共用的类名。 */
 export const INPUT_CLASS = 'dsh-pet-cfg__inp';
+
+/** 开关的输入。 */
+export interface SwitchOptions {
+  /** 文案键（`t(label)` 得到文字）。 */
+  readonly label: string;
+  /** 当前勾选态。 */
+  readonly value: boolean;
+  /** 是否禁用。 */
+  readonly disabled: boolean;
+  /** 勾选态变化时回传布尔值（不是事件对象）。 */
+  readonly onToggle: (value: boolean) => void;
+  /** 悬浮说明正文；缺省按 `<文案键>Hint` 的惯例取，空串表示不挂气泡。 */
+  readonly hint?: string;
+  /** 这一项自己有未保存的改动：文字后面跟一颗小圆点。 */
+  readonly dirty?: boolean;
+}
+
+/**
+ * 造开关本体：一个透明 checkbox + 一条轨道 + 一个圆点 + 文字。
+ *
+ * 圆点必须是**真节点**，不能画在 `input::after` 上：`input` 是替换元素，伪元素在部分引擎里
+ * 根本不生成——一旦不生成，开关就退化成「只会换色的色条」，点了像没反应。
+ * 逻辑控件仍是那个 checkbox（铺在轨道正上方，点轨道即点它）：勾选态、禁用态、键盘与读屏语义
+ * 全在它身上；轨道与圆点是 `aria-hidden` 的皮肤，键盘焦点环画在轨道上。
+ *
+ * @param h - 节点工厂。
+ * @param t - 翻译函数。
+ * @param options - 文案键、勾选态、禁用态、回调、可选说明与改动标记。
+ * @returns 包着 input / 轨道 / 文字的 `<label>`。
+ */
+export function switchNode(h: H, t: (key: string) => string, options: SwitchOptions): JsxElement {
+  const hint = options.hint === undefined ? t(options.label + 'Hint') : options.hint;
+  return h('label', {
+    ...(hint === '' ? {} : { 'data-tip': hint }),
+    children: [
+      h('input', {
+        key: 'i',
+        type: 'checkbox',
+        checked: options.value,
+        disabled: options.disabled,
+        onChange: (e: ChangeEvent<HTMLInputElement>) => options.onToggle(e.target.checked),
+      }),
+      h('span', {
+        key: 'track',
+        className: 'dsh-pet-cfg__swTrack',
+        'aria-hidden': 'true',
+        children: h('span', { key: 'knob', className: 'dsh-pet-cfg__swKnob' }),
+      }),
+      h('span', { key: 't', className: 'dsh-pet-cfg__swText', children: t(options.label) }),
+      options.dirty === true
+        ? h('i', {
+            key: 'd',
+            className: 'dsh-pet-cfg__dot is-inline',
+            role: 'img',
+            'aria-label': t('unsaved'),
+            title: t('unsaved'),
+          })
+        : null,
+    ],
+  });
+}
 
 /**
  * 数字输入的统一属性：非受控 + 失焦提交。
@@ -93,14 +154,15 @@ export interface SettingsUiKit {
     scope?: DirtyScope,
     actions?: ReturnType<typeof jsx> | null,
   ) => ReturnType<typeof jsx>;
-  /** 一个字段：标签（可带悬浮说明）在上、控件在下。 */
-  field: (label: string, control: ReturnType<typeof jsx>, hint?: string) => ReturnType<typeof jsx>;
-  /** 开关的一格：勾选框、标题与悬浮说明；视觉是开关，语义仍是 checkbox。 */
+  /** 一个字段：标签（可带悬浮说明）在上、控件在下；给了配置路径就在标签后跟一颗改动圆点。 */
+  field: (label: string, control: ReturnType<typeof jsx>, hint?: string, path?: string) => ReturnType<typeof jsx>;
+  /** 开关的一格：勾选框、标题与悬浮说明；视觉是开关，语义仍是 checkbox。`path` 用来标「这一项改过」。 */
   toggleCell: (
     label: string,
     value: boolean,
     disabled: boolean,
     onToggle: (value: boolean) => void,
+    path?: string,
   ) => ReturnType<typeof jsx>;
   /** 卡片内的小节：标题 + 若干行；与上一小节之间由 CSS 画一条分隔线。 */
   section: (title: string, children: ReadonlyArray<ReturnType<typeof jsx> | null>) => ReturnType<typeof jsx>;
@@ -169,6 +231,24 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>, dirty: DirtyQuer
         })
       : null;
 
+  /**
+   * 单个控件的改动标记：路径本身或它的子路径有改动。
+   *
+   * 卡片头那颗点只说「这块改过」，改到哪个开关还得自己找——这一颗钉在改动项自己的标签后面。
+   */
+  const itemDot = (path?: string): ReturnType<typeof jsx> | null =>
+    path !== undefined && dirty.has(path)
+      ? h('i', {
+          className: 'dsh-pet-cfg__dot is-inline',
+          role: 'img',
+          'aria-label': t('unsaved'),
+          title: t('unsaved'),
+        })
+      : null;
+
+  /** 这一项自己有没有改动（决定要不要给容器挂 `is-dirty`）。 */
+  const itemDirty = (path?: string): boolean => path !== undefined && dirty.has(path);
+
   return {
     tip,
     q,
@@ -185,36 +265,23 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>, dirty: DirtyQuer
             : h('div', { key: 'a', className: 'dsh-pet-cfg__cardActions', children: actions }),
         ],
       }),
-    field: (label, control, hint) =>
+    field: (label, control, hint, path) =>
       h('div', {
-        className: 'dsh-pet-cfg__field',
+        className: 'dsh-pet-cfg__field' + (itemDirty(path) ? ' is-dirty' : ''),
         children: [
           h('span', {
             key: 'l',
             className: 'dsh-pet-cfg__flabel',
-            children: label,
+            children: [label, itemDot(path)],
             ...(hint === undefined ? {} : tip(hint)),
           }),
           control,
         ],
       }),
-    toggleCell: (label, value, disabled, onToggle) =>
+    toggleCell: (label, value, disabled, onToggle, path) =>
       h('div', {
-        className: 'dsh-pet-cfg__switch',
-        children: h('label', {
-          key: 'l',
-          ...tip(t(label + 'Hint')),
-          children: [
-            h('input', {
-              key: 'i',
-              type: 'checkbox',
-              checked: value,
-              disabled,
-              onChange: (e: ChangeEvent<HTMLInputElement>) => onToggle(e.target.checked),
-            }),
-            h('span', { key: 't', children: t(label) }),
-          ],
-        }),
+        className: 'dsh-pet-cfg__switch' + (itemDirty(path) ? ' is-dirty' : ''),
+        children: switchNode(h, t, { dirty: itemDirty(path), disabled, label, onToggle, value }),
       }),
     section: (title, children) =>
       h('div', {

@@ -5,7 +5,7 @@
  * 不能把别人的快捷键抢走；② 只在真要保存时 `preventDefault`，否则会拦掉浏览器的「保存网页」；
  * ③ `save` 每次渲染重建（闭包捕获宠物 / 物理参数等状态），直接塞进 `useEffect([])` 会拿旧状态存盘，
  * 所以每次渲染把最新的那一个转发进 ref。
- * @module dsh-pet/src/client/settings/save-hotkey
+ * @module dsh-fish-body/src/client/settings/save-hotkey
  */
 import type * as ReactNS from 'react';
 import type { SettingsRuntime } from './runtime.ts';

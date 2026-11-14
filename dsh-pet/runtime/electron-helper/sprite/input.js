@@ -3,7 +3,7 @@
  *
  * PetSprite 由 sprite.js 定义，本文件只往原型上挂方法，必须在其后加载。
  * 副作用是 DOM 事件与 IPC（setInteractive / syncInputBusy），不碰播放与运动状态机。
- * @module dsh-pet/runtime/electron-helper/sprite-input
+ * @module dsh-fish-body/runtime/electron-helper/sprite-input
  */
 'use strict';
 
@@ -21,13 +21,13 @@ Object.assign(PetSprite.prototype, {
       }
       this.applyFreeze(false);
       S.postAction(BASE + '/lock/release?pet=' + encodeURIComponent(this.pet.id), { force: true }).then((ok) => {
-        if (!ok) console.warn('[dsh-pet] 用户接管上报未送达 pet=' + this.pet.id);
+        if (!ok) console.warn('[fish-body] 用户接管上报未送达 pet=' + this.pet.id);
       });
     }
     // 抓取速度日志：stopThrow 之前读，否则飞行速度就没了；静止时记录 0
     const grabState = this.throwState;
     console.log(
-      '[dsh-pet] ' +
+      '[fish-body] ' +
         new Date().toTimeString().slice(0, 8) +
         ' pet=' +
         this.pet.id +
@@ -47,7 +47,7 @@ Object.assign(PetSprite.prototype, {
       if (grabSpeed >= S.SCORE_MIN_SPEED) {
         this.pressScoreFired = true;
         console.log(
-          '[dsh-pet] ' +
+          '[fish-body] ' +
             new Date().toTimeString().slice(0, 8) +
             ' pet=' +
             this.pet.id +
@@ -190,7 +190,7 @@ Object.assign(PetSprite.prototype, {
         const v = S.slingshotVelocity(S.pullAngle(pullX, pullY), rawPower, this.physics.throwPower);
         this.dragTrail = [];
         console.log(
-          '[dsh-pet] ' +
+          '[fish-body] ' +
             new Date().toTimeString().slice(0, 8) +
             ' pet=' +
             this.pet.id +
@@ -210,7 +210,7 @@ Object.assign(PetSprite.prototype, {
         this.dragTrail = [];
         if (vel) {
           console.log(
-            '[dsh-pet] ' +
+            '[fish-body] ' +
               new Date().toTimeString().slice(0, 8) +
               ' pet=' +
               this.pet.id +

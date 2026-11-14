@@ -5,7 +5,7 @@
  * 比对文档与实现，且浏览器与设置页都不需要记更多路径。动作走 JSON body，不用查询串——
  * 会话 id 可能含 `&` 一类字符，放进 body 才不会被编码细节绊住。
  * 子路径只放「需要独立语义」的三件事：皮肤清单、皮肤字节、以及跨面唯一一次的出声权（`/claim`）。
- * @module dsh-pet/src/host/routes/session-fish
+ * @module dsh-fish-body/src/host/routes/session-fish
  */
 import type { RouteResult } from '../http.ts';
 import { MIME } from '../http.ts';
@@ -150,12 +150,12 @@ function sendSkin(deps: PetRouteDeps, input: RouteInput): RouteResult {
   if (input.method !== 'GET') return methodNotAllowed();
   const name = (input.url.searchParams.get('name') ?? '').trim();
   if (name === '')
-    return { kind: 'text', status: 400, body: 'dsh-pet: expected /dsh-pet-7340/session-fish/skin?name=<file>' };
+    return { kind: 'text', status: 400, body: 'fish-body: expected /dsh-pet-7340/session-fish/skin?name=<file>' };
   if (!isSessionFishSkinName(name)) {
-    return { kind: 'text', status: 400, body: 'dsh-pet: invalid fish skin name' };
+    return { kind: 'text', status: 400, body: 'fish-body: invalid fish skin name' };
   }
   const file = resolveFishSkin(skinDirsOf(deps), name);
-  if (file === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: fish skin not found' };
+  if (file === undefined) return { kind: 'text', status: 404, body: 'fish-body: fish skin not found' };
   const ext = file.slice(file.lastIndexOf('.')).toLowerCase();
   return { kind: 'file', file, contentType: MIME[ext] ?? 'application/octet-stream' };
 }

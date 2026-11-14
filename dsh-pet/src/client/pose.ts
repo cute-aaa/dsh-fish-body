@@ -3,7 +3,7 @@
  * 网页端的位置天生按页面各一份：宠物在各自视口里，读到的也正好是这一页里的这只，无需实例 id。
  * 只服务浏览器半侧；不负责宿主半侧的快照——桌面宠物走自己的 `POST /pose/report` 与 `GET /pose`。
  * 坐标口径与 `POST /position` 完全一致（归一化中心坐标），且按需读取，不是注册时的快照。
- * @module dsh-pet/src/client/pose
+ * @module dsh-fish-body/src/client/pose
  */
 
 /** 一次实况：宠物中心的归一化坐标与朝向。 */

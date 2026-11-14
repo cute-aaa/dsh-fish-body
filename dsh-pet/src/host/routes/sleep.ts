@@ -5,7 +5,7 @@
  * 播 start → loop → end 的时机由渲染端负责（视频播完只有它知道）。
  * 三段名字在这里定死，渲染端不再自己挑——否则两端会播到不同的一套。
  * 失败一律 HTTP 200 + 失败实体；方法错由协议构造器给真实状态码。
- * @module dsh-pet/src/host/routes/sleep
+ * @module dsh-fish-body/src/host/routes/sleep
  */
 import { readAllConfig } from '../config.ts';
 import { pickSleepNames, pickSleepText, sleepTextsOf } from '../sleep.ts';

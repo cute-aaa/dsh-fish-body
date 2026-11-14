@@ -4,7 +4,7 @@
  * 素材地址只在这里拼（`/sound/<素材根>/<文件名>`）；解析顺序、音量、节流与调度全在 shared/sfx，
  * 桌面 Helper 调同一份，两端不会各写一套判定。
  * 索引按「素材根 + 渲染方式 + 皮肤」缓存：切皮肤必然伴随配置重载，重载时 {@link loadSfxIndex} 会换一份。
- * @module dsh-pet/src/client/pet/sfx
+ * @module dsh-fish-body/src/client/pet/sfx
  */
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import {
@@ -90,7 +90,7 @@ export async function loadSfxIndex(pet: Pet): Promise<SfxIndex> {
   } catch (error) {
     if (!warned.has(pet.id + '|' + key)) {
       warned.add(pet.id + '|' + key);
-      console.warn('[dsh-pet] 音效索引加载失败 pet=' + pet.id + '：' + String(error) + '（改用内置默认音效）');
+      console.warn('[fish-body] 音效索引加载失败 pet=' + pet.id + '：' + String(error) + '（改用内置默认音效）');
     }
     return indexes.get(pet.id) ?? EMPTY_INDEX;
   }

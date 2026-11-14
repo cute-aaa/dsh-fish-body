@@ -3,14 +3,15 @@
  * 只断言协议层：方法判定、JSON 判定，以及把语音服务的结论映射成应答；不发真实请求。
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync as writeFile } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync as writeFile } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, test } from 'node:test';
 import type { PetRouteDeps } from './types.ts';
 import { handleVoiceRoutes } from './voice.ts';
 import { registerVoiceProvider, resetVoiceProviders } from '../voice/registry.ts';
+import { userPaths } from '../user-layout.ts';
 
 /** 临时目录登记表：每个用例结束时清掉。 */
 const roots: string[] = [];
@@ -155,11 +156,18 @@ test('不相干的路径：交回 undefined，让下一个处理器接手', asyn
   assert.equal(result, undefined);
 });
 
-/** 临时数据根：接入配置写的是 `<userRoot>/voice-providers.json`。 */
+/** 临时数据根：接入配置写的是 `<userRoot>/config/voice-providers.json`。 */
 function tempRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'dsh-pet-voicecfg-'));
   roots.push(root);
   return root;
+}
+
+/** 接入配置的落盘位置（新布局在 `config/` 下）；顺手把目录建出来，写文件才不会 ENOENT。 */
+function providerFile(root: string): string {
+  const file = userPaths(root).voiceProviders;
+  mkdirSync(dirname(file), { recursive: true });
+  return file;
 }
 
 /** 注册一个带 fields 的假实现，返回注销函数。 */
@@ -253,11 +261,7 @@ describe('voice/provider-process —— 启停脚本', () => {
     const address = server.address();
     const port = typeof address === 'object' && address ? address.port : 0;
     try {
-      await writeFile(
-        join(root, 'voice-providers.json'),
-        JSON.stringify({ gsv: { baseURL: `http://127.0.0.1:${port}` } }),
-        'utf8',
-      );
+      await writeFile(providerFile(root), JSON.stringify({ gsv: { baseURL: `http://127.0.0.1:${port}` } }), 'utf8');
       const result = await handleVoiceRoutes(
         providerDeps(root),
         input('voice/provider-process', 'POST', JSON.stringify({ provider: 'gsv', action: 'stop' })),
@@ -308,7 +312,7 @@ describe('voice/provider-config —— 接入配置读写', () => {
         ),
       );
       assert.equal(saved?.kind === 'json' ? saved.status : 0, 200);
-      const file = join(root, 'voice-providers.json');
+      const file = providerFile(root);
       assert.equal(JSON.parse(readFileSync(file, 'utf8')).gsv.voicesDir, 'D:/v');
 
       const cleared = await handleVoiceRoutes(
@@ -384,10 +388,7 @@ describe('voice/provider-config —— 接入配置读写', () => {
         body: JSON.stringify({ provider: 'gsv', patch: { baseURL: 'http://127.0.0.1:9999' } }),
       });
       assert.equal((result as { obj: { ok: boolean } }).obj.ok, true);
-      assert.equal(
-        JSON.parse(readFileSync(join(root, 'voice-providers.json'), 'utf8')).gsv.baseURL,
-        'http://127.0.0.1:9999',
-      );
+      assert.equal(JSON.parse(readFileSync(providerFile(root), 'utf8')).gsv.baseURL, 'http://127.0.0.1:9999');
     } finally {
       dispose();
     }

@@ -107,18 +107,25 @@ export const pt: Record<Key, string> = {
   corruptConfirm: 'Salvar mesmo assim',
   corruptBody:
     'Não foi possível ler a configuração do usuário (conteúdo corrompido, não é JSON/JSONC válido): {path}. Salvar agora recria o arquivo a partir da lista branca — tudo o que está nele hoje (animações / física / memes etc.) será perdido. Cancelar = não mexe no arquivo (corrija e salve de novo); Confirmar = salva mesmo assim (descarta o conteúdo atual do arquivo).',
-  configMeta: 'Configuração avançada (arquivos)',
-  configMetaHint:
-    'A configuração do usuário pode sobrescrever a lista de pets / pools de animação / pesos — recarregue ou reinicie para aplicar: no navegador atualize a página, no desktop clique com o botão direito no pet → "Recarregar configuração" (recria todas as janelas de pet do desktop); a configuração padrão é a referência completa.',
-  defaultConfig: 'Configuração padrão (somente leitura, referência completa)',
-  userConfig: 'Configuração do usuário (sobrescritas personalizadas)',
-  todosFile: 'Dados de tarefas (texto, prazo e estado de conclusão; apagar equivale a limpar tudo)',
-  animationDir: 'Pasta de animações (adicione ou personalize animações aqui)',
-  memesDir: 'Pasta de memes (adicione ou personalize imagens aqui)',
-  poolDir: 'Pasta do pool de recursos (skins / modelos / animações / sons compartilhados)',
-  logFile: 'Arquivo de log (para diagnóstico; pode ser limpo)',
-  logFileNote:
-    'O app desktop do DSH não tem console, então todo log de execução do plugin (inicialização, travamentos e reinícios do pet, erros e avisos) vai para este único arquivo — anexe-o ao relatar um problema. Limite de 1 MB por arquivo; ao encher, só os 512 KB mais recentes são mantidos.',
+  fsTitle: 'Arquivos e pastas',
+  fsHint:
+    'Tudo o que o plugin coloca nesta máquina — ajustes, dados, runtime, caches descartáveis e assets — fica sob uma única raiz de dados. Desinstalar significa apagar essa pasta (o pacote do plugin em si é gerenciado pelo DSH).',
+  fsRoot: 'Raiz de dados',
+  fsRootHint: 'Apagar esta pasta zera ajustes, memória, caches e assets (o pacote do plugin permanece).',
+  fsTree: 'Estrutura de pastas',
+  fsTreeHint:
+    'config e data guardam seus ajustes e seus dados — não apague sem pensar. cache pode ser apagado a qualquer momento (é recriado ou baixado de novo). Apagar runtime obriga a baixar o Electron outra vez. pets e assets guardam os assets; as regras de nome estão no CONFIG.md.',
+  fsBadgeDisposable: 'apagável',
+  fsBadgeDownload: 'requer download',
+  fsBadgeReadonly: 'somente leitura',
+  fsReadonly: 'Incluído, somente leitura',
+  fsRuntime: 'Runtime',
+  fsRuntimeReady: 'Instalado',
+  fsRuntimeMissing: 'Não instalado',
+  fsRuntimeDownload: 'Baixar runtime',
+  fsRuntimeDownloading: 'Baixando…',
+  fsRuntimeHint:
+    'As janelas de desktop precisam do Electron. Apagar cache/ não afeta; apagar runtime/ exige baixá-lo de novo.',
   saved: 'Salvo — os pets atualizaram na hora.',
   loadError: 'Falha ao carregar a configuração',
   saveError:
@@ -128,7 +135,7 @@ export const pt: Record<Key, string> = {
   retry: 'Tentar de novo',
   invalid: 'Revise os valores: o tamanho precisa ser positivo; as margens podem ser qualquer número.',
   extraPetsHint:
-    'Mais {n} tipo(s) vêm de arquivos na pasta pet/ (<nome>-config.json + <nome>-animation/). Troque para eles na linha "Tipos" acima; salvar grava no config de cada pacote, nunca no main-config.jsonc.',
+    'Mais {n} tipo(s) vêm de arquivos na pasta pets/ (<nome>-config.json + <nome>-animation/). Troque para eles na linha "Tipos" acima; salvar grava no config de cada pacote, nunca no main-config.jsonc.',
   kindLabel: 'Tipos',
   kindMain: 'Embutido',
   lastOfKind:
@@ -140,7 +147,7 @@ export const pt: Record<Key, string> = {
     'Avisos do sistema (canto inferior direito do desktop) para fim de conversa, falhas, pedidos de permissão e perguntas — só enquanto esta janela está sem foco.',
   sfxToggle: 'Som',
   sfxToggleHint:
-    'Toca os arquivos configurados e os detectados automaticamente; desligado silencia tudo. Quase nunca precisa configurar: um click.wav na pasta da skin, em pet/<root>-sound/ ou ao lado de uma animacao e detectado. Sem arquivo valem os sons internos.',
+    'Toca os arquivos configurados e os detectados automaticamente; desligado silencia tudo. Quase nunca precisa configurar: um click.wav na pasta da skin, em pets/<root>-sound/ ou ao lado de uma animacao e detectado. Sem arquivo valem os sons internos.',
   sfxKeepAliveToggle: 'Manter o audio pronto',
   sfxKeepAliveToggleHint:
     'Mantem a saida aberta com uma fonte inaudivel de 1 LSB: o primeiro som depois de muito tempo nao perde o ataque, e o mixer do sistema mantem uma entrada "Electron" como volume geral. Custa dispositivo e bateria; o Windows normalmente nao suspende com o fluxo ativo.',
@@ -151,7 +158,7 @@ export const pt: Record<Key, string> = {
   sfxHint:
     'O host decide qual arquivo toca em cada momento: pasta da skin > pasta -sound > ao lado da animacao > compartilhado > pacote. Esta pagina so muda interruptores; o volume fica em Global.',
   sfxFileHint:
-    'Para trocar, coloque o audio na pasta da skin (pet/xxx-skin/click.wav) ou em pet/<root>-sound/; o nome do arquivo e o do momento. Recarregue a pagina depois.',
+    'Para trocar, coloque o audio na pasta da skin (pets/xxx-skin/click.wav) ou em pets/<root>-sound/; o nome do arquivo e o do momento. Recarregue a pagina depois.',
   sfxSlotPattern: 'Nome do arquivo: {name}.wav ou <skin>-{name}.wav',
   sfxNone: 'sem arquivo',
   sfxTry: 'Ouvir',
@@ -335,25 +342,12 @@ export const pt: Record<Key, string> = {
   notifyDenyError: 'Erro ao pedir permissão',
   notifyGuide:
     'Como liberar: clique no 🔒/ⓘ ao lado da barra de endereços → "Configurações do site" → "Notificações" → mude para "Permitir", atualize a página e tente de novo.',
-  storageTitle: 'Desinstalação e armazenamento',
-  storageHint:
-    'Todos os lugares em que o plugin grava arquivos. Apagar caches não atrapalha (são baixados ou recriados sozinhos); apagar "dados do usuário do plugin" perde a configuração e a memória da conversa.',
-  'storage.userData':
-    'Dados do usuário do plugin: configuração personalizada main-config.jsonc, memória da conversa memory.json, animações personalizadas main-animation/, pets de arquivo pet/',
-  'storage.electron':
-    'Runtime Electron usado pelo pet do desktop (grande; é baixado de novo automaticamente na próxima vez que o modo desktop iniciar)',
-  'storage.desktopCache':
-    'Cache das janelas do pet e cache de escala do monitor principal (pode apagar; é recriado sozinho)',
-  'storage.electronCache':
-    'Cache de download do instalador do Electron (pode apagar; é baixado de novo quando preciso)',
-  'storage.package': 'O plugin em si (gerenciado pelo DSH — remova com o comando abaixo em vez de apagar na mão)',
-  storageMissing: ' (ainda não criado)',
   uninstallTitle: 'Como desinstalar',
   uninstallStep1:
-    '1. Feche o DSH primeiro (o pet do desktop fecha junto); não apague os arquivos acima com o pet em execução.',
+    '1. Feche o DSH primeiro (o pet do desktop fecha junto); não apague estes dados com o pet em execução.',
   uninstallStep2: '2. Remova o plugin em si (no terminal; isto também o tira da camada de bundle do profile):',
   uninstallStep3:
-    '3. Apague os locais acima conforme a necessidade: caches não fazem falta; apagar "dados do usuário do plugin" perde a configuração e a memória da conversa (faça backup do main-config.jsonc antes, se quiser manter).',
+    '3. Para apagar tudo, remova a raiz de dados {root}: apagar cache/ não faz falta; apagar config/ ou data/ perde os ajustes e a memória da conversa (faça backup de config/main-config.jsonc antes, se quiser manter).',
   motionTitle: 'Frequência de ações',
   motionHint:
     'Quatro campos: espera / giro / movimento são editáveis; a ação aleatória é calculada (100 − as outras três). Padrão global para todos os pets; um pet pack pode sobrescrevê-lo no arquivo do tipo.',
@@ -361,7 +355,7 @@ export const pt: Record<Key, string> = {
   'motion.turn': 'Giro',
   'motion.move': 'Movimento',
   'motion.action': 'Ação aleatória',
-  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-fish-body',
   // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
   'fish.intro':
     'Cada sessão nova, em andamento ou recém-concluída recebe uma pequena animação de «escrever código». Arraste para mover, clique para abrir, × para descartar.',
@@ -485,5 +479,5 @@ export const pt: Record<Key, string> = {
   secSpeak: 'Leitura',
   secTiming: 'Ritmo',
   sizesTitle: 'Tamanho por renderizador',
-  extraPetsShort: 'Há mais {n} tipos na pasta pet/',
+  extraPetsShort: 'Há mais {n} tipos na pasta pets/',
 };

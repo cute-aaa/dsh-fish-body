@@ -4,7 +4,7 @@
  * 事件联动（余额/碎碎念/广播/工作状态）不在此文件，见 events.js；纯逻辑与常量来自 shared-core.js。
  * 依赖 constants.js 的全局，须后加载。始终成立：所有位移都经 sendBounds 落到窗口，跨进程交换一律
  * 在 toScreen/toLocal 收口。
- * @module dsh-pet/runtime/electron-helper/sprite
+ * @module dsh-fish-body/runtime/electron-helper/sprite
  */
 'use strict';
 
@@ -22,7 +22,7 @@ const playClickSound = () => {
   if (!config) {
     if (!sfxGatedLogged) {
       sfxGatedLogged = true;
-      console.info('[dsh-pet] sfx gated: config not ready');
+      console.info('[fish-body] sfx gated: config not ready');
     }
     return;
   }
@@ -152,7 +152,7 @@ class PetSprite {
       facing: this._facing,
     };
     void S.postAction(POSE_REPORT_URL + '?pet=' + encodeURIComponent(this.pet.id), body).then((ok) => {
-      if (!ok) console.warn('[dsh-pet] 实况上报未送达 pet=' + this.pet.id);
+      if (!ok) console.warn('[fish-body] 实况上报未送达 pet=' + this.pet.id);
     });
   }
 
@@ -342,7 +342,8 @@ class PetSprite {
     if (!playbackId) return;
     const body = reason ? { status, reason } : { status };
     void S.postAction(BASE + '/playback/' + encodeURIComponent(playbackId) + '/report', body).then((ok) => {
-      if (!ok) console.warn('[dsh-pet] 播放回执未送达 pet=' + this.pet.id + ' id=' + playbackId + ' status=' + status);
+      if (!ok)
+        console.warn('[fish-body] 播放回执未送达 pet=' + this.pet.id + ' id=' + playbackId + ' status=' + status);
     });
   }
 

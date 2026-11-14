@@ -53,7 +53,36 @@ describe('field —— 字段', () => {
     const field = ui.field('大小', h('input', {}));
     const [label] = byClass(field, 'dsh-pet-cfg__flabel');
     assert.equal(label.props['data-tip'], undefined);
-    assert.equal(label.props.children, '大小');
+    assert.deepEqual(label.props.children, ['大小', null], '没给路径时标签后不长圆点');
+  });
+
+  test('给了路径且该路径有改动：字段自己挂高亮，标签后面跟一颗圆点', () => {
+    const dirty = { count: 1, has: (prefix: string) => prefix === 'look.font.size' };
+    const kit = makeUiKit({ h, t: (key) => key }, dirty);
+    const touched = kit.field('字号', h('input', {}), undefined, 'look.font.size') as unknown as Node;
+    assert.match(String(touched.props.className), /is-dirty/);
+    const [label] = byClass(touched, 'dsh-pet-cfg__flabel');
+    const [dot] = byClass(touched, 'dsh-pet-cfg__dot');
+    assert.ok(dot, '改过的字段要有自己的圆点');
+    assert.match(String(dot.props.className), /is-inline/);
+    assert.equal(dot.props['aria-label'], 'unsaved');
+    assert.ok(Array.isArray(label.props.children));
+
+    // 同一个 kit 里另一个路径没改动：不长点、也不加高亮。
+    const clean = kit.field('字号', h('input', {}), undefined, 'look.font.family') as unknown as Node;
+    assert.equal(clean.props.className, 'dsh-pet-cfg__field');
+    assert.deepEqual(byClass(clean, 'dsh-pet-cfg__dot'), []);
+  });
+
+  test('开关同理：改动项自己带圆点，容器带 is-dirty', () => {
+    const dirty = { count: 1, has: (prefix: string) => prefix === 'global.trayEnabled' };
+    const kit = makeUiKit({ h, t: (key) => key }, dirty);
+    const touched = kit.toggleCell('trayToggle', true, false, () => {}, 'global.trayEnabled') as unknown as Node;
+    assert.match(String(touched.props.className), /is-dirty/);
+    assert.ok(byClass(touched, 'dsh-pet-cfg__dot').length === 1, '开关文字后跟一颗圆点');
+    const clean = kit.toggleCell('trayToggle', true, false, () => {}, 'global.sfxEnabled') as unknown as Node;
+    assert.equal(clean.props.className, 'dsh-pet-cfg__switch');
+    assert.deepEqual(byClass(clean, 'dsh-pet-cfg__dot'), []);
   });
 });
 
@@ -84,6 +113,19 @@ describe('toggleCell —— 开关格', () => {
     const inner = flatten(first).find((node) => node.tag === 'label');
     assert.equal(inner?.props['data-tip'], 'notifyToggleHint');
     assert.deepEqual(byClass(cell, 'dsh-pet-cfg__q'), []);
+  });
+
+  test('圆点是真节点：轨道与圆点跟在 checkbox 后面，皮肤对读屏不可见', () => {
+    const cell = ui.toggleCell('x', true, false, () => {}) as unknown as Node;
+    const label = flatten(cell).find((node) => node.tag === 'label');
+    const children = label?.props.children as Node[];
+    // 伪元素在替换元素（input）上不保证生成：一旦不生成，开关就只剩一条会换色的色条。
+    assert.equal(children[0].tag, 'input', '真控件排第一，轨道靠相邻选择器接勾选态');
+    assert.equal(children[1].props.className, 'dsh-pet-cfg__swTrack');
+    assert.equal(children[2].props.className, 'dsh-pet-cfg__swText');
+    const knob = flatten(children[1]).find((node) => node.props.className === 'dsh-pet-cfg__swKnob');
+    assert.ok(knob, '圆点必须是可渲染的真节点');
+    assert.equal(children[1].props['aria-hidden'], 'true');
   });
 });
 

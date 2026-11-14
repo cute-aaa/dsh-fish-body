@@ -4,7 +4,7 @@
  * 只负责给「本机渲染端发起、目标为插件路由」的请求附加令牌；不生成、不校验令牌（校验在宿主路由侧）。
  * 依赖 Electron 的 session 请求拦截与 file:// 渲染页。始终成立：令牌只进请求头，且只对顶层渲染端
  * 指向本机 origin 的插件路由生效，重定向目标不携带。
- * @module dsh-pet/src/app/desktop-auth
+ * @module dsh-fish-body/src/app/desktop-auth
  */
 
 import { pathToFileURL } from 'node:url';

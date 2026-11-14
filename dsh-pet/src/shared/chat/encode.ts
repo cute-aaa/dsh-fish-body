@@ -4,7 +4,7 @@
  * 预算依据：宿主按 1 MiB 请求体拒绝，base64 膨胀 4/3，所以解码后上限取 640 KiB。
  * 解码与 base64 编码两个小件（{@link loadImage}、{@link bytesToBase64}）也供设置页的头像上传感复用——
  * 头像的预算与质量阶梯不同，但「怎么把文件读成图、怎么读成规范 base64」只有这一份实现。
- * @module dsh-pet/src/shared/chat/encode
+ * @module dsh-fish-body/src/shared/chat/encode
  */
 import { type PetImageMediaType, imageMediaTypeOf } from './image-pick.ts';
 

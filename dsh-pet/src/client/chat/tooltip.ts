@@ -4,7 +4,7 @@
  * 气泡挂在 body 上、position:fixed 按光标摆位：消息列表是 overflow:auto 的滚动容器，
  * 挂在列表里的伪元素气泡会被裁掉（贴顶/贴底的消息看不到提示），所以不走设置页那套 data-tip::after。
  * 摆位复用 shared/tooltip 的 tooltipPlacement，外观在 ./panel-css 的 .pet-chat-tip。
- * @module dsh-pet/src/client/chat/tooltip
+ * @module dsh-fish-body/src/client/chat/tooltip
  */
 import { tooltipPlacement } from '../../shared/tooltip.ts';
 import { px } from './metrics.ts';

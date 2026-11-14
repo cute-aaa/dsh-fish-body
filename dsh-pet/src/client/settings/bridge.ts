@@ -4,7 +4,7 @@
  * `template` 是 main 条目的首只宠物，给「添加宠物」当新实例的初值。
  * `ready` 表示成品配置已经拍平过一次：区分「还没加载」与「配置里确实没有宠物」——
  * 显示面判定（会话鱼跟着桌宠走）必须能分开这两件事，否则首帧会把浮层闪一下。
- * @module dsh-pet/src/client/settings/bridge
+ * @module dsh-fish-body/src/client/settings/bridge
  */
 import type { Pet } from '../../shared/types.ts';
 
@@ -46,7 +46,7 @@ export function notifyPetBridge(): void {
     try {
       listener();
     } catch (error) {
-      console.warn('[dsh-pet] 配置订阅者抛错：', error);
+      console.warn('[fish-body] 配置订阅者抛错：', error);
     }
   }
 }

@@ -5,7 +5,7 @@
  * 纯展示 + 回调，状态全在设置页外壳；`onChange` 的补丁形状即提交形状的预览。
  * 版式分三段而不是「一排排同权字段」：身份（头像 + 名字 + 大小）最常用，显示与位置次之，
  * 功能开关再次之，人设默认收起——一屏之内先看到的是最常改的东西。
- * @module dsh-pet/src/client/settings/pet-card
+ * @module dsh-fish-body/src/client/settings/pet-card
  */
 import type { ChangeEvent, FunctionComponent } from 'react';
 import type { Pet } from '../../shared/types.ts';
@@ -22,6 +22,8 @@ const SIZE_BODY_ID = 'pet-cfg-sizes';
 export interface PetCardProps {
   /** 当前选中的宠物；`null` 表示列表为空。 */
   pet: Pet | null;
+  /** 这只宠物在宠物列表里的下标：与快照路径 `pets.<下标>` 对齐，改动逐项标记靠它。 */
+  petIndex: number;
   /** 表单是否禁用（保存中或配置还没加载好）。 */
   busy: boolean;
   /** 条目级人设正文，作为实例人设输入框的 placeholder。 */
@@ -54,12 +56,13 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
 
   return function PetCard(props: PetCardProps) {
     const { pet, busy, dirty } = props;
+    const at = 'pets.' + props.petIndex;
     const { cardHead, section, toggleCell, switchGrid, foldCard } = makeUiKit({ h, t }, dirty);
     const [personaOpen, setPersonaOpen] = useState(false);
     const [sizesOpen, setSizesOpen] = useState(false);
     if (pet === null) return h('p', { className: 'dsh-pet-cfg__note', children: t('emptyPets') });
 
-    const fields = { pet, busy, onChange: props.onChange };
+    const fields = { pet, busy, dirty, onChange: props.onChange, path: at };
 
     return h('div', {
       className: 'dsh-pet-cfg__card',
@@ -111,15 +114,43 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
 
         section(t('secFeatures'), [
           switchGrid([
-            toggleCell('balanceEnabled', !!pet.balanceEnabled, busy, (v) => props.onChange({ balanceEnabled: v })),
-            toggleCell('whisperEnabled', !!pet.whisperEnabled, busy, (v) => props.onChange({ whisperEnabled: v })),
-            toggleCell('workStatusEnabled', !!pet.workStatusEnabled, busy, (v) =>
-              props.onChange({ workStatusEnabled: v }),
+            toggleCell(
+              'balanceEnabled',
+              !!pet.balanceEnabled,
+              busy,
+              (v) => props.onChange({ balanceEnabled: v }),
+              at + '.balanceEnabled',
             ),
-            toggleCell('fixedEnabled', !!pet.fixedEnabled, busy, (v) => props.onChange({ fixedEnabled: v })),
+            toggleCell(
+              'whisperEnabled',
+              !!pet.whisperEnabled,
+              busy,
+              (v) => props.onChange({ whisperEnabled: v }),
+              at + '.whisperEnabled',
+            ),
+            toggleCell(
+              'workStatusEnabled',
+              !!pet.workStatusEnabled,
+              busy,
+              (v) => props.onChange({ workStatusEnabled: v }),
+              at + '.workStatusEnabled',
+            ),
+            toggleCell(
+              'fixedEnabled',
+              !!pet.fixedEnabled,
+              busy,
+              (v) => props.onChange({ fixedEnabled: v }),
+              at + '.fixedEnabled',
+            ),
             // 鼠标穿透（桌面端）：开了以后该宠物的透明窗整窗忽略鼠标、点击落到下层应用。
             // 出口就在这里——窗内的右键菜单在开启后点不到，这是有意的（与配置字段同一份语义）。
-            toggleCell('clickThrough', pet.clickThrough === true, busy, (v) => props.onChange({ clickThrough: v })),
+            toggleCell(
+              'clickThrough',
+              pet.clickThrough === true,
+              busy,
+              (v) => props.onChange({ clickThrough: v }),
+              at + '.clickThrough',
+            ),
           ]),
         ]),
 

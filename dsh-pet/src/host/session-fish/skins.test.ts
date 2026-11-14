@@ -1,13 +1,14 @@
 /**
  * 会话鱼皮肤池：用户目录优先、扩展名过滤、越界拒绝、空目录不报错。
- * @module dsh-pet/src/host/session-fish/skins.test
+ * @module dsh-fish-body/src/host/session-fish/skins.test
  */
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fishSkinDirs, fishSkinUserDir, listFishSkins, resolveFishSkin, SESSION_FISH_SKIN_DIR } from './skins.ts';
+import { fishSkinDirs, fishSkinUserDir, listFishSkins, resolveFishSkin } from './skins.ts';
+import { userPaths } from '../user-layout.ts';
 
 let root = '';
 let user = '';
@@ -36,9 +37,10 @@ after(() => {
 });
 
 describe('fishSkinDirs', () => {
-  test('用户目录在数据根下，包内目录指向 assets/webm', () => {
+  test('用户目录在数据根的 assets/session-fish 下，包内目录指向 assets/webm', () => {
     const dirs = fishSkinDirs(root);
-    assert.equal(dirs.user, join(root, SESSION_FISH_SKIN_DIR));
+    assert.equal(dirs.user, userPaths(root).fishSkinDir);
+    assert.equal(dirs.user, join(root, 'assets', 'session-fish'));
     assert.match(dirs.pack.replace(/\\/g, '/'), /assets\/webm$/);
   });
 });

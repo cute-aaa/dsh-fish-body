@@ -4,7 +4,7 @@
  * 配置里不写头像字段——归属由目录里的文件本身决定，删掉文件即回到默认 logo。
  * 扩展名听文件魔数、不信上传方给的文件名；换格式时尽力清掉旧扩展名，探测仍按修改时间取最新那份，
  * 所以即使旧文件删不掉（Windows 上正被读）也不会把新头像顶回去。
- * @module dsh-pet/src/host/pet-avatar
+ * @module dsh-fish-body/src/host/pet-avatar
  */
 import { existsSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { IMAGE_HEAD_BYTES, MIME, imageExtOf, imageTypeOf, resolveAsset } from './http.ts';

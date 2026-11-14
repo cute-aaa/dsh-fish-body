@@ -5,7 +5,7 @@
  * 中断 / 活动门等过滤也已在宿主侧完成。
  * 依赖 shared/notify.ts 的帧到文案映射、成品配置的 `main.notificationsEnabled` 总开关，
  * 以及 app.ts 注入的会话跳转与命名服务（取不到时只降级，不影响弹窗）。
- * @module dsh-pet/src/client/notify
+ * @module dsh-fish-body/src/client/notify
  */
 
 import { frameToToast, truncate, NOTIFY_ICONS as ICON_NAMES, type NotifyFrame } from '../shared/notify.ts';
@@ -126,7 +126,7 @@ function toast(title: string, body?: string, icon?: string, sessionId?: string):
   if (!notifyEnabled) return;
   if (isPageActive()) return;
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-  console.log('[dsh-pet] 【弹窗】' + title + (body ? '：' + body : ''));
+  console.log('[fish-body] 【弹窗】' + title + (body ? '：' + body : ''));
   try {
     const opts: NotificationOptions = {};
     if (body) opts.body = truncate(body);

@@ -5,7 +5,7 @@
  * `tooltipPlacement` 按光标摆位，越界先翻边、仍越界就夹回视口，两个方向都不会丢字。
  * 触发元素仍是 `data-tip` 属性（见 ./ui），本模块用事件委托统一接管，不逐个挂监听。
  * 全局状态只有一份监听与一个气泡：`attachTipLayer()` 装、它返回的函数拆，重复装返回同一份。
- * @module dsh-pet/src/client/settings/tip-layer
+ * @module dsh-fish-body/src/client/settings/tip-layer
  */
 import { tooltipPlacement } from '../../shared/tooltip.ts';
 

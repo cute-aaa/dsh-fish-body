@@ -11,3 +11,6 @@ dist-app
 .smoke-app
 runtime/electron-helper/shared-core.js
 runtime/electron-helper/layered-core.js
+
+# 验收截图与探针脚本：一次性产物，不参与格式检查
+artifacts

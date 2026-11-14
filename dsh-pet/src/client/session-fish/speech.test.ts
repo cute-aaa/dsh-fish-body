@@ -3,7 +3,7 @@
  *
  * 用假端口替掉真实语音链：`speak` 记下被念的句子，`end` 由测试手动发（模拟播完），
  * 时间也由测试推进——所以这些断言都不依赖真实音频与定时器。
- * @module dsh-pet/src/client/session-fish/speech.test
+ * @module dsh-fish-body/src/client/session-fish/speech.test
  */
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';

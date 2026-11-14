@@ -4,7 +4,7 @@
  * 层级只靠三样东西表达：卡片边界（1px 描边 + 12px 圆角）、卡片内小节之间的 1px 分隔线、字重与色阶。
  * 不叠阴影、不做玻璃、不给每个块都套卡片——`__section` 存在的意义就是「同一张卡里的第二层分组」，
  * 让页面不至于变成卡片汤。容器查询按内容压力点分两档：600px（三列降两列）与 400px（全部单列）。
- * @module dsh-pet/src/client/settings/style/cards
+ * @module dsh-fish-body/src/client/settings/style/cards
  */
 
 /** 卡片层样式：卡片 → 卡头 → 小节 → 栅格 → 列表 → 折叠 → 头像 → 底部栏 → 弹窗。 */
@@ -101,8 +101,27 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__folderBtn{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}',
   '.dsh-pet-cfg__cmd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-label);line-height:18px;word-break:break-all;user-select:text;padding:6px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-sm);background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-primary)}',
 
+  // 目录树：等宽前缀画 `├─ / └─ / │`，名字与徽标跟在同一行。
+  // 缩进靠前缀字符串本身（`white-space:pre`），所以层级不会因为字号或缩放而错位。
+  '.dsh-pet-cfg__tree{display:flex;flex-direction:column;gap:2px;min-width:0;padding:2px 0;overflow-x:auto}',
+  '.dsh-pet-cfg__treeRow{display:flex;align-items:center;gap:8px;min-width:max-content;font-size:var(--pcg-fs-label);line-height:18px}',
+  '.dsh-pet-cfg__treePrefix{flex:none;white-space:pre;user-select:none;color:var(--dsw-alias-label-tertiary);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace}',
+  // 名字可选中复制：排障时用户要能直接把 logs.txt 的路径贴出来。
+  '.dsh-pet-cfg__treeName{color:var(--dsw-alias-label-primary);font-weight:400;white-space:nowrap;user-select:text}',
+  // 还没产生的目录降一级：与「有东西」区分开，避免用户去找不存在的文件夹。
+  '.dsh-pet-cfg__treeRow.is-missing .dsh-pet-cfg__treeName{color:var(--dsw-alias-label-tertiary)}',
+  // 徽标：可删 / 需下载 / 只读。只靠描边与字色区分，不上底色（一列徽标涂色会盖过目录名）。
+  '.dsh-pet-cfg__treeBadge{flex:none;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}',
+  '.dsh-pet-cfg__treeBadge.is-download{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}',
+
   // 未保存改动的圆点：跟着分区标签或卡头走，只占 6px，不换行。
   '.dsh-pet-cfg__dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-business-primary);vertical-align:middle}',
+  // 行内那颗：跟在字段标签 / 开关文字后面，标记「就是这一项改过」。
+  '.dsh-pet-cfg__dot.is-inline{margin-left:5px;vertical-align:1px}',
+  // 改动项自己的高亮：标签从次要色升到主色并加半档字重，扫一眼就知道改在哪儿。
+  '.dsh-pet-cfg__field.is-dirty>.dsh-pet-cfg__flabel{color:var(--dsw-alias-label-primary);font-weight:500}',
+  '.dsh-pet-cfg__switch.is-dirty .dsh-pet-cfg__swText{color:var(--dsw-alias-label-primary);font-weight:500}',
+  '.dsh-pet-cfg__row.is-dirty .dsh-pet-cfg__mono,.dsh-pet-cfg__row.is-dirty .dsh-pet-cfg__swText{color:var(--dsw-alias-label-primary);font-weight:500}',
 
   // 底部常驻操作栏：贴住设置面板的滚动容器底边；背景取面板同款 layer-2，滚上去的卡片不会透出来。
   // 宿主的选项列底部留了 24px 内边距，而 sticky 的 `bottom:0` 只贴到滚动内容盒的底边——

@@ -3,7 +3,7 @@
  *
  * 只做路径计算，不读盘、不判断存在性；解析出的目录是否可用由调用方决定。
  * 必须始终成立：所有素材路径都从 PACKAGE_ROOT 派生，不得在别处另算一份 `new URL('..', import.meta.url)`。
- * @module dsh-pet/src/host/paths
+ * @module dsh-fish-body/src/host/paths
  */
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +21,7 @@ export const PACKAGE_MEMES_DIR = join(PACKAGE_ROOT_ASSETS, 'memes');
 export const PACKAGE_SOUND_DIR = join(PACKAGE_ROOT_ASSETS, 'sound');
 
 /**
- * 动画扩展名 → 素材子目录名（`main-animation/webm|mov`、`assets/webm|mov` 共用）。
+ * 动画扩展名 → 素材子目录名（`assets/animation/webm|mov`、包内 `assets/webm|mov` 共用）。
  *
  * 宿主里凡是按扩展名找动画目录的地方都必须走这一条：写死 'webm' 会让 mov 用户查不到自己的素材。
  *

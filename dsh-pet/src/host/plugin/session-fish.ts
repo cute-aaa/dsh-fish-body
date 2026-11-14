@@ -4,7 +4,7 @@
  * 不定义状态语义（归 ../session-fish/store）也不渲染：这里只做事件过滤、延迟确认与叶子写入。
  * 必须始终成立：只有会话门放行、且不是 unknown/子代理的会话才进状态机；发布内容没变就不写叶子
  * （每次写都推进 counter，会吵醒所有长轮询）。
- * @module dsh-pet/src/host/plugin/session-fish
+ * @module dsh-fish-body/src/host/plugin/session-fish
  */
 import { hasBlockingActivity, sessionIdOf, shouldNotifySession } from '../notify-events.ts';
 import type { PollStateStore } from '../state.ts';
@@ -141,7 +141,7 @@ export function registerSessionFish(deps: RegisterSessionFishInput): SessionFish
       dispose();
       stopSessionFishTimers();
     };
-  }, 'dsh-pet: session fish events');
+  }, 'fish-body: session fish events');
 
   // 刻意不在启动时发布：`/state` 的初始叶子必须保持 `{counter:0,data:null}`（前端首拉当基线），
   // 没鱼时也没什么可显示的；第一条鱼（或一次设置保存）第一次写叶子时页面自然就拿到了脚本参数。

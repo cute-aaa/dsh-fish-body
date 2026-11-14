@@ -4,7 +4,7 @@
  * 坐标一律是各端自己的视口坐标（fixed 定位），宠物走动或窗口位移不会带着提示漂。
  * 尺寸取宠物宽的 CSS 变量（两端变量名不同），用回退兼容，调用方无需传尺寸。
  * 不用 DSH 主题变量：它只存在于 DSH 页面，桌面 Electron 页里没有，会退化成透明底。
- * @module dsh-pet/src/shared/tooltip
+ * @module dsh-fish-body/src/shared/tooltip
  */
 /** 提示框 class（两端共用）。 */
 export const TOOLTIP_CLASS = 'pet-tooltip';

@@ -2,7 +2,7 @@
  * 待办面板的内容与生命周期：取数、提交、删除、忙碌态，以及「点面板外收起」的意图转发。
  * 不负责定位与显隐：面板是气泡槽的一个槽位，位置与谁显示都由槽位决定。
  * 依赖 ./api 的 HTTP、./render 的骨架与 ./styles 的样式；清理只摘自己的节点与监听，不碰容器。
- * @module dsh-pet/src/shared/todo/panel
+ * @module dsh-fish-body/src/shared/todo/panel
  */
 import { TODOS_PATH, addTodo, loadTodos, patchTodo, removeTodo, type TodoResult } from './api.ts';
 import { parseDateTimeLocal } from './format.ts';

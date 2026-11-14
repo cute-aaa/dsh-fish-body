@@ -6,7 +6,7 @@
  * 分组不是排版偏好：两组键由不同代码派发、生效条件也不同（悬停 vs 页面任意位置），
  * 混在一张表里读者分不清按了没反应是哪种原因。
  * 与页尾其它参考卡一样默认收起；纯展示，开合态只活在组件里。
- * @module dsh-pet/src/client/settings/shortcuts-card
+ * @module dsh-fish-body/src/client/settings/shortcuts-card
  */
 import type { FunctionComponent } from 'react';
 import { HEAR_HOTKEY_HINT } from '../../shared/chat/hear-hold.ts';

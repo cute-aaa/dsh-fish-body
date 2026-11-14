@@ -3,7 +3,7 @@
  *
  * 只做 HTTP 与响应收窄，不碰 DOM；失败统一成 `{ ok: false, message }` 让面板原样展示。
  * 数据只有 `/todos` 一个出口：修改成功后由调用方重新拉一次清单，不靠本地拼装猜结果。
- * @module dsh-pet/src/shared/todo/api
+ * @module dsh-fish-body/src/shared/todo/api
  */
 import { ROUTE_PATH } from '../constants.ts';
 import { parseTodoItem, parseTodoList, type TodoItem } from './types.ts';

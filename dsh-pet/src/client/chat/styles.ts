@@ -4,7 +4,7 @@
  * 只放样式与注入入口：颜色、字号、圆角全部取 `--dsw-*` token，不写字面色值——
  * 浅色/深色主题由 DSH 的变量切换，这里不做第二套配色。
  * 内联样式写不出 `:hover` / `:focus`，所以面板统一走这份 CSS。
- * @module dsh-pet/src/client/chat/styles
+ * @module dsh-fish-body/src/client/chat/styles
  */
 import { PANEL_CSS } from './panel-css.ts';
 

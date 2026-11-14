@@ -3,7 +3,7 @@
  * 三个取值函数每次现读配置，不缓存判定结果——缓存后下游拿到的是解构那一刻的快照，会一直用旧结论。
  * 读配置失败一律保守降级：按没有桌面宠物处理，托盘按仍要处理。
  * 不拉进程、不管重启时序（归 ./spawn 与 ./sync）。
- * @module dsh-pet/src/host/plugin/desktop/pets
+ * @module dsh-fish-body/src/host/plugin/desktop/pets
  */
 import { flattenPetList, readAllConfig } from '../../config.ts';
 import { renderSizeOf } from '../../../shared/pet-size.ts';
@@ -77,16 +77,16 @@ export function createDesktopPets(deps: DesktopPetsInput) {
       const { pets, desktopPets } = readDecision(configPaths);
       const trayOn = readAllConfig(configPaths).main?.trayEnabled !== false;
       log.info(
-        `[dsh-pet] 桌面判定：pets=${pets.length}，桌面可见=${desktopPets.length}` +
+        `[fish-body] 桌面判定：pets=${pets.length}，桌面可见=${desktopPets.length}` +
           `（${desktopPets.map((pet) => String(pet.id)).join(',') || '无'}）→` +
           ` hasDesktopPet=${desktopPets.length > 0} tray=${trayOn}`,
       );
       // 桌面 Helper 的三种渲染后端现在都落地了（webm 视频 / layered 画布 / live2d pixi），
       // 这里只留一行判定信息；挂载失败由渲染端自己的 warn 暴露（见 runtime/electron-helper/sprite/backend.js）。
       const renderers = desktopPets.map((pet) => `${String(pet.id)}=${String(pet.renderer ?? 'webm')}`).join('、');
-      if (renderers !== '') log.info('[dsh-pet] 桌面渲染方式：' + renderers);
+      if (renderers !== '') log.info('[fish-body] 桌面渲染方式：' + renderers);
     } catch (e) {
-      log.warn(`[dsh-pet] 宠物配置非法，桌面模式已跳过：${e instanceof Error ? e.message : String(e)}`);
+      log.warn(`[fish-body] 宠物配置非法，桌面模式已跳过：${e instanceof Error ? e.message : String(e)}`);
     }
   };
 

@@ -13,7 +13,7 @@
  * `OSError: [Errno 22] Invalid argument` 变成 400，整条链静默落到 edge（本机 2026-11-14 的真实故障）。
  * 现在把脚本的 stdout/stderr 接到日志文件，且**不创建窗口**：没有可被关掉的东西，
  * 脚本自己再往里重定向（`gsv.bat` 就写了 `>> logs\gsv\api-v2.log`）时两份都落在文件里。
- * @module dsh-pet/src/host/voice/gsv/process
+ * @module dsh-fish-body/src/host/voice/gsv/process
  */
 import { spawn, type ChildProcess, type StdioOptions } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, statSync } from 'node:fs';

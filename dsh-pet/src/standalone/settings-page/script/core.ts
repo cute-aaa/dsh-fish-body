@@ -5,7 +5,7 @@
  * 令牌只放内存并随请求头送出，地址栏里的那一份读完即清；刷新后内存里没有令牌时，
  * 由首次访问换来的 HttpOnly cookie 继续认证，所以请求一律按同源凭据发出。
  * 片段里不许出现第二份枚举清单，取值一律由调用方注入。
- * @module dsh-pet/src/standalone/settings-page/script/core
+ * @module dsh-fish-body/src/standalone/settings-page/script/core
  */
 
 /** 脚本片段需要的枚举与默认值，全部由装配入口从源码常量注入。 */

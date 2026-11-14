@@ -4,7 +4,7 @@
  * 不处理指针事件与渲染；输入是坐标与 dt，输出是下一帧状态。
  * 撞击统一交给 contact.ts 按接触面法向分解：法向反弹、切向摩擦。
  * 必须始终成立：同一输入必得同一输出，两端（浏览器与桌面）手感一致。
- * @module dsh-pet/src/shared/physics/throw
+ * @module dsh-fish-body/src/shared/physics/throw
  */
 import { type PhysicsParams, type Rect } from '../types.ts';
 import { indexAtPoint, nearestIndex, rectBottom, rectRight } from '../displays.ts';

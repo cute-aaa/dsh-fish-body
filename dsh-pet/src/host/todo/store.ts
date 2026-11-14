@@ -4,7 +4,7 @@
  * 不负责校验 HTTP 输入（归 ../routes/todos）与提醒节奏（归 ./policy）。
  * 缓存只是磁盘的副本：每次落盘成功后才替换缓存，因此读不到写了一半的状态。
  * 任何一步失败都原样抛出，由路由归一成内部错误；不静默丢用户的待办。
- * @module dsh-pet/src/host/todo/store
+ * @module dsh-fish-body/src/host/todo/store
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -175,7 +175,7 @@ export class TodoStore {
       raw = await readFile(this.file, 'utf8');
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        this.log.warn?.(`[dsh-pet] 待办文件读取失败，按空清单继续：${messageOf(error)}`);
+        this.log.warn?.(`[fish-body] 待办文件读取失败，按空清单继续：${messageOf(error)}`);
       }
       return [];
     }
@@ -183,7 +183,7 @@ export class TodoStore {
       return parseTodoFile(JSON.parse(raw));
     } catch (error) {
       // 坏文件不备份、不改写：先按空清单跑，下一次写入自然覆盖。
-      this.log.warn?.(`[dsh-pet] 待办文件解析失败，按空清单继续：${messageOf(error)}`);
+      this.log.warn?.(`[fish-body] 待办文件解析失败，按空清单继续：${messageOf(error)}`);
       return [];
     }
   }

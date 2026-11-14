@@ -3,7 +3,7 @@
  * 不负责起点与初速（拖拽松手、抛掷指令、被撞起飞各自决定），也不负责落地挤压的动画本身。
  * 依赖注入的取值函数；rAF 句柄与运动状态由本模块持有，跨渲染存活。
  * 不变量：每帧先积分、再结算互撞、最后写 DOM；互撞只写结算后的绝对速度，落定那一帧才调 commitFinal。
- * @module dsh-pet/src/client/pet/motion/flight
+ * @module dsh-fish-body/src/client/pet/motion/flight
  */
 import { throwBounds, type GravityVector, type PetCollisionSlot, type ThrowState } from '../../../shared/physics.ts';
 import { integrateFlight } from './flight-integrate.ts';

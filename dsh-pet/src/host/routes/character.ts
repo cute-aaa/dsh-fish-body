@@ -4,7 +4,7 @@
  * 单独成端点而不并进 `/pic`：pic 的定义是通知图标与表情包，角色图混进去后文档与目录都会失真。
  * 归属沿用头像那套命名（`<素材根>-character.<ext>`），用户目录优先、包内兜底。
  * 不生成图片：只交付「什么叫像这只角色」，出图与计费都在调用方。
- * @module dsh-pet/src/host/routes/character
+ * @module dsh-fish-body/src/host/routes/character
  */
 import { join } from 'node:path';
 import { isValidPetId } from '../config.ts';
@@ -38,13 +38,13 @@ export async function handleCharacterRoutes(deps: PetRouteDeps, input: RouteInpu
   // 参数叫 root 而不是 pet：这里要的是素材根（目录前缀），不是 pets[].id（同 /logo 与 /pet-avatar）。
   const assetRoot = (input.url.searchParams.get('root') ?? '').trim();
   if (assetRoot === '') {
-    return { kind: 'text', status: 400, body: 'dsh-pet: expected /dsh-pet-7340/character?root=<素材根>' };
+    return { kind: 'text', status: 400, body: 'fish-body: expected /dsh-pet-7340/character?root=<素材根>' };
   }
   // 素材根是标识符不是路径片段：含分隔符/保留字符即拒，早于任何路径拼接。
-  if (!isValidPetId(assetRoot)) return { kind: 'text', status: 400, body: 'dsh-pet: invalid asset root' };
+  if (!isValidPetId(assetRoot)) return { kind: 'text', status: 400, body: 'fish-body: invalid asset root' };
 
   const found = findCharacter(deps.petConfigDir, assetRoot);
-  if (found === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: character not found' };
+  if (found === undefined) return { kind: 'text', status: 404, body: 'fish-body: character not found' };
   return { kind: 'file', file: found.file, contentType: found.contentType };
 }
 

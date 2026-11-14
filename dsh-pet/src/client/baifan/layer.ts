@@ -5,7 +5,7 @@
  * body 直接子级会命中宿主给 macOS 写的 no-drag 规则，把标题栏拖成死区；
  * 而 shell.overlay 是官方指定的全应用浮层座位，自带 z-index:20 的层叠上下文，
  * 覆盖层因此只压在桌宠之上，不会越级盖住宿主模态框。
- * @module dsh-pet/src/client/baifan/layer
+ * @module dsh-fish-body/src/client/baifan/layer
  */
 import type * as ReactNS from 'react';
 import type { jsx } from 'react/jsx-runtime';

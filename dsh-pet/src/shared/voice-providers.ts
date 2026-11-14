@@ -4,7 +4,7 @@
  * 单独一份而不是从宿主类型导入：客户端产物是浏览器侧脚本，不该把宿主模块拉进来；
  * 而且这是**网络数据**，字段可能缺席或类型不对，必须先按「可能不存在」解析再用。
  * 只做解析，不请求也不缓存——拉取归调用点（设置页 / 右键入口）。
- * @module dsh-pet/src/shared/voice-providers
+ * @module dsh-fish-body/src/shared/voice-providers
  */
 
 /** 一个可切音色（展示用字段）。 */

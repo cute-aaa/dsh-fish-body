@@ -1,7 +1,7 @@
 /**
  * 自动碎碎念的调度结论：把「宠物自身开关」与「独立模式 AI 是否就绪」合成是否启用，周期只取宠物配置。
  * 不负责计时与生成；周期唯一来源是宿主侧的 `eventsRefreshSec.whisper`。
- * @module dsh-pet/src/host/whisper-policy
+ * @module dsh-fish-body/src/host/whisper-policy
  */
 
 export interface StandaloneWhisperPolicy {

@@ -1,7 +1,7 @@
 /**
  * 对话面板字典的唯一出口：命名空间、键类型与全部语言的汇总。
  * zh 是键集真源，每种语言都声明成 `Record<Key, string>`，漏翻一个键在类型检查期就报错。
- * @module dsh-pet/src/client/chat/locales
+ * @module dsh-fish-body/src/client/chat/locales
  */
 import { de } from './de.ts';
 import { en } from './en.ts';

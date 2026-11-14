@@ -6,7 +6,7 @@
  * 顺序按「先决定要不要、再决定长什么样、最后才是播报与节奏」：总开关与预览在最前，
  * 播报的四项收在同一段里（三级从属关系靠缩进与整块降透明表达），节奏参数在最后。
  * owns only 这一块的排布与输入夹取，never 加载、写盘与基线。
- * @module dsh-pet/src/client/settings/fish-tab
+ * @module dsh-fish-body/src/client/settings/fish-tab
  */
 import type { FunctionComponent } from 'react';
 import type { jsx } from 'react/jsx-runtime';
@@ -96,6 +96,7 @@ export function makeFishTab(rt: SettingsRuntime): FunctionComponent<FishTabProps
           }),
         }),
         t(labelKey + 'Hint'),
+        'fish.' + key,
       );
 
     return h('div', {
@@ -153,9 +154,13 @@ export function makeFishTab(rt: SettingsRuntime): FunctionComponent<FishTabProps
                   ],
                 }),
                 switchGrid([
-                  toggleCell('fish.enabled', draft.enabled, busy, (value) => update('enabled', value)),
-                  toggleCell('fish.followPet', draft.followPet, busy || !draft.enabled, (value) =>
-                    update('followPet', value),
+                  toggleCell('fish.enabled', draft.enabled, busy, (value) => update('enabled', value), 'fish.enabled'),
+                  toggleCell(
+                    'fish.followPet',
+                    draft.followPet,
+                    busy || !draft.enabled,
+                    (value) => update('followPet', value),
+                    'fish.followPet',
                   ),
                 ]),
               ],
@@ -174,18 +179,36 @@ export function makeFishTab(rt: SettingsRuntime): FunctionComponent<FishTabProps
             // 播报：总开关与三类子播报的从属关系靠整块降透明表达，不再逐个解释「为什么点不动」。
             section(t('secSpeak'), [
               switchGrid([
-                toggleCell('fish.speakEnabled', draft.speakEnabled, busy, (value) => update('speakEnabled', value)),
+                toggleCell(
+                  'fish.speakEnabled',
+                  draft.speakEnabled,
+                  busy,
+                  (value) => update('speakEnabled', value),
+                  'fish.speakEnabled',
+                ),
               ]),
               switchGrid(
                 [
-                  toggleCell('fish.speakProgress', draft.speakProgress, busy || !draft.speakEnabled, (value) =>
-                    update('speakProgress', value),
+                  toggleCell(
+                    'fish.speakProgress',
+                    draft.speakProgress,
+                    busy || !draft.speakEnabled,
+                    (value) => update('speakProgress', value),
+                    'fish.speakProgress',
                   ),
-                  toggleCell('fish.speakTurnEnd', draft.speakTurnEnd, busy || !draft.speakEnabled, (value) =>
-                    update('speakTurnEnd', value),
+                  toggleCell(
+                    'fish.speakTurnEnd',
+                    draft.speakTurnEnd,
+                    busy || !draft.speakEnabled,
+                    (value) => update('speakTurnEnd', value),
+                    'fish.speakTurnEnd',
                   ),
-                  toggleCell('fish.speakWaiting', draft.speakWaiting, busy || !draft.speakEnabled, (value) =>
-                    update('speakWaiting', value),
+                  toggleCell(
+                    'fish.speakWaiting',
+                    draft.speakWaiting,
+                    busy || !draft.speakEnabled,
+                    (value) => update('speakWaiting', value),
+                    'fish.speakWaiting',
                   ),
                 ],
                 !draft.speakEnabled,

@@ -198,7 +198,7 @@ describe('POST /voice/volume —— 托盘音量写回', () => {
     const r = await call('/dsh-pet-7340/voice/volume', 'POST', JSON.stringify({ volume: 0.4 }));
     assert.equal(r.status, 200);
     assert.deepEqual(JSON.parse(r.body), { ok: true, volume: 0.4 });
-    const file = join(dir, 'home', 'dsh-pet', 'main-config.jsonc');
+    const file = join(dir, 'home', 'fish-body', 'config', 'main-config.jsonc');
     assert.equal((JSON.parse(readFileSync(file, 'utf8')) as { voiceVolume?: number }).voiceVolume, 0.4);
   });
 

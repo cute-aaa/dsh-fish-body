@@ -2,7 +2,7 @@
  * 模型字段的可手填下拉：输入框持有值，右侧箭头拉取候选并弹出菜单。
  *
  * 拉到的列表只留在内存，地址或协议一改就作废，避免拿 A 家的模型去配 B 家。
- * @module dsh-pet/src/standalone/settings-page/script/model-picker
+ * @module dsh-fish-body/src/standalone/settings-page/script/model-picker
  */
 
 /** 生成模型选择片段。 */

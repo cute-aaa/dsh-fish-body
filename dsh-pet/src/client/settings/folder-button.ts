@@ -4,7 +4,7 @@
  * 为什么不做成每条目各写一遍：设置页上有三类地方要它（音效槽位、落盘位置卡、未来的其它卡），
  * 而「先打开 → not-found → 问 → 创建再打开」这套结论判定只该有一份。
  * 只用 `h` / `t` / `useState`：气泡是行内块（跟着行流走），不需要测宽高，也就不需要 ref 与 effect。
- * @module dsh-pet/src/client/settings/folder-button
+ * @module dsh-fish-body/src/client/settings/folder-button
  */
 import { openFolderOf } from './open-folder.ts';
 import type { FolderTarget } from '../../shared/folders.ts';

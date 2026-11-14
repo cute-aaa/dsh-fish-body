@@ -1,6 +1,6 @@
 /**
  * 会话鱼状态机：档位迁移、plan 等待、goal 中间轮、完成确认、关闭/复活与上限淘汰。
- * @module dsh-pet/src/host/session-fish/store.test
+ * @module dsh-fish-body/src/host/session-fish/store.test
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

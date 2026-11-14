@@ -2,7 +2,7 @@
  * 单只宠物的卡片：选择器、增删与这只宠物的字段编辑（含头像行与人设）。
  *
  * 只改 state.pets 里的草稿，不直接写盘——保存与草稿装配见 ./pets。
- * @module dsh-pet/src/standalone/settings-page/script/pet-card
+ * @module dsh-fish-body/src/standalone/settings-page/script/pet-card
  */
 
 /** 生成宠物卡片片段。 */

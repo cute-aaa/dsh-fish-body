@@ -5,7 +5,7 @@
  * 结果文案由调用方（外壳）统一显示。选中的备份先存在这里，等用户在外壳的确认弹窗里点「恢复」
  * 才真正写盘：上传这个动作永远发生在明确的确认之后。
  * owns only 备份的读/写编排与等待态，never 表单回填（那由外壳在 `onRestored` 里做）。
- * @module dsh-pet/src/client/settings/use-settings-backup
+ * @module dsh-fish-body/src/client/settings/use-settings-backup
  */
 import type { SessionFishSettings } from '../../shared/session-fish.ts';
 import type { SettingsBackup } from '../../shared/settings-backup.ts';

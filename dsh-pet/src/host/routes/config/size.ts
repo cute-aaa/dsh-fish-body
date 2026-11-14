@@ -5,7 +5,7 @@
  * 与 /pet-renderer、/pet-model 同一套写入语义：白名单重建 + 磁盘原值透传 + 写后广播并重启 Helper。
  * 尺寸必须跟着渲染方式分开记：webm 的人物只占画框中间 37.5%，方形画布几乎铺满整块，
  * 一个数字跨不过来（见 shared/body-box）。
- * @module dsh-pet/src/host/routes/config/size
+ * @module dsh-fish-body/src/host/routes/config/size
  */
 import { RENDERER_SET, findPetInstance, readAllConfig, saveUserConfig } from '../../config.ts';
 import { isValidSize, SIZE_MAX, SIZE_MIN } from '../../../shared/pet-size.ts';

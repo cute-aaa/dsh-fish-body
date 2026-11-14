@@ -8,7 +8,7 @@
  * 逐模型的图层修正（如勿画纯黑遮罩源）在 `shared/live2d-fixes`，桌面 `sprite/backend.js` 读同一张表。
  * 两个依赖一律走 `/vendor` 的 UMD 脚本 + 全局 PIXI：按 ESM 打进 client bundle 会带出 node 的
  * url/punycode 垫片与顶层 import，经典脚本下必然加载失败（详见 docs/交接-P3.md 踩坑 11）。
- * @module dsh-pet/src/client/pet/render/live2d
+ * @module dsh-fish-body/src/client/pet/render/live2d
  */
 import type * as PIXI from 'pixi.js';
 import type { Live2DModel } from 'pixi-live2d-display/cubism4';

@@ -3,7 +3,7 @@
  *
  * 不碰 DOM；输入是配置与注册数据，输出是纯对象树。
  * 必须始终成立：同一份输入必得同一棵树，层级顺序稳定。
- * @module dsh-pet/src/shared/menu/tree
+ * @module dsh-fish-body/src/shared/menu/tree
  */
 import { DISPLAY_HOTKEY_HINTS, DISPLAY_ORDER } from '../display-hotkey.ts';
 import { RENDERERS } from '../config.ts';

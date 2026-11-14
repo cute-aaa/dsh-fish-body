@@ -56,7 +56,7 @@ python encode_thumbs.py      # 转码 640×360 播放变体 → step04/
 插件默认只发布 `.webm`（VP9-alpha），Safari/WKWebView 不认 webm alpha（黑底），macOS 需要在 GitHub Release 下载官方转码的 **HEVC-with-Alpha `.mov`** 素材使用，两步：
 
 1. **下载**：<https://github.com/PC2005-cloud/dsh-pet/releases/tag/assets-mov>（固定 tag，保持最新；zip 解压后文件名与 webm 一一对应）
-2. **放入**：`.mov` 文件放进 `$DSH_HOME/dsh-pet/main-animation/mov/`（pet pack 宠物则是 `pet/<种类名>-animation/mov/`）
+2. **放入**：`.mov` 文件放进 `$DSH_HOME/fish-body/assets/animation/mov/`（pet pack 宠物则是 `pets/<种类名>-animation/mov/`）
 
 ## ③ 动画 → 插件
 
@@ -82,36 +82,47 @@ npm publish --tag latest   # prepack 自动执行构建（完整产物 + 收敛 
 ```
 
 - client 端按运行时判断播放扩展名：macOS WebKit（Safari/WKWebView）自动用 `.mov`，其余用 `.webm`
-- 需要 Safari/HEVC 版（macOS）：mov 素材官方发布在 GitHub Release `assets-mov`，下载解压进 `main-animation/mov/` 即可
+- 需要 Safari/HEVC 版（macOS）：mov 素材官方发布在 GitHub Release `assets-mov`，下载解压进 `assets/animation/mov/` 即可
 
 ## 素材放哪儿：pack 与共享资源池
 
-两条路都能用，**旧布局零迁移**：
+两条路都能用：
 
 ```
-<用户根>/                               # 例如 D:\NodeJs\DSH_home\dsh-pet\
-├─ pet/                                 # 【旧】按 pack 分：一个 pack 一套素材
-│  ├─ main-skin/character1/…            #   皮肤 / 模型（layered / live2d）
-│  ├─ main-animation/webm/…             #   动画
-│  └─ main-sound/…                      #   音效
-├─ main-sound/                          # 【旧】用户级全局音效
-└─ skin/                                # 【新】共享资源池：放一份，所有宠物都能用
-   ├─ layered/character1/{manifest.json, art/…, character1-click.wav}
-   ├─ live2d/model1/xx.model3.json + xx-click.wav
-   ├─ webm/movie1.webm + webm-click.wav
-   └─ sound/click.wav + common-drag.wav
+<数据根>/                               # 例如 D:\NodeJs\DSH_home\fish-body\
+├─ config/                             # 设置：main-config.jsonc / session-fish.json / voice-providers.json
+├─ data/                               # 数据：memory.json / todos.json
+├─ runtime/electron/                   # Electron 运行时（不属于缓存）
+├─ cache/                              # 唯一允许随手删的目录（voice / download / desktop）
+├─ pets/                               # 文件宠物：一个 pack 一套素材
+│  ├─ pig-config.json                  #   <名>-config.json 定义一种「种类」
+│  ├─ pig-skin/character1/…            #   皮肤 / 模型（layered / live2d）
+│  ├─ pig-animation/{webm,mov}/…       #   动画
+│  └─ pig-sound/…                      #   音效
+└─ assets/                             # 素材（所有宠物共用）
+   ├─ animation/{webm,mov}/            #   main 的动画（文件名即动作名）
+   ├─ sound/                           #   用户级音效：无前缀的 click.wav 对所有宠物生效
+   ├─ memes/                           #   用户级表情包
+   ├─ session-fish/                    #   会话鱼皮肤
+   └─ skin/                            #   共享资源池：放一份，所有宠物都能用
+      ├─ layered/character1/{manifest.json, art/…, character1-click.wav}
+      ├─ live2d/model1/xx.model3.json + xx-click.wav
+      ├─ webm/movie1.webm + webm-click.wav
+      └─ sound/click.wav + common-drag.wav
 ```
 
-- 池根由用户配置的 `assets.pool` 决定（默认 `skin`，可写绝对路径），见 `CONFIG.md` 的「资源池」。
-- **分工约定：`pet/<素材根>-*` = 随 pack 走的内置素材，`skin/` = 用户自己的素材。**
-  换言之「这只宠物自带的那一套」放 `pet/`（安装、升级、迁移都跟着它走），
-  「我自己补的皮肤 / 模型 / 动画 / 音效」放 `skin/`（一份所有宠物共用，升级不覆盖、删了不影响别的）。
+`cache/` 可随手删，`runtime/` 删了要重新下载，`config/` + `data/` 是你的设置与数据（旧根 `<DSH_HOME>/dsh-pet/` 在启动时自动搬进这里，见 `docs/目录布局.md`）。
+
+- 池根由用户配置的 `assets.pool` 决定（默认 `assets/skin`，可写绝对路径），见 `CONFIG.md` 的「资源池」。
+- **分工约定：`pets/<素材根>-*` = 随 pack 走的内置素材，`assets/skin/` = 用户自己的素材。**
+  换言之「这只宠物自带的那一套」放 `pets/`（安装、升级、迁移都跟着它走），
+  「我自己补的皮肤 / 模型 / 动画 / 音效」放 `assets/skin/`（一份所有宠物共用，升级不覆盖、删了不影响别的）。
   宿主对 `pets[].model` 的解析是**先 pack 后池**，所以内置的那套永远优先，用户池只做补充与替换的落点。
-- 目录骨架不用手建：插件启动时会把 `<用户根>`、`main-animation/webm|mov`、`memes/` 与池的
-  `layered / live2d / webm / sound`（含各自的 `sound/` 兜底目录）建好，设置页「打开文件夹」点开就是它们。
+- 目录骨架不用手建：插件启动时会把 `<数据根>`、`assets/animation/webm|mov`、`assets/{sound,memes}` 与池的
+  `layered / live2d / webm / sound`（含各自的 `sound/` 兜底目录）建好，设置页「系统 → 文件与目录」点开就是它们。
 - `pets[].model` 写 `character1` / `model1/xx.model3.json` 这样就行：宿主**先 pack 后池**——
-  `pet/<素材根>-skin/<model>/` 存在就用它，缺失才回落到池里的同名资源。
-- 动画同理：先 `pet/<素材根>-animation/webm/`，再 `skin/webm/`，最后 `main-animation/webm/` 与包内素材。
+  `pets/<素材根>-skin/<model>/` 存在就用它，缺失才回落到池里的同名资源。
+- 动画同理：先 `pets/<素材根>-animation/webm/`，再 `assets/skin/webm/`，最后 `assets/animation/webm/` 与包内素材。
 - 右键「模型 / 皮肤」子菜单里，池里的条目会标「（池）」，一眼看出它来自哪。
 - 想把旧布局搬进池：仓库里跑 `node dsh-pet/scripts/migrate-pool.mjs`（干跑，只打印清单），
   确认后加 `--apply` 复制；**只搬不删**，旧布局照常可用。
@@ -121,23 +132,23 @@ npm publish --tag latest   # prepack 自动执行构建（完整产物 + 收敛 
 音效不用写清单：把音频放到下面任意一处，宿主按**文件名**自动匹配事件与动画，匹配不到的事件槽用包内内置默认。
 
 ```
-# 共享资源池（推荐；一份素材所有宠物共用，池根 = assets.pool，默认 <用户根>/skin）
-skin/layered/<皮肤>/<皮肤>-click.wav     # 资源目录：目录名前缀（结构文件基名前缀也认）
-skin/layered/<皮肤>/xxx-drag.wav         #           结构文件叫 xxx.json 时用它的基名
-skin/live2d/<模型目录>/xx-click.wav      #           模型基名前缀（也认 <模型目录>-click.wav）
-skin/layered/sound/layered-click.wav     # 该渲染方式的兜底
-skin/webm/webm-click.wav                 # webm 的兜底（平铺目录，也认 skin/webm/sound/webm-click.wav）
-skin/sound/click.wav                     # 全局：无前缀优先
-skin/sound/common-drag.wav               # 全局：任意前缀次之
+# 共享资源池（推荐；一份素材所有宠物共用，池根 = assets.pool，默认 <数据根>/assets/skin）
+assets/skin/layered/<皮肤>/<皮肤>-click.wav     # 资源目录：目录名前缀（结构文件基名前缀也认）
+assets/skin/layered/<皮肤>/xxx-drag.wav         #           结构文件叫 xxx.json 时用它的基名
+assets/skin/live2d/<模型目录>/xx-click.wav      #           模型基名前缀（也认 <模型目录>-click.wav）
+assets/skin/layered/sound/layered-click.wav     # 该渲染方式的兜底
+assets/skin/webm/webm-click.wav                 # webm 的兜底（平铺目录，也认 assets/skin/webm/sound/webm-click.wav）
+assets/skin/sound/click.wav                     # 全局：无前缀优先
+assets/skin/sound/common-drag.wav               # 全局：任意前缀次之
 
-# 旧布局（原样保留，不用搬）
-pet/<素材根>-skin/<皮肤>/click.wav      # 皮肤自带（目录即身份，不需要前缀）
-pet/<素材根>-skin/<皮肤>/写代码.wav      #           动作音：基名 = 动画 / 动作 / gesture 名
-pet/<素材根>-sound/click.wav            # 该素材根所有皮肤共用
-pet/<素材根>-sound/<皮肤>-click.wav      # 同一目录管多套皮肤时的兼容写法
-pet/<素材根>-animation/写代码.webm
-pet/<素材根>-animation/写代码.wav        # 便捷写法：动作音与动画同目录
-<用户根>/main-sound/click.wav           # 用户共享（仅 main 链）
+# 文件宠物包（pets/<素材根>-*）自带的音效
+pets/<素材根>-skin/<皮肤>/click.wav      # 皮肤自带（目录即身份，不需要前缀）
+pets/<素材根>-skin/<皮肤>/写代码.wav      #           动作音：基名 = 动画 / 动作 / gesture 名
+pets/<素材根>-sound/click.wav            # 该素材根所有皮肤共用
+pets/<素材根>-sound/<皮肤>-click.wav      # 同一目录管多套皮肤时的兼容写法
+pets/<素材根>-animation/写代码.webm
+pets/<素材根>-animation/写代码.wav        # 便捷写法：动作音与动画同目录
+assets/sound/click.wav                   # 用户共享（仅 main 链）
 ```
 
 | 文件名                                         | 何时响                                                                                  |
@@ -159,9 +170,9 @@ pet/<素材根>-animation/写代码.wav        # 便捷写法：动作音与动�
 
 要更多触发点就自己用 `POST /dsh-pet-7340/sfx/<名字>?pet=<id>` 打点：名字先写进 `sfx.hooks` 或用上面的 `hook-` 文件名约定。
 
-优先级（高 → 低）：池资源目录 → 池渲染方式兜底 → 池全局音效 → 旧皮肤目录 → `-sound/` 带皮肤前缀 →
-`-sound/` 不带前缀 → 动画同目录 → 用户共享 → 包内 `assets/sound/` → 内置默认。
-也就是说：**新放的东西先响**（池永远在旧布局之前），但「用哪套皮肤」仍是先 pack 后池。
+优先级（高 → 低）：池资源目录 → 池渲染方式兜底 → 池全局音效 → pack 皮肤目录 → `-sound/` 带皮肤前缀 →
+`-sound/` 不带前缀 → 动画同目录 → 用户共享（`assets/sound/`）→ 包内 `assets/sound/` → 内置默认。
+也就是说：**新放的东西先响**（池永远排在 pack 自带素材之前），但「用哪套皮肤」仍是先 pack 后池。
 格式优先 `.wav`（44.1kHz / 16bit / 单声道、攻击段压在 t=0），也认 `.ogg .mp3 .m4a`；单个文件建议 < 1MB。
 要压音量、关掉某个槽或给动画绑时间线，写在 `config.jsonc` 的 `sfx` 段（见 `CONFIG.md`）。
 设置页的「音效」分区逐个列出生效文件与命名规则，可以开关与试听；hook 在那里填个名字就能登记（等价于往 `sfx.hooks` 加一条空 cue），不用手改配置。

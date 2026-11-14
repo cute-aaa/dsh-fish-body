@@ -3,7 +3,7 @@
  *
  * PetSprite 由 sprite.js 定义，本文件只往原型上挂方法，必须在其后加载。
  * 只读实例状态，除 DOM 与 syncInputBusy() 之外不写任何字段。
- * @module dsh-pet/runtime/electron-helper/sprite-bubble
+ * @module dsh-fish-body/runtime/electron-helper/sprite-bubble
  */
 'use strict';
 

@@ -15,7 +15,7 @@
  * - 窗口只在「真的有鱼」时按环位撑大（`fishWindowPad`），没鱼立刻收回；拖拽/飞行/漫游中推迟到运动结束；
  * - 任何一步失败都只影响鱼：入口全 try/catch，缺 `PetShared` 的旧产物直接不启用；
  * - 播报先向宿主认领出声权（`/session-fish/claim`），失败按放行——跨面只念一次，但绝不静音。
- * @module dsh-pet/runtime/electron-helper/sprite-fish
+ * @module dsh-fish-body/runtime/electron-helper/sprite-fish
  */
 'use strict';
 
@@ -158,7 +158,7 @@ Object.assign(PetSprite.prototype, {
       this.syncFish();
     } catch (error) {
       // 鱼是旁路：出错只记日志，桌宠本体照常
-      console.warn('[dsh-pet] 桌面会话鱼处理失败：', error);
+      console.warn('[fish-body] 桌面会话鱼处理失败：', error);
     }
   },
 
@@ -388,10 +388,10 @@ Object.assign(PetSprite.prototype, {
     try {
       this.syncFish();
     } catch (error) {
-      console.warn('[dsh-pet] 桌面会话鱼关闭失败：', error);
+      console.warn('[fish-body] 桌面会话鱼关闭失败：', error);
     }
     void S.postAction(BASE + '/session-fish', { action: 'close', sessionId }).then((ok) => {
-      if (!ok) console.warn('[dsh-pet] 关闭会话鱼未送达 session=' + sessionId);
+      if (!ok) console.warn('[fish-body] 关闭会话鱼未送达 session=' + sessionId);
     });
   },
 
@@ -532,7 +532,7 @@ Object.assign(PetSprite.prototype, {
     try {
       this.syncFish();
     } catch (error) {
-      console.warn('[dsh-pet] 桌面会话鱼移除失败：', error);
+      console.warn('[fish-body] 桌面会话鱼移除失败：', error);
     }
   },
 

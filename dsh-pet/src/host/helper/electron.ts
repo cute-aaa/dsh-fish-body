@@ -2,14 +2,16 @@
  * Electron 定位与下载：找已安装的二进制，缺失时按需下载并解压。
  *
  * 不负责启动进程（归 ./child）；下载失败记日志后返回 undefined，由调用方降级为仅浏览器模式。
- * 必须始终成立：解析结果只来自显式候选、DSH_PET_ELECTRON_PATH 与 $DSH_HOME/electron；
+ * 必须始终成立：解析结果只来自显式候选、DSH_PET_ELECTRON_PATH 与 `<数据根>/runtime/electron`；
  * 不借用宿主安装目录里的 electron npm 包（#297：那是 pnpm 重排依赖时要替换的目录）。
- * @module dsh-pet/src/host/helper/electron
+ * 运行时**不在 cache 里**：删 cache 不该逼用户重下 350 MB，删 runtime 才应该。
+ * @module dsh-fish-body/src/host/helper/electron
  */
 import { dirname, join, resolve } from 'node:path';
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { type LoggerLike } from '../log-file.ts';
 import { PACKAGE_ROOT } from '../paths.ts';
+import { ROOT_DIR_NAME } from '../user-root.ts';
 import type { HelperOptions } from './child.ts';
 
 /** 包根：与宿主其它模块共用同一个锚点（见 ../paths.ts），不得按本文件目录另算一份。 */
@@ -126,15 +128,85 @@ const ELECTRON_REL =
       : 'electron';
 
 /**
- * Electron 运行时落地目录（$DSH_HOME/electron）—— 下载解压的目标，也是设置页「卸载与存储」里让
- * 用户清理的那个目录。解析（resolveElectronPath / defaultElectronExe）与下载都必须走这里：同一个
- * 目录字面量在别处再写一遍，改了一处另一处没改，设置页就会显示一个永远不存在的路径。
+ * 实际生效的数据根（由装配期 `setUserRoot` 注入）。
+ *
+ * 为什么要这一层：选根可能落到旧根上（换名与复制都失败时），而 Electron 运行时、下载缓存、
+ * 桌面窗口 profile 都必须跟着**同一个根**走——否则数据在 `dsh-pet/`、运行时在 `fish-body/`，
+ * 「一个目录装下所有东西」当场破产。缺省值仍是 `<DSH_HOME>/fish-body`（独立模式与早期调用）。
  */
-export function electronLandingDir(): string {
-  return join(dshHomeDir(), 'electron');
+let resolvedUserRoot: string | undefined;
+
+/**
+ * 记下装配期选定的数据根（只由 `createHostSetup` 调一次）。
+ *
+ * @param root - 数据根绝对路径。
+ */
+export function setUserRoot(root: string): void {
+  resolvedUserRoot = root;
 }
 
-/** Electron 落地路径：$DSH_HOME/electron/<按平台的可执行文件>。 */
+/**
+ * 当前实际生效的数据根。
+ *
+ * @param dshHome - `$DSH_HOME`（缺省按环境推导）。
+ * @returns 绝对路径。
+ */
+export function currentUserRoot(dshHome: string = dshHomeDir()): string {
+  return resolvedUserRoot ?? join(dshHome, ROOT_DIR_NAME);
+}
+
+/**
+ * Electron 运行时落地目录（`<数据根>/runtime/electron`）—— 下载解压的目标，也是设置页里
+ * 那行「运行时」让用户清理的目录。解析与下载都必须走这里：同一个目录字面量在别处再写一遍，
+ * 改了一处另一处没改，设置页就会显示一个永远不存在的路径。
+ *
+ * @param dshHome - `$DSH_HOME`；缺省按 `dshHomeDir()` 推导。
+ * @returns 绝对路径（不判断存在性）。
+ */
+export function electronRuntimeDir(dshHome: string = dshHomeDir()): string {
+  return join(currentUserRoot(dshHome), 'runtime', 'electron');
+}
+
+/**
+ * 历史位置（`$DSH_HOME/electron`）：dsh-pet 时代所有插件共用的落地目录，只用于一次性迁移与回落。
+ *
+ * @param dshHome - `$DSH_HOME`。
+ * @returns 绝对路径。
+ */
+export function legacyElectronDir(dshHome: string = dshHomeDir()): string {
+  return join(dshHome, 'electron');
+}
+
+/**
+ * 当前实际可用的运行时目录：新位置优先；新位置还没东西而旧位置有 → 继续用旧的。
+ *
+ * 回落的意义是**不让升级变成一次 350 MB 的重下**：迁移失败（进程占用 / 权限）时旧目录还在，
+ * 直接继续用，日志里已经说明可以手动搬。
+ *
+ * @param dshHome - `$DSH_HOME`。
+ * @returns 绝对路径。
+ */
+export function electronLandingDir(dshHome: string = dshHomeDir()): string {
+  const next = electronRuntimeDir(dshHome);
+  if (existsSync(next)) return next;
+  const legacy = legacyElectronDir(dshHome);
+  if (existsSync(legacy)) return legacy;
+  return next;
+}
+
+/**
+ * Electron 安装包的下载缓存目录（`<数据根>/cache/download`，作为 `@electron/get` 的 cacheRoot）。
+ *
+ * 与运行时分开是为了「删 cache 不重下、删 runtime 才重下」：cache 存的只是 zip，runtime 是解压后的可执行文件。
+ *
+ * @param dshHome - `$DSH_HOME`。
+ * @returns 绝对路径（不判断存在性，@electron/get 自己会建）。
+ */
+export function electronDownloadCacheDir(dshHome: string = dshHomeDir()): string {
+  return join(currentUserRoot(dshHome), 'cache', 'download');
+}
+
+/** Electron 落地路径：当前运行时目录下按平台的可执行文件名。 */
 export function defaultElectronExe(): string {
   return join(electronLandingDir(), ELECTRON_REL);
 }
@@ -181,7 +253,7 @@ export interface ElectronDownloadLog {
 }
 
 /**
- * 进程内下载并解压 Electron 到 $DSH_HOME/electron。
+ * 进程内下载并解压 Electron 到 `<数据根>/runtime/electron`。
  *
  * 不 spawn 子进程：CLI node 与 Electron 宿主（DSH Desktop）里都可用，也避开了 process.execPath 在
  * 宿主里指向宿主 exe 而崩溃。已存在则原样返回；失败返回 undefined（不影响 DSH 与浏览器 overlay）。
@@ -191,14 +263,14 @@ export async function ensureElectronDownload(options: EnsureElectronOptions = {}
   const mirror = options.mirror || process.env.DSH_PET_ELECTRON_MIRROR || 'https://npmmirror.com/mirrors/electron/';
   const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
   const targetDir = electronLandingDir();
-  const exe = defaultElectronExe();
+  const exe = join(targetDir, ELECTRON_REL);
   if (isNonEmptyFile(exe)) return exe;
 
   // 下载日志默认走 console；宿主会把它自己的统一日志器传进来——桌面版没有控制台，console 直出
   // 等于丢失（ctx.logger 在部分宿主也不映射到终端）。
   const sink = options.logger ?? console;
-  const log = (message: string): void => sink.info?.(`[dsh-pet] ${message}`);
-  const warn = (message: string): void => sink.warn?.(`[dsh-pet] ${message}`);
+  const log = (message: string): void => sink.info?.(`[fish-body] ${message}`);
+  const warn = (message: string): void => sink.warn?.(`[fish-body] ${message}`);
   // 同一件事两个出口（见 EnsureElectronOptions.onLog）：console 原文 + 给用户看的一句。
   // 文案刻意分成两套——版本号 / 路径 / 耗时对开发者有用，对用户是噪音，不合并成同一句。
   const info = (consoleText: string, text: string, done = false): void => {
@@ -235,6 +307,9 @@ export async function ensureElectronDownload(options: EnsureElectronOptions = {}
       const zipPath = await downloadArtifact({
         version: `v${version}`,
         artifactName: 'electron',
+        // 安装包缓存落进数据根的 cache/：删 cache 只会多下一次，不会丢已经解压好的运行时。
+        // 不传则用 @electron/get 的默认位置（LOCALAPPDATA/electron/Cache），那份是全局共享的，不在我们管辖内。
+        cacheRoot: electronDownloadCacheDir(),
         // platform/arch 不传：@electron/get 用宿主平台与架构自动推断
         // （getHostArch 还处理 arm → armv7l 特例，比显式传 process.arch 更准）
         mirrorOptions: { mirror: mirror.replace(/\/$/, '') + '/' },
@@ -278,13 +353,62 @@ export async function ensureElectronDownload(options: EnsureElectronOptions = {}
 }
 
 /**
+ * 运行时状态：给设置页那行「运行时」用的只读快照（有没有装、装在哪、什么版本）。
+ *
+ * @returns 目录、可执行文件路径、是否已装、版本号（读不到就不给）。
+ */
+export interface ElectronRuntimeStatus {
+  /** 当前生效的运行时目录。 */
+  readonly dir: string;
+  /** 可执行文件期望路径。 */
+  readonly exe: string;
+  /** 是否已装（存在且非空）。 */
+  readonly installed: boolean;
+  /** 版本号（读 `<exe 同级>/version`；读不到时省略）。 */
+  readonly version?: string;
+}
+
+/**
+ * 读一次运行时状态。
+ *
+ * @returns 状态快照。
+ */
+export function electronRuntimeStatus(): ElectronRuntimeStatus {
+  const dir = electronLandingDir();
+  const exe = join(dir, ELECTRON_REL);
+  const installed = isNonEmptyFile(exe);
+  const version = installed ? readElectronVersion(exe) : undefined;
+  return { dir, exe, installed, ...(version === undefined ? {} : { version }) };
+}
+
+/** 进程内正在进行的下载（设置页「下载运行时」与桌面模式启动会撞车，共用同一份）。 */
+let inflightDownload: Promise<string | undefined> | undefined;
+
+/**
+ * 启动一次后台下载（已在下载则复用同一个 promise）。
+ *
+ * 设置页的「下载运行时」按钮走这里：不阻塞响应，界面自己轮询状态。
+ * 桌面模式首次开窗也走 ensureElectronDownload，两者共用 in-flight 状态，不会下两份。
+ *
+ * @param options - 与 {@link ensureElectronDownload} 相同。
+ * @returns `started=false` 表示已经有一个下载在跑（本次没有新起）。
+ */
+export function downloadElectronInBackground(options: EnsureElectronOptions = {}): { readonly started: boolean } {
+  if (inflightDownload !== undefined) return { started: false };
+  inflightDownload = ensureElectronDownload(options).finally(() => {
+    inflightDownload = undefined;
+  });
+  return { started: true };
+}
+
+/**
  * 默认启动方式：Electron 可执行文件 + Helper 入口脚本。
  * @throws Electron 解析不到时抛错（调用方据此降级到浏览器宠物）。
  */
 export function defaultLaunch(options: HelperOptions = {}): { command: string; args: string[] } {
   const electronPath = resolveElectronPath([options.electronPath]);
   if (!electronPath) {
-    throw new Error('dsh-pet: cannot resolve Electron executable. Set DSH_PET_ELECTRON_PATH or install electron.');
+    throw new Error('fish-body: cannot resolve Electron executable. Set DSH_PET_ELECTRON_PATH or install electron.');
   }
   const helperPath = options.helperPath || defaultHelperMain;
   return { command: electronPath, args: helperLaunchArgs(helperPath, { forceX11: shouldForceXWayland() }) };

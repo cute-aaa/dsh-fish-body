@@ -1,7 +1,7 @@
 /**
  * 插件入口：Cordis 插件，把 host 半侧的配置、路由、斜杠命令、轮询与桌面 Helper 装配到 ctx。
  * 装配顺序不能改：`getHandlePetRoute` 惰性取用（`httpRoute` 在本函数后段才创建），`startHelper` 必须最后调用。
- * @module dsh-pet/src/host/index
+ * @module dsh-fish-body/src/host/index
  */
 import { createHostSetup } from './plugin/setup.ts';
 import { readAllConfig } from './config.ts';
@@ -29,8 +29,7 @@ import { createGsvProvider } from './voice/gsv/provider.ts';
 import { gsvSettingsOf } from './voice/gsv/settings.ts';
 import { providerConfigPath, readProviderConfig } from './voice/gsv/store.ts';
 import { registerVoiceProvider } from './voice/registry.ts';
-import { TODO_FILE_NAME, TodoStore } from './todo/store.ts';
-import { join } from 'node:path';
+import { TodoStore } from './todo/store.ts';
 import type { PetRouteDeps } from './routes/types.ts';
 
 /** 插件行 id（与 cordis.patch.yml 一致） */
@@ -44,6 +43,7 @@ export function apply(ctx: any): void {
   const setup = createHostSetup(ctx);
   const {
     userRoot,
+    paths,
     log,
     configPaths,
     userConfigPath,
@@ -70,7 +70,7 @@ export function apply(ctx: any): void {
       unregisterGsv();
       gsv.dispose();
     },
-    'dsh-pet: gsv voice provider',
+    'fish-body: gsv voice provider',
   );
 
   const workStatusBridge = createWorkStatusBridge({ state, workStatus, EXTERNAL_WORK_SESSION });
@@ -108,7 +108,7 @@ export function apply(ctx: any): void {
     balancePoll;
 
   // 待办清单：一份用户级数据（不分宠物），落盘在插件数据根；提醒循环与 /todos 路由共用同一个实例。
-  const todos = new TodoStore({ file: join(userRoot, TODO_FILE_NAME), log });
+  const todos = new TodoStore({ file: paths.todos, log });
 
   const desktopHelper = createDesktopHelper({
     ctx,

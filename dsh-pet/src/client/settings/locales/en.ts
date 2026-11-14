@@ -106,18 +106,25 @@ export const en: Record<Key, string> = {
   corruptConfirm: 'Save anyway',
   corruptBody:
     'The user config file cannot be parsed (corrupted, not valid JSON/JSONC): {path}. Saving now rebuilds it from the whitelist — everything currently in that file (animations / physics / memes …) will be lost. Cancel = leave the file untouched (fix it and save again); Confirm = save anyway (discard what is in the file).',
-  configMeta: 'Advanced (files)',
-  configMetaHint:
-    'User config may override pets / animation pools / weights — refresh or restart to apply: refresh the page in the browser, or right-click a desktop pet → "Reload config" (rebuilds every desktop pet window). The default config is the complete reference.',
-  defaultConfig: 'Default config (read-only, complete reference)',
-  userConfig: 'User config (custom overrides)',
-  todosFile: 'Todo data (text, due time and done state; deleting it clears every todo)',
-  animationDir: 'Animation assets dir (add/customize animations here)',
-  memesDir: 'Meme images dir (add/customize images here)',
-  poolDir: 'Asset pool dir (shared skins / models / animations / sounds)',
-  logFile: 'Log file (for troubleshooting; safe to clear)',
-  logFileNote:
-    'The DSH desktop app has no console, so every runtime log of the plugin (startup, desktop pet crashes/restarts, errors and warnings) goes into this single file — attach it when reporting a problem. It is capped at 1 MB; once full, only the latest 512 KB is kept.',
+  fsTitle: 'Files & folders',
+  fsHint:
+    'Everything the plugin puts on this machine — settings, data, runtime, disposable caches and assets — lives under one data root. Uninstalling means deleting that folder (the plugin package itself is managed by DSH).',
+  fsRoot: 'Data root',
+  fsRootHint: 'Deleting this folder wipes settings, memory, caches and assets (the plugin package itself stays).',
+  fsTree: 'Folder layout',
+  fsTreeHint:
+    'config and data hold your settings and data — keep them. cache can be deleted anytime (it is rebuilt or re-downloaded). Deleting runtime forces an Electron re-download. pets and assets hold art; naming rules are in CONFIG.md.',
+  fsBadgeDisposable: 'deletable',
+  fsBadgeDownload: 'downloads',
+  fsBadgeReadonly: 'read-only',
+  fsReadonly: 'Bundled, read-only',
+  fsRuntime: 'Runtime',
+  fsRuntimeReady: 'Installed',
+  fsRuntimeMissing: 'Not installed',
+  fsRuntimeDownload: 'Download runtime',
+  fsRuntimeDownloading: 'Downloading…',
+  fsRuntimeHint:
+    'Desktop windows need Electron. Deleting cache/ does not affect it; deleting runtime/ means downloading it again.',
   saved: 'Saved — the pets updated instantly.',
   loadError: 'Failed to load config',
   saveError:
@@ -127,7 +134,7 @@ export const en: Record<Key, string> = {
   retry: 'Retry',
   invalid: 'Check your input: size must be positive; margins can be any number.',
   extraPetsHint:
-    "{n} more kind(s) come from files in the pet/ directory (<name>-config.json + <name>-animation/). Switch to them in the Kinds row above; Save writes back to each pack's own config, never into main-config.jsonc.",
+    "{n} more kind(s) come from files in the pets/ directory (<name>-config.json + <name>-animation/). Switch to them in the Kinds row above; Save writes back to each pack's own config, never into main-config.jsonc.",
   kindLabel: 'Kinds',
   kindMain: 'Built-in',
   lastOfKind:
@@ -139,7 +146,7 @@ export const en: Record<Key, string> = {
     'OS-level toasts (bottom-right of the desktop) for conversation completion, failures, permission requests, and questions — only while this window is unfocused.',
   sfxToggle: 'Sound',
   sfxToggleHint:
-    'Plays the configured and auto-matched sound files; off mutes everything. You rarely edit config: drop click.wav into a skin folder, pet/<root>-sound/ or next to an animation and it is picked up automatically. Slots without a file fall back to the built-in defaults.',
+    'Plays the configured and auto-matched sound files; off mutes everything. You rarely edit config: drop click.wav into a skin folder, pets/<root>-sound/ or next to an animation and it is picked up automatically. Slots without a file fall back to the built-in defaults.',
   sfxKeepAliveToggle: 'Keep audio warm',
   sfxKeepAliveToggleHint:
     'Holds the audio output open with an inaudible 1-LSB source so a long-idle first sound does not lose its attack, and the system mixer keeps an "Electron" entry you can use as a master gain. Costs an always-on device and battery; Windows usually will not auto-sleep while the stream is active.',
@@ -150,7 +157,7 @@ export const en: Record<Key, string> = {
   sfxHint:
     'Which file plays for each moment is decided by the host: skin folder > -sound folder > next to the animation > user shared > package defaults. This page only changes switches; loudness is the master sound volume under Global.',
   sfxFileHint:
-    'To swap a file, put the audio into a skin folder (pet/xxx-skin/click.wav) or pet/<root>-sound/; the file name is the slot name. Refresh this page afterwards.',
+    'To swap a file, put the audio into a skin folder (pets/xxx-skin/click.wav) or pets/<root>-sound/; the file name is the slot name. Refresh this page afterwards.',
   sfxSlotPattern: 'File name: {name}.wav or <skin>-{name}.wav',
   sfxNone: 'no file',
   sfxTry: 'Preview',
@@ -334,24 +341,12 @@ export const en: Record<Key, string> = {
   notifyDenyError: 'Failed to request permission',
   notifyGuide:
     'Guide: click the 🔒/ⓘ icon next to the address bar → Site settings → Notifications → set to "Allow", then refresh and retry.',
-  storageTitle: 'Uninstall & storage',
-  storageHint:
-    'Every location this plugin writes to. Deleting cache folders is harmless (they re-download / rebuild); deleting "plugin user data" loses your config and chat memory.',
-  'storage.userData':
-    'Plugin user data: custom config main-config.jsonc, chat memory memory.json, custom animation assets main-animation/, file pets pet/',
-  'storage.electron':
-    'Electron runtime used by the desktop pet (large; re-downloaded automatically the next time desktop mode starts)',
-  'storage.desktopCache':
-    'Desktop pet window cache and primary-monitor scale cache (safe to delete, rebuilt automatically)',
-  'storage.electronCache': 'Electron installer download cache (safe to delete, re-downloaded when needed)',
-  'storage.package': 'The plugin itself (managed by DSH — remove it with the command below instead of deleting it)',
-  storageMissing: ' (not created yet)',
   uninstallTitle: 'How to uninstall',
   uninstallStep1:
-    '1. Quit DSH first (the desktop pet exits with it); do not delete these files while the pet is running.',
+    '1. Quit DSH first (the desktop pet exits with it); do not delete this data while the pet is running.',
   uninstallStep2: '2. Remove the plugin itself (run in a terminal; this also drops it from the profile bundle layer):',
   uninstallStep3:
-    '3. Delete the locations above as needed: cache folders are harmless; deleting "plugin user data" loses your config and chat memory (back up main-config.jsonc first if you want to keep it).',
+    '3. Delete the data root {root} if you want everything gone: cache/ is harmless to delete; deleting config/ or data/ loses your settings and chat memory (back up config/main-config.jsonc first if you want to keep it).',
   motionTitle: 'Action frequency',
   motionHint:
     'Four boxes: idle / turn / move are editable, and the random action is computed (100 − the other three). Global default, shared by every pet; a pet pack may override it in its own kind file.',
@@ -359,7 +354,7 @@ export const en: Record<Key, string> = {
   'motion.turn': 'Turn',
   'motion.move': 'Move',
   'motion.action': 'Random action',
-  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-fish-body',
   // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
   'fish.intro':
     'Every new, running, or just-finished session gets a small "writing code" animation. Drag it to move, click to open its session, × to dismiss it.',
@@ -479,5 +474,5 @@ export const en: Record<Key, string> = {
   secSpeak: 'Speech',
   secTiming: 'Timing',
   sizesTitle: 'Size per renderer',
-  extraPetsShort: '{n} more kinds come from the pet/ folder',
+  extraPetsShort: '{n} more kinds come from the pets/ folder',
 };

@@ -3,7 +3,7 @@
  *
  * 为什么单独一份：报告器在 `conversation.input.dock`（会话作用域），浮层在 `shell.overlay`（根作用域），
  * 两者没有父子关系。这里只存一个 id 与「是否已经上报过」，不触发 React 更新。
- * @module dsh-pet/src/client/session-fish/active
+ * @module dsh-fish-body/src/client/session-fish/active
  */
 
 let activeSessionId: string | null = null;

@@ -3,7 +3,7 @@
  *
  * 校验失败只记一次告警并返回 false，由调用方回退默认值。
  * 必须始终成立：校验规则与读取侧同一套，写回时不得放宽。
- * @module dsh-pet/src/host/config/validate
+ * @module dsh-fish-body/src/host/config/validate
  */
 import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../../shared/fonts.ts';
 import { isValidSize } from '../../shared/pet-size.ts';

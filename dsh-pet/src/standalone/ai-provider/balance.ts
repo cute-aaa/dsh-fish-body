@@ -3,7 +3,7 @@
  *
  * 独立模式没有 DSH 账号服务，也没有 credential store，密钥只有设置页保存的那一把；
  * 因此这里只做一件事——把 key 包成 queryBalance 需要的解析回调，取数与解析全走 host 半侧。
- * @module dsh-pet/src/standalone/ai-provider/balance
+ * @module dsh-fish-body/src/standalone/ai-provider/balance
  */
 import { queryBalance as queryProviderBalance, type BalanceResult } from '../../host/balance/index.ts';
 

@@ -8,7 +8,7 @@
  * 网页端（命中层 CSS、拖拽夹取、碰撞）与桌面端（`hitRect`、穿透判定、窗口落位）都读它。
  *
  * 坐标单位一律是「宠物宽度 size」：`y0/y1` 以舞台顶为 0、向下为正，画布后端会是负数。
- * @module dsh-pet/src/shared/body-box
+ * @module dsh-fish-body/src/shared/body-box
  */
 import { STAGE_ASPECT } from './bubble-anchor.ts';
 import { CANVAS_H, HIT_BOX } from './constants.ts';

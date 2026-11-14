@@ -2,7 +2,7 @@
  * SillyTavern v2 人设卡读取与投影（纯逻辑 + 一次文件读）。
  * 支持 JSON 卡（{spec:"chara_card_v2", data:{…}}）与 PNG 卡（tEXt 的 chara 块，base64）。
  * 投影把 {{char}}/{{user}} 替换后拼成一段可直接进 whisperPrompt 的正文；只读一个文件，不监听、不写盘。
- * @module dsh-pet/src/host/persona-source/card-reader
+ * @module dsh-fish-body/src/host/persona-source/card-reader
  */
 import { readFile } from 'node:fs/promises';
 import type { PersonaResolution } from './types.ts';

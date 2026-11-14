@@ -4,7 +4,7 @@
  *
  * 线性化必须赶在 ready 之前 appendSwitch，所以工厂在 main.js 顶层调用；探测子进程复用同一个
  * main.js（mainPath 传入），只打一行 scaleFactor 就退出。
- * @module dsh-pet/runtime/electron-helper/main-dpi
+ * @module dsh-fish-body/runtime/electron-helper/main-dpi
  */
 
 const path = require('node:path');
@@ -53,7 +53,7 @@ function createDpi({ app, screen, mainPath, linuxPointer, dpiProbe, dpiMark, for
     try {
       writeFileSync(dpiCacheFile(), JSON.stringify({ scaleFactor: value }), 'utf8');
     } catch (e) {
-      console.error('[dsh-pet-desktop-helper] write dpi cache failed:', String(e && e.message ? e.message : e));
+      console.error('[fish-body-desktop] write dpi cache failed:', String(e && e.message ? e.message : e));
     }
   }
 
@@ -91,7 +91,7 @@ function createDpi({ app, screen, mainPath, linuxPointer, dpiProbe, dpiMark, for
           .filter(Boolean)
           .join(' ');
         console.error(
-          '[dsh-pet-desktop-helper] dpi probe failed:',
+          '[fish-body-desktop] dpi probe failed:',
           String(e && e.message ? e.message : e).split('\n')[0],
           detail,
         );
@@ -119,7 +119,7 @@ function createDpi({ app, screen, mainPath, linuxPointer, dpiProbe, dpiMark, for
       }
     } catch (error) {
       console.error(
-        '[dsh-pet-desktop-helper] dpi 探测失败，按不补偿继续:',
+        '[fish-body-desktop] dpi 探测失败，按不补偿继续:',
         String(error && error.message ? error.message : error),
       );
       PRIMARY_SCALE = 0;

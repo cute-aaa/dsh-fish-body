@@ -5,7 +5,7 @@
  * 它带着 `<optgroup>` 分「内置 / 我自己的」两组，条目数会随用户放进去的文件增长，
  * 自绘下拉要为此再写一遍分组与滚动，收益不抵成本。
  * owns only 这三格的排布与夹取，never 草稿状态与写盘。
- * @module dsh-pet/src/client/settings/fish-fields
+ * @module dsh-fish-body/src/client/settings/fish-fields
  */
 import type { FunctionComponent } from 'react';
 import {
@@ -109,6 +109,7 @@ export function makeFishFields(rt: SettingsRuntime): FunctionComponent<FishField
             ],
           }),
           t('fish.skinHint'),
+          'fish.skin',
         ),
         h('div', {
           key: 'numbers',
@@ -158,6 +159,7 @@ export function makeFishFields(rt: SettingsRuntime): FunctionComponent<FishField
                 ],
               }),
               t('fish.sizeHint'),
+              'fish.sizePx',
             ),
             field(
               t('fish.maxCount'),
@@ -179,6 +181,7 @@ export function makeFishFields(rt: SettingsRuntime): FunctionComponent<FishField
                 ),
               }),
               t('fish.maxCountHint'),
+              'fish.maxCount',
             ),
           ],
         }),

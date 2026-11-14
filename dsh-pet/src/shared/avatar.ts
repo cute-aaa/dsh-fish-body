@@ -2,7 +2,7 @@
  * 宠物头像地址的唯一拼装处：聊天面板的消息头像与设置页的预览都用它。
  *
  * 不放 client/chat 里：设置页也要用，而设置页不该反向依赖对话面板的数据访问模块。
- * @module dsh-pet/src/shared/avatar
+ * @module dsh-fish-body/src/shared/avatar
  */
 import { ROUTE_PATH } from './constants.ts';
 

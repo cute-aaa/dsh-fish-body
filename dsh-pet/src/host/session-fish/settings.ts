@@ -4,11 +4,12 @@
  * 为什么不进 `main-config.jsonc`：那一份是带大量注释的 JSONC，设置页整份重写会把用户的注释与排版
  * 一起丢掉；而会话鱼是一组独立的小偏好，单独一份普通 JSON 也能被「改坏了就回落默认」兜住。
  * 读侧逐字段宽容（坏一个字段只回默认），写侧严格（未知键、类型错、越界一律拒绝），写成功后才换内存值。
- * @module dsh-pet/src/host/session-fish/settings
+ * @module dsh-fish-body/src/host/session-fish/settings
  */
 import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
+import { userPaths } from '../user-layout.ts';
 import {
   DEFAULT_SESSION_FISH_SETTINGS,
   isSessionFishSkinName,
@@ -135,7 +136,7 @@ export function checkSessionFishPatch(raw: unknown): SessionFishPatchCheck {
 
 /** 配置文件绝对路径。 */
 export function sessionFishSettingsPath(userRoot: string): string {
-  return join(userRoot, SESSION_FISH_FILE);
+  return userPaths(userRoot).sessionFish;
 }
 
 /**
@@ -209,13 +210,13 @@ export class SessionFishSettingsStore {
       const hasInvalid = FIELD_KEYS.some((key) => conf[key] !== undefined && !fieldValid(FIELD_SPECS[key], conf[key]));
       if (!this.warned && (hasUnknown || hasInvalid)) {
         this.warned = true;
-        this.log?.('[dsh-pet] session-fish.json 有未知或非法字段，已按默认值处理：' + this.file);
+        this.log?.('[fish-body] session-fish.json 有未知或非法字段，已按默认值处理：' + this.file);
       }
       return settings;
     } catch {
       if (!this.warned) {
         this.warned = true;
-        this.log?.('[dsh-pet] session-fish.json 解析失败，已按默认值处理：' + this.file);
+        this.log?.('[fish-body] session-fish.json 解析失败，已按默认值处理：' + this.file);
       }
       return DEFAULT_SESSION_FISH_SETTINGS;
     }

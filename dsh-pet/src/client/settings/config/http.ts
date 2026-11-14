@@ -2,28 +2,65 @@
  * 设置页与宿主的 HTTP 契约：读配置、读元信息、读候选模型、写用户层（PUT）、同步（POST）与写种类层。
  * 每个函数都是「总函数」——失败不抛给调用方，而是返回约定好的空值或判别联合，调用方只管分支与文案。
  * 写配置强制显式 `force` 布尔：严格 `=== true` 才拼 `?force=1`，绝不能让事件对象冒充真值绕过损坏预检。
- * @module dsh-pet/src/client/settings/config/http
+ * @module dsh-fish-body/src/client/settings/config/http
  */
 import { ROUTE_PATH } from '../../../shared/constants.ts';
+import type { FolderTarget } from '../../../shared/folders.ts';
 import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../../shared/types.ts';
 import type { ModelCatalogGroup } from '../picker/index.ts';
 import type { MergedConfig } from './read.ts';
 
-/** 配置文件路径与存储位置清单；宿主按平台推导，反推不出 `profile` 时为空串。 */
+/** 树里的一个节点（宿主按 `user-layout` 生成，见 `host/routes/config/meta-layout`）。 */
+/** 树里的一个节点（宿主按 `user-layout` 生成，见 `host/routes/config/meta-layout`）。 */
+export interface MetaNode {
+  /** 稳定键：不翻译也不拼接，只用于取徽标/提示。 */
+  key: string;
+  /** 展示用路径（相对数据根；池根在根外时是绝对路径）。 */
+  rel: string;
+  /** 这一行自己的名字（目录名或文件名）。 */
+  name: string;
+  /** 绝对路径（卸载说明与调试用）。 */
+  path: string;
+  kind: 'dir' | 'file' | 'pkg';
+  /** 缩进层级：0 = 数据根。 */
+  depth: number;
+  exists: boolean;
+  /** 可打开的目录类别。 */
+  open?: FolderTarget;
+  /** 小徽标：可随手删 / 删了要重下。 */
+  badge?: 'disposable' | 'download';
+}
+
+/** Electron 运行时状态（设置页那行「运行时」）。 */
+export interface RuntimeStatus {
+  dir: string;
+  exe: string;
+  installed: boolean;
+  version?: string;
+}
+
 export interface ConfigMeta {
+  /** 数据根（`$DSH_HOME/fish-body`）。 */
+  root: string;
+  /** 目录树（顺序即展示顺序）。 */
+  layout: MetaNode[];
+  /** 包内只读参考（默认配置与随包素材）。 */
+  readonly: MetaNode[];
+  /** 运行时状态：有没有装、装在哪。 */
+  runtime?: RuntimeStatus;
+  /** 插件本体目录（卸载时「不要手删」的就是它）。 */
+  package?: string;
   user: string;
   default: string;
   animations: string;
   /** 用户表情包目录（加图不必改包）。 */
   memes?: string;
-  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）。 */
+  /** 共享资源池的根（`assets.pool`，默认 `<数据根>/assets/skin`）。 */
   pool?: string;
   /** 待办数据文件（一份用户级数据，不分宠物）。 */
   todos?: string;
   /** 统一日志文件；桌面版没控制台，排障只看它。 */
   logs?: string;
-  /** 插件落盘的全部位置（路径与是否已存在）。 */
-  storage?: Array<{ key: string; path: string; exists?: boolean }>;
   /** 当前 profile 名（拼卸载命令用）。 */
   profile?: string;
 }

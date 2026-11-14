@@ -4,7 +4,7 @@
  * 业务失败一律 HTTP 200 + `ok: false`，所以这里不抛；只有网络层失败（断连 / 被 abort）才抛。
  * 每次请求都带超时并挂在演出自己的 AbortSignal 上——收场时把挂在半路的请求一刀切断，
  * 否则一次卡死会让 running 永远为 true，再点菜单只会回「它已经在吃了」，而锁还挂在宿主里。
- * @module dsh-pet/src/client/baifan/transport
+ * @module dsh-fish-body/src/client/baifan/transport
  */
 import { CFG, ROUTE } from './constants.ts';
 

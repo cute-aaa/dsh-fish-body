@@ -1,7 +1,7 @@
 /**
  * 对话弹窗的 DOM 装配：输入框、上传/截屏/按住说话三枚按钮、待发送图片缩略图、提示行与错误行。
  * 只建元素并把能力接上，不发送、不定位、不管关闭；录音的状态机在 chat/hear-control。
- * @module dsh-pet/src/shared/chat/dom
+ * @module dsh-fish-body/src/shared/chat/dom
  */
 import { type EncodedImage, encodeImageFile } from './encode.ts';
 import { createHearControl } from './hear-control.ts';

@@ -1,6 +1,6 @@
 /**
  * 斜杠命令 /balance：刷新余额并把结果回给命令面板。
- * @module dsh-pet/src/host/plugin/command-balance
+ * @module dsh-fish-body/src/host/plugin/command-balance
  */
 import type { BalancePoll } from './balance-poll.ts';
 import type { PetLookup } from './pet-lookup.ts';
@@ -36,6 +36,6 @@ export function registerBalanceCommand(deps: CommandBalanceInput): void {
           return { kind: 'success', text: '已触发桌宠余额显示' };
         },
       }),
-    'dsh-pet: /balance command',
+    'fish-body: /balance command',
   );
 }

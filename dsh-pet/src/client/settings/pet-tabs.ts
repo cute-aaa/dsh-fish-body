@@ -1,7 +1,7 @@
 /**
  * 宠物标签条：当前种类的每只实例一个按钮（显示名字与宽度），末尾是「添加宠物」。
  * 只负责「选中谁」与「加一只」，增删的合法性由设置页外壳判断。
- * @module dsh-pet/src/client/settings/pet-tabs
+ * @module dsh-fish-body/src/client/settings/pet-tabs
  */
 import type { FunctionComponent } from 'react';
 import type { Pet } from '../../shared/types.ts';

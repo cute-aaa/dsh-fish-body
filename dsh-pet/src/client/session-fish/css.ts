@@ -3,7 +3,7 @@
  *
  * 颜色一律用 `--dsw-*` token；层容器整片 click-through，只有鱼本体、气泡与 × 重新打开指针事件，
  * 所以它不会挡住下面的侧栏与输入框。注入按 `data-plugin-css` 去重。
- * @module dsh-pet/src/client/session-fish/css
+ * @module dsh-fish-body/src/client/session-fish/css
  */
 
 /** 注入去重标记。 */

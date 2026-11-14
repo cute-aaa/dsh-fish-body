@@ -13,9 +13,10 @@
 
 1. **说明只有两个出口**：卡片标题旁的 `?`（整卡语境）与字段标签的悬浮气泡。字段级问号已废弃——四十个问号把视线切碎，
    而它们承载的信息大多能从标签本身读出来；真正会让人踩坑的那几条写成常显的 `note`。
-2. **控件只有一套规格**：28px 高、8px 圆角、`--pcg-*` 尺度变量；开关是开关视觉 + `checkbox` 语义；颜色一律取 `--dsw-*` token。
-3. **动作分两层**：保存相关（撤销 / 取消 / 应用 / 确定 + 未保存条数）在底部常驻栏；维护相关（重启 / 重置 / 路径 / 卸载）
-   在「系统」分区末尾，不占底部栏。
+2. **控件只有一套规格**：28px 高、8px 圆角、`--pcg-*` 尺度变量；开关是开关视觉 + `checkbox` 语义，圆点是真节点
+   （不画在 `input::after` 上——替换元素的伪元素不保证生成）；颜色一律取 `--dsw-*` token。
+3. **动作分两层**：保存相关（撤销 / 取消 / 应用 / 确定 + 未保存条数）在底部常驻栏；维护相关（重启 / 重置 / 卸载，
+   以及「文件与目录」那棵树）在「系统」分区末尾，不占底部栏。
 
 ### 文件
 
@@ -46,12 +47,12 @@
 | `src/client/settings/voice-provider-card.ts` | 本地语音（GSV）接入配置与启停                                             |
 | `src/client/settings/model-tab.ts`           | 对话分区装配                                                              |
 | `src/client/settings/model-card.ts`          | 模型卡 + 「这些开关要花多少 token」折叠                                   |
-| `src/client/settings/system-tab.ts`          | 系统分区装配（提醒 → 备份 → 快捷键 → 路径 → 存储 → 维护）                 |
+| `src/client/settings/system-tab.ts`          | 系统分区装配（提醒 → 备份 → 快捷键 → 文件与目录 → 维护）                  |
 | `src/client/settings/system-card.ts`         | 提醒与桌面卡（含「测试弹窗」）                                            |
 | `src/client/settings/maintenance-card.ts`    | 插件维护卡：重启 / 重置设置 / 页面说明                                    |
 | `src/client/settings/backup-card.ts`         | 备份与恢复卡                                                              |
 | `src/client/settings/shortcuts-card.ts`      | 快捷键参考卡（折叠）                                                      |
-| `src/client/settings/paths-cards.ts`         | 高级配置（文件）与卸载存储两张折叠卡                                      |
+| `src/client/settings/fs-card.ts`             | 「文件与目录」卡：路径树（每行一个「打开文件夹」）+ 运行时 + 卸载         |
 | `src/client/settings/bar.ts`                 | 底部常驻栏：状态（未保存条数 / 保存结论）+ 撤销 / 取消 / 应用 / 确定      |
 | `src/client/settings/dialog.ts`              | 确认 / 提示弹窗（删除、只剩一只、重置、恢复、配置损坏）                   |
 | `src/client/settings/ui.ts`                  | 共用小件：字段、卡头、小节、说明行、开关格、折叠卡、尺寸控件              |

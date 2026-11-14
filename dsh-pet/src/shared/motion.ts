@@ -3,7 +3,7 @@
  * 移动规划归一化为视口比例，px 换算由调用方完成；角落定位返回宠物根节点左上角的像素坐标。
  * 不负责 rAF 驱动与样式写入，那些在各端的薄壳里。
  * 依赖共享层的选择函数与显示器几何，保证两端算出同一条路线。
- * @module dsh-pet/src/shared/motion
+ * @module dsh-fish-body/src/shared/motion
  */
 import { randomBetween } from './pickers.ts';
 import { rectAtPoint, rectBottom, rectRight } from './displays.ts';

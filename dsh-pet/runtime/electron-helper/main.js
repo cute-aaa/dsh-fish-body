@@ -4,7 +4,7 @@
  * 必须保持局部小窗：Windows DWM 视频黑屏需四项同时成立——透明置顶、非点击穿透、可聚焦且已聚焦、
  * 完整盖住视频窗；本进程恰好凑齐前三项，小窗则几乎不可能满足第四项，且默认整窗点击穿透。
  * 依赖宿主注入的环境变量与同目录的纯判定模块。
- * @module dsh-pet/runtime/electron-helper/main
+ * @module dsh-fish-body/runtime/electron-helper/main
  */
 let electronApi;
 // 被以「纯 Node 模式」拉起（宿主透传 ELECTRON_RUN_AS_NODE）时内置 electron 模块不会注册：
@@ -24,6 +24,7 @@ try {
 }
 const { app, BrowserWindow, ipcMain, screen, shell, protocol, Tray, Menu, nativeImage, powerMonitor } = electronApi;
 const path = require('node:path');
+const fsSync = require('node:fs');
 const fsPromises = require('node:fs/promises');
 // 点击穿透兜底通道的纯判定（不依赖 Electron 的 forward 鼠标钩子；见文件头）
 // Linux 专用：X11 指针实时查询。穿透窗收不到鼠标事件，Chromium 的 screen.getCursorScreenPoint()
@@ -61,21 +62,43 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // 显式定名：Helper 被 `electron.exe <main.js>` 直接拉起时取不到 app 名，会回落成 "Electron"，
 // userData 便落到 %APPDATA%\Electron 这个公共目录，DPI 缓存与 Chromium profile 会和别人混在一起。
-// 必须赶在任何 getPath('userData') 之前设；名字必须与 src/host/storage-paths.ts 的 DESKTOP_APP_NAME
-// 逐字一致（测试直接读本文件比对，改名不同步就红）。
+// 必须赶在任何 getPath('userData') 之前设。
 // 应用模式（本文件被 src/app/main.ts 同进程 require）：双击启动的用户没有终端，托盘必须有「退出」；
 // 手动 start-desktop 流同理，BRIDGE 模式则由宿主决定能否退（见 startTray 的 quitApp）。
 const APP_MODE = process.env.DSH_PET_APP_MODE === '1';
 // 只供同进程应用自己的请求使用，绝不出现在渲染端地址或日志里。
 const APP_TOKEN = APP_MODE ? process.env.DSH_PET_APP_TOKEN : undefined;
-app.setName('dsh-pet-electron-helper');
+app.setName('fish-body-desktop');
 // Windows 任务栏分组：不设 AppUserModelID 时窗口归到 electron.exe 名下，任务栏按钮意外出现就显示
 // Electron 默认图标。必须在 ready 之前调用；独立应用与 DSH 内 helper 用不同 ID，避免被合成一组。
 if (process.platform === 'win32') {
-  app.setAppUserModelId(APP_MODE ? 'com.dsh.pet.app' : 'com.dsh.pet.helper');
+  app.setAppUserModelId(APP_MODE ? 'com.dsh.fishbody.app' : 'com.dsh.fishbody.helper');
 }
-// 应用模式只改数据目录、不改应用名：共用同一个 userData 时两个 Chromium 进程会抢同一份 profile 互踢。
-if (APP_MODE) app.setPath('userData', path.join(app.getPath('appData'), 'dsh-pet'));
+// 桌面窗口的 Chromium profile 落进数据根的 cache/：删 cache 一并清掉，项目不在系统目录里留第二份用户数据。
+// 两种模式必须用不同子目录——共用同一个 userData 时两个 Chromium 进程会抢同一份 profile 互踢。
+// setPath 要求目录已存在（Electron 会抛），所以先建；建不出来就沿用 Electron 的默认位置，宁可位置难看也别起不来。
+// 数据根由宿主注入（DSH_PET_USER_ROOT）：选根可能回落到旧根，桌面 profile 必须跟着同一个根走。
+const USER_ROOT = process.env.DSH_PET_USER_ROOT || path.join(dshHomeDir(), 'fish-body');
+const DESKTOP_CACHE_DIR = path.join(USER_ROOT, 'cache', APP_MODE ? 'app-desktop' : 'desktop');
+// 旧版 profile 在 %APPDATA%\dsh-pet-electron-helper：换位置时复制一份过来，
+// 让窗口位置、会话鱼位置记忆这些不断档（只复制不删源，确认无误后可手动删旧目录）。
+const LEGACY_PROFILE_DIR = path.join(app.getPath('appData'), 'dsh-pet-electron-helper');
+try {
+  if (!fsSync.existsSync(DESKTOP_CACHE_DIR) && fsSync.existsSync(LEGACY_PROFILE_DIR)) {
+    fsSync.cpSync(LEGACY_PROFILE_DIR, DESKTOP_CACHE_DIR, { recursive: true });
+  }
+} catch (error) {
+  console.error(
+    '[fish-body-desktop] 旧 profile 复制失败，本次用新 profile:',
+    String((error && error.message) || error),
+  );
+}
+try {
+  fsSync.mkdirSync(DESKTOP_CACHE_DIR, { recursive: true });
+  app.setPath('userData', DESKTOP_CACHE_DIR);
+} catch (error) {
+  console.error('[fish-body-desktop] userData 迁移失败，沿用默认位置:', String((error && error.message) || error));
+}
 
 /** DPI 探测子进程模式：不建窗口，只把主屏 scaleFactor 打到 stdout 就退出（见 probePrimaryScale） */
 const DPI_PROBE = process.env.DSH_PET_DPI_PROBE === '1';
@@ -112,10 +135,10 @@ const userDataDecision = resolveUserDataDir({
 });
 if (userDataDecision.fallback) {
   app.setPath('userData', userDataDecision.dir);
-  console.error('[dsh-pet-desktop-helper] userData 不可写，回退到', userDataDecision.dir);
+  console.error('[fish-body-desktop] userData 不可写，回退到', userDataDecision.dir);
 } else if (userDataDecision.error) {
   console.error(
-    '[dsh-pet-desktop-helper] userData 回退失败:',
+    '[fish-body-desktop] userData 回退失败:',
     String(userDataDecision.error.message || userDataDecision.error),
   );
 }
@@ -262,7 +285,7 @@ app.whenReady().then(() => {
     return;
   }
   console.error(
-    '[dsh-pet-desktop-helper] displays: ' +
+    '[fish-body-desktop] displays: ' +
       JSON.stringify(petWindows.geometry()) +
       ' forcedScaleFactor=' +
       (dpi.forcedScale || 'off') +
@@ -276,8 +299,8 @@ app.whenReady().then(() => {
     // 自定义 scheme 接住渲染端全部请求（配置/余额/碎碎念/广播/素材）
     protocol.handle('dsh-pet-bridge', (request) =>
       bridge.handle(request).catch((e) => {
-        console.error('[dsh-pet-desktop-helper] bridge handler error:', String(e && e.message ? e.message : e));
-        return new Response('dsh-pet: bridge error', {
+        console.error('[fish-body-desktop] bridge handler error:', String(e && e.message ? e.message : e));
+        return new Response('fish-body: bridge error', {
           status: 502,
           headers: { 'access-control-allow-origin': '*' },
         });
@@ -326,7 +349,7 @@ app.on('before-quit', () => {
   try {
     tray.destroy();
   } catch (e) {
-    console.error('[dsh-pet-desktop-helper] tray destroy failed:', String(e && e.message ? e.message : e));
+    console.error('[fish-body-desktop] tray destroy failed:', String(e && e.message ? e.message : e));
   }
 });
 

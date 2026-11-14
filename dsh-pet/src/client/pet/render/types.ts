@@ -3,7 +3,7 @@
  * 三种实现（webm / layered / live2d）互斥，运行时按 pets[].renderer 选一个挂载。
  * 交互与运动（拖拽 / 走位 / 抛掷 / 挤压）不属于渲染，留在卡片层；本接口只管视觉与动作播放。
  * 卡片把「该播什么、播完做什么」这类决策以 {@link AnimationSource} 注入，渲染器只管执行。
- * @module dsh-pet/src/client/pet/render/types
+ * @module dsh-fish-body/src/client/pet/render/types
  */
 import type { RendererKind } from '../../../shared/types.ts';
 import type { Animations, SfxLayer } from '../../../shared/types.ts';

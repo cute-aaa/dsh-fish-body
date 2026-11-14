@@ -5,7 +5,7 @@
  * 装配根每次渲染调一次 `makeSnapshot`，保存成功后用 {@link withoutFish} 推进基线。
  * 会话鱼那半截永远取它的服务端权威值，不能拿保存前的快照盖回去（否则刚存完的页又亮起点）。
  * owns only 形状映射，never 状态、diff 与写盘。
- * @module dsh-pet/src/client/settings/snapshot
+ * @module dsh-fish-body/src/client/settings/snapshot
  */
 import type { FormSnapshot } from './dirty.ts';
 import type { AppearanceSettings } from './use-appearance-settings.ts';

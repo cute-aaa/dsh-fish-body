@@ -4,7 +4,7 @@
  * 配置页把桌宠与 AI 两块放在同一个面板里，各自加载各自的接口：桌宠读 /config，
  * AI 读 /standalone-ai/settings，两套保存互不影响。
  * 缺令牌时只提示、不发任何请求——本页所有写操作都依赖那次运行有效的凭证。
- * @module dsh-pet/src/standalone/settings-page/script/boot
+ * @module dsh-fish-body/src/standalone/settings-page/script/boot
  */
 
 /** 生成启动片段。 */

@@ -4,7 +4,7 @@
  *
  * 窗口表与按窗口索引的几张表都由本模块独占（`state` 只给同进程的装配根与 ipc 用，不是对外接口）。
  * 两条泵的生命周期跟着窗口：建窗起跑，`closed` 时停止并清句柄——泵自己不清，因为同一窗口上还有别的清理。
- * @module dsh-pet/runtime/electron-helper/main/windows
+ * @module dsh-fish-body/runtime/electron-helper/main/windows
  */
 const path = require('node:path');
 const { pointerZone, decideWindowIgnore, forcedIgnore } = require('../pointer-target.js');
@@ -276,7 +276,7 @@ function createWindows({
     win.webContents.on('console-message', (event) => {
       const level = String(event.level ?? '');
       const message = String(event.message ?? '');
-      if (level !== 'warning' && level !== 'error' && !message.includes('[dsh-pet]')) return;
+      if (level !== 'warning' && level !== 'error' && !message.includes('[fish-body]')) return;
       console.warn(`[renderer:${level}] ${message}`);
     });
     // DSH_PET_DEBUG=1：透明窗口没有 DevTools，排查渲染后端时把关键现场打到主进程日志。
@@ -362,7 +362,7 @@ function createWindows({
       offBodyMs.delete(win.id);
     });
     win.loadFile(path.join(helperDir, 'index.html'), { query: windowQuery(pet, geo, scale) }).catch((error) => {
-      console.error(`[dsh-pet-desktop-helper] page load failed (${pet.id}):`, error);
+      console.error(`[fish-body-desktop] page load failed (${pet.id}):`, error);
       win.destroy();
     });
     return win;
@@ -411,7 +411,7 @@ function createWindows({
       try {
         win.destroy();
       } catch (e) {
-        console.error('[dsh-pet-desktop-helper] window destroy failed:', String(e && e.message ? e.message : e));
+        console.error('[fish-body-desktop] window destroy failed:', String(e && e.message ? e.message : e));
       }
     }
     windows.clear();
@@ -435,7 +435,7 @@ function createWindows({
         if (hidden) win.hide();
         else win.showInactive();
       } catch (e) {
-        console.error('[dsh-pet-desktop-helper] window hide/show failed:', String(e && e.message ? e.message : e));
+        console.error('[fish-body-desktop] window hide/show failed:', String(e && e.message ? e.message : e));
       }
     }
   }

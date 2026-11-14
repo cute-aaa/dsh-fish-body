@@ -5,7 +5,7 @@
  * physics 在 sprite 构造时只读一次，所以这里不做即时写入。
  * 移动端三项（碰撞震动 / 倾斜重力 / 摇一摇）依赖手机硬件，桌面浏览器上只会静默不生效；
  * 折起来是为了让「拖拽手感」这四个数字占住第一屏，又不把这些开关藏到别的分区去。
- * @module dsh-pet/src/client/settings/physics-card
+ * @module dsh-fish-body/src/client/settings/physics-card
  */
 import type { FunctionComponent } from 'react';
 import type { PhysicsParams } from '../../shared/types.ts';
@@ -52,6 +52,7 @@ export function makePhysicsCard(rt: SettingsRuntime): FunctionComponent<PhysicsC
           numberInputProps(physics[key], (v) => props.onChange({ [key]: v }), { step, min, disabled: busy }),
         ),
         t('physics.' + key + 'Hint'),
+        'look.physics.' + key,
       );
 
     return h('div', {
@@ -73,10 +74,20 @@ export function makePhysicsCard(rt: SettingsRuntime): FunctionComponent<PhysicsC
               ],
             }),
             switchGrid([
-              toggleCell('physicsCeilingBounce', physics.ceilingBounce, busy, (v) =>
-                props.onChange({ ceilingBounce: v }),
+              toggleCell(
+                'physicsCeilingBounce',
+                physics.ceilingBounce,
+                busy,
+                (v) => props.onChange({ ceilingBounce: v }),
+                'look.physics.ceilingBounce',
               ),
-              toggleCell('physicsPetCollision', physics.petCollision, busy, (v) => props.onChange({ petCollision: v })),
+              toggleCell(
+                'physicsPetCollision',
+                physics.petCollision,
+                busy,
+                (v) => props.onChange({ petCollision: v }),
+                'look.physics.petCollision',
+              ),
             ]),
           ],
         }),
@@ -91,19 +102,35 @@ export function makePhysicsCard(rt: SettingsRuntime): FunctionComponent<PhysicsC
           scope: 'look.physics',
           body: [
             switchGrid([
-              toggleCell('physicsHaptic', physics.hapticEnabled !== false, busy, (v) =>
-                props.onChange({ hapticEnabled: v }),
+              toggleCell(
+                'physicsHaptic',
+                physics.hapticEnabled !== false,
+                busy,
+                (v) => props.onChange({ hapticEnabled: v }),
+                'look.physics.hapticEnabled',
               ),
-              toggleCell('physicsTilt', physics.tiltGravity === true, busy, (v) => {
-                // iOS 13+ 要求传感器权限必须在用户手势里申请；开关点击正好是那次手势。
-                // 只申请这个开关要用的种类，不顺手把摇一摇的权限也问了。
-                if (v) void requestMotionPermission({ tilt: true, shake: false });
-                props.onChange({ tiltGravity: v });
-              }),
-              toggleCell('physicsShake', physics.shakeThrow === true, busy, (v) => {
-                if (v) void requestMotionPermission({ tilt: false, shake: true });
-                props.onChange({ shakeThrow: v });
-              }),
+              toggleCell(
+                'physicsTilt',
+                physics.tiltGravity === true,
+                busy,
+                (v) => {
+                  // iOS 13+ 要求传感器权限必须在用户手势里申请；开关点击正好是那次手势。
+                  // 只申请这个开关要用的种类，不顺手把摇一摇的权限也问了。
+                  if (v) void requestMotionPermission({ tilt: true, shake: false });
+                  props.onChange({ tiltGravity: v });
+                },
+                'look.physics.tiltGravity',
+              ),
+              toggleCell(
+                'physicsShake',
+                physics.shakeThrow === true,
+                busy,
+                (v) => {
+                  if (v) void requestMotionPermission({ tilt: false, shake: true });
+                  props.onChange({ shakeThrow: v });
+                },
+                'look.physics.shakeThrow',
+              ),
             ]),
           ],
         }),

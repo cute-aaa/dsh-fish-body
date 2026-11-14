@@ -4,7 +4,7 @@
  * 负责判定请求能否进入路由，并清掉上游写出的宽 CORS 头；不处理业务语义。
  * 必须始终成立：只接受当前回环地址；令牌只出现在启动清单、请求头与 HttpOnly cookie，
  * 绝不进日志或响应体。设置页首次带令牌访问后换一枚会话 cookie，刷新时地址栏里已没有令牌。
- * @module dsh-pet/src/standalone/request-security
+ * @module dsh-fish-body/src/standalone/request-security
  */
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';

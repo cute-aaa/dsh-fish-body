@@ -6,7 +6,7 @@
  * 圆点、字段与宠物列表一起归位，不会出现「一半回滚了、另一半没回」。
  * 代价是它依赖服务端可达：拉不到就把失败如实说出来，页面保持原样（不做本地猜测）。
  * owns only 这次「重读」的状态机，never 加载、写盘与基线的实现。
- * @module dsh-pet/src/client/settings/use-revert
+ * @module dsh-fish-body/src/client/settings/use-revert
  */
 import type { LoadState } from './config/index.ts';
 import type { Feedback } from './feedback.ts';

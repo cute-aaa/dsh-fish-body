@@ -3,7 +3,7 @@
  *
  * 不监听会话事件（归会话监听器），不渲染气泡。
  * 依赖由 apply 显式传入（见输入类型），模块内不读全局、不建单例。
- * @module dsh-pet/src/host/plugin/work-status-bridge
+ * @module dsh-fish-body/src/host/plugin/work-status-bridge
  */
 import type { HostSetup } from './setup.ts';
 

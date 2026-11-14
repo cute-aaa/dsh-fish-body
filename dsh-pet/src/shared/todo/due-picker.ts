@@ -5,7 +5,7 @@
  * 内嵌而不是浮层：桌面宠物窗口只比宠物大一圈，浮层会被窗口边缘裁掉；面板向上长，两端一致。
  * 显隐由面板的折叠容器控制（这里不设 hidden，display:none 会让折叠过渡失效），本模块只报告
  * aria-expanded 与 onOpenChange；值写成 `YYYY-MM-DDTHH:mm`，提醒链路不感知这里。
- * @module dsh-pet/src/shared/todo/due-picker
+ * @module dsh-fish-body/src/shared/todo/due-picker
  */
 import { monthCells } from './calendar.ts';
 import { dueLabel, formatDateTimeLocal } from './format.ts';

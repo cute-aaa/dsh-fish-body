@@ -3,7 +3,7 @@
  * 不读 LLM、不碰渲染；失败只留痕，绝不写空人设覆盖既有值。
  * 写盘后不重启 Helper：碎碎念与对话每次生成都现读配置，改 whisperPrompt 无需重启。
  * 必须始终成立：只有 resolve 成功才写盘，not-found / invalid-card 一律跳过。
- * @module dsh-pet/src/host/persona-source/sync
+ * @module dsh-fish-body/src/host/persona-source/sync
  */
 import { watch } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -44,7 +44,7 @@ export async function applyPersona(
   const rawPets: unknown = merged.main.pets;
   const mainPets = Array.isArray(rawPets) ? (rawPets as Record<string, unknown>[]) : [];
   if (mainPets.length === 0) {
-    defaultLog('warn', 'dsh-pet: 人设同步跳过：主配置没有宠物');
+    defaultLog('warn', 'fish-body: 人设同步跳过：主配置没有宠物');
     return;
   }
   const currentText = typeof mainPets[0].whisperPrompt === 'string' ? mainPets[0].whisperPrompt : '';
@@ -57,14 +57,14 @@ export async function applyPersona(
   const existing = readUserConfig(configPaths);
   const clean = saveUserConfig({ pets }, existing);
   if (!clean) {
-    defaultLog('warn', 'dsh-pet: 人设同步写盘失败（saveUserConfig 拒绝 pets）');
+    defaultLog('warn', 'fish-body: 人设同步写盘失败（saveUserConfig 拒绝 pets）');
     return;
   }
   await mkdir(dirname(userConfigPath), { recursive: true });
   await writeFile(userConfigPath, JSON.stringify(clean, null, 2), 'utf8');
   defaultLog(
     'info',
-    `dsh-pet: 人设已同步自 ${sourceId}，${persona.text.length} 字${nextName ? '，角色名 ' + nextName : ''}`,
+    `fish-body: 人设已同步自 ${sourceId}，${persona.text.length} 字${nextName ? '，角色名 ' + nextName : ''}`,
   );
 }
 
@@ -83,14 +83,14 @@ export function createPersonaSync(input: PersonaSyncInput): { start(): void; sto
   const syncOnce = async (): Promise<void> => {
     const source = personaSource(sourceId);
     if (!source) {
-      defaultLog('warn', `dsh-pet: 人设来源未注册: ${sourceId}`);
+      defaultLog('warn', `fish-body: 人设来源未注册: ${sourceId}`);
       return;
     }
     const resolution = await source.resolve();
     if (!resolution.ok) {
       defaultLog(
         'warn',
-        `dsh-pet: 人设卡同步跳过（${resolution.reason}${resolution.message ? ' ' + resolution.message : ''}）`,
+        `fish-body: 人设卡同步跳过（${resolution.reason}${resolution.message ? ' ' + resolution.message : ''}）`,
       );
       return;
     }
@@ -115,10 +115,10 @@ export function createPersonaSync(input: PersonaSyncInput): { start(): void; sto
     try {
       watcher = watch(source.watchPath, schedule);
       watcher.on('error', (error) => {
-        defaultLog('warn', `dsh-pet: 人设卡监听出错: ${error instanceof Error ? error.message : String(error)}`);
+        defaultLog('warn', `fish-body: 人设卡监听出错: ${error instanceof Error ? error.message : String(error)}`);
       });
     } catch {
-      defaultLog('warn', `dsh-pet: 无法监听人设卡（可能尚未放置）: ${source.watchPath}`);
+      defaultLog('warn', `fish-body: 无法监听人设卡（可能尚未放置）: ${source.watchPath}`);
     }
   };
 

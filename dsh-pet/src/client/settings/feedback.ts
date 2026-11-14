@@ -3,7 +3,7 @@
  *
  * 单独成一个模块是因为它被写路径、卡片、按钮与若干 hook 一起依赖；放在任何一个组件文件里，
  * 都会让「只为了要一个类型」的模块去 import 一整个组件。
- * @module dsh-pet/src/client/settings/feedback
+ * @module dsh-fish-body/src/client/settings/feedback
  */
 
 /** 一处反馈；`text` 为空表示没有可显示的内容。 */

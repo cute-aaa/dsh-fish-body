@@ -106,18 +106,26 @@ export const ja: Record<Key, string> = {
   corruptConfirm: '強制保存',
   corruptBody:
     'ユーザー設定ファイルを解析できません（内容が破損しており、正しい JSON/JSONC ではありません）：{path}。保存を続けるとホワイトリストに従ってこのファイルを再構築します——現在このファイルにある内容（animations / physics / memes などのカスタムフィールド）はすべて失われます。キャンセル = ファイルを変更しない（設定を正しい形式に戻してから保存）；確認 = 強制保存（ファイル内の既存内容を破棄）。',
-  configMeta: '詳細設定（ファイル）',
-  configMetaHint:
-    'ユーザー設定はペット一覧 / アニメーションプール / 再生ウェイトを上書きできます。変更後は更新または再起動で反映されます：ブラウザではページを更新、デスクトップではペットを右クリック →「設定を再読み込み」（すべてのデスクトップペットウィンドウを再読み込み）。デフォルト設定が完全なリファレンスです。',
-  defaultConfig: 'デフォルト設定（読み取り専用、完全なリファレンス）',
-  userConfig: 'ユーザー設定（カスタム上書き）',
-  todosFile: 'ToDo データ（リストの内容、期限、完了状態。削除すると ToDo がすべて消えます）',
-  animationDir: 'アニメーション素材ディレクトリ（アニメーションをカスタマイズ / 追加できます）',
-  memesDir: 'ミーム画像ディレクトリ（画像をカスタマイズ / 追加できます）',
-  poolDir: '共有プールのディレクトリ（スキン / モデル / アニメ / 効果音の共有先）',
-  logFile: 'ログファイル（トラブルシューティング用。消去しても問題ありません）',
-  logFileNote:
-    'デスクトップ版にはコンソールがないため、プラグインの実行ログ（起動、デスクトップペットのクラッシュ / 再起動、エラーと警告）はすべてこの1つのファイルに書き込まれます。問題を報告する際はこのファイルを添付してください。1ファイルあたり最大 1 MB で、いっぱいになると最新の 512 KB だけが残ります。',
+  fsTitle: 'ファイルとディレクトリ',
+  fsHint:
+    'このプラグインがこの PC に置くもの——設定、データ、ランタイム、削除できるキャッシュ、素材——はすべて 1 つのデータルートに入ります。アンインストール = このディレクトリを削除することです（プラグイン本体は DSH が管理します）。',
+  fsRoot: 'データルート',
+  fsRootHint:
+    'このディレクトリを削除すると、設定・記憶・キャッシュ・素材がすべて消えます（プラグイン本体は残ります）。',
+  fsTree: 'ディレクトリ構成',
+  fsTreeHint:
+    'config と data はあなたの設定とデータです。気軽に削除しないでください。cache はいつ消しても構いません（自動で再構築されるか再ダウンロードされます）。runtime を削除すると Electron の再ダウンロードが必要です。pets と assets は素材の置き場で、命名規則は CONFIG.md にあります。',
+  fsBadgeDisposable: '削除可',
+  fsBadgeDownload: '要ダウンロード',
+  fsBadgeReadonly: '読み取り専用',
+  fsReadonly: '同梱・読み取り専用',
+  fsRuntime: 'ランタイム',
+  fsRuntimeReady: 'インストール済み',
+  fsRuntimeMissing: '未インストール',
+  fsRuntimeDownload: 'ランタイムをダウンロード',
+  fsRuntimeDownloading: 'ダウンロード中…',
+  fsRuntimeHint:
+    'デスクトップウィンドウには Electron が必要です。cache/ を削除しても影響はありませんが、runtime/ を削除すると再ダウンロードが必要になります。',
   saved: '保存しました。ペットにすぐ反映されました。',
   loadError: '設定の読み込みに失敗しました',
   saveError: '設定の保存に失敗しました。サーバー接続、設定ディレクトリの書き込み権限、サーバーログを確認してください。',
@@ -126,7 +134,7 @@ export const ja: Record<Key, string> = {
   retry: '再試行',
   invalid: '入力を確認してください：サイズは正の数、余白は任意の数値です。',
   extraPetsHint:
-    'ほかに {n} 種類が pet/ ディレクトリのファイル（<名>-config.json + <名>-animation/）から読み込まれます。上の「種類」バーで切り替えて変更できます。保存は各キャラクターパックの設定に書き戻され、main-config.jsonc には混ざりません。',
+    'ほかに {n} 種類が pets/ ディレクトリのファイル（<名>-config.json + <名>-animation/）から読み込まれます。上の「種類」バーで切り替えて変更できます。保存は各キャラクターパックの設定に書き戻され、main-config.jsonc には混ざりません。',
   kindLabel: '種類',
   kindMain: '内蔵',
   lastOfKind:
@@ -138,7 +146,7 @@ export const ja: Record<Key, string> = {
     '会話の完了 / 生成失敗 / 権限リクエスト / ユーザーへの確認を、ウィンドウが非アクティブのときに OS レベルの通知（デスクトップ右下）で表示します。',
   sfxToggle: '効果音',
   sfxToggleHint:
-    '設定と自動マッチした素材を鳴らします。オフで全消音。素材はほぼ設定不要：click.wav をスキンフォルダ、pet/<ルート>-sound/、アニメと同じ場所に置けば自動で拾います。無い場合は内蔵の既定音。',
+    '設定と自動マッチした素材を鳴らします。オフで全消音。素材はほぼ設定不要：click.wav をスキンフォルダ、pets/<ルート>-sound/、アニメと同じ場所に置けば自動で拾います。無い場合は内蔵の既定音。',
   sfxKeepAliveToggle: '音声を常時ウォーム',
   sfxKeepAliveToggleHint:
     '聞こえない 1 LSB の音源で出力を開いたままにし、久しぶりの一発でも音頭が欠けないようにします。システムミキサーに「Electron」項目が残り、全体音量として使えます。代償はデバイス占有と電池消費、音声ストリーム中は Windows が自動スリープしにくくなります。',
@@ -149,7 +157,7 @@ export const ja: Record<Key, string> = {
   sfxHint:
     'どのファイルを鳴らすかはホストが決めます：スキン > -sound > アニメと同じ場所 > ユーザー共有 > パッケージ既定。この画面はオンオフだけ。音量は「全体」の効果音の音量で調整します。',
   sfxFileHint:
-    '差し替えるには音声をスキンフォルダ（pet/xxx-skin/click.wav）か pet/<ルート>-sound/ に置きます。ファイル名がタイミング名です。置いたら再読み込み。',
+    '差し替えるには音声をスキンフォルダ（pets/xxx-skin/click.wav）か pets/<ルート>-sound/ に置きます。ファイル名がタイミング名です。置いたら再読み込み。',
   sfxSlotPattern: 'ファイル名：{name}.wav または <スキン名>-{name}.wav',
   sfxNone: 'ファイルなし',
   sfxTry: '試聴',
@@ -330,27 +338,13 @@ export const ja: Record<Key, string> = {
   notifyDenyError: '権限の要求中にエラーが発生しました',
   notifyGuide:
     'ガイド：アドレスバー左側の 🔒/ⓘ →「サイトの設定」→「通知」→「許可」に変更し、ページを更新してから再試行してください。',
-  storageTitle: 'アンインストールとストレージ',
-  storageHint:
-    'プラグインがこの PC 上に作成されるすべての場所です。キャッシュを削除しても使用に影響はありません（自動的に再ダウンロード / 再構築されます）。「プラグインのユーザーデータ」を削除すると、設定と会話メモリが失われます。',
-  'storage.userData':
-    'プラグインのユーザーデータ：カスタム設定 main-config.jsonc、会話メモリ memory.json、カスタムアニメーション素材 main-animation/、ファイル型ペット pet/',
-  'storage.electron':
-    'デスクトップペットが使う Electron ランタイム（サイズが大きい。削除すると次回デスクトップモード起動時に自動で再ダウンロードされます）',
-  'storage.desktopCache':
-    'デスクトップペットウィンドウのキャッシュとメインディスプレイのスケールキャッシュ（削除しても問題ありません。自動で再構築されます）',
-  'storage.electronCache':
-    'Electron インストーラーのダウンロードキャッシュ（削除しても問題ありません。必要時に再ダウンロードされます）',
-  'storage.package':
-    'プラグイン本体（DSH が管理します。手動で削除せず、下のアンインストールコマンドで削除してください）',
-  storageMissing: ' （未作成）',
   uninstallTitle: 'アンインストール方法',
   uninstallStep1:
-    '1. まず DSH を終了します（デスクトップペットも一緒に終了します）。ペットの実行中に上記のファイルを削除しないでください。',
+    '1. まず DSH を終了します（デスクトップペットも一緒に終了します）。ペットの実行中にこのデータを削除しないでください。',
   uninstallStep2:
     '2. プラグイン本体を削除します（ターミナルで実行します。profile の bundle レイヤーからも同時に削除されます）：',
   uninstallStep3:
-    '3. 上記の場所を必要に応じて削除します：キャッシュは削除しても影響ありません。「プラグインのユーザーデータ」を削除すると設定と会話メモリが失われます（残したい場合は中の main-config.jsonc を先にバックアップしてください）。',
+    '3. すべて消したい場合はデータルート {root} を削除します：cache/ は削除しても影響なし、config/ や data/ を削除すると設定と会話メモリが失われます（残したい場合は先に config/main-config.jsonc をバックアップしてください）。',
   motionTitle: 'アクション頻度',
   motionHint:
     '4つの欄：待機 / 方向転換 / 移動は編集でき、ランダムアクションは自動計算（100 − 残り3つ）。グローバルデフォルトで、すべてのペットに共通です。pet pack は自身の種類ファイルで上書きできます。',
@@ -358,7 +352,7 @@ export const ja: Record<Key, string> = {
   'motion.turn': '方向転換',
   'motion.move': '移動',
   'motion.action': 'ランダムアクション',
-  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-fish-body',
   // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
   'fish.intro':
     '新規・実行中・終了直後でまだ開いていないセッションごとに「コードを書く」小アニメが付きます。ドラッグで移動、クリックで開く、× で閉じます。',
@@ -476,5 +470,5 @@ export const ja: Record<Key, string> = {
   secSpeak: '読み上げ',
   secTiming: 'テンポ',
   sizesTitle: 'レンダラーごとのサイズ',
-  extraPetsShort: '他に {n} 種類は pet/ ディレクトリにあります',
+  extraPetsShort: '他に {n} 種類は pets/ ディレクトリにあります',
 };

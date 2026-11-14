@@ -5,7 +5,7 @@
  * 两种情况都只让这一条命令消失，绝不拖垮插件加载。
  * 键位一律「一条命令一个键」：不按桌面/网页给不同默认值，要换去设置里换。
  * 同一个服务还提供「当前生效键帽」的读面：用户改绑后，展示必须跟着变，不能再念默认值。
- * @module dsh-pet/src/client/app-shortcut
+ * @module dsh-fish-body/src/client/app-shortcut
  */
 
 /** 一条物理键位：`primary` 在 macOS 展开成 Command，其余平台是 Control。 */
@@ -114,7 +114,7 @@ export function registerAppShortcut(
 ): { registered: boolean; dispose: () => void } {
   const shortcuts = ctx.get?.('shortcuts') as ShortcutsService | undefined;
   if (shortcuts === undefined || typeof shortcuts.register !== 'function') {
-    console.warn('[dsh-pet] 快捷键服务不可用，「' + shortcut.id + '」未注册');
+    console.warn('[fish-body] 快捷键服务不可用，「' + shortcut.id + '」未注册');
     return { registered: false, dispose: () => {} };
   }
   try {
@@ -133,7 +133,7 @@ export function registerAppShortcut(
     return { registered: true, dispose: () => dispose() };
   } catch (error) {
     // 注册被拒（键位不被接受 / id 冲突）：只丢这一条快捷键
-    console.warn('[dsh-pet] 快捷键注册失败：' + (error instanceof Error ? error.message : String(error)));
+    console.warn('[fish-body] 快捷键注册失败：' + (error instanceof Error ? error.message : String(error)));
     return { registered: false, dispose: () => {} };
   }
 }

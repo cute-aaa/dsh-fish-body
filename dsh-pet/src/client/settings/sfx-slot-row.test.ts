@@ -26,6 +26,7 @@ const runtime = { h, t: (key: string) => key, useState: (<T>(init: T) => [init, 
 const slot = (patch: Partial<SfxSlotView> & Pick<SfxSlotView, 'slot'>): SfxSlotView => ({
   enabled: true,
   file: 'x.wav',
+  matched: true,
   origin: 'package-default',
   which: 'sound',
   ...patch,
@@ -66,9 +67,19 @@ describe('SfxSlotRows —— 槽位紧凑列表', () => {
     assert.equal(tries.length, SFX_EVENT_SLOTS.length);
   });
 
-  test('关掉的槽位不给试听，忙时全部禁用', () => {
-    const off = flatten(Rows({ busy: false, sfx: settingsOf(everySlot({ enabled: false })) }));
-    for (const node of off.filter((item) => item.tag === 'button')) assert.equal(node.props.disabled, true);
+  test('开关关着但匹配到了文件：照样能试听（先听再决定开不开）', () => {
+    const nodes = flatten(Rows({ busy: false, sfx: settingsOf(everySlot({ enabled: false, matched: true })) }));
+    const buttons = nodes.filter((node) => node.tag === 'button');
+    assert.equal(buttons.length, SFX_EVENT_SLOTS.length);
+    for (const node of buttons) assert.equal(node.props.disabled, false, '开关不是试听的门槛');
+    // 开关本身仍然停在「关」：试听不影响配置。
+    const boxes = nodes.filter((node) => node.tag === 'input' && node.props.type === 'checkbox');
+    for (const box of boxes) assert.equal(box.props.checked, false);
+  });
+
+  test('没匹配到文件：试听禁用；忙时全部禁用', () => {
+    const unmatched = flatten(Rows({ busy: false, sfx: settingsOf(everySlot({ matched: false })) }));
+    for (const node of unmatched.filter((item) => item.tag === 'button')) assert.equal(node.props.disabled, true);
     const busy = flatten(Rows({ busy: true, sfx: settingsOf(everySlot()) }));
     for (const node of busy.filter((item) => item.tag === 'button')) assert.equal(node.props.disabled, true);
   });

@@ -1,34 +1,35 @@
 /**
- * 用户目录的初始化结构：插件启动时把「设置页高级配置里的那几个目录」先建出来。
+ * 用户目录的初始化：启动时把布局里约定的目录建出来，并给每个目录写一句备注。
  *
- * 存在意义是让「打开文件夹」永远不用先问「要不要创建」，也顺带把池的目录约定（`layered` / `live2d` /
- * `webm` / `sound`）摆在用户眼前——目录本身就是自解释的说明书，比在文档里找树状图便宜。
- * 只建目录、不写占位文件：空目录不参与任何扫描（池对空目录与不存在同义），删了下次启动会再建。
+ * 存在意义是让「打开文件夹」永远不用先问「要不要创建」，也顺带把目录约定（`pets/` 怎么放、
+ * `assets/skin` 里分哪几层）摆在用户眼前——目录本身就是自解释的说明书，比在文档里找树状图便宜。
+ * 只建目录、写备注，不写占位文件：空目录不参与任何扫描（池对空目录与不存在同义），删了下次启动会再建。
  * 任何一步失败都只记录、不抛：数据根落在只读盘或没有权限时，插件本身照常可用。
- * @module dsh-pet/src/host/layout
+ * @module dsh-fish-body/src/host/layout
  */
 import { existsSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { POOL_LAYER_DIR, POOL_SOUND_DIR } from '../shared/pool.ts';
-import { POOL_RENDERERS } from './pool/resolve.ts';
+import { writeFolderNotes, type FolderNoteResult, type NoteFs } from './folder-note.ts';
+import { layoutDirs, layoutNotes, type UserPaths } from './user-layout.ts';
 
-/** 初始化需要知道的几个用户级目录。 */
+/** 初始化需要知道的目录与可选项。 */
 export interface LayoutInput {
-  /** 本插件的数据根（`<DSH_HOME>/dsh-pet`）。 */
-  readonly userRoot: string;
-  /** 用户动画目录（`main-animation`，下面按扩展名再分子目录）。 */
-  readonly animations: string;
-  /** 用户表情包目录（`memes`）。 */
-  readonly memes: string;
-  /** 共享资源池的根（`assets.pool` 的解析结果，默认 `<用户根>/skin`）。 */
-  readonly poolRoot: string;
-  /** 会话鱼的皮肤目录（`<用户根>/session-fish-skin`）；缺省不建。 */
-  readonly fishSkin?: string;
+  /** `userPaths()` 的结果：本插件数据根的完整路径表。 */
+  readonly paths: UserPaths;
   /** 动画子目录名；缺省 `webm` 与 `mov`（宿主按扩展名各用一条，见 `animSubdirFor`）。 */
   readonly animSubdirs?: readonly string[];
+  /** 池的渲染方式层目录名；缺省 `layered` / `live2d` / `webm`。 */
+  readonly poolLayerDirs?: readonly string[];
+  /** 池的音效子目录名（缺省 `sound`）。 */
+  readonly poolSoundDir?: string;
+  /** 是否写文件夹备注；缺省 `true`（测试与特殊环境可关）。 */
+  readonly notes?: boolean;
+  /** 平台与替身（测试注入）。 */
+  readonly platform?: NodeJS.Platform;
+  readonly noteFs?: NoteFs;
+  readonly runAttrib?: (args: readonly string[]) => void;
 }
 
-/** 初始化的结果：建了哪些、哪些没建成。 */
+/** 初始化的结果：建了哪些、哪些没建成、备注写得怎样。 */
 export interface LayoutResult {
   /** 全部候选目录（按创建顺序，已去重）。 */
   readonly dirs: readonly string[];
@@ -36,39 +37,34 @@ export interface LayoutResult {
   readonly created: readonly string[];
   /** 建不出来的目录与原因（已经存在的目录不在此列）。 */
   readonly failed: readonly { readonly dir: string; readonly error: string }[];
+  /** 备注的写入结果（按目录；`notes: false` 时为空对象）。 */
+  readonly notes: Readonly<Record<string, FolderNoteResult>>;
 }
-
-/** 缺省动画子目录：与 `animSubdirFor` 的两个返回值一致。 */
-const DEFAULT_ANIM_SUBDIRS: readonly string[] = ['webm', 'mov'];
 
 /**
  * 算出初始化该有的全部目录。
  *
- * 顺序是「浅层在前」：`<用户根>` → 各用户目录 → 池根 → 池的四个约定目录 → 各渲染方式的兜底音效目录。
- * 池根的四个约定目录固定为 `layered` / `live2d` / `webm` / `sound`（与 `docs/CONFIG.md` 的树状图同源）。
+ * 顺序是「浅层在前」：根 → 六个分组 → 各自的约定子目录，见 `user-layout.layoutDirs`。
  *
- * @param input - 用户级目录。
+ * @param input - 路径表与可选子目录名。
  * @returns 目录绝对路径，去重后按创建顺序排列。
  */
 export function userLayoutDirs(input: LayoutInput): string[] {
-  const animSubdirs = input.animSubdirs ?? DEFAULT_ANIM_SUBDIRS;
-  const out: string[] = [input.userRoot];
-  for (const sub of animSubdirs) out.push(join(input.animations, sub));
-  out.push(input.animations, input.memes, input.poolRoot);
-  if (input.fishSkin !== undefined) out.push(input.fishSkin);
-  for (const renderer of POOL_RENDERERS) {
-    const layer = join(input.poolRoot, POOL_LAYER_DIR[renderer]);
-    out.push(layer, join(layer, POOL_SOUND_DIR));
-  }
-  out.push(join(input.poolRoot, POOL_SOUND_DIR));
-  return [...new Set(out)];
+  return layoutDirs({
+    paths: input.paths,
+    ...(input.animSubdirs === undefined ? {} : { animSubdirs: input.animSubdirs }),
+    ...(input.poolLayerDirs === undefined ? {} : { poolLayerDirs: input.poolLayerDirs }),
+    ...(input.poolSoundDir === undefined ? {} : { poolSoundDir: input.poolSoundDir }),
+  });
 }
 
 /**
- * 建出初始化的目录结构。
+ * 建出初始化的目录结构并写备注。
  *
- * @param input - 用户级目录。
- * @returns 建了哪些、哪些没建成。目录本来就存在时 `created` 里不会出现它。
+ * 备注只在目录**确实存在**之后写（刚建失败就没有可写的地方）。
+ *
+ * @param input - 路径表与可选项。
+ * @returns 建了哪些、哪些没建成、备注结果。
  */
 export function ensureUserLayout(input: LayoutInput): LayoutResult {
   const dirs = userLayoutDirs(input);
@@ -83,5 +79,15 @@ export function ensureUserLayout(input: LayoutInput): LayoutResult {
       failed.push({ dir, error: error instanceof Error ? error.message : String(error) });
     }
   }
-  return { created, dirs, failed };
+
+  if (input.notes === false) return { created, dirs, failed, notes: {} };
+  const wanted = layoutNotes(input.paths);
+  const existing = new Map<string, string>();
+  for (const [dir, note] of wanted) if (existsSync(dir)) existing.set(dir, note);
+  const notes = writeFolderNotes(existing, {
+    ...(input.platform === undefined ? {} : { platform: input.platform }),
+    ...(input.noteFs === undefined ? {} : { fs: input.noteFs }),
+    ...(input.runAttrib === undefined ? {} : { runAttrib: input.runAttrib }),
+  });
+  return { created, dirs, failed, notes };
 }

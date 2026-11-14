@@ -96,6 +96,8 @@ tags:
     description: 字体、通知图标、表情包、动画素材
   - name: Voice
     description: 语音合成——参数校验、排队与缓存都在宿主，成功时直接返回音频文件（格式由合成实现决定）
+  - name: Desktop
+    description: 桌面端——重载、退出与 Electron 运行时（状态与下载触发）
 
 paths:
   /dsh-pet-7340/state:
@@ -2663,57 +2665,120 @@ paths:
     get:
       tags: [Config]
       operationId: getConfigMeta
-      summary: 配置文件路径与存储位置清单
+      summary: 数据根、目录树与运行时状态
       description: |
-        设置页「高级配置」与「卸载与存储」区块的展示数据源：
-        告诉你配置和各类数据到底落在哪、日志文件在哪，以及卸载命令该用哪个 profile。
+        设置页「文件与目录」卡的唯一数据源：一个数据根、一棵目录树、一组包内只读参考、运行时状态，
+        以及卸载命令该用哪个 profile。树由宿主按 `host/user-layout` 生成，客户端只负责画。
       responses:
         "200":
-          description: 路径清单。本端点只读路径与环境，不做业务判断，因此没有失败实体。
+          description: 路径与树。本端点只读路径与环境，不做业务判断，因此没有失败实体。
           content:
             application/json:
               schema:
                 type: object
-                required: [user, default, animations, logs, storage, profile]
+                required: [root, layout, readonly, user, default, animations, logs, profile, package]
                 properties:
+                  root:
+                    type: string
+                    description: 数据根绝对路径（`$DSH_HOME/fish-body`）
+                  layout:
+                    type: array
+                    description: |
+                      数据根下的目录树（顺序即展示顺序，`depth` 表示层级）。
+                      `cache/*` 带 `badge: disposable`（可随手删），`runtime/electron` 带 `badge: download`（删了要重新下载）。
+                    items:
+                      $ref: "#/components/schemas/MetaNode"
+                  readonly:
+                    type: array
+                    description: 包内只读参考（默认配置与随包素材），不在数据根下
+                    items:
+                      $ref: "#/components/schemas/MetaNode"
+                  runtime:
+                    $ref: "#/components/schemas/RuntimeStatus"
+                  package:
+                    type: string
+                    description: 插件本体目录（由 DSH 管理，卸载用命令，不要手删）
                   user:
                     type: string
-                    description: 用户层配置文件绝对路径
+                    description: 用户层配置文件绝对路径（`<数据根>/config/main-config.jsonc`）
                   default:
                     type: string
                     description: 包内内置默认配置绝对路径
                   animations:
                     type: string
-                    description: 用户动画素材根目录绝对路径
+                    description: 用户动画素材根目录绝对路径（`<数据根>/assets/animation`）
                   memes:
                     type: string
-                    description: 用户表情包目录绝对路径（加图不必改包）
+                    description: 用户表情包目录绝对路径（`<数据根>/assets/memes`，加图不必改包）
                   pool:
                     type: string
                     description: |
-                      共享资源池根绝对路径（`assets.pool`，默认 `$DSH_HOME/dsh-pet/skin`）。
+                      共享资源池根绝对路径（`assets.pool`，默认 `<数据根>/assets/skin`）。
                       池里按 `layered/`、`live2d/`、`webm/`、`sound/` 四类放素材，所有宠物共用。
                   todos:
                     type: string
                     description: |
-                      待办数据文件绝对路径（`$DSH_HOME/dsh-pet/todos.json`）。
+                      待办数据文件绝对路径（`<数据根>/data/todos.json`）。
                       一份用户级数据、不分宠物：清单正文、到期时间与完成状态都在这里，删掉等于清空待办。
                   logs:
                     type: string
                     description: |
-                      统一日志文件绝对路径（`$DSH_HOME/dsh-pet/logs.txt`）。
+                      统一日志文件绝对路径（`<数据根>/logs.txt`）。
                       桌面版 DSH 没有控制台，插件的运行日志全部落在这一个文件上，
                       单文件上限 1 MB，写满后只保留最新的 512 KB。
-                  storage:
-                    type: array
-                    description: 全部落盘位置（用户数据 / Electron 运行时 / 桌面端缓存 / 下载缓存 / 插件本体）
-                    items:
-                      $ref: "#/components/schemas/StorageEntry"
                   profile:
                     type: string
                     description: |
                       DSH profile 名，用于拼接卸载命令
-                      `dsh plugin --profile <名> remove dsh-pet`。反推不出时为空串。
+                      `dsh plugin --profile <名> remove dsh-fish-body`。反推不出时为空串。
+
+  /dsh-pet-7340/desktop/runtime:
+    get:
+      tags: [Desktop]
+      operationId: getDesktopRuntime
+      summary: 读 Electron 运行时状态
+      description: |
+        设置页「文件与目录 → 运行时」那行的数据源：装没装、装在哪、什么版本。
+        运行时落在 `<数据根>/runtime/electron`，**不在 cache 里**——删 cache 不该逼用户重下 350 MB。
+      responses:
+        "200":
+          description: 运行时状态
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, runtime]
+                properties:
+                  ok:
+                    type: boolean
+                  runtime:
+                    $ref: "#/components/schemas/RuntimeStatus"
+    post:
+      tags: [Desktop]
+      operationId: downloadDesktopRuntime
+      summary: 触发 Electron 运行时下载
+      description: |
+        幂等：已经装好时回 `started:false, installed:true`；已有一个下载在跑时回 `started:false`。
+        不阻塞响应（一次下载几分钟），界面用 GET 轮询状态。
+      responses:
+        "200":
+          description: 下载已起步（或本来就不需要）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, started, installed]
+                properties:
+                  ok:
+                    type: boolean
+                  started:
+                    type: boolean
+                  installed:
+                    type: boolean
+                  runtime:
+                    $ref: "#/components/schemas/RuntimeStatus"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
 
   /dsh-pet-7340/models:
     get:
@@ -5896,15 +5961,60 @@ components:
               name:
                 type: string
 
-    StorageEntry:
+    MetaNode:
       type: object
-      description: 一处落盘位置
+      description: 目录树里的一个节点（扁平列表 + `depth`，顺序即展示顺序）
+      required: [key, rel, name, path, kind, depth, exists]
       properties:
-        label:
+        key:
           type: string
+          description: 稳定键（不翻译，仅用于取徽标与提示）
+        rel:
+          type: string
+          description: 展示用路径（相对数据根；池根在根外时是绝对路径）
+        name:
+          type: string
+          description: 这一行自己的名字（目录名或文件名）
         path:
           type: string
-      additionalProperties: true
+          description: 绝对路径
+        kind:
+          type: string
+          enum: [dir, file, pkg]
+          description: 目录 / 文件 / 包内只读
+        depth:
+          type: integer
+          description: 缩进层级，0 = 数据根
+        exists:
+          type: boolean
+          description: 此刻是否存在
+        open:
+          type: string
+          description: |
+            可打开的目录类别（`POST /open-folder?which=<值>`）：root / config / data / cache /
+            runtime / pets / assets / pool-root / fish-skin 等。文件与包内只读没有这个字段。
+        badge:
+          type: string
+          enum: [disposable, download]
+          description: 小徽标——`disposable` = 可随手删，`download` = 删了要重新下载
+
+    RuntimeStatus:
+      type: object
+      description: Electron 运行时状态
+      required: [dir, exe, installed]
+      properties:
+        dir:
+          type: string
+          description: 运行时目录（`<数据根>/runtime/electron`；迁移未完成时可能是旧位置）
+        exe:
+          type: string
+          description: 可执行文件期望路径
+        installed:
+          type: boolean
+          description: 是否已装（存在且非空）
+        version:
+          type: string
+          description: 版本号（读 `<exe 同级>/version`；读不到时省略）
 
     ModelSelection:
       type: object

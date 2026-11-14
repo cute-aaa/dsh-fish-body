@@ -1,6 +1,6 @@
 /**
  * 人设同步写回单元测试：钉住「投影正文与角色名写进主配置第一只宠物」与「没变化不重写」。
- * @module dsh-pet/src/host/persona-source/sync.test
+ * @module dsh-fish-body/src/host/persona-source/sync.test
  */
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

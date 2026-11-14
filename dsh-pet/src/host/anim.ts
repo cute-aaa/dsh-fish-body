@@ -7,7 +7,7 @@
  * 前者的来源是 src/shared/menu.ts 的 buildMenuTree()（宿主不 import src/shared，故自包含一份），
  * 后者不进菜单、但同样是本插件自有素材（吃白饭按名字点播它）。只依赖成品配置，不碰文件系统。
  * 契约见 API.md 与 openapi.yaml。
- * @module dsh-pet/src/host/anim
+ * @module dsh-fish-body/src/host/anim
  */
 
 import { findPetInstance } from './config.ts';

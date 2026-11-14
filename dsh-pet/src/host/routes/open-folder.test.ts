@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import { handleOpenFolderRoutes } from './open-folder.ts';
 import { parseFolderTarget, resolveFolderTarget, resolveGlobalFolder } from '../open-folder.ts';
+import { userPaths } from '../user-layout.ts';
 import type { PetRouteDeps } from './types.ts';
 import type { RouteResult } from '../http.ts';
 
@@ -47,11 +48,10 @@ const deps = (entry = 'main', pet: Record<string, unknown> = { model: 'beiluoye'
       poolWebmDir: join(dir, 'skin', 'webm'),
     }),
     openDir: (path: string) => opened.push(path),
-    // 全局类别（pool-root / animations / memes / user-root）直接用这几项，不需要宠物。
-    userRoot: dir,
-    thumbUserRoot: join(dir, 'main-animation'),
-    memesUserRoot: join(dir, 'memes'),
-    poolRoot: () => join(dir, 'skin'),
+    // 全局类别（pool-root / animations / memes / root / config / data / cache / runtime / pets / assets）
+    // 直接取数据根的路径表，池根随配置单独传。
+    paths: userPaths(dir),
+    poolRoot: () => join(dir, 'assets', 'skin'),
   }) as unknown as PetRouteDeps;
 
 /** 调一次路由。 */
@@ -235,12 +235,23 @@ describe('全局目录（which=pool-root / animations / memes / user-root）', (
     return handleOpenFolderRoutes(deps(), { url: new URL('http://localhost/' + rest + query), rest, method });
   };
 
-  test('resolveGlobalFolder：四类各落到宿主的环境目录', () => {
-    const dirs = { animations: '/a', memes: '/m', pool: '/p', userRoot: '/u' };
+  test('resolveGlobalFolder：数据根的新旧类别各落到对应目录', () => {
+    const paths = userPaths(join('C:', 'u', 'fish-body'));
+    const dirs = { paths, pool: '/p' };
+    // 池根随配置变，单独传；其余全部来自路径表
     assert.equal(resolveGlobalFolder('pool-root', dirs), '/p');
-    assert.equal(resolveGlobalFolder('animations', dirs), '/a');
-    assert.equal(resolveGlobalFolder('memes', dirs), '/m');
-    assert.equal(resolveGlobalFolder('user-root', dirs), '/u');
+    assert.equal(resolveGlobalFolder('root', dirs), paths.root);
+    assert.equal(resolveGlobalFolder('config', dirs), paths.configDir);
+    assert.equal(resolveGlobalFolder('data', dirs), paths.dataDir);
+    assert.equal(resolveGlobalFolder('cache', dirs), paths.cacheDir);
+    assert.equal(resolveGlobalFolder('runtime', dirs), paths.runtimeDir);
+    assert.equal(resolveGlobalFolder('pets', dirs), paths.petsDir);
+    assert.equal(resolveGlobalFolder('assets', dirs), paths.assetsDir);
+    // 旧类别仍然可用，值指向新布局里的位置
+    assert.equal(resolveGlobalFolder('user-root', dirs), paths.root);
+    assert.equal(resolveGlobalFolder('animations', dirs), paths.animationDir);
+    assert.equal(resolveGlobalFolder('memes', dirs), paths.memesDir);
+    assert.equal(resolveGlobalFolder('fish-skin', dirs), paths.fishSkinDir);
   });
 
   test('不需要 pet：目录不存在时回 not-found 并带出算好的路径', async () => {
@@ -270,8 +281,8 @@ describe('全局目录（which=pool-root / animations / memes / user-root）', (
     assert.equal(obj.ok, true);
     assert.equal(obj.which, 'memes');
     assert.equal(obj.created, true);
-    assert.equal(obj.path, join(dir, 'memes'));
-    assert.deepEqual(opened, [join(dir, 'memes')]);
+    assert.equal(obj.path, userPaths(dir).memesDir);
+    assert.deepEqual(opened, [userPaths(dir).memesDir]);
   });
 
   test('pool-root 用 deps.poolRoot() 的解析结果（不是写死的 skin）', async () => {

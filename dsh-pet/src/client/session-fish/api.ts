@@ -3,7 +3,7 @@
  *
  * 一律「失败不抛」：调用方是 UI，把网络错误变成可显示的结果，比让异常冒到 React 边界更有用。
  * 路径只有一条（`ROUTE_PATH + '/session-fish'`），动作走 JSON body。
- * @module dsh-pet/src/client/session-fish/api
+ * @module dsh-fish-body/src/client/session-fish/api
  */
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import { readSessionFish, sessionFishSkinKindOf, type SessionFishSettings } from '../../shared/session-fish.ts';

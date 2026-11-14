@@ -4,13 +4,15 @@
  * 拆成两张脸是因为过去它们挤在同一行里：八个槽位 × （开关 + 试听 + 来源 + 路径 + 打开文件夹 + 命名规则）
  * 就是一面墙，其中「打开文件夹」还重复了八次。常用动作（开关、试听）留在明面，
  * 排障时才需要的路径与命名规则收进同一个折叠，八条并排展开也还是一份清单。
- * @module dsh-pet/src/client/settings/sfx-slot-row
+ * @module dsh-fish-body/src/client/settings/sfx-slot-row
  */
 import type { FunctionComponent } from 'react';
 import { slotFileStem } from '../../shared/sfx/names.ts';
 import type { SfxEventSlot } from '../../shared/types.ts';
+import { NO_DIRTY, type DirtyQuery } from './dirty.ts';
 import { makeFolderButton } from './folder-button.ts';
 import type { SettingsRuntime } from './runtime.ts';
+import { switchNode } from './ui.ts';
 import type { SfxSettings, SfxSlotView } from './use-sfx-settings.ts';
 
 /** 槽位 → 文案键（`sfxSlot<Name>`）；顺序与 SFX_EVENT_SLOTS 一致。 */
@@ -45,10 +47,15 @@ export interface SfxSlotListProps {
   readonly busy: boolean;
   /** 分区状态与试听入口。 */
   readonly sfx: SfxSettings;
+  /** 未保存改动查询口：谁被改过，谁自己那颗圆点就亮起来。 */
+  readonly dirty?: DirtyQuery;
 }
 
 /**
  * 造槽位紧凑列表：一行一个时机，开关 + 试听 + 来源徽标。
+ *
+ * 试听与开关互不影响：开关关掉只是运行时静音，只要这一槽匹配到了文件，照样可以先听一遍
+ * 再决定要不要开（门槛是 {@link SfxSlotView.matched}，不是 `enabled`）。
  *
  * @param rt - 注入的节点工厂与翻译函数。
  * @returns 列表组件。
@@ -58,33 +65,30 @@ export function makeSfxSlotRows(rt: SettingsRuntime): FunctionComponent<SfxSlotL
 
   return function SfxSlotRows(props: SfxSlotListProps) {
     const { busy, sfx } = props;
+    const dirty = props.dirty ?? NO_DIRTY;
     return h('div', {
       className: 'dsh-pet-cfg__rows',
-      children: sfx.slots.map((view) =>
-        h('div', {
+      children: sfx.slots.map((view) => {
+        const touched = dirty.has('sfx.events.' + view.slot);
+        return h('div', {
           key: view.slot,
-          className: 'dsh-pet-cfg__row',
+          className: 'dsh-pet-cfg__row' + (touched ? ' is-dirty' : ''),
           children: [
             h('div', {
               key: 'main',
               className: 'dsh-pet-cfg__rowMain',
               children: [
-                // 开关沿用「开关视觉 + checkbox 语义」，与分区里其它开关同形。
+                // 开关沿用「开关视觉 + checkbox 语义」，与分区里其它开关同形（见 ./ui 的 switchNode）。
                 h('div', {
                   key: 'sw',
                   className: 'dsh-pet-cfg__switch',
-                  children: h('label', {
-                    children: [
-                      h('input', {
-                        key: 'i',
-                        type: 'checkbox',
-                        checked: view.enabled,
-                        disabled: busy,
-                        onChange: (event: { target: { checked: boolean } }) =>
-                          sfx.setSlotEnabled(view.slot, event.target.checked),
-                      }),
-                      h('span', { key: 't', children: t(SLOT_LABEL[view.slot] as Parameters<typeof t>[0]) }),
-                    ],
+                  children: switchNode(h, t, {
+                    dirty: touched,
+                    disabled: busy,
+                    hint: '',
+                    label: SLOT_LABEL[view.slot],
+                    onToggle: (next) => sfx.setSlotEnabled(view.slot, next),
+                    value: view.enabled,
                   }),
                 }),
                 // 来源徽标：没匹配到文件时给一句「未匹配」，否则没人知道为什么点了没声。
@@ -97,15 +101,15 @@ export function makeSfxSlotRows(rt: SettingsRuntime): FunctionComponent<SfxSlotL
                   key: 'try',
                   type: 'button',
                   className: 'dsh-pet-cfg__btn is-text',
-                  disabled: busy || !view.enabled,
+                  disabled: busy || !view.matched,
                   onClick: () => sfx.trySlot(view.slot),
                   children: t('sfxTry'),
                 }),
               ],
             }),
           ],
-        }),
-      ),
+        });
+      }),
     });
   };
 }

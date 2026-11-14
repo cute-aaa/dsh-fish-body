@@ -3,7 +3,7 @@
  * 不发起请求，显隐与停留时长由 pet.ts 控制。
  * 依赖运行时注入的 react 与 shared 的 balance / whisper 视图。
  * 必须始终成立：样式与桌面端同源，文案与档位由 shared 计算。
- * @module dsh-pet/src/client/bubble
+ * @module dsh-fish-body/src/client/bubble
  */
 import {
   balancePageView,

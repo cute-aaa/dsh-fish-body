@@ -2,7 +2,7 @@
  * 「测试弹窗」按钮的动作：借这次用户手势申请系统通知权限，成功后直接发一条测试通知。
  * 一个按钮兼做「拿权限」与「验链路」：失败把理由与引导回给调用方就地显示，绝不静默。
  * 不持有状态，反馈通过回调交给设置页（它才知道把红字放哪）。
- * @module dsh-pet/src/client/settings/notify-test
+ * @module dsh-fish-body/src/client/settings/notify-test
  */
 import { NOTIFY_ICONS, requestNotificationPermission, wireNotificationClick } from '../notify.ts';
 import type { Feedback } from './feedback.ts';

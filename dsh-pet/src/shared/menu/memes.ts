@@ -1,7 +1,7 @@
 /**
  * 右键菜单的「配图」分支：按配置把表情包清单分成「纳入对话的配图」与「其他」两组。
  * 不读磁盘、不判断文件是否仍在——那是宿主的池判定；这里只按配置分组，客户端因此不必联网取清单。
- * @module dsh-pet/src/shared/menu/memes
+ * @module dsh-fish-body/src/shared/menu/memes
  */
 import type { MenuBranch, MenuLeaf, MenuNode } from './types.ts';
 

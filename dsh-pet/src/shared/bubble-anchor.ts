@@ -5,7 +5,7 @@
  * layered / live2d 的画布是**方形**且底部对齐舞台，宠物头顶跑到舞台顶以上，
  * 死锚在 10.8% 会正好盖在脸上，只能按渲染器实测的内容顶重算。
  * 两端（浏览器 PetCard / 桌面 Helper）共用这一份判据，桌面还要用它撑开窗口上边距。
- * @module dsh-pet/src/shared/bubble-anchor
+ * @module dsh-fish-body/src/shared/bubble-anchor
  */
 
 /** 舞台盒宽高比：`.dsh-pet-stage` / `.pet-stage` 都是 `width × 9/16`。 */

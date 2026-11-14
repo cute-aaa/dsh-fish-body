@@ -6,7 +6,7 @@
  * 音量不在这里：分项音量由配置的 `sfx` 段表达，设置页只在总闸卡里留一个总音量。
  * 试听走共享播放器，不落盘、不进配置。
  * owns only 这张卡的装配，never 槽位状态机与索引。
- * @module dsh-pet/src/client/settings/sfx-card
+ * @module dsh-fish-body/src/client/settings/sfx-card
  */
 import type { FunctionComponent } from 'react';
 import type { DirtyQuery } from './dirty.ts';
@@ -56,7 +56,7 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
           children: [
             // 卡头只留一个「打开声音目录」：八个槽位各挂一个同名按钮，除了把行撑高没有别的用处。
             cardHead(t('sfxTitle'), t('sfxHint'), 'sfx', h(FolderButton, { which: 'sound', disabled: busy })),
-            h(SlotRows, { key: 'rows', busy, sfx }),
+            h(SlotRows, { key: 'rows', busy, dirty: props.dirty, sfx }),
             note(t('sfxFileHint'), true),
             h(foldCard, {
               key: 'sources',
@@ -69,7 +69,7 @@ export function makeSfxCard(rt: SettingsRuntime): FunctionComponent<SfxCardProps
             }),
           ],
         }),
-        h(Hooks, { key: 'hooks', busy, sfx }),
+        h(Hooks, { key: 'hooks', busy, dirty: props.dirty, sfx }),
       ],
     });
   };

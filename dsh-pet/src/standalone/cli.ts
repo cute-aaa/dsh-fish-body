@@ -5,7 +5,7 @@
  * 负责把伪 ctx、本机 HTTP 服务与桌面 Helper 串成一条启动路径，并处理收尾与退出码。
  * 不实现路由、配置读取或窗口逻辑，这些都复用插件与宿主半侧的实现。
  * 必须始终成立：服务先监听再 apply，所有退出入口共用同一套收尾流程。
- * @module dsh-pet/src/standalone/cli
+ * @module dsh-fish-body/src/standalone/cli
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';

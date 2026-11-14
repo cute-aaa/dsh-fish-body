@@ -3,7 +3,7 @@
  *
  * 请求体里的 `voice` 只接受这里列出的 id——不接受任意音色串，否则等于把上游的能力面
  * 全部开放，出问题也说不清是谁传的。列表接口与校验都读同一个常量，不写第二份。
- * @module dsh-pet/src/host/voice/voices
+ * @module dsh-fish-body/src/host/voice/voices
  */
 
 /** 一个可选音色；`id` 是 edge 服务端的 short name，其余字段只用于展示。 */

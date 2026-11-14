@@ -4,7 +4,7 @@
  * 设置页只展示、不解析路径（它拿不到用户根，也不该自己拼目录）；宿主在这里按
  * host/sfx/order 的同一条层序回查，保证展示的路径就是真正会播的那一份。
  * 只读盘（`existsSync`）与拼字符串，不判定优先级——优先级已在 index-build 里定了。
- * @module dsh-pet/src/host/sfx/paths
+ * @module dsh-fish-body/src/host/sfx/paths
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';

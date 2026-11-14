@@ -4,7 +4,7 @@
  * 与状态机分开：这一层只做「请求 + 解析 + 归一化错误」，不碰 react、不碰轮询节奏。
  * 失败一律翻译成 `null`（读）或抛错（写）——调用方决定是保留原值还是把原因显示在卡里。
  * 凭据类字段不过这里：接入配置只透传宿主的 `values`，不做日志与回显。
- * @module dsh-pet/src/client/settings/voice-api
+ * @module dsh-fish-body/src/client/settings/voice-api
  */
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import type { VoiceOption } from './picker/voice-picker.ts';

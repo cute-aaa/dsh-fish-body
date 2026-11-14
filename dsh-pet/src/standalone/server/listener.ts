@@ -3,7 +3,7 @@
  *
  * 不做业务判断；处理器返回什么就写什么。
  * 必须始终成立：处理器抛错一律归一成 500，绝不把栈信息回给客户端。
- * @module dsh-pet/src/standalone/server/listener
+ * @module dsh-fish-body/src/standalone/server/listener
  */
 import { createRequestSecurity, rejectRequest, secureResponse, type RequestSecurity } from '../request-security.ts';
 import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from 'node:http';

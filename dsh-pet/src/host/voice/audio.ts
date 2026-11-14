@@ -5,7 +5,7 @@
  * 客户端 `<audio>` 对 wav / ogg / mp3 都认。于是下行的格式由**合成实现**决定，
  * 缓存扩展名与 `/voice/speak` 的 Content-Type 都从这一份表推出来。
  * 表外的 MIME 一律拒绝：写进缓存也没人放得出来，不如当一次合成失败报出去。
- * @module dsh-pet/src/host/voice/audio
+ * @module dsh-fish-body/src/host/voice/audio
  */
 
 /** 一次合成的产出：字节 + MIME。 */

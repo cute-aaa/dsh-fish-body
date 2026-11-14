@@ -3,7 +3,7 @@
  *
  * 与 haptics.ts 用同一组速度锚点（软碰 300、硬砸 1500 px/s），但输出不是时长而是响度系数：
  * 轻碰几乎听不见、硬砸满响，规则可脱离 DOM 断言。
- * @module dsh-pet/src/shared/sfx/impact
+ * @module dsh-fish-body/src/shared/sfx/impact
  */
 
 /** 低于这个撞击速度完全不响（px/s）：贴地抖动与轻放都不该出声。 */

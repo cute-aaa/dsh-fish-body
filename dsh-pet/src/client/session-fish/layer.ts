@@ -12,7 +12,7 @@
  * - 桌宠不在本页（`display` 不含 web）就不显示鱼、也不出声——鱼的显示面跟着桌宠走；
  * - 拖动超过阈值才吞掉随后的 click，小于阈值就是一次点击；
  * - 所有 hook 都在早退之前：快照没到时也要按同一顺序调用。
- * @module dsh-pet/src/client/session-fish/layer
+ * @module dsh-fish-body/src/client/session-fish/layer
  */
 import type { Dispatch, DependencyList, EffectCallback, MutableRefObject, SetStateAction } from 'react';
 import type { jsx } from 'react/jsx-runtime';
@@ -320,7 +320,7 @@ export function makeSessionFishLayer(rt: SessionFishRuntime, deps: SessionFishLa
             applyState(state);
           } catch (error) {
             // 浮层是旁路：一拍解析失败不能让轮询循环挂掉（下一拍还会来）。
-            console.warn('[dsh-pet] 会话鱼快照处理失败：', error);
+            console.warn('[fish-body] 会话鱼快照处理失败：', error);
           }
         },
       });

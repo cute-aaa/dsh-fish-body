@@ -3,7 +3,7 @@
  *
  * 只算路径、不查存在性：目录在不在由调用方（open-folder 提示、扫描、路由候选）决定。
  * 必须始终成立：任何从请求/配置来的相对片段都经 {@link insideRoot} 规整，`..` 与绝对路径一律拒绝。
- * @module dsh-pet/src/host/pool/resolve
+ * @module dsh-fish-body/src/host/pool/resolve
  */
 import { isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { POOL_DEFAULT_DIR, POOL_LAYER_DIR, POOL_SOUND_DIR } from '../../shared/pool.ts';

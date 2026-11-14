@@ -2,7 +2,7 @@
  * 宠物页面的内联样式与注入：只有伪类、过渡、指针手势与光标这类行内 style 表达不了的东西。
  * 菜单与悬浮提示的样式与桌面端共用同一份（`shared/menu`、`shared/tooltip`），不在这里抄第二份。
  * 注入按 `data-plugin-css` 去重：同一页面重复挂载不会长第二份样式。
- * @module dsh-pet/src/client/pet/css
+ * @module dsh-fish-body/src/client/pet/css
  */
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import { MENU_CSS } from '../../shared/menu.ts';

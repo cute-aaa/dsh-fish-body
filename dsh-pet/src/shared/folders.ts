@@ -3,7 +3,7 @@
  *
  * 设置页只传类别名、不拼路径；两端的白名单必须同一份，否则会出现「设置页收得下、宿主回 bad-request」。
  * 不读盘、不拼绝对路径（归 host/open-folder）。
- * @module dsh-pet/src/shared/folders
+ * @module dsh-fish-body/src/shared/folders
  */
 import type { SfxFolderTarget } from './types.ts';
 
@@ -24,10 +24,24 @@ export const PET_FOLDER_TARGETS: readonly SfxFolderTarget[] = [
 /**
  * 全局目录类别：与宠物无关，宿主直接回一个固定目录。
  *
- * `pool-root` 是池根（`assets.pool` 的解析结果），`animations` / `memes` / `fish-skin` 是用户级素材目录，
- * `user-root` 是本插件的数据根（`pet/` 与 `main-sound/` 都在里面）。
+ * 前七个是数据根下的分组（`root` / `config` / `data` / `cache` / `runtime` / `pets` / `assets`）；
+ * 后五个是历史取值（`user-root` / `animations` / `memes` / `fish-skin` / `pool-root`），
+ * 保留是因为老前端的请求还会带它们——删掉只会让旧页面上的按钮变成 bad-request。
  */
-export const GLOBAL_FOLDER_TARGETS = ['pool-root', 'animations', 'memes', 'fish-skin', 'user-root'] as const;
+export const GLOBAL_FOLDER_TARGETS = [
+  'root',
+  'config',
+  'data',
+  'cache',
+  'runtime',
+  'pets',
+  'assets',
+  'user-root',
+  'animations',
+  'memes',
+  'fish-skin',
+  'pool-root',
+] as const;
 
 /** 全局目录类别。 */
 export type GlobalFolderTarget = (typeof GLOBAL_FOLDER_TARGETS)[number];

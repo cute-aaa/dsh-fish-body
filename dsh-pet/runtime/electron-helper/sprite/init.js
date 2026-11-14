@@ -3,7 +3,7 @@
  *
  * 只由 constructor 调用一次；运行期的行为在 sprite-playback / sprite-motion / sprite-input。
  * PetSprite 由 sprite.js 定义，本文件只往原型上挂方法，必须在其后加载。
- * @module dsh-pet/runtime/electron-helper/sprite-init
+ * @module dsh-fish-body/runtime/electron-helper/sprite-init
  */
 'use strict';
 

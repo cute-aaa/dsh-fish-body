@@ -3,7 +3,7 @@
  *
  * 状态由宿主写进 `/state` 的 `sections.sessionFish`，浏览器只读；本模块不产生状态、不读时钟。
  * 解析一律「形状非法 → null / 丢条目」，让消费端跳过这一拍，而不是拿半份数据去渲染。
- * @module dsh-pet/src/shared/session-fish
+ * @module dsh-fish-body/src/shared/session-fish
  */
 
 /** 会话鱼显示宽度下限（px；16:9 的小动画）。 */

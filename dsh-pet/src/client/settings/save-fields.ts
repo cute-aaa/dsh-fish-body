@@ -5,7 +5,7 @@
  * 键名必须与宿主白名单逐字一致（`http.ts` 的 `SaveFields` 就是契约），漏一个键等于「改了不生效」，
  * 多一个键会被宿主按未知字段拒绝——所以这里不接未知字段，也绝不静默丢键。
  * owns only 字段映射，never 校验、写盘与任何状态。
- * @module dsh-pet/src/client/settings/save-fields
+ * @module dsh-fish-body/src/client/settings/save-fields
  */
 import type { Pet, SfxConfig } from '../../shared/types.ts';
 import type { SaveFields } from './config/index.ts';

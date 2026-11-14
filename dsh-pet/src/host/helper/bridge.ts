@@ -3,7 +3,7 @@
  *
  * 管道两端（宿主与 Electron 主进程）各按本文件对齐消息格式。
  * 必须始终成立：URL 已含路由前缀，宿主侧不得再拼一次。
- * @module dsh-pet/src/host/helper/bridge
+ * @module dsh-fish-body/src/host/helper/bridge
  */
 
 /** 协议行前缀：stdout/stdin 里以此开头的整行 JSON 属于 bridge 协议，其余为日志。 */

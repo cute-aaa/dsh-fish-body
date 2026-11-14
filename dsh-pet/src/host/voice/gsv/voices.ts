@@ -5,7 +5,7 @@
  * 这样已有的音色包不用改一个字节就能被插件读到；权重按文件名前缀匹配 `<音色>…eN`（取最高 epoch）。
  * 纯函数式读取：不缓存、不联网，缓存留给 provider（它知道何时该失效）。
  * 扫不到的整条丢弃——没有参考音频的音色点了也出不了声，列出来只会骗人。
- * @module dsh-pet/src/host/voice/gsv/voices
+ * @module dsh-fish-body/src/host/voice/gsv/voices
  */
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join } from 'node:path';

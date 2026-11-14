@@ -4,7 +4,7 @@
  * 单独成模块是因为它有独立的失败模式与生命周期：麦克风被拒、采到静音、宿主没开识别、
  * 网络失败各不相同，且带着一个四态状态机与两个定时器——和「上传图片、截屏」没有共同变化原因。
  * 不建 DOM、不管弹窗开合、不发送；元素与提示行由调用方（chat/dom）交进来。
- * @module dsh-pet/src/shared/chat/hear-control
+ * @module dsh-fish-body/src/shared/chat/hear-control
  */
 import {
   MAX_RECORD_MS,

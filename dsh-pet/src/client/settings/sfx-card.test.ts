@@ -47,7 +47,7 @@ function flatten(node: unknown): Node[] {
 }
 
 describe('SfxCard —— 装配', () => {
-  const nodes = flatten(makeSfxCard(runtime as never)({ busy: false, sfx: empty, dirty: NO_DIRTY }));
+  const nodes = flatten(makeSfxCard(runtime as never)({ busy: false, dirty: NO_DIRTY, sfx: empty }));
 
   test('卡头只有一个「打开文件夹」，指向声音目录', () => {
     const buttons = nodes.filter((node) => typeof node.props?.which === 'string');

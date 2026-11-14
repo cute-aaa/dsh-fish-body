@@ -3,7 +3,7 @@
  *
  * 不做取数与渲染；字段口径与 host/todo/types 同名（宿主不 import 共享层，两份各自维护）。
  * 宿主已校验并排序，这里再收窄一次类型：脏数据跳过而不是让整张清单渲染失败。
- * @module dsh-pet/src/shared/todo/types
+ * @module dsh-fish-body/src/shared/todo/types
  */
 
 /** 一条待办（面板展示所需的最小字段）。 */

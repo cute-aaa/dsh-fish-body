@@ -3,7 +3,7 @@
  * 屏边反弹、鱼鱼分离、鱼撞桌宠、拖拽落点换算）。
  *
  * 全部无 DOM：锚点、视口、时钟都注入，所以能直接跑在 node:test 里。
- * @module dsh-pet/src/shared/session-fish/roam.test
+ * @module dsh-fish-body/src/shared/session-fish/roam.test
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

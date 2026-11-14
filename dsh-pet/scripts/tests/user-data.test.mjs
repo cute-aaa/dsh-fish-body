@@ -65,14 +65,14 @@ describe('resolveUserDataDir —— 回退决策', () => {
     assert.deepEqual(out, { dir: currentDir, fallback: false, error: null });
   });
 
-  test('原目录不可写：回退到 $DSH_HOME 下的 electron-profile', () => {
-    const fallbackDir = join(dshHome, 'dsh-pet', 'electron-profile');
+  test('原目录不可写：回退到数据根 cache/ 下的 electron-profile', () => {
+    const fallbackDir = join(dshHome, 'fish-body', 'cache', 'electron-profile');
     const out = resolveUserDataDir({ currentDir, dshHome, appMode: false, fs: fakeFs(new Set([fallbackDir])) });
     assert.deepEqual(out, { dir: fallbackDir, fallback: true, error: null });
   });
 
   test('独立应用模式：回退到 app-profile，避免与 helper 抢同一份 profile', () => {
-    const fallbackDir = join(dshHome, 'dsh-pet', 'app-profile');
+    const fallbackDir = join(dshHome, 'fish-body', 'cache', 'app-profile');
     const out = resolveUserDataDir({ currentDir, dshHome, appMode: true, fs: fakeFs(new Set([fallbackDir])) });
     assert.deepEqual(out, { dir: fallbackDir, fallback: true, error: null });
   });

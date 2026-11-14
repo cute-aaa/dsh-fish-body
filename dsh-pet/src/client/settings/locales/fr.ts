@@ -107,18 +107,25 @@ export const fr: Record<Key, string> = {
   corruptConfirm: 'Enregistrer quand même',
   corruptBody:
     'Le fichier de configuration utilisateur est illisible (corrompu, JSON/JSONC invalide) : {path}. Enregistrer maintenant le reconstruit à partir de la liste blanche — tout son contenu actuel (animations / physics / memes, etc.) sera perdu. Annuler = ne pas toucher au fichier (corrigez-le puis enregistrez) ; Confirmer = enregistrer quand même (le contenu actuel du fichier est abandonné).',
-  configMeta: 'Configuration avancée (fichiers)',
-  configMetaHint:
-    "La configuration utilisateur peut remplacer la liste des compagnons / les pools d'animation / les poids ; rechargez la page ou redémarrez pour appliquer : rafraîchissez la page dans le navigateur, ou sur le bureau, clic droit sur un compagnon → « Recharger la configuration » (reconstruit toutes les fenêtres de compagnons). La configuration par défaut est la référence complète.",
-  defaultConfig: 'Configuration par défaut (lecture seule, référence complète)',
-  userConfig: 'Configuration utilisateur (remplacements personnalisés)',
-  todosFile: 'Données de tâches (texte, échéance et état ; les supprimer vide toutes les tâches)',
-  animationDir: 'Dossier des animations (pour ajouter ou personnaliser des animations)',
-  memesDir: 'Dossier des mèmes (pour ajouter ou personnaliser des images)',
-  poolDir: 'Dossier du pool de ressources (skins / modèles / animations / sons partagés)',
-  logFile: 'Fichier journal (pour le dépannage ; peut être vidé)',
-  logFileNote:
-    "L'application de bureau n'a pas de console : tous les journaux d'exécution du plugin (démarrage, plantages / redémarrages des compagnons, erreurs et avertissements) sont écrits dans ce seul fichier — joignez-le à vos rapports de problème. Limité à 1 Mo ; une fois plein, seuls les 512 Ko les plus récents sont conservés.",
+  fsTitle: 'Fichiers et dossiers',
+  fsHint:
+    "Tout ce que le plugin dépose sur cette machine — réglages, données, runtime, caches jetables et ressources — vit sous une seule racine de données. Désinstaller, c'est supprimer ce dossier (le paquet du plugin, lui, est géré par DSH).",
+  fsRoot: 'Racine des données',
+  fsRootHint: 'Supprimer ce dossier efface réglages, mémoire, caches et ressources (le paquet du plugin reste).',
+  fsTree: 'Arborescence',
+  fsTreeHint:
+    "config et data contiennent vos réglages et vos données : n'y touchez pas à la légère. cache peut être supprimé à tout moment (il est reconstruit ou retéléchargé). Supprimer runtime impose de retélécharger Electron. pets et assets contiennent les ressources ; les règles de nommage sont dans CONFIG.md.",
+  fsBadgeDisposable: 'supprimable',
+  fsBadgeDownload: 'à télécharger',
+  fsBadgeReadonly: 'lecture seule',
+  fsReadonly: 'Inclus, lecture seule',
+  fsRuntime: 'Runtime',
+  fsRuntimeReady: 'Installé',
+  fsRuntimeMissing: 'Non installé',
+  fsRuntimeDownload: 'Télécharger le runtime',
+  fsRuntimeDownloading: 'Téléchargement…',
+  fsRuntimeHint:
+    "Les fenêtres de bureau ont besoin d'Electron. Supprimer cache/ ne le touche pas ; supprimer runtime/ oblige à le retélécharger.",
   saved: 'Enregistré — les compagnons sont à jour immédiatement.',
   loadError: 'Échec du chargement de la configuration',
   saveError:
@@ -128,7 +135,7 @@ export const fr: Record<Key, string> = {
   retry: 'Réessayer',
   invalid: "Vérifiez votre saisie : la taille doit être positive ; les marges peuvent être n'importe quel nombre.",
   extraPetsHint:
-    "{n} autre(s) type(s) proviennent de fichiers du dossier pet/ (<nom>-config.json + <nom>-animation/) ; basculez dessus dans la ligne « Types » ci-dessus. L'enregistrement écrit dans la configuration propre à chaque pack, jamais dans main-config.jsonc.",
+    "{n} autre(s) type(s) proviennent de fichiers du dossier pets/ (<nom>-config.json + <nom>-animation/) ; basculez dessus dans la ligne « Types » ci-dessus. L'enregistrement écrit dans la configuration propre à chaque pack, jamais dans main-config.jsonc.",
   kindLabel: 'Types',
   kindMain: 'Intégré',
   lastOfKind:
@@ -140,7 +147,7 @@ export const fr: Record<Key, string> = {
     "Notifications du système d'exploitation (en bas à droite du bureau) pour la fin d'une conversation, les échecs, les demandes de permission et les questions — uniquement lorsque cette fenêtre n'a pas le focus.",
   sfxToggle: 'Son',
   sfxToggleHint:
-    'Joue les fichiers configures et detectes automatiquement ; desactive coupe tout. On configure rarement : un click.wav dans le dossier du skin, dans pet/<root>-sound/ ou a cote d une animation est repris seul. Sans fichier, les sons integres prennent le relais.',
+    'Joue les fichiers configures et detectes automatiquement ; desactive coupe tout. On configure rarement : un click.wav dans le dossier du skin, dans pets/<root>-sound/ ou a cote d une animation est repris seul. Sans fichier, les sons integres prennent le relais.',
   sfxKeepAliveToggle: "Maintenir l'audio pret",
   sfxKeepAliveToggleHint:
     'Garde la sortie audio ouverte avec une source inaudible de 1 LSB : le premier son apres une longue pause ne perd pas son attaque, et le mixeur systeme garde une entree « Electron » comme volume global. Cout : peripherique occupe et batterie ; Windows ne se met generalement pas en veille avec un flux actif.',
@@ -151,7 +158,7 @@ export const fr: Record<Key, string> = {
   sfxHint:
     'C est l hote qui choisit le fichier : dossier du skin > dossier -sound > a cote de l animation > partage utilisateur > paquet. Cette page ne regle que les interrupteurs ; le volume est dans Global.',
   sfxFileHint:
-    'Pour changer un fichier, placez l audio dans le dossier du skin (pet/xxx-skin/click.wav) ou pet/<root>-sound/ ; le nom du fichier est celui du moment. Rechargez ensuite la page.',
+    'Pour changer un fichier, placez l audio dans le dossier du skin (pets/xxx-skin/click.wav) ou pets/<root>-sound/ ; le nom du fichier est celui du moment. Rechargez ensuite la page.',
   sfxSlotPattern: 'Nom de fichier : {name}.wav ou <skin>-{name}.wav',
   sfxNone: 'aucun fichier',
   sfxTry: 'Ecouter',
@@ -338,27 +345,13 @@ export const fr: Record<Key, string> = {
   notifyDenyError: "Échec de la demande d'autorisation",
   notifyGuide:
     "Marche à suivre : cliquez sur l'icône 🔒/ⓘ à gauche de la barre d'adresse → « Paramètres du site » → « Notifications » → choisissez « Autoriser », puis rafraîchissez la page et réessayez.",
-  storageTitle: 'Désinstallation et stockage',
-  storageHint:
-    'Tous les emplacements où ce plugin écrit sur la machine. Supprimer les caches est sans risque (ils sont retéléchargés / reconstruits) ; supprimer les « données utilisateur du plugin » fait perdre la configuration et la mémoire de discussion.',
-  'storage.userData':
-    'Données utilisateur du plugin : configuration personnalisée main-config.jsonc, mémoire de discussion memory.json, animations personnalisées main-animation/, compagnons fichiers pet/',
-  'storage.electron':
-    'Runtime Electron du compagnon de bureau (volumineux ; retéléchargé automatiquement au prochain démarrage du mode bureau)',
-  'storage.desktopCache':
-    "Cache des fenêtres de compagnons et cache d'échelle de l'écran principal (suppression sans risque, reconstruit automatiquement)",
-  'storage.electronCache':
-    "Cache de téléchargement de l'installateur Electron (suppression sans risque, retéléchargé si besoin)",
-  'storage.package':
-    'Le plugin lui-même (géré par DSH — retirez-le avec la commande ci-dessous plutôt que de le supprimer à la main)',
-  storageMissing: ' (pas encore créé)',
   uninstallTitle: 'Comment désinstaller',
   uninstallStep1:
-    "1. Quittez d'abord DSH (le compagnon de bureau s'arrête avec lui) ; ne supprimez pas ces fichiers pendant que le compagnon tourne.",
+    "1. Quittez d'abord DSH (le compagnon de bureau s'arrête avec lui) ; ne supprimez pas ces données pendant que le compagnon tourne.",
   uninstallStep2:
     '2. Retirez le plugin lui-même (dans un terminal ; il est aussi retiré de la couche bundle du profil) :',
   uninstallStep3:
-    '3. Supprimez les emplacements ci-dessus selon vos besoins : les caches sont sans risque ; supprimer les « données utilisateur du plugin » fait perdre la configuration et la mémoire de discussion (sauvegardez main-config.jsonc si vous voulez le garder).',
+    '3. Pour tout effacer, supprimez la racine de données {root} : cache/ est sans risque ; supprimer config/ ou data/ fait perdre les réglages et la mémoire de discussion (sauvegardez config/main-config.jsonc si vous voulez les garder).',
   motionTitle: 'Fréquence des actions',
   motionHint:
     "Quatre champs : repos / rotation / déplacement sont modifiables ; l'action aléatoire est calculée (100 − les trois autres). Valeur globale pour tous les compagnons ; un pet pack peut la remplacer dans son fichier de type.",
@@ -366,7 +359,7 @@ export const fr: Record<Key, string> = {
   'motion.turn': 'Rotation',
   'motion.move': 'Déplacement',
   'motion.action': 'Action aléatoire',
-  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-fish-body',
   // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
   'fish.intro':
     'Chaque session nouvelle, en cours ou tout juste terminée reçoit une petite animation « écrire du code ». Glissez pour déplacer, cliquez pour ouvrir, × pour retirer.',
@@ -493,5 +486,5 @@ export const fr: Record<Key, string> = {
   secSpeak: 'Lecture vocale',
   secTiming: 'Rythme',
   sizesTitle: 'Taille par moteur de rendu',
-  extraPetsShort: '{n} autres types viennent du dossier pet/',
+  extraPetsShort: '{n} autres types viennent du dossier pets/',
 };

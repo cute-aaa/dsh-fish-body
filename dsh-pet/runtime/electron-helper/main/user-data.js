@@ -1,6 +1,6 @@
 'use strict';
 /**
- * userData 目录决策：原目录不可写时退回到 $DSH_HOME 下的自有 profile。
+ * userData 目录决策：原目录不可写时退回到数据根 cache/ 下的自有 profile。
  *
  * 只算路径与可写性，不碰 Electron；可写性必须实际写文件验证——
  * Windows 上 fs.access 只反映只读属性、不校验 ACL，受限令牌下会假阳性。
@@ -67,7 +67,12 @@ function resolveUserDataDir(input) {
   const fileSystem = input.fs || fs;
   const primary = tryPrepareDir(input.currentDir, fileSystem);
   if (primary.ok) return { dir: input.currentDir, fallback: false, error: null };
-  const fallbackDir = path.join(input.dshHome, 'dsh-pet', input.appMode ? 'app-profile' : 'electron-profile');
+  const fallbackDir = path.join(
+    input.dshHome,
+    'fish-body',
+    'cache',
+    input.appMode ? 'app-profile' : 'electron-profile',
+  );
   const fallback = tryPrepareDir(fallbackDir, fileSystem);
   if (fallback.ok) return { dir: fallbackDir, fallback: true, error: null };
   return { dir: input.currentDir, fallback: false, error: fallback.error };

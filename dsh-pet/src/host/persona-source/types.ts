@@ -1,7 +1,7 @@
 /**
  * 人格来源契约：把某个「dsh 人格」项目的人设卡读取并投影成一段可进 whisperPrompt 的正文。
  * 只声明形状与共享常量；注册归 ./registry，读卡与投影归 ./card-reader，同步归 ./sync。
- * @module dsh-pet/src/host/persona-source/types
+ * @module dsh-fish-body/src/host/persona-source/types
  */
 
 /** 内置人格来源 id；同步器默认用它，第三方注册别的 id 即可扩展。 */

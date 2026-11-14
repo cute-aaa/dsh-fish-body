@@ -7,7 +7,7 @@
  *   pet/<素材根>-skin/layered/manifest.json
  * 清单里的图片路径相对清单自身，所以子目录里的 `art/x.png` 不用改写。
  * 两端（浏览器 / 桌面 Helper）按同一顺序探测：先根后子目录。
- * @module dsh-pet/src/shared/layered-paths
+ * @module dsh-fish-body/src/shared/layered-paths
  */
 
 /** 分层皮肤清单的候选相对路径，按优先级排列。 */

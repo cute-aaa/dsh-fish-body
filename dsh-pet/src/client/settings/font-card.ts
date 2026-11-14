@@ -4,7 +4,7 @@
  * 字体种类作用于现在用软糖体的全部文字；字号只作用于气泡与悬浮提示，对话窗与得分弹窗不变。
  * 三项挤在一行：它们回答的是同一个问题（字长什么样、多大），分成三张卡只会多两次滚动。
  * 与其余全局默认同语义：只改本地状态，随「保存」整包写入。
- * @module dsh-pet/src/client/settings/font-card
+ * @module dsh-fish-body/src/client/settings/font-card
  */
 import type { FunctionComponent } from 'react';
 import type { FontConfig, FontFamilyId } from '../../shared/types.ts';
@@ -57,6 +57,7 @@ export function makeFontCard(rt: SettingsRuntime): FunctionComponent<FontCardPro
                 onChange: (id: string) => props.onChange({ family: id as FontFamilyId }),
               }),
               t('fontFamilyHint'),
+              'look.font.family',
             ),
             field(
               t('fontSizeLabel'),
@@ -70,11 +71,20 @@ export function makeFontCard(rt: SettingsRuntime): FunctionComponent<FontCardPro
                 }),
               ),
               t('fontSizeHint'),
+              'look.font.size',
             ),
           ],
         }),
         // 跟随缩放单独一行：它是「字号」的修饰，挤进上面两格会把标签折成三行。
-        switchGrid([toggleCell('fontFollowToggle', font.followPet, busy, (v) => props.onChange({ followPet: v }))]),
+        switchGrid([
+          toggleCell(
+            'fontFollowToggle',
+            font.followPet,
+            busy,
+            (v) => props.onChange({ followPet: v }),
+            'look.font.followPet',
+          ),
+        ]),
       ],
     });
   };

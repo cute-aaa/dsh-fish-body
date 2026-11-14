@@ -4,12 +4,14 @@
  * 目录只从 {@link SfxDirs} 里取，请求方给的是**类别名**而不是路径——设置页拿不到任意路径，
  * 也不需要知道某个素材根到底用 `-sound` 还是 `-skin` 布局。
  * 打开动作与「路径存在性」分开：不存在也返回路径，让调用方提示「先创建/放个文件」。
- * @module dsh-pet/src/host/open-folder
+ * 平台命令本身的取舍（为什么 Windows 上不是 `Start-Process`）见 {@link openCommandOf}。
+ * @module dsh-fish-body/src/host/open-folder
  */
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { isGlobalFolderTarget, PET_FOLDER_TARGETS, type GlobalFolderTarget } from '../shared/folders.ts';
 import type { SfxDirs } from './sfx/scan.ts';
+import type { UserPaths } from './user-layout.ts';
 import type { RendererKind, SfxFolderTarget } from '../shared/types.ts';
 
 /**
@@ -46,32 +48,38 @@ export function parseGlobalFolderTarget(raw: string | null | undefined): GlobalF
  * 全局类别 → 目录。
  *
  * @param kind - 全局类别。
- * @param dirs - 宿主算好的几个用户级目录。
+ * @param dirs - 数据根路径表与当前池根（池根随配置变，所以单独传）。
  * @returns 目录绝对路径。
  */
 export function resolveGlobalFolder(
   kind: GlobalFolderTarget,
-  dirs: {
-    readonly animations: string;
-    readonly memes: string;
-    readonly pool: string;
-    readonly userRoot: string;
-    /** 会话鱼的皮肤目录（`<用户根>/session-fish-skin`）。 */
-    readonly fishSkin?: string;
-  },
+  dirs: { readonly paths: UserPaths; readonly pool: string },
 ): string {
+  const { paths } = dirs;
   switch (kind) {
+    case 'root':
+    case 'user-root':
+      return paths.root;
+    case 'config':
+      return paths.configDir;
+    case 'data':
+      return paths.dataDir;
+    case 'cache':
+      return paths.cacheDir;
+    case 'runtime':
+      return paths.runtimeDir;
+    case 'pets':
+      return paths.petsDir;
+    case 'assets':
+      return paths.assetsDir;
     case 'pool-root':
       return dirs.pool;
     case 'animations':
-      return dirs.animations;
+      return paths.animationDir;
     case 'memes':
-      return dirs.memes;
+      return paths.memesDir;
     case 'fish-skin':
-      // 缺省回落到用户根下的同名目录：调用方没传时也不能打开用户根（那会让按钮「看着生效但开错地方」）。
-      return dirs.fishSkin ?? join(dirs.userRoot, 'session-fish-skin');
-    case 'user-root':
-      return dirs.userRoot;
+      return paths.fishSkinDir;
   }
 }
 
@@ -126,9 +134,7 @@ export function resolveFolderTarget(
  * 不是写死 `explorer.exe`：Windows 上直接拉 explorer 等于绕开 ShellExecute，用户把默认文件管理器
  * 换成第三方（Directory Opus、Files 之类）时按钮会装作没生效。这里走平台的 shell：
  *
- * - Windows：`powershell.exe -Command "Start-Process -FilePath $env:DSH_PET_OPEN_TARGET"`。
- *   `Start-Process` 内部就是 ShellExecuteEx，路径经**环境变量**传入而不是拼命令行——
- *   cmd/PowerShell 的引号与 `&`、`^`、`%` 转义规则不必在这里重写一遍，带空格与中文的目录照样开。
+ * - Windows：`rundll32.exe url.dll,FileProtocolHandler <目录>`——它就是一发 ShellExecute。
  * - macOS：`open`（LaunchServices，跟随系统默认）。
  * - 其它：`xdg-open`（跟随 xdg-mime 默认）。
  *
@@ -140,9 +146,11 @@ export function openDirectory(path: string): void {
   const spec = openCommandOf(path);
   if (spec === undefined) return;
   spawnDetached(spec, () => {
-    // 拿不到 PowerShell（被策略禁掉、PATH 被改）时退回 explorer.exe：宁可绕开默认处理程序，
-    // 也别让按钮彻底没反应。其它平台没有这一步——`open` / `xdg-open` 缺失是真没别的办法。
-    if (process.platform === 'win32') spawnDetached({ args: [path], command: 'explorer.exe' }, undefined);
+    // rundll32 被策略拦掉时退回 explorer.exe：宁可绕开默认处理程序，也别让按钮彻底没反应。
+    // 这一步的 windowsHide 必须是 false（见 {@link OpenCommand.windowsHide}），否则窗口永远隐藏。
+    if (process.platform === 'win32') {
+      spawnDetached({ args: [path], command: 'explorer.exe', windowsHide: false });
+    }
   });
 }
 
@@ -152,35 +160,34 @@ export interface OpenCommand {
   readonly command: string;
   /** 命令行参数（不含可执行文件本身）。 */
   readonly args: readonly string[];
-  /** 需要额外传进子进程环境变量的值（Windows 用环境变量传路径，避开命令行转义）。 */
-  readonly env?: Readonly<Record<string, string>>;
+  /**
+   * 是否隐藏子进程的控制台窗口；缺省 `true`。
+   *
+   * **只对 GUI 子系统程序安全**（`rundll32` / `explorer` 都没有控制台可闪）。
+   * 给控制台程序（`powershell` / `cmd`）设 `true` 时，libuv 会用
+   * `STARTUPINFO{STARTF_USESHOWWINDOW, SW_HIDE}` + `CREATE_NO_WINDOW` 拉起它，
+   * 而被它再拉起的进程会**继承这个隐藏显示状态**：目录确实打开了，窗口却永远是隐藏的。
+   * 线上「点了打开文件夹没反应」就是这么来的——所以凡是可能被继承显示状态的路径一律给 `false`。
+   */
+  readonly windowsHide?: boolean;
 }
-
-/** Windows 上承载目标路径的环境变量名：路径不进命令行，引号与转义问题一并消失。 */
-export const WINDOWS_OPEN_ENV = 'DSH_PET_OPEN_TARGET';
 
 /**
  * 平台 → 打开命令。
+ *
+ * Windows 用 `rundll32 url.dll,FileProtocolHandler`：FileProtocolHandler 就是 ShellExecute 的壳，
+ * 跟随用户默认的文件管理器（换过 Directory Opus / Files 也照样生效）。
+ *
+ * 这里**不用 `powershell -Command Start-Process`**：宿主是以隐藏窗口 + detach 的方式拉起子进程的，
+ * `Start-Process` 会把继承来的 `SW_HIDE` 继续传给目标进程——实测目录打开了、窗口始终不出现。
+ * rundll32 是 GUI 子系统，没有控制台可闪，也就没有这个继承问题。
  *
  * @param target - 目录绝对路径。
  * @param platform - 平台（测试可指定）。
  * @returns 命令描述；平台未知时返回 `undefined`（调用方静默跳过，不猜）。
  */
 export function openCommandOf(target: string, platform: NodeJS.Platform = process.platform): OpenCommand | undefined {
-  if (platform === 'win32') {
-    return {
-      args: [
-        '-NoProfile',
-        '-NonInteractive',
-        '-WindowStyle',
-        'Hidden',
-        '-Command',
-        'Start-Process -FilePath $env:' + WINDOWS_OPEN_ENV,
-      ],
-      command: 'powershell.exe',
-      env: { [WINDOWS_OPEN_ENV]: target },
-    };
-  }
+  if (platform === 'win32') return { args: ['url.dll,FileProtocolHandler', target], command: 'rundll32.exe' };
   if (platform === 'darwin') return { args: [target], command: 'open' };
   if (platform === 'linux' || platform === 'freebsd' || platform === 'openbsd' || platform === 'sunos') {
     return { args: [target], command: 'xdg-open' };
@@ -196,13 +203,12 @@ export function openCommandOf(target: string, platform: NodeJS.Platform = proces
  * @param spec - 命令描述。
  * @param onError - 启动失败时的兜底动作。
  */
-function spawnDetached(spec: OpenCommand, onError: (() => void) | undefined): void {
+function spawnDetached(spec: OpenCommand, onError?: () => void): void {
   const child = spawn(spec.command, [...spec.args], {
     detached: true,
-    // Windows 上 PowerShell 不要闪控制台窗口；explorer 那一路不看这个开关。
-    windowsHide: true,
+    // 缺省隐藏：GUI 子进程本来就没有控制台窗口可闪，true 只是别让系统先闪一下再隐藏。
+    windowsHide: spec.windowsHide ?? true,
     stdio: 'ignore',
-    ...(spec.env === undefined ? {} : { env: { ...process.env, ...spec.env } }),
   });
   child.on('error', () => onError?.());
   child.unref();

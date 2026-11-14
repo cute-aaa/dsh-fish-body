@@ -1,6 +1,6 @@
 /**
  * 会话鱼快照桥：内容不变不写叶子，显示参数变化要立刻写。
- * @module dsh-pet/src/host/plugin/session-fish.test
+ * @module dsh-fish-body/src/host/plugin/session-fish.test
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

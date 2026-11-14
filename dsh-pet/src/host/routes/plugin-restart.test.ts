@@ -57,7 +57,7 @@ describe('handlePluginRestart —— 插件自重启', () => {
     await new Promise((resolve) => setTimeout(resolve, 250));
     assert.equal(reconciles, 1);
     assert.ok(
-      calls.some((call) => call.startsWith('log:[dsh-pet] 插件重启完成 swapped=1')),
+      calls.some((call) => call.startsWith('log:[fish-body] 插件重启完成 swapped=1')),
       '结论要落盘：' + JSON.stringify(calls),
     );
   });
@@ -66,6 +66,6 @@ describe('handlePluginRestart —— 插件自重启', () => {
     const { deps, calls } = depsOf(undefined);
     const result = await handlePluginRestart(deps, inputOf('POST'));
     assert.deepEqual(result?.kind === 'json' ? result.obj : undefined, { ok: true, mode: 'helper' });
-    assert.deepEqual(calls, ['log:[dsh-pet] 插件重启请求 mode=helper', 'requestRestart']);
+    assert.deepEqual(calls, ['log:[fish-body] 插件重启请求 mode=helper', 'requestRestart']);
   });
 });

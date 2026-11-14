@@ -6,7 +6,7 @@
  * 覆盖层由 shell.overlay 槽承载（见 baifan/layer.ts），不自己往 body 上挂。
  * 菜单注册走 HTTP（/config 判断玩法、/menu/item 交给宿主），点击读页面内 Cordis 服务
  * `petApi7340.menuEvents`：同一份点击的本地读取，不必绕一圈长轮询。
- * @module dsh-pet/src/client/baifan
+ * @module dsh-fish-body/src/client/baifan
  */
 import { CSS, OWNER, ROOT_ID, ROUTE, STYLE_TAG } from './baifan/constants.ts';
 import { createMenu } from './baifan/menu.ts';
@@ -70,7 +70,7 @@ export function mountBaifan(ctx: BaifanContext, host: HTMLElement): () => void {
     retryMs: RETRY_MS,
   });
 
-  void menu.ensureMenu().catch((error: unknown) => console.warn('[dsh-pet] 吃白饭注册菜单失败 ' + String(error)));
+  void menu.ensureMenu().catch((error: unknown) => console.warn('[fish-body] 吃白饭注册菜单失败 ' + String(error)));
   const timer = window.setInterval(menu.tick, POLL_MS);
 
   return () => {

@@ -1,6 +1,6 @@
 /**
  * 人设同步装配：把内置 fish-soul 来源挂进注册表，启动同步器并在卸载时收尾。
- * @module dsh-pet/src/host/plugin/persona-sync
+ * @module dsh-fish-body/src/host/plugin/persona-sync
  */
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { createFishSoulSource } from '../persona-source/fish-soul.ts';
@@ -31,6 +31,6 @@ export function registerPersonaSync(ctx: PersonaSyncContext, deps: PersonaSyncDe
       sync.stop();
       unregister();
     },
-    'dsh-pet: persona sync',
+    'fish-body: persona sync',
   );
 }

@@ -5,7 +5,7 @@
  * 网页端另加一道「页面可见」——被切到后台的页面没人看，出声只是打扰。
  * 每句的开始与结束经 {@link subscribeVoiceUtterance} 广播出去：说话气泡靠它决定何时收起。
  * 不负责合成与缓存：那些在宿主侧（`/voice/speak`）。
- * @module dsh-pet/src/shared/voice
+ * @module dsh-fish-body/src/shared/voice
  */
 import { ROUTE_PATH } from './constants.ts';
 import type { VoiceTarget } from './state.ts';

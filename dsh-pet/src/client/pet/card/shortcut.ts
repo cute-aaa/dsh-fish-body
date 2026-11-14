@@ -4,7 +4,7 @@
  * 都作用于「主配置第一只」宠物（见 card/registry），不看鼠标在哪——这正是「全局」的意思。
  * 弹窗那条是开关：同一个键再按一次必须关掉，不能只是把焦点塞回输入框。
  * 录音只能做成开关：DSH 快捷键只派发 keydown，没有抬手事件，做不了按住说话。
- * @module dsh-pet/src/client/pet/card/shortcut
+ * @module dsh-fish-body/src/client/pet/card/shortcut
  */
 import {
   keycapOf,

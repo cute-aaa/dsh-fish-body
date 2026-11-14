@@ -2,7 +2,7 @@
  * 设置页表单校验：保存前把「宿主一定会 400 的组合」先就地拦下并给红字提示。
  * 规则与宿主一一对应（非法组合宿主回 400，等同于把错误推到一次网络往返之后才发现）。
  * 纯函数：只看传入的值，返回第一个不合格项的文案键，顺序即提示优先级。
- * @module dsh-pet/src/client/settings/config/validate-form
+ * @module dsh-fish-body/src/client/settings/config/validate-form
  */
 import { FONT_PRESETS, FONT_SIZE_MAX, FONT_SIZE_MIN } from '../../../shared/fonts.ts';
 import { isValidSize, isValidSizePercent } from '../../../shared/pet-size.ts';

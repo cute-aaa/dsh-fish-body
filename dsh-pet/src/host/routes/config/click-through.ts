@@ -6,7 +6,7 @@
  * 跳回配置角落——为一次「能不能点」付这个代价不合理。生效路径是渲染端自己：
  * 菜单点切换 → 本地 bridge 立即翻窗；设置页保存 → PUT /config 本来就会重启，启动时按本字段落位。
  *
- * @module dsh-pet/src/host/routes/config/click-through
+ * @module dsh-fish-body/src/host/routes/config/click-through
  */
 import { findPetInstance, readAllConfig, saveUserConfig } from '../../config.ts';
 import { mkdir, writeFile } from 'node:fs/promises';

@@ -4,7 +4,7 @@
  * 按键规则归 shared/hotkey，本模块只绑定「哪个键 + 菜单文案」。
  * 语义是切换而不是单向睡觉：醒着按 = 睡下，睡着按 = 叫醒——与右键那一项完全同一件事。
  * 用 `Z` 而不是 `S`：`S` 让给了截图，一个裸键不能挂两件事。
- * @module dsh-pet/src/shared/sleep-hotkey
+ * @module dsh-fish-body/src/shared/sleep-hotkey
  */
 import { isBareKey } from './hotkey.ts';
 import type { HotkeyEvent } from './hotkey.ts';

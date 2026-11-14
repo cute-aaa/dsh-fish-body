@@ -1,10 +1,11 @@
 /**
- * 桌面端生命周期：/reload 重新解析配置并重启 Helper，/quit 关闭宿主应用。
+ * 桌面端生命周期：/reload 重新解析配置并重启 Helper，/quit 关闭宿主应用，/desktop/runtime 管理运行时。
  *
  * 不负责 Helper 进程本身的拉活与重启（归 ./helper-process）。
  * 依赖（PetRouteDeps）显式传入，模块内不读全局、不建状态。
- * @module dsh-pet/src/host/routes/desktop
+ * @module dsh-fish-body/src/host/routes/desktop
  */
+import { downloadElectronInBackground, electronRuntimeStatus } from '../helper-process.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import type { RouteResult } from '../http.ts';
 import { failResult, methodNotAllowed, okResult } from './result.ts';
@@ -13,6 +14,20 @@ import { failResult, methodNotAllowed, okResult } from './result.ts';
 export async function handleDesktopRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
   const { log, optionalService, requestRestart } = deps;
   const { method, rest } = input;
+
+  // 运行时（Electron）：设置页「文件与目录」那行显示状态、按钮触发下载。
+  // 独立成 GET/POST 而不是塞进 /config/meta：下载要能在界面里被反复轮询，而 meta 是慢变的只读快照。
+  if (rest === 'desktop/runtime') {
+    if (method === 'GET') return okResult({ runtime: electronRuntimeStatus() });
+    if (method !== 'POST') return methodNotAllowed();
+    const already = electronRuntimeStatus();
+    if (already.installed) return okResult({ started: false, installed: true, runtime: already });
+    // 不 await：347 MB 要下几分钟，界面靠轮询 GET 看进度。
+    const { started } = downloadElectronInBackground({
+      onLog: (event: { text: string }) => log.info('[fish-body] ' + event.text),
+    });
+    return okResult({ started, installed: false, runtime: electronRuntimeStatus() });
+  }
 
   // 桌面端「重载配置」（右键菜单 → POST /reload）：重启桌面 Helper，全部窗口按最新配置重建。
   // 与保存走同一条重启路径（requestRestart），宠物数量 / display / size 的变化同样生效——渲染端
@@ -43,7 +58,7 @@ export async function handleDesktopRoutes(deps: PetRouteDeps, input: RouteInput)
       try {
         (quit as (reason: string) => void)('托盘退出');
       } catch (e: unknown) {
-        log.warn(`[dsh-pet] 托盘退出失败：${e instanceof Error ? e.message : String(e)}`);
+        log.warn(`[fish-body] 托盘退出失败：${e instanceof Error ? e.message : String(e)}`);
       }
     });
     return okResult({ ok: true });
@@ -60,7 +75,7 @@ export async function handleDesktopRoutes(deps: PetRouteDeps, input: RouteInput)
       try {
         stop('tray-quit');
       } catch (e: unknown) {
-        log.warn(`[dsh-pet] 托盘停止桌面助手失败：${e instanceof Error ? e.message : String(e)}`);
+        log.warn(`[fish-body] 托盘停止桌面助手失败：${e instanceof Error ? e.message : String(e)}`);
       }
     });
     return okResult({ ok: true, stopping: true });

@@ -3,7 +3,7 @@
  * 只做接线：不判定（判定在 shared 与各驱动）、不渲染（DOM 在 card-view）、不持有跨卡状态。
  * 装配顺序不能改：动画链早于运动（回调要读走位）、运动早于拖拽（拖拽读飞行）、浮层最后。
  * 必须在渲染期填池：迟绑槽里的驱动实例只在本次渲染内赋值，别处不得写入。
- * @module dsh-pet/src/client/pet/card/runtime
+ * @module dsh-fish-body/src/client/pet/card/runtime
  */
 import { pick } from '../../../shared/pickers.ts';
 import { postAction } from '../../../shared/state.ts';

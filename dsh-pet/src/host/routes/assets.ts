@@ -4,7 +4,7 @@
  * 不决定素材归属，只按给定目录链查找。素材根写 `pool` 时表示「共享资源池」（保留虚拟根）：
  * /sound /skin /thumb 各自把池目录当成唯一候选，其它素材根则按「先 pack 后池」依次回落。
  * 依赖（PetRouteDeps）显式传入，模块内不读全局、不建状态。
- * @module dsh-pet/src/host/routes/assets
+ * @module dsh-fish-body/src/host/routes/assets
  */
 import { join } from 'node:path';
 import { PACKAGE_ROOT } from '../paths.ts';
@@ -109,8 +109,8 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
 
   // 动画素材：/thumb/<素材根>/<file>，扩展名 webm（默认）/ mov（macOS 定制）。
   // 存在 `pet/<素材根>-animation/` 的宠物先查自己的目录，再查共享资源池（`<池>/webm/`），
-  // 仍未命中才走主素材链：用户 main-animation/<ext> → 包内 assets/<ext>（所有主配置宠物共用）。
-  // mov（HEVC-with-Alpha）不随包发布，用户从 GitHub Release 下载后放 main-animation/mov/，
+  // 仍未命中才走主素材链：用户 assets/animation/<ext> → 包内 assets/<ext>（所有主配置宠物共用）。
+  // mov（HEVC-with-Alpha）不随包发布，用户从 GitHub Release 下载后放 assets/animation/mov/，
   // 并把客户端播放常量 ANIMATION_EXT 改为 .mov。
   // font / pic 是扁平的 /<scope>/<file>，只有 thumb 是 /<scope>/<petId>/<file>：先拆 scope 再各自拆剩余段。
   const [scope, ...restParts] = rest.split('/');
@@ -122,23 +122,23 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   // main 不查自定义文件：pet/ 只归 pet pack，内置条目永远用包内 logo。
   // 参数叫 root 而不是 pet：这里要的是素材根（目录前缀），不是 pets[].id。
   if (scope === 'logo') {
-    if (restParts.length > 0) return { kind: 'text', status: 400, body: 'dsh-pet: expected /dsh-pet-7340/logo' };
+    if (restParts.length > 0) return { kind: 'text', status: 400, body: 'fish-body: expected /dsh-pet-7340/logo' };
     const assetRoot = (url.searchParams.get('root') ?? '').trim();
     if (assetRoot !== '' && assetRoot !== 'main') {
       // 素材根是标识符不是路径片段：含分隔符/保留字符即显式 400，早于任何路径拼接。
-      if (!isValidPetId(assetRoot)) return { kind: 'text', status: 400, body: 'dsh-pet: invalid asset root' };
+      if (!isValidPetId(assetRoot)) return { kind: 'text', status: 400, body: 'fish-body: invalid asset root' };
       const own = petAvatarFile(petConfigDir, assetRoot);
       if (own !== undefined) return { kind: 'file', file: own.file, contentType: own.contentType };
     }
     const logo = resolveExisting(join(PACKAGE_ROOT, 'assets'), 'logo.png');
-    if (logo === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: logo not found' };
+    if (logo === undefined) return { kind: 'text', status: 404, body: 'fish-body: logo not found' };
     return { kind: 'file', file: logo, contentType: MIME['.png'] ?? 'image/png' };
   }
 
   if (scope === 'font') {
     const fontRoot = join(PACKAGE_ROOT, 'assets', 'fonts');
     const fontFile = resolveExisting(fontRoot, restParts.join('/'));
-    if (fontFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: font not found' };
+    if (fontFile === undefined) return { kind: 'text', status: 404, body: 'fish-body: font not found' };
     const ext = fontFile.slice(fontFile.lastIndexOf('.')).toLowerCase();
     return { kind: 'file', file: fontFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
@@ -155,7 +155,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
       const scoped = segs.length >= 2;
       const assetRoot = scoped ? segs[0] : 'main';
       if (scoped && !isValidPetId(assetRoot)) {
-        return { kind: 'text', status: 400, body: 'dsh-pet: invalid asset root' };
+        return { kind: 'text', status: 400, body: 'fish-body: invalid asset root' };
       }
       const rel = (scoped ? segs.slice(1) : segs).join('/');
       let picFile: string | undefined;
@@ -163,13 +163,13 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
         picFile = resolveExisting(dir, rel);
         if (picFile !== undefined) break;
       }
-      if (picFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: pic not found' };
+      if (picFile === undefined) return { kind: 'text', status: 404, body: 'fish-body: pic not found' };
       const ext = picFile.slice(picFile.lastIndexOf('.')).toLowerCase();
       return { kind: 'file', file: picFile, contentType: MIME[ext] ?? 'application/octet-stream' };
     }
     const picRoot = join(PACKAGE_ROOT, 'assets', 'pic');
     const picFile = resolveExisting(picRoot, restParts.join('/'));
-    if (picFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: pic not found' };
+    if (picFile === undefined) return { kind: 'text', status: 404, body: 'fish-body: pic not found' };
     const ext = picFile.slice(picFile.lastIndexOf('.')).toLowerCase();
     return { kind: 'file', file: picFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
@@ -184,12 +184,12 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   if (scope === 'sound') {
     const scoped = restParts.length >= 2;
     const assetRoot = scoped ? restParts[0] : 'main';
-    if (!isValidPetId(assetRoot)) return { kind: 'text', status: 400, body: 'dsh-pet: invalid sound asset root' };
+    if (!isValidPetId(assetRoot)) return { kind: 'text', status: 400, body: 'fish-body: invalid sound asset root' };
     const rel = (scoped ? restParts.slice(1) : restParts).join('/');
     const rawModel = (url.searchParams.get('model') ?? '').trim();
-    if (!isValidModelPath(rawModel)) return { kind: 'text', status: 400, body: 'dsh-pet: invalid model path' };
+    if (!isValidModelPath(rawModel)) return { kind: 'text', status: 400, body: 'fish-body: invalid model path' };
     const rawRenderer = url.searchParams.get('renderer') ?? 'webm';
-    if (!RENDERER_SET.has(rawRenderer)) return { kind: 'text', status: 400, body: 'dsh-pet: unknown renderer' };
+    if (!RENDERER_SET.has(rawRenderer)) return { kind: 'text', status: 400, body: 'fish-body: unknown renderer' };
     const renderer = rawRenderer as RendererKind;
     const dirs = soundDirsFor(assetRoot, '.webm', { model: rawModel, renderer });
     let soundFile: string | undefined;
@@ -197,13 +197,13 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
       soundFile = resolveExisting(dir, rel);
       if (soundFile !== undefined) break;
     }
-    if (soundFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: sound not found' };
+    if (soundFile === undefined) return { kind: 'text', status: 404, body: 'fish-body: sound not found' };
     const ext = soundFile.slice(soundFile.lastIndexOf('.')).toLowerCase();
     if (!SFX_AUDIO_EXTS.includes(ext)) {
       return {
         kind: 'text',
         status: 400,
-        body: 'dsh-pet: unsupported sound format (expected .wav / .ogg / .mp3 / .m4a)',
+        body: 'fish-body: unsupported sound format (expected .wav / .ogg / .mp3 / .m4a)',
       };
     }
     return { kind: 'file', file: soundFile, contentType: MIME[ext] ?? 'application/octet-stream' };
@@ -214,7 +214,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   if (scope === 'cubism') {
     const cubismRoot = join(PACKAGE_ROOT, 'assets', 'cubism');
     const cubismFile = resolveExisting(cubismRoot, restParts.join('/'));
-    if (cubismFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: cubism core not found' };
+    if (cubismFile === undefined) return { kind: 'text', status: 404, body: 'fish-body: cubism core not found' };
     const ext = cubismFile.slice(cubismFile.lastIndexOf('.')).toLowerCase();
     return { kind: 'file', file: cubismFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
@@ -224,7 +224,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   // 经典脚本下必然加载失败；UMD 形态由页面 <script> 直接加载，pixi-live2d-display 再挂到 PIXI.live2d。
   if (scope === 'vendor') {
     const vendorFile = resolveExisting(join(PACKAGE_ROOT, 'assets', 'vendor'), restParts.join('/'));
-    if (vendorFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: vendor asset not found' };
+    if (vendorFile === undefined) return { kind: 'text', status: 404, body: 'fish-body: vendor asset not found' };
     const ext = vendorFile.slice(vendorFile.lastIndexOf('.')).toLowerCase();
     return { kind: 'file', file: vendorFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
@@ -236,14 +236,14 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   if (scope === 'skin') {
     const [assetRoot, ...nameParts] = restParts;
     if (!assetRoot || nameParts.length === 0) {
-      return { kind: 'text', status: 400, body: 'dsh-pet: expected /dsh-pet-7340/skin/<petId>/<file>' };
+      return { kind: 'text', status: 400, body: 'fish-body: expected /dsh-pet-7340/skin/<petId>/<file>' };
     }
     if (!isValidPetId(assetRoot)) {
-      return { kind: 'text', status: 400, body: 'dsh-pet: invalid skin asset root' };
+      return { kind: 'text', status: 400, body: 'fish-body: invalid skin asset root' };
     }
     const fromPool = assetRoot === POOL_ASSET_ROOT;
     // 池视图没有池根就直接 404（虚拟根靠池存在才有意义）；精简测试桩没有 poolRoot 时同样跳过池分支。
-    if (fromPool && poolBase === '') return { kind: 'text', status: 404, body: 'dsh-pet: skin file not found' };
+    if (fromPool && poolBase === '') return { kind: 'text', status: 404, body: 'fish-body: skin file not found' };
     const pool = poolBase === '' ? undefined : createPoolReader(poolBase).scan();
     const packSkinDir = fromPool ? undefined : resolveAsset(petConfigDir, assetRoot + '-skin');
     const packDir = packSkinDir !== undefined && existsSync(packSkinDir) ? packSkinDir : undefined;
@@ -288,7 +288,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
       skinFile = resolveExisting(root, rel);
       if (skinFile !== undefined) break;
     }
-    if (skinFile === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: skin file not found' };
+    if (skinFile === undefined) return { kind: 'text', status: 404, body: 'fish-body: skin file not found' };
     // 模型清单：补上目录里现成的 Animation 动作与 Exp3 表情（见 host/model-extras）。
     // 只改下发的这一份，磁盘上的用户文件保持原样；解析失败就按原文件走，不额外编个错误页。
     if (isModelSettingsFile(rel)) {
@@ -304,14 +304,14 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   }
 
   if (scope !== 'thumb') {
-    return { kind: 'text', status: 400, body: 'dsh-pet: expected /dsh-pet-7340/thumb/<petId>/<file>' };
+    return { kind: 'text', status: 400, body: 'fish-body: expected /dsh-pet-7340/thumb/<petId>/<file>' };
   }
 
   // thumb 是三段式：/<scope>/<petId>/<file>——从这里再拆宠物 id 与文件名
   const [petId, ...nameParts] = restParts;
 
   if (!petId || nameParts.length === 0) {
-    return { kind: 'text', status: 400, body: 'dsh-pet: expected /dsh-pet-7340/thumb/<petId>/<file>' };
+    return { kind: 'text', status: 400, body: 'fish-body: expected /dsh-pet-7340/thumb/<petId>/<file>' };
   }
 
   // petId 是标识符（= pet/<名>-animation/ 的 <名>，来源是 pet/ 下的文件名前缀），不是路径片段：
@@ -319,7 +319,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   // 用非法字符类而不是 ASCII 白名单。非法输入不再静默回落到主素材池（攻击尝试与「没有独立素材」可区分），
   // 也给下面的 resolveAsset 之外再留一道结构性防线。
   if (!isValidPetId(petId)) {
-    return { kind: 'text', status: 400, body: 'dsh-pet: invalid pet id' };
+    return { kind: 'text', status: 400, body: 'fish-body: invalid pet id' };
   }
 
   const fileName = nameParts.join('/');
@@ -327,7 +327,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
 
   if (ext !== '.webm' && ext !== '.mov') {
-    return { kind: 'text', status: 400, body: 'dsh-pet: unsupported animation format (expected .webm or .mov)' };
+    return { kind: 'text', status: 400, body: 'fish-body: unsupported animation format (expected .webm or .mov)' };
   }
 
   // 素材归属：`pet/<素材根>-animation/` 存在则先查它；随后查共享资源池的平铺动画（`<池>/webm/`）；
@@ -369,7 +369,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     }
   }
 
-  if (file === undefined) return { kind: 'text', status: 404, body: 'dsh-pet: asset not found' };
+  if (file === undefined) return { kind: 'text', status: 404, body: 'fish-body: asset not found' };
 
   return { kind: 'file', file, contentType: MIME[servedExt] ?? 'application/octet-stream' };
 }

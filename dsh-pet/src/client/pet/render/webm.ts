@@ -2,7 +2,7 @@
  * webm 渲染后端：把「视频 A/B 双缓冲 + 交叉淡入淡出 + 动作/待机切换 + 播放进度」包成 Renderer。
  * 引擎仍是 pet/animation 的 {@link createOwnAnimation}——这里只做元素装配与契约适配，
  * 不重复实现换源、世代号、blob 生命周期与播完判定。交互与运动不属于本模块，由卡片层经 source 驱动。
- * @module dsh-pet/src/client/pet/render/webm
+ * @module dsh-fish-body/src/client/pet/render/webm
  */
 import { createOwnAnimation, type OwnAnimation } from '../animation/animation.ts';
 import type { AssetLoader } from '../animation/asset-loader.ts';

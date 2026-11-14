@@ -74,7 +74,7 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `PUT /dsh-pet-7340/config`           | 保存用户层配置（白名单重建，用户手写的精调字段会保留）                                                                 |
 | `POST /dsh-pet-7340/config`          | 用内置默认整份覆盖用户配置，即「恢复默认」                                                                             |
 | `POST /dsh-pet-7340/pet-display`     | **改单只宠物的显示位置**（`web` / `desktop` / `both` / `none`），只传 `{ id, display }`                                |
-| `POST /dsh-pet-7340/pet-config`      | **按种类写回全部实例**（`{ entry, pets }`，`entry` = `pet/<名>-config.json` 的前缀）；白名单重建，顶层动画池与人设保留 |
+| `POST /dsh-pet-7340/pet-config`      | **按种类写回全部实例**（`{ entry, pets }`，`entry` = `pets/<名>-config.json` 的前缀）；白名单重建，顶层动画池与人设保留|
 | `POST /dsh-pet-7340/reload`          | 重载桌面端（重启桌面宠物进程，按最新配置重建窗口）                                                                     |
 | `GET /dsh-pet-7340/settings-backup`  | **导出设置备份**：主配置、每个种类配置与会话鱼设置的**原文**（JSONC 注释与字段顺序都保留）                             |
 | `POST /dsh-pet-7340/settings-backup` | **用备份恢复**：先整体预检再原子写回，覆盖前把现有文件留成 `<文件>.bak-<时间戳>`；空串表示删掉那一层                   |
@@ -108,7 +108,7 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `GET /dsh-pet-7340/attachment?id=`           | **取图**：把对话记忆里 `image.attachmentId`（`sha256:…`）换回图片                                                                                                                                                                |
 | `GET /dsh-pet-7340/logo?root=`               | 宠物头像：缺省回插件 logo（`assets/logo.png`）；带 `root=<素材根>` 时回该 pet pack 上传的头像，没有就回默认                                                                                                                      |
 | `GET /dsh-pet-7340/character?root=`          | **角色参考图**：按素材根回一张官方设定图（png / jpg / webp / gif），第三方自建生图时对齐角色用；**不代调生图模型**，出图与计费都在调用方                                                                                         |
-| `POST /dsh-pet-7340/pet-avatar?root=`        | **上传头像**：`{ base64 }`，覆盖写 `pet/<素材根>-avatar.<ext>`；`root=main`（内置）被拒                                                                                                                                          |
+| `POST /dsh-pet-7340/pet-avatar?root=`        | **上传头像**：`{ base64 }`，覆盖写 `pets/<素材根>-avatar.<ext>`；`root=main`（内置）被拒                                                                                                                                        |
 
 ## 八、工作状态（外部写入）
 
@@ -130,8 +130,8 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 `lastError` 是「通着但上一句念失败了」（参考音频坏了、上游 `/tts` 报错…，合成成功即消失）——
 后者是「本地音色其实没用上」唯一可见的线索，设置页的接入卡把它当警告显示。
 
-`POST /voice/provider-process` 只跑 `voice-providers.json` 里填的启停脚本，**不建控制台窗口**：
-脚本的 stdout/stderr 追加到 `<DSH_HOME>/dsh-pet/logs/gsv/<provider>-start.log`。这不是风格问题——
+`POST /voice/provider-process` 只跑 `config/voice-providers.json` 里填的启停脚本，**不建控制台窗口**：
+脚本的 stdout/stderr 追加到 `<DSH_HOME>/fish-body/logs/gsv/<provider>-start.log`。这不是风格问题——
 `api_v2` 的 `/tts` 在合成前有一句 `print()`，而「窗口被关掉、进程还活着」的 stdout 已失效，
 `print` 会抛 `OSError: [Errno 22] Invalid argument`，于是每句合成都 400、整条链静默落到 edge。
 手工双击 `gsv.bat` 时同理：脚本自己把 python 的输出重定向进 `logs\gsv\api-v2.log`，关窗口只会停服务，
@@ -150,10 +150,10 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 | 接口                                        | 功能                                                                                                                      |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `GET /dsh-pet-7340/session-fish`            | 读会话鱼设置（独立文件 `<用户根>/session-fish.json`；文件缺失/损坏时回默认值）                                            |
+| `GET /dsh-pet-7340/session-fish`            | 读会话鱼设置（独立文件 `<数据根>/config/session-fish.json`；文件缺失/损坏时回默认值）                                      |
 | `PUT /dsh-pet-7340/session-fish`            | 保存设置：只传要改的字段；未知键/类型错/越界 → `bad-request`，写盘失败 → `settings-write-failed`（旧值保留）              |
 | `POST /dsh-pet-7340/session-fish`           | 用户动作：`{ action: "focus" \| "close", sessionId, blank?, running? }`；`focus` 在已完成时让鱼消失，`close` 隐藏到下一轮 |
-| `GET /dsh-pet-7340/session-fish/skins`      | 列可选皮肤：用户目录 `<用户根>/session-fish-skin/` 在前、包内 `assets/webm/` 在后（同名以用户为准），附 `defaultSkin`     |
+| `GET /dsh-pet-7340/session-fish/skins`      | 列可选皮肤：用户目录 `<数据根>/assets/session-fish/` 在前、包内 `assets/webm/` 在后（同名以用户为准），附 `defaultSkin`  |
 | `GET /dsh-pet-7340/session-fish/skin?name=` | 取一份皮肤文件（图片 / 动图 / webm）；名字非法或扩展名不支持 → `400`，不存在 → `404` 文本                                 |
 | `POST /dsh-pet-7340/session-fish/claim`     | 认领一条播报的出声权：`{ sessionId, lineSeq }` → `{ granted }`；每个 `(会话, 序号)` 全机器只授予一次                      |
 

@@ -1,7 +1,7 @@
 /**
  * 内置人格来源：dsh-fish-soul 的人设卡（$DSH_HOME/fish-soul/persona.json）。
  * 只把「读卡」接到 ./card-reader，并把卡片路径暴露给同步器做监听。
- * @module dsh-pet/src/host/persona-source/fish-soul
+ * @module dsh-fish-body/src/host/persona-source/fish-soul
  */
 import { join } from 'node:path';
 import { readCardFile } from './card-reader.ts';

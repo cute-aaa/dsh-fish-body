@@ -2,7 +2,7 @@
  * 点击积分弹窗与粒子爆发：两端共用同一份渲染。
  * 纯逻辑（阈值与分数映射）在 score.ts，本文件只做展示——粒子在点击处爆开，
  * 弹窗显示 +N 分与速度/大小明细，点外或 Esc 立即关闭。
- * @module dsh-pet/src/shared/score-popup
+ * @module dsh-fish-body/src/shared/score-popup
  */
 import { clickScore, SCORE_MIN_SPEED } from './score.ts';
 

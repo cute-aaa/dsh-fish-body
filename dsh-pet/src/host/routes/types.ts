@@ -4,7 +4,7 @@
  * 显式依赖是这一层的全部意义——路由不再从 `apply` 的闭包里"抓"变量，
  * 于是每个领域模块都能单独读、单独改、单独测，改路由不必改装配。
  * 不负责生命周期：store 的创建与销毁归 `apply`，路由只调用。
- * @module dsh-pet/src/host/routes/types
+ * @module dsh-fish-body/src/host/routes/types
  */
 import type { ChatMemoryMessage } from '../chat.ts';
 import type { ConfigPaths } from '../config.ts';
@@ -23,6 +23,7 @@ import type { SfxDirs } from '../sfx/scan.ts';
 import type { PollStateStore } from '../state.ts';
 import type { VoiceTarget } from '../surface.ts';
 import type { TodoStore } from '../todo/store.ts';
+import type { UserPaths } from '../user-layout.ts';
 import type { HearService } from '../voice/hear.ts';
 import type { VoiceService } from '../voice/speak.ts';
 import type { WorkStatusStore } from '../work-status.ts';
@@ -114,6 +115,8 @@ export interface PetRouteDeps {
   readonly playback: PlaybackStore;
   /** 用户数据根。 */
   readonly userRoot: string;
+  /** 数据根路径表（装配期给的唯一真源；缺省时路由按 userRoot 现算，见 ./paths.ts）。 */
+  readonly paths?: UserPaths;
   /** 占用锁。 */
   readonly lock: LockStore;
   /** 睡觉状态（进睡 / 醒来由 /sleep 与 /wake 驱动）。 */

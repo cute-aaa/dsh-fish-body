@@ -6,7 +6,7 @@
  * 底部栏只留保存相关的按钮，页面底部也不再重复出现「重置」入口。
  * 两个按钮都不产生「未保存改动」：重启会先保存再重组，重置走宿主默认值写盘。
  * owns only 这张卡的排布，never 重启 / 重置 / 确认弹窗的实现。
- * @module dsh-pet/src/client/settings/maintenance-card
+ * @module dsh-fish-body/src/client/settings/maintenance-card
  */
 import type { FunctionComponent } from 'react';
 import type { SettingsRuntime } from './runtime.ts';

@@ -3,12 +3,13 @@
  *
  * 不拼人设（人设归配置），不发网络请求（归 ./chat、./whisper）。
  * 依赖由 apply 显式传入（见输入类型），模块内不读全局、不建单例。
- * @module dsh-pet/src/host/plugin/chat-memory
+ * @module dsh-fish-body/src/host/plugin/chat-memory
  */
-import { join } from 'node:path';
+import { userPaths } from '../user-layout.ts';
 import { generateChat, type ChatMemoryMessage } from '../chat.ts';
 import { chatActionNames } from '../chat-action.ts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { composeSystemPrompt, petPersona } from '../persona.ts';
 import { findPetInstance, readAllConfig, removeRoundsByTs, sliceMemoryRounds } from '../config.ts';
 import type { PetImageRef } from '../image-attachment.ts';
@@ -70,7 +71,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
 
   // 对话记忆文件（唯一读写方 = 本进程；浏览器/桌面两端都只是客户端 → 同一实例天然共享同一份记忆）。
   // 结构双层：{ <种类桶 assetRoot ?? petId>: { <实例 id>: { messages: ChatMemoryMessage[] } } }
-  const memoryPath = join(userRoot, 'memory.json');
+  const memoryPath = userPaths(userRoot).memory;
 
   // 对话写操作串行队列：read-modify-write 排队执行，防两端同时对话时交错写盘
   let chatQueue: Promise<void> = Promise.resolve();
@@ -89,14 +90,16 @@ export function createChatMemory(deps: ChatMemoryInput) {
       return parsed as Record<string, Record<string, { messages: ChatMemoryMessage[] }>>;
     } catch (e) {
       log.error(
-        `dsh-pet: 记忆文件无法解析（对话将从头开始）：${memoryPath}（${e instanceof Error ? e.message : String(e)}）`,
+        `fish-body: 记忆文件无法解析（对话将从头开始）：${memoryPath}（${e instanceof Error ? e.message : String(e)}）`,
       );
       return {};
     }
   };
 
   const writeMemory = async (mem: Record<string, Record<string, { messages: ChatMemoryMessage[] }>>): Promise<void> => {
-    await mkdir(userRoot, { recursive: true });
+    // 建记忆文件自己的目录（`data/`），不是数据根：布局初始化虽然会建它，但用户手删掉 `data/` 之后
+    // 下一次写记忆不该直接 ENOENT。
+    await mkdir(dirname(memoryPath), { recursive: true });
     await writeFile(memoryPath, JSON.stringify(mem, null, 2), 'utf8');
   };
 
@@ -162,7 +165,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
       return Object.keys(patch).length === 0 ? undefined : patch;
     } catch (error) {
       log.warn(
-        '[dsh-pet] 记忆召回失败 id=' + provider.id + '：' + (error instanceof Error ? error.message : String(error)),
+        '[fish-body] 记忆召回失败 id=' + provider.id + '：' + (error instanceof Error ? error.message : String(error)),
       );
       return undefined;
     } finally {
@@ -187,7 +190,10 @@ export function createChatMemory(deps: ChatMemoryInput) {
       .then(() => capture.call(provider, { petId, ...turn }))
       .catch((error) => {
         log.warn(
-          '[dsh-pet] 记忆接收失败 id=' + provider.id + '：' + (error instanceof Error ? error.message : String(error)),
+          '[fish-body] 记忆接收失败 id=' +
+            provider.id +
+            '：' +
+            (error instanceof Error ? error.message : String(error)),
         );
       });
   };
@@ -244,7 +250,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
     if (!result.ok) {
       // 失败不写 S：静默跳过 + warn，不伪造文案、不弹错误气泡
       log.warn(
-        '[dsh-pet] 碎碎念生成失败 pet=' +
+        '[fish-body] 碎碎念生成失败 pet=' +
           petId +
           ' reason=' +
           result.reason +
@@ -261,7 +267,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
     });
     // 成功也留一行：否则 logs.txt 里「没触发」与「触发了并且成功」无法区分。
     log.info(
-      `[dsh-pet] 碎碎念生成成功 pet=${petId}，${result.text.length} 字` +
+      `[fish-body] 碎碎念生成成功 pet=${petId}，${result.text.length} 字` +
         (result.image ? `，配图=${result.image}` : ''),
     );
     // 文本随返回值带出，且与刚写进叶子的是同一个变量：两条出口给同一份文本，不是一个真相两个版本
@@ -283,7 +289,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
     });
     if (!result.ok) {
       log.warn(
-        '[dsh-pet] 梦话生成失败 pet=' +
+        '[fish-body] 梦话生成失败 pet=' +
           petId +
           ' reason=' +
           result.reason +
@@ -292,7 +298,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
       return false;
     }
     state.writePet(petId, 'say', { text: result.text, anim: false });
-    log.info(`[dsh-pet] 梦话生成成功 pet=${petId}，${result.text.length} 字`);
+    log.info(`[fish-body] 梦话生成成功 pet=${petId}，${result.text.length} 字`);
     return true;
   };
 
@@ -330,7 +336,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
           : (mem[found.entry] = {});
       const existing = bucket[petId];
       if (existing !== undefined && (!existing || !Array.isArray(existing.messages))) {
-        log.error(`[dsh-pet] 记忆结构异常（messages 不是数组）pet=${petId}，按新会话处理：${memoryPath}`);
+        log.error(`[fish-body] 记忆结构异常（messages 不是数组）pet=${petId}，按新会话处理：${memoryPath}`);
       }
       const entry = existing && Array.isArray(existing.messages) ? existing : (bucket[petId] = { messages: [] });
       // rounds = 0（用户关掉历史）→ 空历史；否则截尾部 rounds 轮（1 轮 = 1 问 1 答）。
@@ -342,7 +348,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
       // 图片只记尺寸与字节数（不记 base64）：模型不支持读图时 dsh-llm 会把它投影成占位文本，靠这行日志定位
       if (image !== undefined) {
         log.info(
-          `[dsh-pet] 对话附带图片 pet=${petId}，${image.width}x${image.height}，${image.bytes} 字节` +
+          `[fish-body] 对话附带图片 pet=${petId}，${image.width}x${image.height}，${image.bytes} 字节` +
             '（模型不支持读图时内核会以占位文本代替）',
         );
       }
@@ -439,7 +445,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
         await writeMemory(mem);
       }
       // 只记数量与动作，不打正文（记忆内容是用户隐私）
-      log.info(`[dsh-pet] 删除对话记忆 pet=${petId}，removed=${removed}` + (ts === undefined ? '（清空）' : ''));
+      log.info(`[fish-body] 删除对话记忆 pet=${petId}，removed=${removed}` + (ts === undefined ? '（清空）' : ''));
       return { ok: true as const, removed };
     });
 

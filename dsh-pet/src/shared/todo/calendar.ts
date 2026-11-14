@@ -2,7 +2,7 @@
  * 日历格的纯计算：某年某月排成 7 列几行、哪些格子属于前后月。
  *
  * 不碰 DOM 与当前时间；周一起算的列偏移与补位规则由测试钉住。
- * @module dsh-pet/src/shared/todo/calendar
+ * @module dsh-fish-body/src/shared/todo/calendar
  */
 
 /** 日历格：某年某月的 7 列网格，含前后月补位。 */

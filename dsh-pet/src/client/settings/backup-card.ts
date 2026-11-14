@@ -3,7 +3,7 @@
  *
  * 放在「系统」分区靠前的位置：它是维护动作，不属于任何一个具体设置项，也不产生「未保存改动」。
  * 恢复走两步（选文件 → 确认弹窗 → 上传），所以卡片本身只负责把文件交出去，写盘时机不在这里。
- * @module dsh-pet/src/client/settings/backup-card
+ * @module dsh-fish-body/src/client/settings/backup-card
  */
 import type { FunctionComponent } from 'react';
 import type { SettingsRuntime } from './runtime.ts';

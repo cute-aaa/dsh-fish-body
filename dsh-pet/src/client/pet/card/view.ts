@@ -4,7 +4,7 @@
  * 不持有状态、不做判定：尺寸变量、定位样式与事件回调都由 PetCard 当帧传入，这里只按顺序拼装。
  * 依赖注入的 h、命中区样式（装配根按渲染方式算好）与 shared/tooltip 的类名。
  * 不变量：命中区在 stage 内，气泡与提示是根节点的直接子节点——三者的定位都相对根节点。
- * @module dsh-pet/src/client/pet/card/view
+ * @module dsh-fish-body/src/client/pet/card/view
  */
 import { TOOLTIP_CLASS } from '../../../shared/tooltip.ts';
 import type { CSSProperties, ReactNode } from 'react';

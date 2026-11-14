@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 
 import { configPathsFor, describePets, parseArgs } from './options.ts';
+import { userPaths } from '../host/user-layout.ts';
 import { DEFAULT_STANDALONE_PORT } from './server.ts';
 
 describe('parseArgs —— 独立模式的命令行契约', () => {
@@ -59,12 +60,17 @@ describe('configPathsFor —— 配置路径推导（host/index.ts 那份的镜�
   const paths = configPathsFor('/pkg', '/home/.dsh');
 
   test('内置默认 / 用户主配置 / 旧版回落 / 文件宠物目录', () => {
+    const layout = userPaths(join('/home/.dsh', 'fish-body'));
     assert.deepEqual(paths, {
       defaultFile: join('/pkg', 'assets', 'config.jsonc'),
-      userFile: join('/home/.dsh', 'dsh-pet', 'main-config.jsonc'),
-      legacyUserFile: join('/home/.dsh', 'dsh-pet', 'main-config.json'),
-      petDir: join('/home/.dsh', 'dsh-pet', 'pet'),
+      userFile: join('/home/.dsh', 'fish-body', 'config', 'main-config.jsonc'),
+      legacyUserFile: join('/home/.dsh', 'fish-body', 'config', 'main-config.json'),
+      petDir: join('/home/.dsh', 'fish-body', 'pets'),
     });
+    // 同一份口径再与 userPaths 对一遍：字面量漂移时这里先红
+    assert.equal(paths.userFile, layout.mainConfig);
+    assert.equal(paths.legacyUserFile, layout.legacyMainConfig);
+    assert.equal(paths.petDir, layout.petsDir);
   });
 });
 

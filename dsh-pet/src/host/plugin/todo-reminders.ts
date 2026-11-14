@@ -4,7 +4,7 @@
  * 不决定节奏与文案（归 ../todo/policy），也不读写文件（归 ../todo/store）。
  * 每拍最多说一条，避免多条同时到期时刷屏；写进 S 之后才记 lastRemindedAt，重启不会重复。
  * 没有可见宠物或被第三方占用时跳过且不推进——条件满足后的下一拍立刻补上，这次提醒不会丢。
- * @module dsh-pet/src/host/plugin/todo-reminders
+ * @module dsh-fish-body/src/host/plugin/todo-reminders
  */
 import { pickVoiceSurface } from '../surface.ts';
 import { pickReminder, reminderText } from '../todo/policy.ts';
@@ -110,7 +110,7 @@ export async function tickTodoReminders(deps: TodoReminderTickDeps): Promise<voi
   await deps.todos.markReminded(due.todo.id, now);
   // 只记 id 与剩余时长：待办正文是用户内容，不进日志。
   const remainingSec = due.todo.dueAt === null ? 0 : Math.round((due.todo.dueAt - now) / 1000);
-  deps.log.info(`[dsh-pet] 待办提醒 todo=${due.todo.id} pet=${speaker} 剩余=${remainingSec}s`);
+  deps.log.info(`[fish-body] 待办提醒 todo=${due.todo.id} pet=${speaker} 剩余=${remainingSec}s`);
 }
 
 /**
@@ -135,7 +135,7 @@ export function registerTodoReminders(deps: TodoReminderInput): void {
         todos,
       });
     } catch (error) {
-      log.warn('[dsh-pet] 待办提醒失败：' + (error instanceof Error ? error.message : String(error)));
+      log.warn('[fish-body] 待办提醒失败：' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -161,5 +161,5 @@ export function registerTodoReminders(deps: TodoReminderInput): void {
       disposed = true;
       if (timer !== null) clearTimeout(timer);
     };
-  }, 'dsh-pet: todo reminders');
+  }, 'fish-body: todo reminders');
 }

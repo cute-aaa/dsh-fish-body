@@ -4,7 +4,7 @@
  * 为什么自己画：桌宠的角色图是整张立绘，按几十像素缩下来只剩一团颜色；会话鱼要的是一眼能认出的
  * 「小鱼」轮廓，还要能按档位做很小的动作。颜色全部走 `--dsw-alias-*` 设计 token，明暗主题自动跟随。
  * 只造节点，不含状态；动画在 css.ts 里按 `.is-<state>` 驱动。
- * @module dsh-pet/src/client/session-fish/sprite
+ * @module dsh-fish-body/src/client/session-fish/sprite
  */
 import type { jsx } from 'react/jsx-runtime';
 import type { SessionFishState } from '../../shared/session-fish.ts';

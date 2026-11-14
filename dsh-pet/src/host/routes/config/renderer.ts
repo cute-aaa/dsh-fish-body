@@ -2,7 +2,7 @@
  * 单只宠物的渲染方式（POST /pet-renderer）：调用方只给 id 与 renderer，层归属由宿主反查。
  * 与 /pet-display 同一套写入语义：白名单重建 + 磁盘原值透传 + 写后广播并重启 Helper。
  * 不解析整段 pets[]，不负责配置读取的合并（归 ../../config）。
- * @module dsh-pet/src/host/routes/config/renderer
+ * @module dsh-fish-body/src/host/routes/config/renderer
  */
 import { RENDERER_SET, findPetInstance, readAllConfig, saveUserConfig } from '../../config.ts';
 import { mkdir, writeFile } from 'node:fs/promises';

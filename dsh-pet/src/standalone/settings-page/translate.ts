@@ -3,7 +3,7 @@
  *
  * 宿主侧由 `ctx.locale.bind(NS)` 提供翻译，独立环境没有 locale 服务，
  * 这里用包内字典自建；页面固定中文（见 chrome.ts 的 `lang="zh-CN"`），字典取 `zh`。
- * @module dsh-pet/src/standalone/settings-page/translate
+ * @module dsh-fish-body/src/standalone/settings-page/translate
  */
 
 /**

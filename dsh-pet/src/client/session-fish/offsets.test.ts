@@ -1,6 +1,6 @@
 /**
  * 会话鱼偏移存储：读写、按会话保留、超量裁剪与「重置」广播（含旧版本键的清理）。
- * @module dsh-pet/src/client/session-fish/offsets.test
+ * @module dsh-fish-body/src/client/session-fish/offsets.test
  */
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';

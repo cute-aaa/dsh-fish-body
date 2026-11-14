@@ -4,7 +4,7 @@
  * 画布是「正方形、按 CSS 宽高缩放、底部居中」摆放的，视口坐标必须先按实际矩形还原到画布像素，
  * 才能和 manifest 里的命中区形状（画布坐标）比较；这一步算错就会「看着点在头上、判到身上」。
  * 抽成纯函数是为了能脱离 canvas 断言（rect 由调用方传入）。
- * @module dsh-pet/src/client/pet/render/layered/hit
+ * @module dsh-fish-body/src/client/pet/render/layered/hit
  */
 import { hitTest } from './rig.ts';
 import type { SkinManifest } from './types.ts';

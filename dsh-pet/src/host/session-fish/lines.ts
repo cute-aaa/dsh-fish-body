@@ -3,7 +3,7 @@
  *
  * 为什么放在宿主：文案要跟着「任务详情」一起成型，两端只负责念与画；宿主生成一次，浏览器与
  * 语音链拿到的是同一句。任务文案会被截短——鱼的气泡很小，长路径与长句子只会把气泡撑爆。
- * @module dsh-pet/src/host/session-fish/lines
+ * @module dsh-fish-body/src/host/session-fish/lines
  */
 import type { SessionFishLineKind, SessionFishState } from '../../shared/session-fish.ts';
 

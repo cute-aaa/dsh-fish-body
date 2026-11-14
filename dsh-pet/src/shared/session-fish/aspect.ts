@@ -4,7 +4,7 @@
  * 为什么单独一份：网页与桌面各有自己的 `<video>` / `<img>`，但「按显示宽度算高度」的口径
  * 必须一致——否则同一条鱼在两处大小不同，桌面上撑出来的窗口余量也对不上。
  * 缓存按皮肤 id 存：换皮肤不用重新量，量到的值也不会因为鱼被移除而丢。
- * @module dsh-pet/src/shared/session-fish/aspect
+ * @module dsh-fish-body/src/shared/session-fish/aspect
  */
 
 /** 默认宽高比（素材 640×360）：量到真实尺寸前按它排。 */

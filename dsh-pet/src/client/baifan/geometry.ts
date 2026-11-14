@@ -2,7 +2,7 @@
  * 「吃白饭」的几何换算：把实况中心点换成脚底、嘴与地面线（全部视口像素）。
  *
  * 纯函数 + 一个量距缓存；不碰接口、不写 DOM，调用方给什么位置就按什么算。
- * @module dsh-pet/src/client/baifan/geometry
+ * @module dsh-fish-body/src/client/baifan/geometry
  */
 import { CFG } from './constants.ts';
 

@@ -5,7 +5,7 @@
  * 装配较长、各有输入形状的分区（桌宠 / 外观与手感 / 声音 / 对话 / 会话鱼 / 系统）各有自己的文件，
  * 面板表只按顺序把状态递进去。卡片组件在装配时造一次、跨渲染稳定；`deps` 每次渲染重取。
  * owns only 分区到卡片的映射，never 字段状态、加载与写盘。
- * @module dsh-pet/src/client/settings/panels
+ * @module dsh-fish-body/src/client/settings/panels
  */
 import type { jsx } from 'react/jsx-runtime';
 import type { ShortcutHost } from '../app-shortcut.ts';

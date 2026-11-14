@@ -3,7 +3,7 @@
  *
  * 右侧栏在 DSH 里是可选能力：缺 `sidebarRightTabs` 服务时只告警、不注册，
  * 宠物 overlay 与设置页照常工作——一个可选面板失败不该让整个插件加载失败。
- * @module dsh-pet/src/client/chat/register
+ * @module dsh-fish-body/src/client/chat/register
  */
 import { LOGO_URL } from './api.ts';
 import { makePetChatPanel, type ChatPanelRuntime } from './panel.ts';
@@ -81,7 +81,7 @@ export function registerPetChatTab(
 ): () => void {
   const tabs = ctx.get?.('sidebarRightTabs') as SidebarTabRegistry | undefined;
   if (tabs === undefined || typeof tabs.register !== 'function') {
-    console.warn('[dsh-pet] 右侧栏不可用：没有 sidebarRightTabs 服务，桌宠对话标签未注册');
+    console.warn('[fish-body] 右侧栏不可用：没有 sidebarRightTabs 服务，桌宠对话标签未注册');
     return () => {};
   }
   const disposeCss = injectPanelCss();

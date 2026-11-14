@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { packageRoot } from '../host/helper-process.ts';
+import { userPaths } from '../host/user-layout.ts';
 import { apply } from '../host/index.ts';
 import { createStandaloneContext, type RegisteredRoute, type StandaloneLogger } from './context.ts';
 import { configPathsFor } from './options.ts';
@@ -176,7 +177,8 @@ describe('插件宿主半边在独立模式下跑起来了', () => {
     // 这三条就是独立模式体检（--check）所依赖的推导；插件改了路径而 options.ts 没跟，这里会红
     assert.equal(meta.user, paths.userFile);
     assert.equal(meta.default, paths.defaultFile);
-    assert.equal(meta.animations, join(home, 'dsh-pet', 'main-animation'));
+    assert.equal(meta.animations, userPaths(join(home, 'fish-body')).animationDir);
+    assert.equal(meta.animations, join(home, 'fish-body', 'assets', 'animation'));
   });
 });
 

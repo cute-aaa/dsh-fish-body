@@ -34,11 +34,13 @@ async function withService(
   }
 }
 
-/** 轮询直到条件成立；用 setImmediate 推进，不依赖固定睡眠时长。 */
+/** 轮询直到条件成立；用真实定时器推进，不依赖固定睡眠时长。
+ *  不用 setImmediate 空转：条件背后的 `fs.stat` / `mkdir` 走线程池，空转几十圈比一次往返还快，
+ *  会在条件成立前就把次数耗光（Windows 上尤其明显）。 */
 async function waitFor(check: () => boolean): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  for (let attempt = 0; attempt < 500; attempt += 1) {
     if (check()) return;
-    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setTimeout(resolve, 1));
   }
   assert.fail('等待条件超时');
 }
@@ -78,7 +80,7 @@ test('合法请求：返回缓存路径与 mime，文件确实落盘', () =>
     assert.equal(result.ok, true);
     const file = result.ok ? result.file : '';
     assert.equal(result.ok ? result.mime : '', 'audio/mpeg');
-    assert.ok(file.startsWith(join(root, 'voice-cache')), '必须落在 voice-cache 下');
+    assert.ok(file.startsWith(join(root, 'cache', 'voice')), '必须落在 cache/voice 下');
     assert.ok(file.endsWith('.mp3'), '扩展名跟着 mime 走');
   }));
 
@@ -184,7 +186,9 @@ test('排队等到客户端早已放弃：直接丢弃，不再白合成一次',
   let calls = 0;
   const voice = createVoiceService({
     userRoot: root,
-    staleWaitMs: 0,
+    // 阈值要留出「第一句立刻上队」的余量：设 0 时，只要入队与执行之间跨过一个
+    // 墙钟毫秒，连排在最前面的那句都会被判超时（那是时钟抖动，不是本用例要验的行为）。
+    staleWaitMs: 50,
     synthesize: async () => {
       calls += 1;
       if (calls === 1) await gate; // 第一句占住串行链，第二句才排得上队
@@ -195,7 +199,8 @@ test('排队等到客户端早已放弃：直接丢弃，不再白合成一次',
     const first = voice.speak({ text: '第一句' }); // 拿着队列不放
     await waitFor(() => calls === 1);
     const second = voice.speak({ text: '第二句' }); // 排在它后面
-    await new Promise((resolve) => setTimeout(resolve, 10)); // 让排队时间真的过去一点
+    // 让排队时间真的越过阈值：第二句轮到自己时才会被判「客户端早已放弃」
+    await new Promise((resolve) => setTimeout(resolve, 80));
     release();
     const [kept, dropped] = await Promise.all([first, second]);
     assert.equal(kept.ok, true, '排在第一的照常合成');

@@ -8,7 +8,7 @@
  * 始终成立：快照没有 TTL，updatedAt 是调用方判断这份实况有多新的唯一依据。
  * 契约见 API.md 与 openapi.yaml。
  *
- * @module dsh-pet/src/host/pose
+ * @module dsh-fish-body/src/host/pose
  */
 
 /** 朝向（与 POST /anim 的 facing、shared/state.ts 的 PetFacing 同词）。 */

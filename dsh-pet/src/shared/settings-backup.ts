@@ -5,7 +5,7 @@
  * 存原文而不是解析后的对象，是为了让「导出 → 恢复」不丢注释与字段顺序——用户手写的精调配置
  * 在恢复后仍然是同一份文件。内容是否合法（能否解析）由宿主判定，这里只看形状与体积。
  * 纯数据模块：不读盘、不发请求、不碰 DOM。
- * @module dsh-pet/src/shared/settings-backup
+ * @module dsh-fish-body/src/shared/settings-backup
  */
 import { isReservedAssetRoot } from './pool.ts';
 

@@ -3,7 +3,7 @@
  *
  * 台词与节奏是玩法的一部分，不开放给配置；用哪 5 段动画由 animations.baifan 决定，
  * 地址在 ./assets 里按「素材根 + 动画名」拼，与本插件其他动画同一条路。
- * @module dsh-pet/src/client/baifan/constants
+ * @module dsh-fish-body/src/client/baifan/constants
  */
 
 /** 接口基址（与页面同源）。 */

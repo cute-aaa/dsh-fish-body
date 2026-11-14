@@ -45,7 +45,8 @@ function parseArgs(argv) {
 function userRootOf(raw) {
   if (raw !== '') return resolve(raw);
   const home = process.env.DSH_HOME;
-  return home ? resolve(home, 'dsh-pet') : join(homedir(), '.dsh', 'dsh-pet');
+  // 新布局的数据根；老用户还没迁移时旧目录仍在，脚本允许 --root 显式指定。
+  return home ? resolve(home, 'fish-body') : join(homedir(), '.dsh', 'fish-body');
 }
 
 /** 列目录（读不了返回空数组）。 */

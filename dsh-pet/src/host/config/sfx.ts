@@ -4,7 +4,7 @@
  * 校验只回答「这份音效配置能不能用」；收敛把不认识/越界的项丢掉并返回可落盘的干净结构。
  * 旧键（clickSoundEnabled / clickSoundKeepAlive / clickSoundVolume）在**读取时**映射成新三键，
  * 写入只出新键——用户层里残留的旧键因此不会与新的总闸打架。
- * @module dsh-pet/src/host/config/sfx
+ * @module dsh-fish-body/src/host/config/sfx
  */
 import { RENDERERS } from '../../shared/config.ts';
 import type { SfxCue, SfxLayer } from '../../shared/types.ts';

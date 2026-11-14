@@ -3,7 +3,7 @@
  *
  * 这是一次性信号，两条判据缺一不可：`ts` 必须新于本地水位（否则同一条会重复跳），
  * 且不能太旧（页面隔很久才打开时，不该被一条早已过时的点击拽走）。
- * @module dsh-pet/src/shared/focus-session
+ * @module dsh-fish-body/src/shared/focus-session
  */
 
 /** 重放窗口（ms）：超过这个时长的旧信号不再补跳。 */

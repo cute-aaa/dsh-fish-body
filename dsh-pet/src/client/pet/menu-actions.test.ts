@@ -39,7 +39,8 @@ function harness(overrides: Partial<MenuActionDeps> = {}) {
     openTodo: () => calls.push('openTodo'),
     report: (id, status, reason) => calls.push(`report:${id}:${status}:${reason}`),
     applyMerged: () => calls.push('applyMerged'),
-    warn: (message) => calls.push('warn:' + message.slice(0, 20)),
+    // 截 40 字而不是 20：前缀是 [fish-body]  时 20 字会把后面的关键字（如 HMR）切掉。
+    warn: (message) => calls.push('warn:' + message.slice(0, 40)),
     ...overrides,
   };
   return { actions: createMenuActions(deps), calls };

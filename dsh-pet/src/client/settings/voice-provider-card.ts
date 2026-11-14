@@ -4,7 +4,7 @@
  * 为什么表单由宿主声明驱动而不是写死四个路径：换一台机器、换一个 GPT-SoVITS 部署，
  * 要填的东西就变了；声明在 provider 里（`fields`），两端与设置页都不用跟着改代码（T3.6 的第一步）。
  * 与语音卡分开一张卡：音色是「日常切换」，目录与地址是「一次性接入配置」，混在一起会天天误触。
- * @module dsh-pet/src/client/settings/voice-provider-card
+ * @module dsh-fish-body/src/client/settings/voice-provider-card
  */
 import type { FunctionComponent } from 'react';
 import type { VoiceFieldView } from '../../shared/voice-providers.ts';

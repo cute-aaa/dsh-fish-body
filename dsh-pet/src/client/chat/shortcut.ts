@@ -3,7 +3,7 @@
  *
  * 注册后自动出现在 设置 → 通用 → 快捷键（可改绑、有冲突提示），
  * 侧栏 guide 卡片通过 `commandId` 显示键帽。服务缺失（旧宿主）只告警，不影响面板本身。
- * @module dsh-pet/src/client/chat/shortcut
+ * @module dsh-fish-body/src/client/chat/shortcut
  */
 import { keycapOf, readShortcutKeycap, registerAppShortcut, type ShortcutHost } from '../app-shortcut.ts';
 

@@ -2,7 +2,7 @@
  * 未保存改动判定（src/client/settings/dirty.ts）的契约测试。
  *
  * 四条契约：
- *   1. 改动路径是「快照里的位置」，对象逐键下钻、数组整体算一条（宠物只关心「哪只被改过」）；
+ *   1. 改动路径是「快照里的位置」，对象逐键下钻、数组按位置下钻（`pets.0.size`）；长度一变退回聚合路径；
  *   2. 基线缺省的字段不参与比较——服务端没给可信值不等于用户改了；
  *   3. `has` 同时命中子路径，卡片可以拿卡片级前缀一次问整块；
  *   4. 路径按最长前缀归到分区，标签条据此点亮小圆点。
@@ -66,9 +66,9 @@ describe('diffSnapshot —— 路径级改动', () => {
     assert.deepEqual([...paths], ['look.physics.gravity']);
   });
 
-  test('数组整体算一条：改任意一只宠物只报 `pets`', () => {
+  test('数组按位置下钻：改一只宠物的大小编成 `pets.0.size`', () => {
     const paths = diffSnapshot(current, { ...current, pets: [pet('a', 300)] });
-    assert.deepEqual([...paths], ['pets']);
+    assert.deepEqual([...paths], ['pets.0.size']);
   });
 
   test('基线缺省的字段跳过：服务端没给可信值不算改动', () => {

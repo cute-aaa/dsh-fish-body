@@ -4,7 +4,7 @@
  * 令牌值取自 dsh-client-ui-theme 与 dsh-client-ui-settings-general 的浅色主题，
  * 名字保持 `--dsw-*` 原样，改版时能对着上游逐项核对。
  * 不内联样式、不引 CDN：页面 CSP 是 default-src 'none'。
- * @module dsh-pet/src/standalone/settings-page/style
+ * @module dsh-fish-body/src/standalone/settings-page/style
  */
 import { PANEL_CSS } from '../../client/chat/panel-css.ts';
 

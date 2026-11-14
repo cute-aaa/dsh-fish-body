@@ -3,7 +3,7 @@
  *
  * 与 icon.ts 同口径：按进程缓存、读不到回 undefined，由调用方回 404——
  * 缺产物时宁可显式报错，也不静默回一个空脚本让页面只剩空白。
- * @module dsh-pet/src/standalone/chat-panel-asset
+ * @module dsh-fish-body/src/standalone/chat-panel-asset
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -3,7 +3,7 @@
  *
  * 只解析与校验输入，存取全走 `deps.todos`；写盘失败归一成 `internal-error`，不把路径带进响应。
  * 业务结论一律 200（与其余动作端点一致），只有协议错误（方法、JSON、体超限）保留真实状态码。
- * @module dsh-pet/src/host/routes/todos
+ * @module dsh-fish-body/src/host/routes/todos
  */
 import { failResult, invalidJson, methodNotAllowed, okResult, payloadTooLarge } from './result.ts';
 import { normalizeTodoDueAt, normalizeTodoText, TODO_BODY_MAX_BYTES, TODO_TEXT_MAX } from '../todo/types.ts';
@@ -97,7 +97,7 @@ export async function handleTodoRoutes(deps: PetRouteDeps, input: RouteInput): P
     return methodNotAllowed();
   } catch (error) {
     // 写盘失败（磁盘满 / 权限）：真实原因只进日志，响应里只回分类文案。
-    log.warn(`[dsh-pet] 待办读写失败：${error instanceof Error ? error.message : String(error)}`);
-    return failResult('internal-error', 'dsh-pet: 待办读写失败');
+    log.warn(`[fish-body] 待办读写失败：${error instanceof Error ? error.message : String(error)}`);
+    return failResult('internal-error', 'fish-body: 待办读写失败');
   }
 }

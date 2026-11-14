@@ -4,7 +4,7 @@
  * 音频格式（16kHz/单声道/PCM16 WAV）由宿主 provider 校验：同一规则不在两处各写一份，
  * 否则改一边就会和另一边对不上。这里只挡明显不合法的输入，避免白跑一次推理。
  * 不负责录音与传输——进来的是已经解码的整段音频字节。
- * @module dsh-pet/src/host/voice/hear
+ * @module dsh-fish-body/src/host/voice/hear
  */
 import { activeSpeechProvider } from './speech-registry.ts';
 

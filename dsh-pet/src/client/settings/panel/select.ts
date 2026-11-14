@@ -3,7 +3,7 @@
  * 原生下拉的展开面板由操作系统绘制，字号、圆角与 hover 都不受 `--dsw-*` token 控制，与同排的输入框不同源；
  * 这里自绘一份：触发器复用 `INPUT_CLASS` 的外观，定位复用 `./placement`。
  * 不做搜索框与分组：选项数都在十以内，滚轮够用。本文件只管状态、键盘与装配。
- * @module dsh-pet/src/client/settings/panel/select
+ * @module dsh-fish-body/src/client/settings/panel/select
  */
 import type * as ReactNS from 'react';
 import type { FunctionComponent } from 'react';

@@ -5,13 +5,13 @@
  * （`session-fish.json`）、以及每个文件宠物的种类配置（`pet/<名>-config.json(c)`）。
  * 只读原文，不解析、不校验、不做合并——备份的意义就是「原样」，任何加工都会在恢复时丢东西。
  * 文件不存在时对应位置是空串（含义：拍摄这份快照时没有这一层，恢复时清掉）。
- * @module dsh-pet/src/host/settings-backup/collect
+ * @module dsh-fish-body/src/host/settings-backup/collect
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { listPetConfigFiles } from '../config/read.ts';
 import { effectiveUserFile } from '../config/jsonc.ts';
-import { SESSION_FISH_FILE } from '../session-fish/settings.ts';
+import { sessionFishSettingsPath } from '../session-fish/settings.ts';
 import { PACKAGE_ROOT } from '../paths.ts';
 import { SETTINGS_BACKUP_KIND, SETTINGS_BACKUP_VERSION, type SettingsBackup } from '../../shared/settings-backup.ts';
 import type { ConfigPaths } from '../config/constants.ts';
@@ -71,7 +71,7 @@ export function collectSettingsBackup(sources: BackupSources, now: Date = new Da
     pluginVersion: pluginVersion(),
     files: {
       main: readText(effectiveUserFile(configPaths)),
-      sessionFish: readText(join(userRoot, SESSION_FISH_FILE)),
+      sessionFish: readText(sessionFishSettingsPath(userRoot)),
       pets,
     },
   };

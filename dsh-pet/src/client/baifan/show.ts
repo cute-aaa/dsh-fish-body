@@ -5,7 +5,7 @@
  * 播放、位移、相位三块共享同一份状态，切开只会让改一处仍要同时改另一处。
  * 不负责菜单与素材：菜单在 ../baifan.ts，米饭与分数在 ./scene，接口调用在 ./transport。
  * 所有等待都问回执或播放进度，不用「素材多长」的定时器——定时器在素材加载失败时照样会走到「播完」。
- * @module dsh-pet/src/client/baifan/show
+ * @module dsh-fish-body/src/client/baifan/show
  */
 import { CFG, LINES } from './constants.ts';
 import type { ActivityAssets } from './assets.ts';
@@ -452,7 +452,7 @@ export function createShow(deps: ShowDeps): Show {
         scene.toast('锁丢了，表演结束');
       } else {
         scene.toast(error instanceof Error ? error.message : String(error));
-        console.warn('[dsh-pet] 吃白饭异常', error);
+        console.warn('[fish-body] 吃白饭异常', error);
       }
     } finally {
       await halt(lock?.isLost() === true ? '用户接管，已收场' : '');

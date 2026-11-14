@@ -3,7 +3,7 @@
  *
  * 顺序与右键「显示位置」子菜单同源（见 {@link displayMenuBranch}），菜单键帽也由这里出。
  * 每个键作用于鼠标停着的那只宠物；`3`/`4` 会让它从网页端消失，因此这两个键是单向门。
- * @module dsh-pet/src/shared/display-hotkey
+ * @module dsh-fish-body/src/shared/display-hotkey
  */
 import { isBareKey } from './hotkey.ts';
 import type { HotkeyEvent } from './hotkey.ts';

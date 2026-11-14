@@ -3,7 +3,7 @@
  *
  * 点击源是页面内 Cordis 服务 `petApi7340.menuEvents`（读即消费），不绕 HTTP 长轮询；
  * 只有菜单注册走 HTTP。DSH 重启会清空宿主那份注册表，所以 owner 不在快照里时按间隔补注册。
- * @module dsh-pet/src/client/baifan/menu
+ * @module dsh-fish-body/src/client/baifan/menu
  */
 import { activityAssets } from './assets.ts';
 import { ACTIVITY, LABEL, OWNER } from './constants.ts';
@@ -110,7 +110,7 @@ export function createMenu(deps: MenuDeps) {
         return;
       }
     } catch (error) {
-      console.warn('[dsh-pet] 吃白饭启动失败 ' + String(error));
+      console.warn('[fish-body] 吃白饭启动失败 ' + String(error));
     }
   }
 

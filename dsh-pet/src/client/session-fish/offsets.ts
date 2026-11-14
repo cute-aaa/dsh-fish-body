@@ -4,7 +4,7 @@
  * 存的是「偏移」而不是绝对坐标：鱼围着桌宠转，坐标会随桌宠移动，只有相对槽位的差值是稳定的。
  * 值在读取后由运动引擎再钳一次上限（见 `roam.ts`），所以这里只做形状清洗与条数裁剪——
  * 手改存储或旧版本写脏了，最坏也只是那条鱼回到默认环位。
- * @module dsh-pet/src/client/session-fish/offsets
+ * @module dsh-fish-body/src/client/session-fish/offsets
  */
 import type { FishOffset } from '../../shared/session-fish/roam.ts';
 

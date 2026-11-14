@@ -5,7 +5,7 @@
  * 「测试弹窗」挂进卡头右侧：它是这张卡的验证入口，不是第四个设置项——放在开关下方会让人以为它也保存一个值。
  * 通知开关额外需要用户手势，开与关都走外壳同一个入口，卡里只回传键名与目标值；
  * 测试结论与保存结论分开放，互不覆盖。
- * @module dsh-pet/src/client/settings/system-card
+ * @module dsh-fish-body/src/client/settings/system-card
  */
 import type { FunctionComponent } from 'react';
 import type { DirtyQuery } from './dirty.ts';
@@ -57,11 +57,27 @@ export function makeSystemCard(rt: SettingsRuntime): FunctionComponent<SystemCar
           }),
         ),
         switchGrid([
-          toggleCell('notifyToggle', flags.notificationsEnabled, busy, (value) =>
-            props.onFlag('notificationsEnabled', value),
+          toggleCell(
+            'notifyToggle',
+            flags.notificationsEnabled,
+            busy,
+            (value) => props.onFlag('notificationsEnabled', value),
+            'global.notificationsEnabled',
           ),
-          toggleCell('trayToggle', flags.trayEnabled, busy, (value) => props.onFlag('trayEnabled', value)),
-          toggleCell('confineToggle', flags.confineToScreen, busy, (value) => props.onFlag('confineToScreen', value)),
+          toggleCell(
+            'trayToggle',
+            flags.trayEnabled,
+            busy,
+            (value) => props.onFlag('trayEnabled', value),
+            'global.trayEnabled',
+          ),
+          toggleCell(
+            'confineToggle',
+            flags.confineToScreen,
+            busy,
+            (value) => props.onFlag('confineToScreen', value),
+            'global.confineToScreen',
+          ),
         ]),
         // 测试结论就地落在开关下方：它验的是「这条链路通不通」，与保存结论互不覆盖。
         permMsg.text

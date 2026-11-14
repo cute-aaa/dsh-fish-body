@@ -7,7 +7,7 @@
  * 必须始终成立：一帧的撞击取**所有子步里最重的那次**。只留末步的话，高速甩出时
  * 撞墙落在中间某一步、末步已经不撞，整帧的碰撞音/触觉就会静默丢掉——慢速一帧一步，
  * 所以这个缺陷只在「甩得很快」时出现，正是两端都必须走这一份实现的原因。
- * @module dsh-pet/src/shared/physics/integrate
+ * @module dsh-fish-body/src/shared/physics/integrate
  */
 import { throwBounds, throwStep, throwStepRegion, throwSubsteps } from './throw.ts';
 import type { GravityVector, ThrowBounds, ThrowSpace, ThrowState } from './throw.ts';

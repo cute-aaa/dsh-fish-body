@@ -4,7 +4,7 @@
  * 依赖只有 `h`、四个 hook 与 `t`；组件里不得再取第二个翻译源，也不得读全局 `window` 上的 react。
  * `h` 是**类型安全**的：组件那一支会逐字校验 props。`typeof jsx` 是全 `any` 的，曾放过一次
  * 「按钮接了不存在的回调、点了没反应」的真实事故（见 settings/voice-card 的注释）。
- * @module dsh-pet/src/client/settings/runtime
+ * @module dsh-fish-body/src/client/settings/runtime
  */
 import type { Dispatch, SetStateAction } from 'react';
 import type * as ReactNS from 'react';

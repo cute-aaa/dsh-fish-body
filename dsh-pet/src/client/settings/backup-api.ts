@@ -4,7 +4,7 @@
  * 一律「失败不抛」：调用方是 UI，把网络与格式错误变成可显示的结果，比让异常冒到 React 边界更有用。
  * 形状校验复用 `shared/settings-backup`（与宿主同一份规则），所以「明显不是备份的文件」在
  * 选中的那一刻就能被拒，不必先上传再等宿主回一句 no。
- * @module dsh-pet/src/client/settings/backup-api
+ * @module dsh-fish-body/src/client/settings/backup-api
  */
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import type { SessionFishSettings } from '../../shared/session-fish.ts';

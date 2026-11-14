@@ -15,7 +15,7 @@ DSH 设置 → 「桌宠配置」：
 - **显示位置**（display）：web=仅浏览器 / desktop=仅桌面 / both=两者都显示 / none=都不显示
 - **余额功能**：勾选后该宠物才会触发余额动画并显示余额气泡（服务商未登记余额接口时改为弹文字说明气泡）
 - **多开**：添加/删除宠物，每只宠物独立 id、大小、位置
-- **种类（pet pack）**：`pet/` 目录里的角色包也会列在宠物列表里（按种类分组），同样能改名称/大小/位置/显示方式/四个开关/实例人设；每组的「+」在该种类下新建实例。保存时 main 写 `main-config.jsonc`，文件宠物写回各自角色包配置（顶层动画池与人设原样保留）；每种至少留一只，删最后一只会被拒绝
+- **种类（pet pack）**：`pets/` 目录里的角色包也会列在宠物列表里（按种类分组），同样能改名称/大小/位置/显示方式/四个开关/实例人设；每组的「+」在该种类下新建实例。保存时 main 写 `config/main-config.jsonc`，文件宠物写回各自角色包配置（顶层动画池与人设原样保留）；每种至少留一只，删最后一只会被拒绝
 - **物理参数**：拖拽抛掷手感（重力 / 弹性 / 地面摩擦 / 总力度 / 顶部反弹 / 宠物互撞 / 碰撞震动 / 倾斜控制重力 / 摇一摇抛出）也能在设置页图形化改，不用去手改配置文件。碰撞震动（`physics.hapticEnabled`，默认开）在撞墙、落地、撞顶与宠物互撞时各震一下：Chrome / Edge 等浏览器可用，iOS 与 Via 这类 WebView 套壳浏览器不生效，系统勿扰模式会挡住振动。宠物互撞（`physics.petCollision`，默认开）按动量守恒弹开（质量 ∝ 尺寸²）。体感拆成两个开关：倾斜控制重力（`physics.tiltGravity`，默认关）用手机倾斜方向代替固定向下的重力（`gravity` 为 0 时无从取值，等同关闭）；摇一摇抛出（`physics.shakeThrow`，默认关）沿甩动方向把宠物甩出去（力度 = 基准 × `throwPower`），与重力大小无关，`gravity` 设 0 也能甩着玩。两个都只在 HTTPS 或 localhost 下有效
 - **AI 模型**：碎碎念与对话可以**各自指定模型**——设置页「AI 模型」每项一个下拉框（与 DSH 对话框右下角的模型选择器同款：搜索框 + 按服务商分组的清单，选项同源）；选「跟随当前对话」= 用当前对话的模型，指定了但调用失败会自动回落到当前对话的模型重试一次
 - 点「保存」**即时生效**（无需刷新）；「同步」把包内 `config.jsonc` 的**原文**（含注释与全部高级字段）整份写入用户配置——既回到默认，又留下一份可直接编辑的完整配置
@@ -33,11 +33,11 @@ DSH 设置 → 「桌宠配置」：
 
 - 每只宠物：`id`（标识）／`size`（宽度 px）／`sizePercent`（可选，屏幕宽度百分比 1–100；写了就按窗口宽收口、`size` 作上限）／`sizes`（可选，按渲染方式覆盖宽度：`{ "webm": 500, "layered": 620, "live2d": 620 }`，缺键回落 `size`；三种素材的人物占框比例不同，右键「大小」写的就是它）／`clickThrough`（可选，`true` = 桌面端这只宠物的窗口整窗忽略鼠标、点击落到下层应用；仅桌面端生效，开启后窗内右键菜单点不到，出口是设置页的同一勾选框）／`renderer`（可选，`webm`/`layered`/`live2d`）／`model`（可选，live2d 的 `.model3.json` 路径或 layered 的皮肤 id）／`balanceEnabled`（是否启用余额功能，必填布尔）／`display`（web/desktop/both/none，必填，见上）／`position`（corner 四角之一 + marginX/marginY 边距）
 - 余额刷新周期：`eventsRefreshSec.balance`（秒）——余额数据刷新与余额动画触发的间隔，启动时立即触发一次，之后按此周期循环（默认 1800）
-- 设置页的修改保存到用户层 `$DSH_HOME/dsh-pet/main-config.jsonc`（**完整宠物列表**，覆盖包内默认）；「同步」把包内 `config.jsonc` 原文整份写入该文件（等价于回落默认，但文件保留下来、可直接编辑）
+- 设置页的修改保存到用户层 `$DSH_HOME/fish-body/config/main-config.jsonc`（**完整宠物列表**，覆盖包内默认）；「同步」把包内 `config.jsonc` 原文整份写入该文件（等价于回落默认，但文件保留下来、可直接编辑）
 
 ## 方式三：手动编辑配置文件（高级，任意自由配置）
 
-用户层配置文件位于 `$DSH_HOME/dsh-pet/main-config.jsonc`。**它和包内默认配置是同一套格式**——想改什么直接照着 `assets/config.jsonc` 的结构写即可，写错的字段/缺失的字段回落默认，无需（也无法）写完整份。设置页「同步」可直接生成这份完整文件（原文复制包内 `config.jsonc`，注释齐全）：
+用户层配置文件位于 `$DSH_HOME/fish-body/config/main-config.jsonc`。**它和包内默认配置是同一套格式**——想改什么直接照着 `assets/config.jsonc` 的结构写即可，写错的字段/缺失的字段回落默认，无需（也无法）写完整份。设置页「同步」可直接生成这份完整文件（原文复制包内 `config.jsonc`，注释齐全）：
 
 | 字段                   | 作用                                                                                                                       | 格式与默认一致即可         |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
@@ -55,13 +55,13 @@ DSH 设置 → 「桌宠配置」：
 
 ## 方式三之二：会话鱼设置（`session-fish.json`）
 
-会话鱼不写进 `main-config.jsonc`：它是一组独立的小偏好，单独存在 `$DSH_HOME/dsh-pet/session-fish.json`（普通 JSON，不带注释；写坏了逐字段回落默认）。设置页「桌宠配置 → 会话鱼」改的就是它，点底部「应用 / 确定」后浮层立即生效。
+会话鱼不写进 `main-config.jsonc`：它是一组独立的小偏好，单独存在 `$DSH_HOME/fish-body/config/session-fish.json`（普通 JSON，不带注释；写坏了逐字段回落默认）。设置页「桌宠配置 → 会话鱼」改的就是它，点底部「应用 / 确定」后浮层立即生效。
 
 > 设置页底部的「重置设置」= 用内置默认整份覆盖用户配置（`main-config.jsonc` 的注释、宠物列表、自定义人设都会回到默认），并把 `session-fish.json` 写回默认值；确认后立即写盘，不可撤销。只想改回个别字段时用「应用 / 确定」，别用重置。
 
 ### 备份与恢复
 
-设置页「系统 → 备份与恢复」把三份**可编辑设置的原文**打成一份 JSON：`main-config.jsonc`（主配置与宠物列表）、`pet/<名>-config.json(c)`（每个文件宠物）、`session-fish.json`（会话鱼）。导出再恢复之后，注释与字段顺序都不变。
+设置页「系统 → 备份与恢复」把三份**可编辑设置的原文**打成一份 JSON：`main-config.jsonc`（主配置与宠物列表）、`pets/<名>-config.json(c)`（每个文件宠物）、`session-fish.json`（会话鱼）。导出再恢复之后，注释与字段顺序都不变。
 
 - **不含**：宠物头像图片、对话记忆 `memory.json`、待办数据、日志，以及浏览器 `localStorage` 里的位置记忆。
 - **恢复是覆盖**：同名文件被写回快照内容，写之前每个被覆盖的文件会在同目录留一份 `<文件>.bak-<时间戳>`；备份里没有的种类文件不会被删除。
@@ -88,27 +88,27 @@ DSH 设置 → 「桌宠配置」：
 
 **显示在哪里跟着桌宠走**：`pets[].display` 含 `web` 时网页浮层里有鱼，含 `desktop` 时桌面 Helper 的窗口里也有鱼；两端同时显示时只有一端出声（宿主按 `(会话, 序号)` 裁决）。桌面端的鱼画在桌宠**同一个窗口**里——不新增窗口 / 进程、不加第二条轮询；窗口只在真有鱼时按环位把透明余量撑大，鱼没了立刻收回。桌面上的鱼可拖、可关、带播报气泡：**悬停到某条鱼**才把窗口翻成可交互，其余区域继续点击穿透；拖到哪停在哪，位置记在桌面窗口自己的 `localStorage`（`file://` 与网页不同源，两份互不覆盖）；右上角 × 关掉这一条。`followPet` 只影响网页端（桌面没有「右下角竖排」这一说）。
 
-**换皮肤**：把图片 / 动图（`.png` / `.jpg` / `.jpeg` / `.gif` / `.webp`）或视频（`.webm` / `.mp4`）放进用户数据根下的 `session-fish-skin/` 目录（设置页「打开皮肤文件夹」会建好并打开），回到设置页点「重新扫描」即可在下拉里选中；包内 `assets/webm/` 的一百多段小动作也都在列表里。素材按原比例显示，太扁或太长的会被夹在 0.5–2 倍宽之间；文件删掉后那一条自动回落到内嵌的小鱼画法。
+**换皮肤**：把图片 / 动图（`.png` / `.jpg` / `.jpeg` / `.gif` / `.webp`）或视频（`.webm` / `.mp4`）放进用户数据根下的 `assets/session-fish/` 目录（设置页「打开皮肤文件夹」会建好并打开），回到设置页点「重新扫描」即可在下拉里选中；包内 `assets/webm/` 的一百多段小动作也都在列表里。素材按原比例显示，太扁或太长的会被夹在 0.5–2 倍宽之间；文件删掉后那一条自动回落到内嵌的小鱼画法。
 
 未知键、类型错、越界、非法皮肤名在保存时会被宿主拒绝（`PUT /session-fish` 回 `bad-request`）；手工改文件后需要重载插件才生效。字段与状态机见 [`API.md`](API.md) 与 [`openapi.yaml`](openapi.yaml)。
 
 ## 方式四：额外宠物（pet pack）——添加新「种类」
 
-方式一~三都只调整**默认宠物的实例**（数量/大小/位置），动画池始终是全局一份。要添加**全新种类的宠物**（独立动画池 + 自己的素材），在用户数据根下建 `pet/` 目录：
+方式一~三都只调整**默认宠物的实例**（数量/大小/位置），动画池始终是全局一份。要添加**全新种类的宠物**（独立动画池 + 自己的素材），在用户数据根下建 `pets/` 目录：
 
 ```
-$DSH_HOME/dsh-pet/
-├─ main-config.jsonc           ← 主宠物配置（现有，不动）
-├─ main-animation/webm/*.webm  ← 主宠物素材（现有，只属于 main）
-└── pet/
+$DSH_HOME/fish-body/
+├─ config/main-config.jsonc         ← 主宠物配置（现有，不动）
+├─ assets/animation/webm/*.webm     ← 主宠物素材（现有，只属于 main）
+└── pets/
    ├── pig-config.json          ← 额外宠物 pig 的配置（命名词干 = 种类名，实例 id 任意）
-   └── pig-animation/*.webm     ← pig 自己的动画素材（直接平铺，仿 main-animation）
+   └── pig-animation/*.webm     ← pig 自己的动画素材（直接平铺，仿 assets/animation）
 ```
 
-每只额外宠物 = 一个 `-config.json` + 一个 `-animation/` 目录，同前缀配对；扫描 `pet/` 自动发现，浏览器与桌面同时生效。一个 `-config.json` 定义**一个「种类」**（动画池 + 素材目录），`pets` 数组可放该种类的**任意多只实例**（共享动画池与素材）：
+每只额外宠物 = 一个 `-config.json` + 一个 `-animation/` 目录，同前缀配对；扫描 `pets/` 自动发现，浏览器与桌面同时生效。一个 `-config.json` 定义**一个「种类」**（动画池 + 素材目录），`pets` 数组可放该种类的**任意多只实例**（共享动画池与素材）：
 
 ```jsonc
-// pet/pig-config.json —— 与 main-config.jsonc 同构的完整配置
+// pets/pig-config.json —— 与 main-config.jsonc 同构的完整配置
 {
   "notificationsEnabled": true,
   "pets": [
@@ -161,7 +161,7 @@ $DSH_HOME/dsh-pet/
 
 规则（与主宠物**严格隔离**，绝不混用）：
 
-- **素材只查自己的**：素材目录名 = 文件名前缀（`pet/pig-config.json` → `pet/pig-animation/`），该种类所有实例共用；动画 URL `/thumb/<前缀>/<名>.webm`，查不到即 404——绝不落到 `main-animation` 或包内素材
+- **素材只查自己的**：素材目录名 = 文件名前缀（`pets/pig-config.json` → `pets/pig-animation/`），该种类所有实例共用；动画 URL `/thumb/<前缀>/<名>.webm`，查不到即 404——绝不落到 `assets/animation` 或包内素材
 - **动画池不回落全局**：`animations` / `animationWeights` 必须写全（缺失即配置错误）
 - **`animations.sleep` 是可选段**（睡觉动作）：不写 = 该种类没有睡觉功能，右键菜单不出现「睡觉」，其余动画不受影响。写了就是「套」的数组，每套 `{ start, loop, end }` 三段各是候选数组；入睡时整套随机挑一套，三段都从这套里取，进段时再在段内随机挑一个（避开刚播完的那个）。结构见包内 `assets/config.jsonc` 的 `sleep` 注释
 - **睡觉文案按种类各写一份**：`sleepStartTexts` / `sleepEndTexts` / `sleepRefuseTexts`，不写就跟随内置那份；`eventsRefreshSec.sleepTalk` 是梦话周期（秒，默认 60）
@@ -172,62 +172,69 @@ $DSH_HOME/dsh-pet/
 
 ## 资源池（assets）——共享皮肤 / 模型 / 动画 / 音效
 
-旧布局（`pet/<材料根>-skin|sound|animation`）**原样保留、零迁移**；在此之外多了一个可选的共享池：
+旧的平铺布局（`pet/<材料根>-skin|sound|animation`）在启动时**自动搬进 `pets/` 与 `assets/`**（不覆盖、不删源，见 `docs/目录布局.md`）；在此之外还有一个可选的共享池：
 放一份素材，所有宠物都能用。池根由 `assets.pool` 决定（只读 `main` 条目）：
 
 ```jsonc
-"assets": { "pool": "skin" }   // 相对用户根（默认），也可以写绝对路径，例如 "D:/pets/shared"
+"assets": { "pool": "assets/skin" }   // 相对数据根（默认），也可以写绝对路径，例如 "D:/pets/shared"
 ```
 
-目录约定（`<用户根>` 例如 `D:\NodeJs\DSH_home\dsh-pet\`）：
+目录约定（`<数据根>` 例如 `D:\NodeJs\DSH_home\fish-body\`；完整树与迁移表见 `docs/目录布局.md`）：
 
 ```
-<用户根>/
-├─ pet/                          # 【旧】按 pack 分，保持原样
-│  ├─ main-skin/character1/…     #   旧皮肤（layered / live2d）
-│  ├─ main-animation/webm/…      #   旧动画
-│  └─ main-sound/…               #   旧音效
-├─ main-sound/                   # 【旧】用户级全局音效
-└─ skin/                         # 【新】共享资源池（assets.pool 的默认值）
-   ├─ layered/
-   │  ├─ character1/
-   │  │  ├─ manifest.json        # 结构文件（任意名；manifest.json 优先，其次含 rig/schema 的 json）
-   │  │  ├─ art/…
-   │  │  ├─ character1-click.wav # 目录名前缀
-   │  │  └─ xxx-drag.wav         # 结构文件基名前缀（结构文件叫 xxx.json 时）
-   │  └─ sound/layered-click.wav # 该渲染方式的兜底音效
-   ├─ live2d/
-   │  ├─ model1/xx.model3.json
-   │  │  └─ xx-click.wav         # 模型基名前缀（也认 model1-click.wav）
-   │  └─ sound/live2d-click.wav
-   ├─ webm/                       # 平铺：一部动画一个文件，不建子目录
-   │  ├─ movie1.webm
-   │  └─ webm-click.wav           # 该渲染方式的兜底音效（也认 webm/sound/webm-click.wav）
-   └─ sound/
-      ├─ click.wav                # 全局音效：无前缀优先
-      └─ common-drag.wav          # 任意前缀次之（同事件多份按文件名排序取第一个）
+<数据根>/
+├─ config/                        # 设置
+├─ data/                          # 对话记忆与待办
+├─ runtime/electron/              # Electron 运行时（删了要重新下载，不属于缓存）
+├─ cache/                         # 唯一允许随手删的目录（voice / download / desktop）
+├─ pets/                          # 文件宠物：<名>-config.json + <名>-animation/ + <名>-sound/ + <名>-memes/
+└─ assets/                        # 素材（所有宠物共用）
+   ├─ animation/{webm,mov}/       # main 的动画
+   ├─ sound/                      # 用户级共享音效
+   ├─ memes/                      # 用户级表情包
+   ├─ session-fish/               # 会话鱼皮肤
+   └─ skin/                       # 共享资源池（assets.pool 的默认值）
+      ├─ layered/
+      │  ├─ character1/
+      │  │  ├─ manifest.json        # 结构文件（任意名；manifest.json 优先，其次含 rig/schema 的 json）
+      │  │  ├─ art/…
+      │  │  ├─ character1-click.wav # 目录名前缀
+      │  │  └─ xxx-drag.wav         # 结构文件基名前缀（结构文件叫 xxx.json 时）
+      │  └─ sound/layered-click.wav # 该渲染方式的兜底音效
+      ├─ live2d/
+      │  ├─ model1/xx.model3.json
+      │  │  └─ xx-click.wav         # 模型基名前缀（也认 model1-click.wav）
+      │  └─ sound/live2d-click.wav
+      ├─ webm/                       # 平铺：一部动画一个文件，不建子目录
+      │  ├─ movie1.webm
+      │  └─ webm-click.wav           # 该渲染方式的兜底音效（也认 webm/sound/webm-click.wav）
+      └─ sound/
+         ├─ click.wav                # 全局音效：无前缀优先
+         └─ common-drag.wav          # 任意前缀次之（同事件多份按文件名排序取第一个）
 ```
 
-- **`pets[].model` 语义不变**，宿主按「先 pack 后池」解析：`pet/<素材根>-skin/<model>/` 存在就用它，
-  缺失才回落到 `skin/layered/<model>/`（live2d 同理回落到 `skin/live2d/<model 所在目录>`）。
-  动画同理：先 `pet/<素材根>-animation/webm/`，再 `skin/webm/`，最后用户目录与包内素材。
-- **`pool` 是保留字**：不能当 pet pack 的文件名前缀（`pet/pool-config.json` 会被跳过并告警一次，
+- **`pets[].model` 语义不变**，宿主按「先 pack 后池」解析：`pets/<素材根>-skin/<model>/` 存在就用它，
+  缺失才回落到 `assets/skin/layered/<model>/`（live2d 同理回落到 `assets/skin/live2d/<model 所在目录>`）。
+  动画同理：先 `pets/<素材根>-animation/webm/`，再 `assets/skin/webm/`，最后用户目录（`assets/animation/webm`）与包内素材。
+- **`pool` 是保留字**：不能当 pet pack 的文件名前缀（`pets/pool-config.json` 会被跳过并告警一次，
   `POST /pet-config` 里传 `entry: "pool"` 会被拒）。
-- **`skin/` 不存在 = 空池**：不报错、不告警，行为与没有这段配置完全一样。
+- **`assets/skin` 不存在 = 空池**：不报错、不告警，行为与没有这段配置完全一样。
   （插件启动时会把池根与 `layered / live2d / webm / sound` 建出来，所以「刚装好」看到的是空目录而不是不存在。）
-- **启动时初始化的目录**：`<用户根>`、`main-animation/webm`、`main-animation/mov`、`memes/`、
-  池根的 `layered` / `live2d` / `webm` / `sound` 四个目录，以及各渲染方式的兜底音效目录
-  （`<池>/layered/sound` 等）。只建目录、不写占位文件；建不出来的只记一行日志，插件照常可用。
-- **`pet/<素材根>-*` 是内置素材，`skin/` 是用户素材**：`pet/` 跟着 pack 安装/升级/迁移走，
-  `skin/` 是「我自己补的，一份给所有宠物用」。解析顺序仍是**先 pack 后池**，所以内置那套优先、
+- **启动时初始化的目录**：数据根下六个分组（`config` / `data` / `cache` / `runtime` / `pets` / `assets`）、
+  `assets/animation/{webm,mov}`、`assets/{sound,memes,session-fish}`、池根的 `layered` / `live2d` / `webm` / `sound`
+  四个目录，以及各渲染方式的兜底音效目录（`<池>/layered/sound` 等）。只建目录、不写占位文件；
+  每个目录在 Windows 上还会写一句备注（`desktop.ini` 的 `InfoTip`，说明它是干什么的、能不能删）。
+  建不出来的只记一行日志，插件照常可用。
+- **`pets/<素材根>-*` 是内置素材，`assets/skin/` 是用户素材**：`pets/` 跟着 pack 安装/升级/迁移走，
+  `assets/skin/` 是「我自己补的，一份给所有宠物用」。解析顺序仍是**先 pack 后池**，所以内置那套优先、
   池只做补充与替换的落点；右键「皮肤 / 模型」菜单里池里的条目带「（池）」标记。
 - 池里的音效**必须带前缀**（结构文件基名 / 目录名 / 渲染方式名 / 任意前缀）——池是共享的，
-  裸 `click.wav` 会串到别的宠物头上；只有 `skin/sound/` 认无前缀写法。
+  裸 `click.wav` 会串到别的宠物头上；只有 `assets/skin/sound/` 认无前缀写法。
 - 设置页「音效」分区每行第二行显示**实际命中的绝对路径**；没命中池时会提示「建议放这里：
-  `skin/layered/<皮肤>/<皮肤>-click.wav`」。每行右侧都有「打开文件夹」：命中时打开该文件所在的
+  `assets/skin/layered/<皮肤>/<皮肤>-click.wav`」。每行右侧都有「打开文件夹」：命中时打开该文件所在的
   那一类目录，未命中时打开建议落点；目录不存在会先问是否创建。
-- 设置页「高级配置」卡的动画目录 / 表情包目录 / 资源池目录右侧也有「打开文件夹」
-  （走 `POST /open-folder?which=animations|memes|pool-root`，不需要宠物参数）。
+- 设置页「系统 → 文件与目录」整棵树每行都有「打开文件夹」
+  （走 `POST /open-folder?which=root|config|data|cache|runtime|pets|assets|…`，不需要宠物参数）。
 - 「打开文件夹」交给**系统的默认处理程序**（Windows 走 ShellExecute，macOS 走 LaunchServices，Linux 走
   `xdg-open`），不是写死资源管理器：把默认文件管理器换成第三方工具时照样生效。
 - 全部路径都过「规范化 + 池根内校验」：`..`、绝对路径片段一律拒绝，池根配到别的盘也只在池根内解析。

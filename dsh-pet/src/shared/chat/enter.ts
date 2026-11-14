@@ -1,7 +1,7 @@
 /**
  * 对话输入框「回车发送」的判据：只有真按回车、且输入法没在管这个键时才发。
  * 桌面端与浏览器端共用；组合态由 compositionstart / compositionend 转进来，本模块不碰 DOM、不读时钟。
- * @module dsh-pet/src/shared/chat/enter
+ * @module dsh-fish-body/src/shared/chat/enter
  */
 
 /** 组合结束后仍算「上屏那一下」的静默窗（ms）：Safari 会先 compositionend 再派发 keydown。 */

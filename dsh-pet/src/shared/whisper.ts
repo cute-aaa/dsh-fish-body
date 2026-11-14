@@ -3,7 +3,7 @@ import { ROUTE_PATH } from './constants.ts';
  * 碎碎念的展示视图：文本 → 气泡行数据，以及配图节点与样式。
  * 不负责取数、生成与失败判定——宿主半侧生成后写进 /state 的 pets.<id>.say，两端只从轮询状态读。
  * 不依赖 React；只有配图节点构造用到 DOM。
- * @module dsh-pet/src/shared/whisper
+ * @module dsh-fish-body/src/shared/whisper
  */
 
 /** 已解析的碎碎念结果：成功（一句话 + 可选配图）或失败（显式原因，不伪造文本）。

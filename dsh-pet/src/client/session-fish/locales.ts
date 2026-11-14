@@ -4,7 +4,7 @@
  * 这里只放浮层文案（新会话 / 关闭 / 打开 / 计数）；设置页文案已并入 `pet.config` 的 `fish.*`。
  * zh 是键集真源，其余语言用 `Record<Key, string>` 锁住，漏翻一个键在类型检查期就报错。
  * 只放本功能的 UI 文案；播报台词由宿主生成，不走这里。
- * @module dsh-pet/src/client/session-fish/locales
+ * @module dsh-fish-body/src/client/session-fish/locales
  */
 
 /** 命名空间：与设置页主字典分开，避免把会话鱼的字塞进「桌宠配置」。 */

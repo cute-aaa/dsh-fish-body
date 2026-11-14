@@ -3,7 +3,7 @@
  *
  * 不订阅事件（订阅在装配层），不渲染气泡；只做纯判定与定时器。
  * 依赖由 apply 显式传入（见输入类型），模块内不读全局、不建单例。
- * @module dsh-pet/src/host/plugin/session-notify
+ * @module dsh-fish-body/src/host/plugin/session-notify
  */
 import { hasBlockingActivity, reduceNotifyFrame, withSessionId, type HostNotifyFrame } from '../notify-events.ts';
 import { type WorkStatusTurnContext } from '../work-status.ts';

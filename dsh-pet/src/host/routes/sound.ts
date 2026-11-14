@@ -4,7 +4,7 @@
  * 只做参数校验与拼装：扫目录在 ../sfx/scan，优先级与内置默认在 ../sfx/index-build，
  * 命中路径与「建议放这里」在 ../sfx/paths。素材根写 `pool` 时只查共享资源池（保留虚拟根）。
  * 索引是「这台机器上实际有什么」的唯一出口——客户端据此决定播哪个文件，不做任何 404 探测。
- * @module dsh-pet/src/host/routes/sound
+ * @module dsh-fish-body/src/host/routes/sound
  */
 import { isValidPetId, RENDERER_SET } from '../config.ts';
 import { warnOnce } from '../config/constants.ts';

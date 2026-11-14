@@ -4,7 +4,7 @@
  * 只有静态字符串与注入状态，不建 DOM、不读配置；尺寸全部锚在气泡字号 --f 上，
  * 因此 config.font 的字号与 followPet、以及宠物尺寸改了，面板跟着等比缩放。
  * 高度预算 TODO_PANEL_METRICS 与这里的系数同源：改任何一条都必须同步，否则桌面窗口上边距会算少。
- * @module dsh-pet/src/shared/todo/styles
+ * @module dsh-fish-body/src/shared/todo/styles
  */
 import { BUBBLE_OVERLAP_RATIO, resolveFontPx } from '../fonts.ts';
 import type { FontConfig } from '../types.ts';

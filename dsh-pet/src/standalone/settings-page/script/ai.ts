@@ -3,7 +3,7 @@
  *
  * 读写独立模式专属的 /standalone-ai/settings，与插件配置那份文件互不相干；
  * 密钥只写不回显，请求一律带本次运行的访问令牌。AI 是否可用只看地址、模型与密钥是否齐全。
- * @module dsh-pet/src/standalone/settings-page/script/ai
+ * @module dsh-fish-body/src/standalone/settings-page/script/ai
  */
 
 /** 生成 AI 面板片段。 */

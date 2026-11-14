@@ -4,7 +4,7 @@
  * 单独一层是为了让 provider 的时序逻辑（探测缓存、权重切换缓存）能脱离网络被测试：
  * 测试注入本文件的替身即可，provider 不需要知道 fetch 的存在。
  * 不做缓存、不排队——那是 provider 与 speak 的事。
- * @module dsh-pet/src/host/voice/gsv/client
+ * @module dsh-fish-body/src/host/voice/gsv/client
  */
 import type { AudioClip } from '../audio.ts';
 import { VoiceSynthError } from '../edge.ts';

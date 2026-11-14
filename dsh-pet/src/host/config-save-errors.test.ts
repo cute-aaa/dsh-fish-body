@@ -1,9 +1,10 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { apply } from './index.ts';
+import { userPaths } from './user-layout.ts';
 import { createStandaloneContext, type StandaloneLogger } from '../standalone/context.ts';
 import { listenStandaloneServer, type StandaloneServer } from '../standalone/server.ts';
 
@@ -28,8 +29,9 @@ before(async () => {
   previousHome = process.env.DSH_HOME;
   home = mkdtempSync(join(tmpdir(), 'dsh-pet-save-errors-'));
   process.env.DSH_HOME = home;
-  file = join(home, 'dsh-pet', 'main-config.jsonc');
-  mkdirSync(join(home, 'dsh-pet'), { recursive: true });
+  // 新布局：数据根 `<DSH_HOME>/fish-body`，用户主配置在 `config/` 下
+  file = userPaths(join(home, 'fish-body')).mainConfig;
+  mkdirSync(dirname(file), { recursive: true });
   const routes: ReturnType<typeof createStandaloneContext>['routes'] = [];
   context = createStandaloneContext({ port: 0, routes, logger });
   apply(context.ctx);

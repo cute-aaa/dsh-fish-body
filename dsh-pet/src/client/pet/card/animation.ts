@@ -3,7 +3,7 @@
  * 不再持有 video 元素：A/B 双缓冲由 webm 渲染器内部管理；本模块只决定「何时读、何时切」。
  * 不负责运动与浮层：走位、拖拽、挤压经装配根的迟绑槽取值，本模块只把渲染器暴露出去。
  * 卸载顺序固定：摘监听 → 注销 pose/progress → 销毁渲染器 → 停三套运动。
- * @module dsh-pet/src/client/pet/card/animation
+ * @module dsh-fish-body/src/client/pet/card/animation
  */
 import { registerPose } from '../../pose.ts';
 import { registerProgress } from '../../progress.ts';
@@ -73,7 +73,7 @@ export function createCardAnimation(rt: CardAnimationRuntime) {
       rendererRef.current = createRenderer(rendererKind) ?? createRenderer('webm') ?? null;
     }
     const renderer = rendererRef.current;
-    if (renderer === null) throw new Error('dsh-pet: 渲染后端未注册（缺 webm）');
+    if (renderer === null) throw new Error('fish-body: 渲染后端未注册（缺 webm）');
     // 挂载瞬间的锁冻结：渲染器只读一次，这里锁住「第一次渲染时」的值，之后锁变化走 setFrozen。
     const initiallyFrozenRef = useRef(input.lock?.locked === true && input.lock.expiresAt > Date.now());
 

@@ -3,7 +3,7 @@
  *
  * 只回答「什么时候该提醒」与「提醒说什么」：不读文件、不碰计时器与 HTTP，时间由调用方注入。
  * 到期越近提醒越密是这份模块的核心契约：调整档位只改下面的两张表，`nextReminderAt` 自动跟随。
- * @module dsh-pet/src/host/todo/policy
+ * @module dsh-fish-body/src/host/todo/policy
  */
 import type { TodoRecord } from './types.ts';
 

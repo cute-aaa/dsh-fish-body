@@ -2,7 +2,7 @@
  * 设置页字典的唯一出口：命名空间、键类型与全部语言的汇总。
  * zh 是键集真源，每种语言都声明成 `Record<Key, string>`，漏翻一个键在类型检查期就报错。
  * 宿主 0.2.2 起内置 zh / en / ja / es / fr / de / ru / pt 八种语言，其余语言按 `en` 逐键回退。
- * @module dsh-pet/src/client/settings/locales
+ * @module dsh-fish-body/src/client/settings/locales
  */
 import { de } from './de.ts';
 import { en } from './en.ts';

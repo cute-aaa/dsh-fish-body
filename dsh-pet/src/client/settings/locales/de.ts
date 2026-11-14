@@ -106,18 +106,25 @@ export const de: Record<Key, string> = {
   corruptConfirm: 'Trotzdem speichern',
   corruptBody:
     'Die Benutzerkonfigurationsdatei ist nicht lesbar (beschädigt, kein gültiges JSON/JSONC): {path}. Beim Weiterspeichern wird die Datei anhand der Whitelist neu aufgebaut – alle aktuellen Inhalte (animations / physics / memes und weitere eigene Felder) gehen verloren. Abbrechen = Datei unverändert lassen (zuerst die Konfiguration reparieren, dann speichern); Bestätigen = trotzdem speichern (vorhandene Inhalte verwerfen).',
-  configMeta: 'Erweitert (Dateien)',
-  configMetaHint:
-    'Die Benutzerkonfiguration kann Pet-Liste / Animationspools / Wiedergabegewichtung überschreiben; Änderungen greifen nach Aktualisieren oder Neustart: im Browser die Seite neu laden, im Desktop-Modus Rechtsklick auf das Pet → „Konfiguration neu laden" (lädt alle Desktop-Pet-Fenster neu); die Standardkonfiguration ist die vollständige Referenz.',
-  defaultConfig: 'Standardkonfiguration (schreibgeschützt, vollständige Referenz)',
-  userConfig: 'Benutzerkonfiguration (eigene Überschreibungen)',
-  todosFile: 'To-do-Daten (Listentext, Fälligkeit und Erledigt-Status; Löschen entspricht alle To-dos leeren)',
-  animationDir: 'Verzeichnis der Animations-Assets (Animationen anpassen/ergänzen)',
-  memesDir: 'Verzeichnis der Meme-Bilder (Bilder anpassen/ergänzen)',
-  poolDir: 'Asset-Pool-Verzeichnis (gemeinsame Skins / Modelle / Animationen / Sounds)',
-  logFile: 'Protokolldatei (für die Fehlersuche; kann geleert werden)',
-  logFileNote:
-    'Die Desktop-Version hat keine Konsole, daher gehen alle Laufzeitprotokolle des Plugins (Start, Absturz/Neustart des Desktop-Pets, Fehler und Warnungen) in diese eine Datei; bitte bei Problemmeldungen anhängen. Maximal 1 MB pro Datei, danach bleiben nur die letzten 512 KB erhalten.',
+  fsTitle: 'Dateien & Ordner',
+  fsHint:
+    'Alles, was das Plugin auf diesem Rechner ablegt — Einstellungen, Daten, Laufzeit, löschbare Caches und Assets — liegt unter einem einzigen Datenstamm. Deinstallieren heißt, diesen Ordner zu löschen (das Plugin-Paket selbst verwaltet DSH).',
+  fsRoot: 'Datenstamm',
+  fsRootHint: 'Diesen Ordner löschen entfernt Einstellungen, Gedächtnis, Caches und Assets (das Plugin-Paket bleibt).',
+  fsTree: 'Ordnerstruktur',
+  fsTreeHint:
+    'config und data enthalten Ihre Einstellungen und Daten — nicht leichtfertig löschen. cache darf jederzeit weg (wird neu aufgebaut oder neu geladen). Wird runtime gelöscht, muss Electron erneut geladen werden. pets und assets enthalten die Assets; die Namensregeln stehen in CONFIG.md.',
+  fsBadgeDisposable: 'löschbar',
+  fsBadgeDownload: 'Download nötig',
+  fsBadgeReadonly: 'schreibgeschützt',
+  fsReadonly: 'Mitgeliefert, schreibgeschützt',
+  fsRuntime: 'Laufzeit',
+  fsRuntimeReady: 'Installiert',
+  fsRuntimeMissing: 'Nicht installiert',
+  fsRuntimeDownload: 'Laufzeit herunterladen',
+  fsRuntimeDownloading: 'Wird heruntergeladen…',
+  fsRuntimeHint:
+    'Desktop-Fenster brauchen Electron. cache/ löschen ändert daran nichts; erst runtime/ löschen erzwingt einen erneuten Download.',
   saved: 'Gespeichert – die Pets gelten sofort.',
   loadError: 'Konfiguration konnte nicht geladen werden',
   saveError:
@@ -127,7 +134,7 @@ export const de: Record<Key, string> = {
   retry: 'Erneut versuchen',
   invalid: 'Bitte Eingaben prüfen: Größe muss positiv sein, Ränder dürfen beliebige Zahlen sein.',
   extraPetsHint:
-    'Weitere {n} Art(en) stammen aus Dateien im Verzeichnis pet/ (<Name>-config.json + <Name>-animation/); oben in der Zeile „Arten" umschalten und bearbeiten. Speichern schreibt jeweils in die eigene Paketkonfiguration, nie in main-config.jsonc.',
+    'Weitere {n} Art(en) stammen aus Dateien im Verzeichnis pets/ (<Name>-config.json + <Name>-animation/); oben in der Zeile „Arten" umschalten und bearbeiten. Speichern schreibt jeweils in die eigene Paketkonfiguration, nie in main-config.jsonc.',
   kindLabel: 'Arten',
   kindMain: 'Integriert',
   lastOfKind:
@@ -139,7 +146,7 @@ export const de: Record<Key, string> = {
     'System-Toasts (unten rechts auf dem Desktop) bei Abschluss einer Konversation, Fehlern, Berechtigungsanfragen und Rückfragen – nur wenn das Fenster nicht fokussiert ist.',
   sfxToggle: 'Ton',
   sfxToggleHint:
-    'Spielt konfigurierte und automatisch gefundene Dateien; aus schaltet alles stumm. Dateien muessen selten konfiguriert werden: click.wav im Skin-Ordner, in pet/<root>-sound/ oder neben einer Animation wird erkannt. Ohne Datei greifen die eingebauten Standards.',
+    'Spielt konfigurierte und automatisch gefundene Dateien; aus schaltet alles stumm. Dateien muessen selten konfiguriert werden: click.wav im Skin-Ordner, in pets/<root>-sound/ oder neben einer Animation wird erkannt. Ohne Datei greifen die eingebauten Standards.',
   sfxKeepAliveToggle: 'Audio warm halten',
   sfxKeepAliveToggleHint:
     'Haelt die Ausgabe mit einer unhörbaren 1-LSB-Quelle offen: der erste Ton nach langer Pause verliert seinen Anschlag nicht, und im Systemmixer bleibt ein Eintrag "Electron" als Gesamtlautstaerke. Kostet Geraet und Akku; Windows schlaeft bei aktivem Stream meist nicht automatisch.',
@@ -150,7 +157,7 @@ export const de: Record<Key, string> = {
   sfxHint:
     'Welche Datei wann laeuft, entscheidet der Host: Skin-Ordner > -sound-Ordner > neben der Animation > benutzerweit > Paketstandard. Diese Seite aendert nur Schalter; die Lautstaerke steht unter Global.',
   sfxFileHint:
-    'Zum Austauschen die Datei in einen Skin-Ordner (pet/xxx-skin/click.wav) oder pet/<root>-sound/ legen; der Dateiname ist der Slot. Danach Seite neu laden.',
+    'Zum Austauschen die Datei in einen Skin-Ordner (pets/xxx-skin/click.wav) oder pets/<root>-sound/ legen; der Dateiname ist der Slot. Danach Seite neu laden.',
   sfxSlotPattern: 'Dateiname: {name}.wav oder <skin>-{name}.wav',
   sfxNone: 'keine Datei',
   sfxTry: 'Anhören',
@@ -334,25 +341,13 @@ export const de: Record<Key, string> = {
   notifyDenyError: 'Fehler beim Anfordern der Berechtigung',
   notifyGuide:
     'Anleitung: links neben der Adressleiste auf 🔒/ⓘ klicken → „Website-Einstellungen" → „Benachrichtigungen" → auf „Zulassen" setzen, Seite neu laden und erneut versuchen.',
-  storageTitle: 'Deinstallation & Speicher',
-  storageHint:
-    'Alle Orte, an denen das Plugin auf diesem Rechner Daten ablegt. Cache löschen ist unschädlich (wird automatisch neu geladen/neu aufgebaut); „Plugin-Benutzerdaten" löschen kostet Konfiguration und Chat-Gedächtnis.',
-  'storage.userData':
-    'Plugin-Benutzerdaten: eigene Konfiguration main-config.jsonc, Chat-Gedächtnis memory.json, eigene Animations-Assets main-animation/, Datei-Pets pet/',
-  'storage.electron':
-    'Electron-Laufzeit für das Desktop-Pet (groß; wird beim nächsten Start des Desktop-Modus automatisch neu heruntergeladen)',
-  'storage.desktopCache':
-    'Cache der Desktop-Pet-Fenster und Skalierungs-Cache des Hauptbildschirms (löschbar, wird automatisch neu aufgebaut)',
-  'storage.electronCache': 'Download-Cache des Electron-Installers (löschbar, wird bei Bedarf neu geladen)',
-  'storage.package': 'Das Plugin selbst (von DSH verwaltet – mit dem Befehl unten entfernen, nicht von Hand löschen)',
-  storageMissing: ' (noch nicht erstellt)',
   uninstallTitle: 'So deinstallieren Sie',
   uninstallStep1:
-    '1. Zuerst DSH beenden (das Desktop-Pet beendet sich mit); die obigen Dateien nicht löschen, während das Pet läuft.',
+    '1. Zuerst DSH beenden (das Desktop-Pet beendet sich mit); diese Daten nicht löschen, während das Pet läuft.',
   uninstallStep2:
     '2. Das Plugin selbst entfernen (im Terminal ausführen; entfernt es auch aus der Bundle-Schicht des Profils):',
   uninstallStep3:
-    '3. Die obigen Orte nach Bedarf löschen: Caches sind unschädlich; „Plugin-Benutzerdaten" löschen kostet Konfiguration und Chat-Gedächtnis (vorher main-config.jsonc sichern, wenn Sie es behalten wollen).',
+    '3. Wenn alles weg soll, den Datenstamm {root} löschen: cache/ ist unschädlich; config/ oder data/ löschen kostet Einstellungen und Chat-Gedächtnis (vorher config/main-config.jsonc sichern, wenn Sie es behalten wollen).',
   motionTitle: 'Aktionshäufigkeit',
   motionHint:
     'Vier Felder: Leerlauf / Drehen / Bewegen sind editierbar, die Zufallsaktion wird berechnet (100 − die anderen drei). Globaler Standard für alle Pets; ein Pet-Pack kann ihn in seiner Art-Datei überschreiben.',
@@ -360,7 +355,7 @@ export const de: Record<Key, string> = {
   'motion.turn': 'Drehen',
   'motion.move': 'Bewegen',
   'motion.action': 'Zufallsaktion',
-  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-pet',
+  uninstallCmd: 'dsh plugin --profile {profile} remove dsh-fish-body',
   // 会话鱼设置（并入本页后从 pet.sessionFish 命名空间搬来）。
   'fish.intro':
     'Jede neue, laufende oder gerade beendete Sitzung bekommt eine kleine „Code schreiben“-Animation. Ziehen zum Verschieben, Klick zum Öffnen, × zum Ausblenden.',
@@ -485,5 +480,5 @@ export const de: Record<Key, string> = {
   secSpeak: 'Sprachausgabe',
   secTiming: 'Taktung',
   sizesTitle: 'Größe je Renderer',
-  extraPetsShort: '{n} weitere Arten liegen im pet/-Ordner',
+  extraPetsShort: '{n} weitere Arten liegen im pets/-Ordner',
 };

@@ -4,13 +4,13 @@
  * 存在的意义是「设置页只给类别名」：目录属于哪个素材根、当前皮肤在哪一层、池里该落到哪，
  * 只有宿主知道。路径不存在时不猜、不创建，直接把算出来的路径回给调用方，由设置页提示「先放个文件」。
  * 全局类别不需要 `pet`：它们与宠物无关（池根 / 用户动画 / 表情包 / 插件数据根）。
- * @module dsh-pet/src/host/routes/open-folder
+ * @module dsh-fish-body/src/host/routes/open-folder
  */
 import { existsSync, mkdirSync } from 'node:fs';
 import { readAllConfig } from '../config.ts';
 import { resolveFolderTarget, resolveGlobalFolder } from '../open-folder.ts';
-import { fishSkinUserDir } from '../session-fish/skins.ts';
 import { isGlobalFolderTarget, isPetFolderTarget, type FolderTarget } from '../../shared/folders.ts';
+import { pathsOf } from './paths.ts';
 import { skinIdOfModel } from '../sfx/scan.ts';
 import type { RendererKind, SfxFolderTarget } from '../../shared/types.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
@@ -19,7 +19,7 @@ import { failResult, methodNotAllowed, okResult } from './result.ts';
 
 /** 类别白名单的一句话说明：报错时原样告诉调用方有哪些可选值。 */
 const WHICH_HINT =
-  'which 只能是 sound / skin / animation / user / package / pool-layered / pool-live2d / pool-webm / pool-sound / pool-global-sound / pool-root / animations / memes / fish-skin / user-root';
+  'which 只能是 sound / skin / animation / user / package / pool-layered / pool-live2d / pool-webm / pool-sound / pool-global-sound / root / config / data / cache / runtime / pets / assets / pool-root / animations / memes / fish-skin / user-root';
 
 /**
  * 打开文件夹领域：未命中返回 undefined，命中返回应答。
@@ -43,12 +43,10 @@ async function openFolderRequest(deps: PetRouteDeps, input: RouteInput): Promise
   try {
     // 全局类别先判：它不需要 pet，失败原因也不该被「未知宠物」冒名顶替。
     if (isGlobalFolderTarget(which)) {
+      const paths = pathsOf(deps);
       const target = resolveGlobalFolder(which, {
-        animations: deps.thumbUserRoot ?? deps.userRoot,
-        memes: deps.memesUserRoot ?? deps.userRoot,
-        pool: typeof deps.poolRoot === 'function' ? deps.poolRoot() : deps.userRoot,
-        userRoot: deps.userRoot,
-        fishSkin: fishSkinUserDir(deps.userRoot),
+        paths,
+        pool: typeof deps.poolRoot === 'function' ? deps.poolRoot() : paths.poolDir,
       });
       return openTarget(deps, target, which, create);
     }

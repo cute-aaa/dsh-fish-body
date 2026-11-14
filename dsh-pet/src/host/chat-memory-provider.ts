@@ -4,7 +4,7 @@
  * 一个槽而不是 Map：记忆后端是二选一（原生 / 第三方），两个 recall 同时改内容会互相冲突，
  * 两个 capture 同时上传会重复写。模块单例：注册返回 disposer，测试用 resetChatMemoryProviders 复位。
  * 只登记与查找，不调用、不校验补丁、不落盘。
- * @module dsh-pet/src/host/chat-memory-provider
+ * @module dsh-fish-body/src/host/chat-memory-provider
  */
 
 /** 原生实现的标识；第三方不能占用它（槽为空即原生路径）。 */

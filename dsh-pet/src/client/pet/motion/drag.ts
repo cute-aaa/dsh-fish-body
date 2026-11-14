@@ -4,7 +4,7 @@
  * 依赖 PetCard 每帧给出的当帧能力 getter：尺寸、动画池、状态设置器与停/起运动。
  * 不变量：按下后所有位置写入都经包围盒读写；舞台脚垫位移恒定；松手必须先停弹簧跟随再结算落点。
  * 鼠标松开兜底也在这里：指针捕获被浏览器提前丢掉时，window 上的 mouseup 走同一套收尾。
- * @module dsh-pet/src/client/pet/motion/drag
+ * @module dsh-fish-body/src/client/pet/motion/drag
  */
 import { trimTrail, type DragSample } from '../../../shared/physics.ts';
 import { pick } from '../../../shared/pickers.ts';
@@ -154,7 +154,7 @@ const stamp = (): string => new Date().toTimeString().slice(0, 8);
 
 /** 一行带时刻与宠物 id 的日志：客户端统一前缀，便于按宠物 grep。 */
 const log = (petId: string, message: string): void => {
-  console.log('[dsh-pet] ' + stamp() + ' pet=' + petId + ' ' + message);
+  console.log('[fish-body] ' + stamp() + ' pet=' + petId + ' ' + message);
 };
 
 /**

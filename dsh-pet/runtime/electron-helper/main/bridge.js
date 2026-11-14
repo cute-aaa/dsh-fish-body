@@ -4,7 +4,7 @@
  * 非 bridge（手动 start-desktop / 独立应用）退回 HTTP 直连。
  *
  * 回调地址与待应答表由本模块独占，调用方只问 callbackUrl()、只发 hostRequest()。
- * @module dsh-pet/runtime/electron-helper/main/bridge
+ * @module dsh-fish-body/runtime/electron-helper/main/bridge
  */
 
 const fsPromises = require('node:fs/promises');
@@ -54,7 +54,7 @@ function createBridge({ isBridge, prefix, origin, token }) {
     const server = http.createServer((req, res) => {
       if (req.method !== 'POST' || req.url !== '/respond') {
         res.writeHead(404, { 'content-type': 'text/plain' });
-        res.end('dsh-pet: not found');
+        res.end('fish-body: not found');
         return;
       }
       let raw = '';
@@ -66,21 +66,21 @@ function createBridge({ isBridge, prefix, origin, token }) {
           res.end('ok');
         } catch {
           res.writeHead(400, { 'content-type': 'text/plain' });
-          res.end('dsh-pet: bad payload');
+          res.end('fish-body: bad payload');
         }
       });
       req.on('error', () => {
         res.writeHead(400, { 'content-type': 'text/plain' });
-        res.end('dsh-pet: bad payload');
+        res.end('fish-body: bad payload');
       });
     });
     server.on('error', (e) => {
-      console.error('[dsh-pet-desktop-helper] bridge callback server error:', String(e && e.message ? e.message : e));
+      console.error('[fish-body-desktop] bridge callback server error:', String(e && e.message ? e.message : e));
     });
     server.listen(0, '127.0.0.1', () => {
       const addr = server.address();
       bridgeCallbackUrl = 'http://127.0.0.1:' + (addr && typeof addr === 'object' ? addr.port : 0) + '/respond';
-      console.error('[dsh-pet-desktop-helper] bridge callback: ' + bridgeCallbackUrl);
+      console.error('[fish-body-desktop] bridge callback: ' + bridgeCallbackUrl);
     });
     return server;
   }
@@ -126,8 +126,8 @@ function createBridge({ isBridge, prefix, origin, token }) {
           headers: { ...headers, 'content-length': String(data.length), 'accept-ranges': 'bytes' },
         });
       } catch (e) {
-        console.error('[dsh-pet-desktop-helper] bridge file read failed:', resp.file, e);
-        return new Response('dsh-pet: asset read failed', { status: 500, headers });
+        console.error('[fish-body-desktop] bridge file read failed:', resp.file, e);
+        return new Response('fish-body: asset read failed', { status: 500, headers });
       }
     }
     return new Response(resp.body ?? '', { status: resp.status || 200, headers });

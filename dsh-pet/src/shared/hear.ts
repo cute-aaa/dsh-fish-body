@@ -4,7 +4,7 @@
  * 格式口径（16kHz / 单声道 / PCM16）与宿主 provider 的校验是同一份事实——这里只按它产出，
  * 不再各自校验一遍；真对不上时宿主会回一条可读的失败说明。
  * 只负责「麦克风 → WAV → 文字」，不碰界面：按钮状态、文字落点都归调用方（chat/dom）。
- * @module dsh-pet/src/shared/hear
+ * @module dsh-fish-body/src/shared/hear
  */
 
 /** 采样率：宿主 provider 只收 16kHz。 */

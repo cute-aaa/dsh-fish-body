@@ -4,7 +4,7 @@
  * 快捷键是全局的一个，而对话弹窗是每只宠物各一份，两者之间需要一张「现在能对谁动手」的表。
  * 取目标时优先主条目（配置里 main.pets[0]），它不在网页端就退到第一个登记过的。
  * 只存句柄、不存状态机：录音状态仍在 chat/hear-control 里。
- * @module dsh-pet/src/client/pet/card/registry
+ * @module dsh-fish-body/src/client/pet/card/registry
  */
 import { petBridge } from '../../settings/bridge.ts';
 

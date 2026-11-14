@@ -4,7 +4,7 @@
  * 两类目标：素材目录（需要宠物，宿主按素材根 + 皮肤算）与全局目录（池根 / 用户动画 / 表情包 /
  * 数据根，与宠物无关）。失败不抛，分成两种结论：`not-found`（目录还没建，带出宿主算好的路径，
  * 供气泡问「是否创建」）与 `failed`（其它原因，`message` 直接展示）。
- * @module dsh-pet/src/client/settings/open-folder
+ * @module dsh-fish-body/src/client/settings/open-folder
  */
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import { isGlobalFolderTarget, type FolderTarget } from '../../shared/folders.ts';

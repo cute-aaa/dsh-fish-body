@@ -3,7 +3,7 @@
  *
  * 编辑的是一份草稿（state.pets），只有点保存才写盘：main 条目连同全局字段走 PUT /config，
  * 其余条目走 POST /pet-config。单只宠物的字段与增删见 ./pet-card，条目级全局字段见 ./globals。
- * @module dsh-pet/src/standalone/settings-page/script/pets
+ * @module dsh-fish-body/src/standalone/settings-page/script/pets
  */
 
 /** 生成宠物面板片段。 */

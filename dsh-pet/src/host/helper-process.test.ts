@@ -91,7 +91,7 @@ describe('dshHomeDir —— $DSH_HOME 解析', () => {
 });
 
 describe('defaultElectronExe —— 落地可执行文件路径', () => {
-  test('在 $DSH_HOME/electron 下按平台拼可执行文件', () => {
+  test('在 $DSH_HOME/fish-body/runtime/electron 下按平台拼可执行文件', () => {
     withIsolatedHome((dir) => {
       process.env.DSH_HOME = join(dir, 'custom');
       const rel =
@@ -100,7 +100,7 @@ describe('defaultElectronExe —— 落地可执行文件路径', () => {
           : process.platform === 'darwin'
             ? join('Electron.app', 'Contents', 'MacOS', 'Electron')
             : 'electron';
-      assert.equal(defaultElectronExe(), join(dir, 'custom', 'electron', rel));
+      assert.equal(defaultElectronExe(), join(dir, 'custom', 'fish-body', 'runtime', 'electron', rel));
     });
   });
 });
@@ -175,7 +175,7 @@ describe('resolveElectronPath —— 候选优先级', () => {
     });
   });
 
-  test('$DSH_HOME/electron 落地路径在本地候选中（隔离 DSH_HOME 时可命中）', () => {
+  test('新运行时目录在本地候选中（隔离 DSH_HOME 时可命中）', () => {
     withIsolatedHome((dir) => {
       process.env.DSH_HOME = join(dir, 'dshhome');
       const rel =
@@ -184,7 +184,7 @@ describe('resolveElectronPath —— 候选优先级', () => {
           : process.platform === 'darwin'
             ? join('Electron.app', 'Contents', 'MacOS', 'Electron')
             : 'electron';
-      const landed = join(dir, 'dshhome', 'electron', rel);
+      const landed = join(dir, 'dshhome', 'fish-body', 'runtime', 'electron', rel);
       mkdirSync(dirname(landed), { recursive: true });
       writeFileSync(landed, 'executable fixture');
       assert.equal(resolveElectronPath([]), landed);

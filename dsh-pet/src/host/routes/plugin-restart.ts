@@ -5,7 +5,7 @@
  * 包括 link 进来的包（本插件就是 link 的），所以 `pnpm build` 之后点这一项即可生效；没有 HMR 时进程内
  * 换不掉已加载的 ESM，只重启桌面 Helper，并在响应里如实说明。
  * 必须先回响应再触发：重新组合会把本插件的路由一起拆掉，等回调会把应答丢掉；成败只进日志。
- * @module dsh-pet/src/host/routes/plugin-restart
+ * @module dsh-fish-body/src/host/routes/plugin-restart
  */
 import { type RouteResult } from '../http.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
@@ -39,7 +39,7 @@ export async function handlePluginRestart(deps: PetRouteDeps, input: RouteInput)
   if (input.method !== 'POST') return methodNotAllowed();
   const hmr = deps.ctx.get?.('hmr') as HmrService | undefined;
   const usable = hmr !== undefined && typeof hmr.reconcileProfile === 'function';
-  deps.log.info('[dsh-pet] 插件重启请求 mode=' + (usable ? 'hmr' : 'helper'));
+  deps.log.info('[fish-body] 插件重启请求 mode=' + (usable ? 'hmr' : 'helper'));
   if (!usable || hmr === undefined) {
     void deps.requestRestart();
     return okResult({ ok: true, mode: 'helper' });
@@ -51,9 +51,9 @@ export async function handlePluginRestart(deps: PetRouteDeps, input: RouteInput)
     const reconcile = (): Promise<unknown> => service.reconcileProfile?.() ?? Promise.resolve(undefined);
     const task = service.runExclusive === undefined ? reconcile() : service.runExclusive(reconcile);
     void task.then(
-      (outcome) => deps.log.info('[dsh-pet] 插件重启完成 ' + describe(outcome)),
+      (outcome) => deps.log.info('[fish-body] 插件重启完成 ' + describe(outcome)),
       (error: unknown) =>
-        deps.log.error('[dsh-pet] 插件重启失败：' + (error instanceof Error ? error.message : String(error))),
+        deps.log.error('[fish-body] 插件重启失败：' + (error instanceof Error ? error.message : String(error))),
     );
   }, RESTART_DELAY_MS);
   // 不拖住进程退出：这次重启是为正在跑的宿主服务的，没人在等它。

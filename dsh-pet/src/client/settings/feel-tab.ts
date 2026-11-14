@@ -5,7 +5,7 @@
  * 只值一张卡就不值得占一个分区位。合并后这一页回答同一个问题：这只宠物看起来、动手起来是什么样。
  * 三张卡都只改本地状态，随「保存」整包写；卡之间互不认识，也不读对方的字段。
  * owns only 这一块的装配，never 字段的编辑态。
- * @module dsh-pet/src/client/settings/feel-tab
+ * @module dsh-fish-body/src/client/settings/feel-tab
  */
 import type { FunctionComponent } from 'react';
 import type { DirtyQuery } from './dirty.ts';

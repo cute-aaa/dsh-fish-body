@@ -8,7 +8,7 @@
  * 始终成立：档位顺序与 animations.events.workStatus 数组索引严格一致，不在中间插入。
  * 契约见 API.md 与 openapi.yaml。
  *
- * @module dsh-pet/src/host/work-status
+ * @module dsh-fish-body/src/host/work-status
  */
 
 /** 工作状态档位（数组索引 = events.workStatus 档位；顺序与 shared/work-status.ts 一致）。 */

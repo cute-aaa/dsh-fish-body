@@ -4,7 +4,7 @@
  * 只创建对象、算路径、注册可选服务，不启动任何循环，也不碰网络；
  * 需要 ctx 的两处（日志收尾 effect、petApi7340 服务）一并在这里注册。
  * 必须始终成立：日志只创建一次——复用到 standalone 挂上的 logger 时不得再建第二个。
- * @module dsh-pet/src/host/plugin/setup
+ * @module dsh-fish-body/src/host/plugin/setup
  */
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -19,7 +19,11 @@ import { ensureUserLayout } from '../layout.ts';
 import { createFileLogger, isFileLogger, setDefaultLogger, type FileLogger, type LoggerLike } from '../log-file.ts';
 import { MenuRegistry } from '../menu.ts';
 import { animSubdirFor, PACKAGE_MEMES_DIR, PACKAGE_ROOT, PACKAGE_SOUND_DIR } from '../paths.ts';
-import { isReservedAssetRoot } from '../../shared/pool.ts';
+import { migrateElectronRuntime, migrateLayout } from '../migrate-layout.ts';
+import { setUserRoot } from '../helper-process.ts';
+import { userPaths, type UserPaths } from '../user-layout.ts';
+import { resolveUserRoot, type RootLog } from '../user-root.ts';
+import { POOL_LAYER_DIR, POOL_SOUND_DIR, isReservedAssetRoot } from '../../shared/pool.ts';
 import {
   poolEntryDir,
   poolGlobalSoundDir,
@@ -35,7 +39,7 @@ import { resolveAsset } from '../http.ts';
 import { PollStateStore } from '../state.ts';
 import { WorkStatusStore } from '../work-status.ts';
 import { SessionFishStore } from '../session-fish/store.ts';
-import { fishSkinDirs, fishSkinUserDir, type FishSkinDirs } from '../session-fish/skins.ts';
+import { fishSkinDirs, type FishSkinDirs } from '../session-fish/skins.ts';
 import { SessionFishSettingsStore, sessionFishSettingsPath } from '../session-fish/settings.ts';
 import type { StandaloneWhisperPolicy } from '../whisper-policy.ts';
 
@@ -61,6 +65,8 @@ export interface StandaloneBalanceAuth {
 export interface HostSetup {
   /** 本插件的数据根（配置与用户素材都收敛于此） */
   readonly userRoot: string;
+  /** 数据根的完整路径表（唯一真源：任何模块都不得再自己拼路径字面量）。 */
+  readonly paths: UserPaths;
   /** 插件日志出口（文件 + 终端） */
   readonly log: FileLogger;
   /** 配置路径集 */
@@ -81,7 +87,7 @@ export interface HostSetup {
     ext: string,
     opts?: { renderer?: RendererKind; model?: string },
   ) => SfxDirs;
-  /** 用户级共享音效目录（`<用户根>/main-sound`）。 */
+  /** 用户级共享音效目录（`<数据根>/assets/sound`）。 */
   readonly soundUserRoot: string;
   /** 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）；每次调用现读配置。 */
   readonly poolRoot: () => string;
@@ -117,10 +123,25 @@ export interface HostSetup {
  * @returns 日志、路径、store 与两个工具函数。
  */
 export function createHostSetup(ctx: HostSetupContext): HostSetup {
-  // 用户数据根：配置与用户素材统一收敛于此（扩展包按 <插件id> 各自建目录）
+  // 数据根：先换名（`dsh-pet` → `fish-body`）再做内层布局迁移。两件事都必须在建日志之前算完——
+  // 日志文件本身也在数据根里。期间的提示先攒进 startNotes，logger 建好后再一次性写出去。
   const dshHome = resolveDshHome();
+  const startNotes: string[] = [];
+  const noteSink: RootLog = { info: (m) => startNotes.push(m), warn: (m) => startNotes.push(m) };
+  const rootResult = resolveUserRoot({ dshHome, log: noteSink });
+  const userRoot = rootResult.root;
+  // 运行时 / 下载缓存 / 桌面 profile 都跟着这个根走：选根回落到旧根时它们也必须留在同一个根里。
+  setUserRoot(userRoot);
 
-  const userRoot = join(dshHome, 'dsh-pet');
+  // 内层布局：把继承自 dsh-pet 的平铺目录搬进 config/ data/ cache/ runtime/ pets/ assets/。
+  // 幂等——第二次启动什么都不做；任何一条搬不动都只告警，源目录原样留着。
+  // `legacyRoot` 是给「两个根并存」准备的：桌面 Helper 可能先把新根建出来（它要 cache/desktop），
+  // 这时数据仍在旧根里，得按同一张表搬进来，不能只认新根。
+  const migration = migrateLayout({ root: userRoot, legacyRoot: rootResult.legacyRoot, log: noteSink });
+  const runtimeMove = migrateElectronRuntime({ dshHome, root: userRoot, log: noteSink });
+
+  // 路径表：池根要等配置读出来才知道（`assets.pool`），先用默认值算一份给 logger 用。
+  const pathsForLog = userPaths(userRoot);
 
   // 统一日志出口（单文件、按大小截断，见 ./log-file）：桌面版 DSH 没有控制台，ctx.logger 只写
   // stdout 等于把排障信息丢掉；base 保留终端输出。
@@ -131,13 +152,22 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
   const log =
     reusedLog ??
     createFileLogger({
-      file: join(userRoot, 'logs.txt'),
+      file: pathsForLog.logsFile,
       base: ctx.logger,
       debugEnabled: process.env.DSH_PET_LOG_DEBUG === '1',
     });
 
   // 纯模块（./config、./chat、./whisper）拿不到 ctx.logger，用这个默认出口落盘
   setDefaultLogger(log);
+
+  // 换名 / 迁移期间攒下的提示，现在才有地方写。
+  for (const note of startNotes) log.info(note);
+  if (migration.failed.length > 0) {
+    log.warn(
+      `[fish-body] 布局迁移有 ${migration.failed.length} 项失败，源目录保持原样：${migration.failed.map((f) => f.move.from).join('、')}`,
+    );
+  }
+  if (runtimeMove === 'failed') log.warn('[fish-body] Electron 运行时仍在旧位置，桌面模式照常可用');
 
   // 只在自己创建时负责收尾：复用的 logger 归 standalone/app 生命周期管，插件卸载不该把它关掉。
   if (!reusedLog) {
@@ -146,7 +176,7 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
         void log.flush();
         log.dispose();
       },
-      'dsh-pet: log file',
+      'fish-body: log file',
     );
   }
 
@@ -176,11 +206,11 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
   // 用户主配置（可编辑层）与文件宠物目录；配置读取/合并统一走 readAllConfig（./config）。
   // 主配置是 JSONC（main-config.jsonc）——与包内默认 config.jsonc 同名同格式：
   // 「同步」写进去的就是带注释的原文，扩展名如实反映内容（main-config.json 只读回落 + 启动迁移）
-  const userConfigPath = join(userRoot, 'main-config.jsonc');
+  const userConfigPath = pathsForLog.mainConfig;
 
-  const legacyUserConfigPath = join(userRoot, 'main-config.json');
+  const legacyUserConfigPath = pathsForLog.legacyMainConfig;
 
-  const petConfigDir = join(userRoot, 'pet');
+  const petConfigDir = pathsForLog.petsDir;
 
   // 配置路径集（readAllConfig 的唯一输入：内置默认 + 用户主配置 + 文件宠物目录）
   const configPaths: ConfigPaths = {
@@ -192,16 +222,17 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
 
   // 老用户一次性迁移：main-config.json → main-config.jsonc（重命名，内容一字不动；
   // 新文件已存在则不动旧文件）。失败不影响运行——读取侧对旧路径有回落。
-  migrateUserConfig(configPaths, (msg) => log.info('[dsh-pet] ' + msg));
+  migrateUserConfig(configPaths, (msg) => log.info('[fish-body] ' + msg));
 
-  // 用户动画目录（thumb 播放时优先于包内素材；webm 放 main-animation/webm/，mov（macOS 定制）放 main-animation/mov/）
-  const thumbUserRoot = join(userRoot, 'main-animation');
+  // 用户动画目录（thumb 播放时优先于包内素材；webm 放 assets/animation/webm/，
+  // mov（macOS 定制）放 assets/animation/mov/）
+  const thumbUserRoot = pathsForLog.animationDir;
 
   // 用户表情包目录（碎碎念/对话配图的图片：优先于包内 assets/memes，加图不必改包）
-  const memesUserRoot = join(userRoot, 'memes');
+  const memesUserRoot = pathsForLog.memesDir;
 
   /**
-   * 表情包目录链，与动画素材（/thumb）同一套归属语义：`pet/<素材根>-memes/` 存在则只查它；
+   * 表情包目录链，与动画素材（/thumb）同一套归属语义：`pets/<素材根>-memes/` 存在则只查它；
    * 否则用户目录优先、包内兜底。池（readMemePool）与路由（/pic/memes）必须走同一个函数，
    * 否则池里能选的名字路由取不到，气泡配图会图裂。
    * 素材根来自 URL 段，必须先过 resolveAsset，避免 Windows 上 %5C 解出的反斜杠逃出用户根。
@@ -213,37 +244,45 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
   };
 
   // 用户级共享音效目录：main 链在没有专属文件时也查这里（加音效不必动包）。
-  const soundUserRoot = join(userRoot, 'main-sound');
+  const soundUserRoot = pathsForLog.soundDir;
 
   /**
-   * 共享资源池的根：`assets.pool`（相对用户根或绝对路径），默认 `<用户根>/skin`。
+   * 共享资源池的根：`assets.pool`（相对数据根或绝对路径），默认 `<数据根>/assets/skin`。
    *
    * 每次都现读配置：池根是用户随时会改的环境参数，装配期只算一次会让改完配置要重启。
    * 读配置失败按默认处理——池是可选布局，配错不该让宿主报错。
+   *
+   * 旧布局回落：默认位置还不存在、而老的 `<数据根>/skin/` 还在（迁移被占用跳过之类），就用老的——
+   * 用户的皮肤池不会因为一次改名突然变空。
    */
   const poolRootOf = (): string => {
+    const legacyPool = join(userRoot, 'skin');
+    const fallback = (resolved: string): string =>
+      !existsSync(resolved) && existsSync(legacyPool) ? legacyPool : resolved;
     try {
-      return resolvePoolRoot(userRoot, readAllConfig(configPaths).main?.assets);
+      return fallback(resolvePoolRoot(userRoot, readAllConfig(configPaths).main?.assets));
     } catch {
-      return resolvePoolRoot(userRoot, undefined);
+      return fallback(resolvePoolRoot(userRoot, undefined));
     }
   };
 
-  // 初始化的目录结构：高级配置里列出的那几个目录 + 池的约定目录，启动时就建出来。
-  // 这样「打开文件夹」永远不用先问「要不要创建」，用户也不必先去文档里抄目录名。
+  // 最终路径表：池根要按配置解析，所以这里是 userPaths 的第二次调用（第一次只给 logger 用）。
+  const paths = userPaths(userRoot, { pool: poolRootOf() });
+
+  // 初始化的目录结构：布局约定的那些目录 + 池的约定目录，启动时就建出来，并给每个目录写一句备注。
+  // 这样「打开文件夹」永远不用先问「要不要创建」，用户也不必先去文档里抄目录名；
+  // Explorer 里点开目录就能看到它是干什么的、能不能删。
   // 失败只记一行日志：数据根在只读盘上时插件本身照常跑。
   const layout = ensureUserLayout({
-    animations: thumbUserRoot,
-    memes: memesUserRoot,
-    poolRoot: poolRootOf(),
-    fishSkin: fishSkinUserDir(userRoot),
-    userRoot,
+    paths,
+    poolLayerDirs: Object.values(POOL_LAYER_DIR),
+    poolSoundDir: POOL_SOUND_DIR,
   });
   if (layout.created.length > 0) {
-    log.info('[dsh-pet] 已初始化目录：' + layout.created.join('、'));
+    log.info('[fish-body] 已初始化目录：' + layout.created.join('、'));
   }
   for (const item of layout.failed) {
-    log.info('[dsh-pet] 目录创建失败（' + item.dir + '）：' + item.error);
+    log.info('[fish-body] 目录创建失败（' + item.dir + '）：' + item.error);
   }
 
   /**
@@ -367,6 +406,7 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
 
   return {
     userRoot,
+    paths,
     log,
     configPaths,
     userConfigPath,

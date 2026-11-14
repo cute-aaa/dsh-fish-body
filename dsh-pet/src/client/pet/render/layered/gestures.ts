@@ -3,7 +3,7 @@
  *
  * 浏览器（`render/layered.ts`）与桌面 Helper（`layered-core.js` → `PetLayered.assemblyActionOf`）共用这一份：
  * 两端各写一套的话，点击同一只宠物会在一端有反应、另一端没有。
- * @module dsh-pet/src/client/pet/render/layered/gestures
+ * @module dsh-fish-body/src/client/pet/render/layered/gestures
  */
 
 /** rig 支持的装配动作。 */

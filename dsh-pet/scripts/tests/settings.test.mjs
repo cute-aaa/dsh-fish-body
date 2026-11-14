@@ -118,9 +118,9 @@ const echoFish = (route) => {
 
 async function open(
   t,
-  { get = customized, put, post, fishPut, viewport = { width: 900, height: 900 }, lang = 'en' } = {},
+  { get = customized, put, post, fishPut, viewport = { width: 900, height: 900 }, lang = 'en', reducedMotion } = {},
 ) {
-  const context = await browser.newContext({ viewport });
+  const context = await browser.newContext(reducedMotion ? { reducedMotion, viewport } : { viewport });
   t.after(() => context.close());
   const page = await context.newPage();
   page.setDefaultTimeout(5000);
@@ -145,11 +145,109 @@ async function open(
       return route.fulfill({ json: get });
     }
     if (path === '/dsh-pet-7340/config/meta') {
+      // 与 host 的 GET /config/meta 同形：root + 目录树 + 只读参考 + 运行时状态。
       return route.fulfill({
         json: {
-          user: '/test/main-config.jsonc',
+          root: '/test/fish-body',
+          layout: [
+            {
+              key: 'root',
+              rel: 'fish-body/',
+              name: 'fish-body',
+              path: '/test/fish-body',
+              kind: 'dir',
+              depth: 0,
+              exists: true,
+              open: 'root',
+            },
+            {
+              key: 'config',
+              rel: 'config',
+              name: 'config',
+              path: '/test/fish-body/config',
+              kind: 'dir',
+              depth: 1,
+              exists: true,
+              open: 'config',
+            },
+            {
+              key: 'data',
+              rel: 'data',
+              name: 'data',
+              path: '/test/fish-body/data',
+              kind: 'dir',
+              depth: 1,
+              exists: true,
+              open: 'data',
+            },
+            {
+              key: 'cache',
+              rel: 'cache',
+              name: 'cache',
+              path: '/test/fish-body/cache',
+              kind: 'dir',
+              depth: 1,
+              exists: true,
+              open: 'cache',
+              badge: 'disposable',
+            },
+            {
+              key: 'pets',
+              rel: 'pets',
+              name: 'pets',
+              path: '/test/fish-body/pets',
+              kind: 'dir',
+              depth: 1,
+              exists: true,
+              open: 'pets',
+            },
+            {
+              key: 'assets',
+              rel: 'assets',
+              name: 'assets',
+              path: '/test/fish-body/assets',
+              kind: 'dir',
+              depth: 1,
+              exists: true,
+              open: 'assets',
+            },
+            {
+              key: 'logs',
+              rel: 'logs.txt',
+              name: 'logs.txt',
+              path: '/test/fish-body/logs.txt',
+              kind: 'file',
+              depth: 1,
+              exists: true,
+            },
+          ],
+          readonly: [
+            {
+              key: 'pkg.config',
+              rel: '/test/assets/config.jsonc',
+              name: 'config.jsonc',
+              path: '/test/assets/config.jsonc',
+              kind: 'pkg',
+              depth: 0,
+              exists: true,
+            },
+          ],
+          runtime: {
+            dir: '/test/fish-body/runtime/electron',
+            exe: '/test/fish-body/runtime/electron/electron.exe',
+            installed: false,
+          },
+          profile: 'fish',
+          user: '/test/fish-body/config/main-config.jsonc',
           default: '/test/assets/config.jsonc',
-          animations: '/test/main-animation',
+          animations: '/test/fish-body/assets/animation',
+        },
+      });
+    }
+    if (path === '/dsh-pet-7340/desktop/runtime') {
+      return route.fulfill({
+        json: {
+          runtime: { dir: '/test/fish-body/runtime/electron', exe: '', installed: false },
         },
       });
     }
@@ -415,12 +513,63 @@ test('all six sections are reachable and render content', async (t) => {
   }
 });
 
+test('switch knob sits on the far side of the track when checked (reduced motion included)', async (t) => {
+  // 圆点靠 transform 站在蓝区右侧；降级块曾经一刀切写死 `transform:none`，
+  // 于是「开」和「关」在开了「减少动画」的系统上长得一模一样。这条用例把两种动效偏好都钉住。
+  for (const reducedMotion of ['no-preference', 'reduce']) {
+    const { page } = await open(t, { reducedMotion });
+    const box = page.locator('.dsh-pet-cfg__switch').first();
+    const knobLeft = () =>
+      box.evaluate((el) => {
+        const track = el.querySelector('.dsh-pet-cfg__swTrack').getBoundingClientRect();
+        const knob = el.querySelector('.dsh-pet-cfg__swKnob').getBoundingClientRect();
+        return Math.round(knob.left - track.left);
+      });
+    const before = await knobLeft();
+    await box.locator('label').click();
+    await page.waitForTimeout(150);
+    const after = await knobLeft();
+    assert.ok(
+      Math.abs(after - before) >= 10,
+      `切换一次，圆点要换到另一侧（${reducedMotion}: ${before}px → ${after}px）`,
+    );
+  }
+});
+
+test('a slot keeps its source and its preview when the switch is turned off', async (t) => {
+  // 开关说的是「运行时响不响」，试听问的是「有没有文件」——两者不该互相牵连。
+  const { page } = await open(t);
+  await tab(page, 'Sound').click();
+  const row = page.locator('.dsh-pet-cfg__row').first();
+  const preview = row.locator('.dsh-pet-cfg__btn.is-text');
+  assert.equal(await preview.isEnabled(), true, '开关开着时能试听');
+  await row.locator('.dsh-pet-cfg__switch>label').click();
+  await page.waitForTimeout(150);
+  assert.equal(await row.locator('input[type=checkbox]').isChecked(), false, '开关确实关掉了');
+  assert.equal(await preview.isEnabled(), true, '关掉开关不该收走试听');
+  assert.doesNotMatch(String(await row.locator('.dsh-pet-cfg__badge').textContent()), /unmatched/i);
+});
+test('a changed item marks itself, not just its card', async (t) => {
+  // 卡头那颗点只说「这块改过」；改到哪个开关还得自己找。改动项自己的标签后要跟一颗点并升一档字重。
+  const { page } = await open(t);
+  // 系统分区第一格是「系统通知」：夹具里它的基线值有定义，改动才会算未保存。
+  await tab(page, 'System').click();
+  const cell = page.locator('.dsh-pet-cfg__switch').first();
+  assert.equal(await cell.locator('.dsh-pet-cfg__dot').count(), 0, '改之前不该有圆点');
+  await cell.locator('label').click();
+  await page.waitForTimeout(150);
+  assert.match(String(await cell.getAttribute('class')), /is-dirty/);
+  assert.equal(await cell.locator('.dsh-pet-cfg__dot').count(), 1, '改动项自己要有圆点');
+  const weight = await cell.locator('.dsh-pet-cfg__swText').evaluate((el) => getComputedStyle(el).fontWeight);
+  assert.equal(weight, '500', '改动项的标签要升一档字重');
+});
+
 for (const lang of ['en', 'zh']) {
   for (const width of [360, 520, 900]) {
     test(`settings keep controls and toggle labels readable (${lang}, ${width}px)`, async (t) => {
       const { page } = await open(t, { viewport: { width, height: 800 }, lang });
       const clipped = await page
-        .locator('.dsh-pet-cfg__switch>label>span')
+        .locator('.dsh-pet-cfg__swText')
         .evaluateAll((labels) =>
           labels.filter((label) => label.scrollWidth > label.clientWidth).map((label) => label.textContent),
         );
@@ -530,4 +679,33 @@ test('backup: an unrelated JSON file is refused before any upload', async (t) =>
   });
   await page.getByText('This file is not a settings backup for this plugin.', { exact: true }).first().waitFor();
   assert.equal(restores.length, 0);
+});
+
+test('system → files & folders: one card holding the data-root tree, runtime state and uninstall', async (t) => {
+  // 视口拉高：卡片展开后是一棵树 + 运行时 + 卸载，900 高只看得见卡头。
+  const { page } = await open(t, { viewport: { width: 900, height: 1600 } });
+  await tab(page, 'System').click();
+  const fold = page.getByRole('button', { name: /Files & folders/ });
+  await fold.waitFor();
+  await fold.click();
+  // 树行 = 7 条布局节点 + 1 条包内只读参考；同一路径不该画两遍。
+  await page.locator('.dsh-pet-cfg__treeRow').first().waitFor();
+  assert.equal(await page.locator('.dsh-pet-cfg__treeRow').count(), 8);
+  // 徽标：可删 / 只读；目录名带尾斜杠，文件名不带。
+  const badges = await page.locator('.dsh-pet-cfg__treeBadge').allInnerTexts();
+  assert.deepEqual(badges, ['deletable', 'read-only']);
+  const names = await page.locator('.dsh-pet-cfg__treeName').allInnerTexts();
+  assert.ok(names.includes('config/'), 'arr: ' + names.join(','));
+  assert.ok(names.includes('logs.txt'));
+  // 运行时：未安装时按钮可点，文案给出状态。
+  assert.equal(await page.getByText('Not installed', { exact: true }).count(), 1);
+  assert.equal(await page.getByRole('button', { name: 'Download runtime', exact: true }).isEnabled(), true);
+  // 卸载命令用 meta 的 profile 名。
+  await page.getByText('dsh plugin --profile fish remove dsh-fish-body', { exact: false }).waitFor();
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    // 等折叠动画（160ms）走完再截图，否则拍到的是收到一半的卡片。
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: join(process.env.DSH_PET_UI_ARTIFACTS, 'system-files-open.png') });
+  }
 });

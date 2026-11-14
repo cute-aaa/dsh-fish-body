@@ -9,6 +9,7 @@ import { createStandaloneContext } from '../standalone/context.ts';
 import { listenStandaloneServer, type StandaloneServer } from '../standalone/server.ts';
 import { createRequestSecurity } from '../standalone/request-security.ts';
 import { readUserConfig } from './config.ts';
+import { userPaths } from './user-layout.ts';
 
 // 把真实 host 打包进临时包，让它的 assets 能解析，同时不改动 src/assets。
 const source = fileURLToPath(new URL('..', import.meta.url));
@@ -58,9 +59,12 @@ before(async () => {
   const home = join(dir, 'home');
   process.env.DSH_HOME = home;
   process.env.DSH_PET_IN_PROCESS = '1';
-  mkdirSync(join(home, 'dsh-pet/pet'), { recursive: true });
-  file = join(home, 'dsh-pet/main-config.jsonc');
-  packFile = join(home, 'dsh-pet/pet/pack-config.jsonc');
+  // 新布局：数据根 `<DSH_HOME>/fish-body`，主配置在 `config/`、文件宠物在 `pets/`
+  const userLayout = userPaths(join(home, 'fish-body'));
+  mkdirSync(userLayout.configDir, { recursive: true });
+  mkdirSync(userLayout.petsDir, { recursive: true });
+  file = userLayout.mainConfig;
+  packFile = join(userLayout.petsDir, 'pack-config.jsonc');
   writeFileSync(file, JSON.stringify({ trayEnabled: false, pets: [pet('alpha'), pet('beta')] }));
   const logger = { info() {}, warn() {}, error() {}, debug() {} };
   context = createStandaloneContext({ port: 0, logger });

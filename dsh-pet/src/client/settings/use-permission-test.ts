@@ -3,7 +3,7 @@
  *
  * 反馈与「保存」的反馈分开：申请失败要说理由与引导，而保存成功只是一句结论，混在一个位置会互相覆盖。
  * owns only 这一句反馈，never 权限本身与通知的构造（那是 `./notify-test.ts` 的纯动作）。
- * @module dsh-pet/src/client/settings/use-permission-test
+ * @module dsh-fish-body/src/client/settings/use-permission-test
  */
 import type { Feedback } from './feedback.ts';
 import { runNotificationTest } from './notify-test.ts';

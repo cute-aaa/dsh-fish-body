@@ -2,7 +2,7 @@
  * 单只宠物的皮肤/模型（POST /pet-model）：调用方只给 id 与 model，层归属由宿主反查。
  * 与 /pet-renderer 同一套写入语义：白名单重建 + 磁盘原值透传 + 写后广播并重启 Helper。
  * 不解析整段 pets[]，不负责配置读取的合并（归 ../../config）。
- * @module dsh-pet/src/host/routes/config/model
+ * @module dsh-fish-body/src/host/routes/config/model
  */
 import { findPetInstance, readAllConfig, saveUserConfig } from '../../config.ts';
 import { mkdir, writeFile } from 'node:fs/promises';

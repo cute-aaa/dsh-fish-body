@@ -2,7 +2,7 @@
  * 会话事件监听：把 DSH 的 session/event 折叠成工作状态与完成通知。
  *
  * 不决定通知文案与档位（归 notify-events 与 shared/work-status），只做事件到判定的转接。
- * @module dsh-pet/src/host/plugin/session-watch
+ * @module dsh-fish-body/src/host/plugin/session-watch
  */
 import { GOAL_UPDATE_TOOL, currentTaskFromTodo, goalUpdateAction, reduceWorkStatus } from '../work-status.ts';
 import { toolDetailFromEvent } from '../tool-detail.ts';
@@ -256,7 +256,7 @@ export function registerSessionWatch(deps: SessionWatchInput): void {
       for (const t of terminalTimers.values()) clearTimeout(t);
       terminalTimers.clear();
     };
-  }, 'dsh-pet: work-status session events');
+  }, 'fish-body: work-status session events');
 
   // 系统通知：监听 DSH 宿主事件生成通知帧入队，浏览器轮询 /state 读到后弹 toast（帧契约与
   // shared/notify.ts 一致）。事件源：turn/end、approval/asked、tool/call（ask_user_question）、
@@ -308,5 +308,5 @@ export function registerSessionWatch(deps: SessionWatchInput): void {
       sessionDispose();
       errorDispose();
     };
-  }, 'dsh-pet: notify frames');
+  }, 'fish-body: notify frames');
 }

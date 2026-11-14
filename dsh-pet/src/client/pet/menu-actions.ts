@@ -2,7 +2,7 @@
  * 右键菜单的动作派发：把菜单叶子（内置动作、第三方项、显示位置、点播动画）翻译成一次副作用。
  * 只做「点了之后发生什么」，不建菜单、不管浮层定位与开关时序——那些归右键入口。
  * 依赖以取值函数注入，避免捕获渲染期的状态快照。
- * @module dsh-pet/src/client/pet/menu-actions
+ * @module dsh-fish-body/src/client/pet/menu-actions
  */
 import { isNoMirrorAnimation, isSleepAllowedAction } from '../../shared/menu.ts';
 import type { MenuLeaf } from '../../shared/menu.ts';
@@ -84,7 +84,7 @@ export interface MenuActions {
 async function applyPetConfig(deps: MenuActionDeps, intent: PetConfigIntent, label: string): Promise<void> {
   const result = await postPetConfig(ROUTE_PATH, deps.petId, intent);
   if (!result.ok) {
-    deps.warn(`[dsh-pet] ${label}失败：${result.message ?? ''}`);
+    deps.warn(`[fish-body] ${label}失败：${result.message ?? ''}`);
     return;
   }
   if (result.merged) deps.applyMerged(result.merged);
@@ -100,15 +100,15 @@ async function applyPetConfig(deps: MenuActionDeps, intent: PetConfigIntent, lab
 async function restartPlugin(deps: MenuActionDeps): Promise<void> {
   const mode = await requestPluginRestart();
   if (mode === null) {
-    deps.warn('[dsh-pet] 插件重启失败');
+    deps.warn('[fish-body] 插件重启失败');
     return;
   }
-  console.info('[dsh-pet] 插件重启已触发 pet=' + deps.petId + ' mode=' + mode);
+  console.info('[fish-body] 插件重启已触发 pet=' + deps.petId + ' mode=' + mode);
   if (mode === 'hmr') {
     schedulePageReload();
     return;
   }
-  deps.warn('[dsh-pet] 宿主未启用 HMR：宿主代码改动仍需重启 profile，桌面窗口已重建');
+  deps.warn('[fish-body] 宿主未启用 HMR：宿主代码改动仍需重启 profile，桌面窗口已重建');
 }
 
 /**
@@ -124,9 +124,9 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
   const fireAction = (route: string, label: string): void => {
     postAction(route)
       .then((ok: boolean) => {
-        if (!ok) deps.warn('[dsh-pet] ' + label + '失败 pet=' + petId);
+        if (!ok) deps.warn('[fish-body] ' + label + '失败 pet=' + petId);
       })
-      .catch((error: unknown) => deps.warn('[dsh-pet] ' + label + '异常 pet=' + petId + ' ' + String(error)));
+      .catch((error: unknown) => deps.warn('[fish-body] ' + label + '异常 pet=' + petId + ' ' + String(error)));
   };
 
   const run = (leaf: MenuLeaf, playbackId?: string, keepFacing = false, hostInstruction = false): void => {
@@ -152,7 +152,7 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
         // 同页消费者（petApi7340.menuEvents）当场就能取到；HTTP 照旧上报，桌面端与老扩展仍读宿主那份。
         setMenuClick(owner, leaf.label, petId);
         postAction(ROUTE_PATH + '/menu/click', { owner, label: leaf.label, pet: petId }).catch((error: unknown) =>
-          deps.warn('[dsh-pet] 第三方菜单点击上报失败 ' + String(error)),
+          deps.warn('[fish-body] 第三方菜单点击上报失败 ' + String(error)),
         );
       }
       return;
@@ -160,19 +160,19 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
     if (leaf.action === 'sleep' || leaf.action === 'wake') {
       // 睡觉/起来都由宿主定状态：渲染端只发意图，三段动画名与闸门都在宿主那一侧
       const route = leaf.action === 'sleep' ? '/sleep' : '/wake';
-      console.info('[dsh-pet] 菜单' + (leaf.action === 'sleep' ? '睡觉' : '起来') + ' pet=' + petId);
+      console.info('[fish-body] 菜单' + (leaf.action === 'sleep' ? '睡觉' : '起来') + ' pet=' + petId);
       fireAction(ROUTE_PATH + route + '?pet=' + encodeURIComponent(petId), leaf.action === 'sleep' ? '睡觉' : '起来');
       return;
     }
     if (leaf.action === 'show-balance') {
       // 动作端点让宿主刷新并写入 /state，页面什么都不用做。
-      console.info('[dsh-pet] 菜单查看余额 pet=' + petId);
+      console.info('[fish-body] 菜单查看余额 pet=' + petId);
       fireAction(ROUTE_PATH + '/balance', '余额刷新动作');
       return;
     }
     if (leaf.action === 'whisper') {
       // 手动碎碎念：文本随长轮询送达，不受 whisperEnabled 限制；surface 必填，本页面就是网页端。
-      console.info('[dsh-pet] 菜单触发碎碎念 pet=' + petId + (leaf.image ? ' image=' + leaf.image : ''));
+      console.info('[fish-body] 菜单触发碎碎念 pet=' + petId + (leaf.image ? ' image=' + leaf.image : ''));
       // 「配图」菜单点的是具体某张 → 带名称让宿主用这张（不在池内宿主会回 unknown-image）；
       // 其余入口不带，仍按配置随机抽图。名称可能含空格与中文，必须编码。
       const pic = leaf.image ? '&image=' + encodeURIComponent(leaf.image) : '';
@@ -190,27 +190,27 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
     if (leaf.action === 'set-display') {
       const display = leaf.display;
       if (!display) return;
-      console.info('[dsh-pet] 菜单切换显示位置 pet=' + petId + ' display=' + display);
+      console.info('[fish-body] 菜单切换显示位置 pet=' + petId + ' display=' + display);
       void applyPetConfig(deps, { kind: 'display', display }, '显示位置切换');
       return;
     }
     if (leaf.action === 'set-renderer') {
       const renderer = leaf.renderer;
       if (!renderer) return;
-      console.info('[dsh-pet] 菜单切换渲染方式 pet=' + petId + ' renderer=' + renderer);
+      console.info('[fish-body] 菜单切换渲染方式 pet=' + petId + ' renderer=' + renderer);
       void applyPetConfig(deps, { kind: 'renderer', renderer }, '渲染方式切换');
       return;
     }
     if (leaf.action === 'set-model') {
       const model = leaf.model;
       if (model === undefined) return;
-      console.info('[dsh-pet] 菜单切换模型 pet=' + petId + ' model=' + model);
+      console.info('[fish-body] 菜单切换模型 pet=' + petId + ' model=' + model);
       void applyPetConfig(deps, { kind: 'model', model }, '模型切换');
       return;
     }
     if (leaf.action === 'set-size') {
       // size 缺省 = 删掉当前渲染方式的覆盖，回落 pets[].size；宿主按该宠物现有 renderer 落键。
-      console.info('[dsh-pet] 菜单改大小 pet=' + petId + ' size=' + String(leaf.size ?? '默认'));
+      console.info('[fish-body] 菜单改大小 pet=' + petId + ' size=' + String(leaf.size ?? '默认'));
       void applyPetConfig(deps, { kind: 'size', size: leaf.size }, '改大小');
       return;
     }
@@ -218,10 +218,10 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       // 目标值必填：当前值只有渲染端知道，所以切换由建叶子的一方取反后写进来。
       const value = leaf.clickThrough;
       if (typeof value !== 'boolean') {
-        deps.warn('[dsh-pet] 鼠标穿透缺少目标值 pet=' + petId);
+        deps.warn('[fish-body] 鼠标穿透缺少目标值 pet=' + petId);
         return;
       }
-      console.info('[dsh-pet] 菜单切换鼠标穿透 pet=' + petId + ' value=' + String(value));
+      console.info('[fish-body] 菜单切换鼠标穿透 pet=' + petId + ' value=' + String(value));
       void applyPetConfig(deps, { kind: 'click-through', value }, '鼠标穿透');
       return;
     }
@@ -229,20 +229,20 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       const provider = leaf.voiceProvider;
       const voice = leaf.providerVoice;
       if (!provider || !voice) return;
-      console.info('[dsh-pet] 菜单切换音色 pet=' + petId + ' provider=' + provider + ' voice=' + voice);
+      console.info('[fish-body] 菜单切换音色 pet=' + petId + ' provider=' + provider + ' voice=' + voice);
       void applyPetConfig(deps, { kind: 'provider-voice', provider, voice }, '音色切换');
       return;
     }
     if (leaf.action === 'renderer-action') {
       const action = leaf.rendererAction;
       if (action === undefined) return;
-      console.info('[dsh-pet] 菜单渲染器动作 pet=' + petId + ' action=' + action);
+      console.info('[fish-body] 菜单渲染器动作 pet=' + petId + ' action=' + action);
       // 直接交给渲染器：这类动作没有 webm 段，不进卡片动画链，也就没有播完回调可言。
       deps.playRendererAction?.(action);
       return;
     }
     if (leaf.action === 'reload-plugin') {
-      console.info('[dsh-pet] 菜单重启插件 pet=' + petId);
+      console.info('[fish-body] 菜单重启插件 pet=' + petId);
       void restartPlugin(deps);
       return;
     }

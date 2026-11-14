@@ -1,7 +1,7 @@
 /**
  * webm 渲染器（src/client/pet/render/webm.ts）的契约测试：只验证 Renderer 契约映射，
  * 不重复验证 A/B 换源引擎（引擎契约在 animation.test.ts）。假 video、假 stage、假素材加载器。
- * @module dsh-pet/src/client/pet/render/webm.test
+ * @module dsh-fish-body/src/client/pet/render/webm.test
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

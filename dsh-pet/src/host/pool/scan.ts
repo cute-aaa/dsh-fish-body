@@ -4,7 +4,7 @@
  * 只读目录、不判定音效优先级（归 host/sfx/index-build），不碰 HTTP。任何一层读不了都退化成空，
  * 所以「池还没建」与「池是空的」走同一条路径，调用方不必分支。
  * 扫描不做文件监听：{@link createPoolReader} 给一次请求内的复用，改盘后下一次请求自然读到新内容。
- * @module dsh-pet/src/host/pool/scan
+ * @module dsh-fish-body/src/host/pool/scan
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';

@@ -6,7 +6,7 @@
  * 图标走设置页自己的公开资源路径（/standalone-ai/icon.png），内容读自包内 assets/logo.png，
  * 不复制第二份图；不能用插件路由 /logo——浏览器取 favicon 不带 Origin 也不带令牌，会被判成文件来源而 403。
  * 导航项以 `data-tab` 声明，脚本按约定找 `panel-<tab>`，新增分区只需照此加一对按钮与面板。
- * @module dsh-pet/src/standalone/settings-page/chrome
+ * @module dsh-fish-body/src/standalone/settings-page/chrome
  */
 
 /** 设置页 HTML。 */

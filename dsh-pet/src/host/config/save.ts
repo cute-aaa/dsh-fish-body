@@ -3,7 +3,7 @@
  *
  * 不负责读取与合并（归 ./read），也不重启桌面 Helper（由调用方决定）。
  * 必须始终成立：只写白名单字段，用户手改的非白名单字段必须原样带回。
- * @module dsh-pet/src/host/config/save
+ * @module dsh-fish-body/src/host/config/save
  */
 import { defaultLog } from '../log-file.ts';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -68,7 +68,7 @@ export function saveUserConfig(
     // 显示名：可重复不校验唯一；缺失/留空/非字符串 → 按该宠物 id 处理（兼容旧配置）并告警
     let name = typeof pp.name === 'string' ? pp.name.trim() : '';
     if (!name) {
-      defaultLog('warn', `dsh-pet: pet「${id}」缺少 name，已按默认 ${id}（宠物 id）处理`);
+      defaultLog('warn', `fish-body: pet「${id}」缺少 name，已按默认 ${id}（宠物 id）处理`);
       name = id;
     }
     const balanceEnabled = pp.balanceEnabled;

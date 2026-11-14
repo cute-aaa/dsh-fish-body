@@ -6,7 +6,7 @@
  * 加载失败仍给出一份默认草稿（表单可用），但会如实报错——保存会覆盖文件，这一点必须在提示里说清。
  * 服务端权威值到达时回调 `onAuthoritative`，外壳据此推进「未保存改动」的基线。
  * owns only 会话鱼草稿与两个写入口，never 主配置、圆点判定与按钮的可用性。
- * @module dsh-pet/src/client/settings/use-session-fish
+ * @module dsh-fish-body/src/client/settings/use-session-fish
  */
 import { DEFAULT_SESSION_FISH_SETTINGS, type SessionFishSettings } from '../../shared/session-fish.ts';
 import {

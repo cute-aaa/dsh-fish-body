@@ -1,7 +1,7 @@
 /**
  * 音色单选下拉：把「名称（标签）」拼成一行，交互与外观全交给通用下拉 `../panel/select`。
  * 音色只有几个，不做搜索与预览；标签并入文案，用户在选定前就能看出声色风格。
- * @module dsh-pet/src/client/settings/picker/voice-picker
+ * @module dsh-fish-body/src/client/settings/picker/voice-picker
  */
 import type { FunctionComponent } from 'react';
 import type { SettingsRuntime } from '../runtime.ts';

@@ -2,7 +2,7 @@
  * layered 皮肤的类型与清单解析：把 surfcore `manifest.json`（schema 2）解析成强类型结构。
  * 只做「读与校验」，不加载图片、不碰 DOM；图片加载在 rig/渲染器里。
  * 清单字段多为可选（老版本 / 不同皮肤写法不一），解析一律容错：缺字段取默认、坏字段静默跳过。
- * @module dsh-pet/src/client/pet/render/layered/types
+ * @module dsh-fish-body/src/client/pet/render/layered/types
  */
 import { normalizeLayer } from '../../../../shared/sfx/resolve.ts';
 import type { SfxLayer } from '../../../../shared/types.ts';

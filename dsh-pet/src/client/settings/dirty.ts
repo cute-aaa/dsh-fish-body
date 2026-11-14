@@ -1,11 +1,12 @@
 /**
  * 设置页的「未保存改动」判定：把表单快照与基线快照做深度 diff，得到一串点分路径。
  *
- * 路径就是快照里的位置（`look.physics.gravity`、`fish.sizePx`、`pets`）：卡片把同一串路径交给
+ * 路径就是快照里的位置（`look.physics.gravity`、`fish.sizePx`、`pets.0.size`）：卡片把同一串路径交给
  * 圆点组件，标签条按前缀把路径归到分区——「哪些字段算改动」不再另维护一张表，改名即同步。
+ * 数组按位置下钻，所以宠物卡能逐项标出「改的是大小还是名字」；长度一变就退回整条聚合路径。
  * 基线里缺省的字段表示服务端没给可信值：任一侧 undefined 的路径跳过，不误报。
  * 纯函数，不读状态、不发请求、不碰时钟。
- * @module dsh-pet/src/client/settings/dirty
+ * @module dsh-fish-body/src/client/settings/dirty
  */
 import type { SessionFishSettings } from '../../shared/session-fish.ts';
 import type { FontConfig, ModelSelection, Pet, PhysicsParams, SfxConfig, Weights } from '../../shared/types.ts';
@@ -146,10 +147,19 @@ function sameValue(left: unknown, right: unknown): boolean {
   return false;
 }
 
-/** 收集改动路径：对象下钻到单键，数组整体算一条（「这只宠物被改过」就够用）。 */
+/** 收集改动路径：对象下钻到单键，数组按位置下钻（`pets.0.size`），长度一变就整条算一处。 */
 function collect(base: unknown, current: unknown, path: string, out: Set<string>): void {
   if (base === undefined || current === undefined) return;
   if (sameValue(base, current)) return;
+  if (Array.isArray(base) && Array.isArray(current)) {
+    // 加/删一条就对不上位置了（`pets.0` 会整体错位），这种情况只报聚合路径。
+    if (base.length !== current.length) {
+      out.add(path);
+      return;
+    }
+    base.forEach((item, index) => collect(item, current[index], path + '.' + index, out));
+    return;
+  }
   if (isBag(base) && isBag(current)) {
     const keys = new Set([...Object.keys(base), ...Object.keys(current)]);
     for (const key of keys) collect(base[key], current[key], path === '' ? key : path + '.' + key, out);

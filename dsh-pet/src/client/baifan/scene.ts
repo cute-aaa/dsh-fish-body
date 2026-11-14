@@ -3,7 +3,7 @@
  *
  * 自持 DOM 与 rAF（落体只在有东西还在天上时才跑），不碰接口也不判演出相位——
  * 相位归 show，这里只回答「场上有什么、离最近的是哪份」。
- * @module dsh-pet/src/client/baifan/scene
+ * @module dsh-fish-body/src/client/baifan/scene
  */
 import { CFG, PIC } from './constants.ts';
 import { groundLine, type Geometry } from './geometry.ts';

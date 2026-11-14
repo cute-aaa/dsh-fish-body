@@ -4,7 +4,7 @@
  * 为什么走 base64 而不是原始字节：宿主请求体统一按 utf8 解码（见 http.ts 的 readBody），
  * 二进制裸流在解码处就被破坏；JSON 也让本端点与其它写端点共用同一套错误结论。
  * 只校验「文件头像图片 + 在预算内」，不裁剪不重编码——尺寸与画质由前端压到长边 512 担保。
- * @module dsh-pet/src/host/routes/avatar
+ * @module dsh-fish-body/src/host/routes/avatar
  */
 import { isValidPetId } from '../config.ts';
 import { savePetAvatar } from '../pet-avatar.ts';

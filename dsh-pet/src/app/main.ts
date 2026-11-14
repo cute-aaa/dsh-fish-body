@@ -3,7 +3,7 @@
  * 只做启动装配与日志落盘：不实现路由（见 router.ts），不实现窗口/托盘/物理（复用桌面 Helper）。
  * 依赖宿主半侧的 apply()、standalone 的配置与安全模块，以及 runtime/electron-helper/main.js。
  * 始终成立：端口先于 Helper 就位（它在 ready 前就要用配置地址），令牌只经请求头与环境变量传递。
- * @module dsh-pet/src/app/main
+ * @module dsh-fish-body/src/app/main
  */
 
 import { createRequire } from 'node:module';
@@ -14,6 +14,8 @@ import { flattenPetList, readAllConfig } from '../host/config.ts';
 import { dshHomeDir } from '../host/helper-process.ts';
 import { apply } from '../host/index.ts';
 import { createFileLogger, setDefaultLogger } from '../host/log-file.ts';
+import { userPaths } from '../host/user-layout.ts';
+import { ROOT_DIR_NAME } from '../host/user-root.ts';
 import { createStandaloneAi } from '../standalone/ai-provider.ts';
 import { packageVersion } from '../standalone/check.ts';
 import { createStandaloneContext, type RegisteredRoute } from '../standalone/context.ts';
@@ -53,7 +55,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(here, '..');
 const helperMain = join(packageRoot, 'runtime', 'electron-helper', 'main.js');
 
-const log = (message: string): void => console.log(`[dsh-pet-app] ${message}`);
+const log = (message: string): void => console.log(`[fish-body-app] ${message}`);
 
 /** 单实例：第二次双击直接退出（共用 userData 的 Chromium profile 会互踢） */
 const locked = app.requestSingleInstanceLock();
@@ -73,7 +75,7 @@ async function boot(): Promise<void> {
   // 独立应用没有控制台：插件日志、standalone 日志与同进程 Helper/渲染端的 console 全部落盘。
   // 原始 console 方法要先快照——包装后的 console 会转给文件 logger，logger 的 base 必须指向原始方法，
   // 否则 logger → console → logger 无限递归。
-  const logFile = join(dshHomeDir(), 'dsh-pet', 'logs.txt');
+  const logFile = userPaths(join(dshHomeDir(), ROOT_DIR_NAME)).logsFile;
   const rawConsole = {
     log: console.log.bind(console),
     info: console.info.bind(console),

@@ -8,7 +8,7 @@
  * 由调用方退回右下角排布——绝不猜一个坐标。
  *
  * 锚点的形状定义在共享层（`shared/session-fish/roam`）：桌面端按窗口局部坐标算同一份。
- * @module dsh-pet/src/client/session-fish/pet-anchor
+ * @module dsh-fish-body/src/client/session-fish/pet-anchor
  */
 import type { PetAnchor } from '../../shared/session-fish/roam.ts';
 

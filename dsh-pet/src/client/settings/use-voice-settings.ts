@@ -7,7 +7,7 @@
  * 轮询与启停的超时是这一块独立的失败模式：30s 探活保可用态、90s 兜底放开「启动」、启停后按轮次补拉清单。
  * owns only 语音分区的编辑态、轮询节奏与提交入口，never 保存、加载与其它分区字段；
  * 请求的构造与解析在 `./voice-api.ts`（读失败回 `null`、写失败抛错，这里只决定怎么显示）。
- * @module dsh-pet/src/client/settings/use-voice-settings
+ * @module dsh-fish-body/src/client/settings/use-voice-settings
  */
 import { readVoiceProviders, switchableProviders, type VoiceProviderView } from '../../shared/voice-providers.ts';
 import { speakText, type SpeakPhase } from '../../shared/voice.ts';

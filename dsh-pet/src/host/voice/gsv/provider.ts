@@ -10,7 +10,7 @@
  *
  * 另外记一件事：合成失败的原因留在 `lastError()` 里。回退链的设计是「静默落到 edge」，
  * 用户只会觉得「换了个嗓子」，所以「服务通着却念不出来」必须有一处能看见（设置页接入卡显示它）。
- * @module dsh-pet/src/host/voice/gsv/provider
+ * @module dsh-fish-body/src/host/voice/gsv/provider
  */
 import type { AudioClip } from '../audio.ts';
 import { VoiceSynthError } from '../edge.ts';
@@ -147,12 +147,12 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
       if (voice.gptWeights && applied.gpt !== voice.gptWeights) {
         await http.setWeights(settings.baseURL, 'gpt', voice.gptWeights, WEIGHTS_TIMEOUT_MS);
         applied = { ...applied, gpt: voice.gptWeights };
-        log?.info?.(`[dsh-pet] gsv: 切 GPT 权重 ${voice.gptWeights}`);
+        log?.info?.(`[fish-body] gsv: 切 GPT 权重 ${voice.gptWeights}`);
       }
       if (voice.sovitsWeights && applied.sovits !== voice.sovitsWeights) {
         await http.setWeights(settings.baseURL, 'sovits', voice.sovitsWeights, WEIGHTS_TIMEOUT_MS);
         applied = { ...applied, sovits: voice.sovitsWeights };
-        log?.info?.(`[dsh-pet] gsv: 切 SoVITS 权重 ${voice.sovitsWeights}`);
+        log?.info?.(`[fish-body] gsv: 切 SoVITS 权重 ${voice.sovitsWeights}`);
       }
     });
     switchQueue = run.catch(() => {

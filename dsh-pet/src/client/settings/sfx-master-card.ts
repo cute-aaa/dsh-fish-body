@@ -5,7 +5,7 @@
  * 事件卡决定「哪个时机用什么文件」，两件事放在一起才读得懂。
  * 位置在这一页最前面：静音是这里最高频的动作，滚到事件列表后面才找得到就太晚了。
  * 只改本地状态，随「保存」整包写入；总音量与语音音量各管各的。
- * @module dsh-pet/src/client/settings/sfx-master-card
+ * @module dsh-fish-body/src/client/settings/sfx-master-card
  */
 import type { FunctionComponent } from 'react';
 import type { DirtyQuery } from './dirty.ts';
@@ -50,8 +50,20 @@ export function makeSfxMasterCard(rt: SettingsRuntime): FunctionComponent<SfxMas
           'global.sfxVolume',
         ]),
         switchGrid([
-          toggleCell('sfxToggle', flags.sfxEnabled, busy, (value) => props.onFlag('sfxEnabled', value)),
-          toggleCell('sfxKeepAliveToggle', flags.sfxKeepAlive, busy, (value) => props.onFlag('sfxKeepAlive', value)),
+          toggleCell(
+            'sfxToggle',
+            flags.sfxEnabled,
+            busy,
+            (value) => props.onFlag('sfxEnabled', value),
+            'global.sfxEnabled',
+          ),
+          toggleCell(
+            'sfxKeepAliveToggle',
+            flags.sfxKeepAlive,
+            busy,
+            (value) => props.onFlag('sfxKeepAlive', value),
+            'global.sfxKeepAlive',
+          ),
         ]),
         // 总音量独立于语音音量：混音器里那条是进程级总闸，这里才是「所有音效多响」的分项旋钮。
         field(
@@ -70,6 +82,7 @@ export function makeSfxMasterCard(rt: SettingsRuntime): FunctionComponent<SfxMas
             },
           }),
           t('sfxVolumeHint'),
+          'global.sfxVolume',
         ),
       ],
     });

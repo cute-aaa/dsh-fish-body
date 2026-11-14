@@ -2,7 +2,7 @@
  * 会话鱼的显示面判定：鱼跟着桌宠走（桌宠只在桌面显示时，网页里就不该有鱼）。
  *
  * 只测纯判定：`petBridge` 是模块单例，用 before/after 把它恢复原样。
- * @module dsh-pet/src/client/session-fish/surface.test
+ * @module dsh-fish-body/src/client/session-fish/surface.test
  */
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';

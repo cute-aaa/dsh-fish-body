@@ -1,6 +1,6 @@
 /**
  * 渲染后端注册表单元测试：注册、造实例、注销与重复拒绝。
- * @module dsh-pet/src/client/pet/render/registry.test
+ * @module dsh-fish-body/src/client/pet/render/registry.test
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

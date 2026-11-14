@@ -4,7 +4,7 @@
  * 层级从基到具体传入（条目 → 渲染方式 → 皮肤清单 → 皮肤覆盖），**后面的覆盖前面的**；
  * 只决定「放哪个文件、多响、多密、什么偏移」，不拼 URL、不碰音频设备。
  * 事件槽数组含义是变体随机抽一，`animations` 数组含义是时间线，两者不要混用。
- * @module dsh-pet/src/shared/sfx/resolve
+ * @module dsh-fish-body/src/shared/sfx/resolve
  */
 import { DEFAULT_EVENT_FILES } from './defaults.ts';
 import { DEFAULT_CUE_VOLUME, SFX_EVENT_SLOTS, SLOT_DEFAULT_THROTTLE_MS } from './types.ts';

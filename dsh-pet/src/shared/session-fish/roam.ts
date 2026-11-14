@@ -16,7 +16,7 @@
  *
  * 网页浮层与桌面 Helper 共用这一份（桌面经 `shared-core.js` 拿到 `window.PetShared`）：
  * 几何、偏移上限与「拖到哪就落在哪」的口径因此只有一处实现。
- * @module dsh-pet/src/shared/session-fish/roam
+ * @module dsh-fish-body/src/shared/session-fish/roam
  */
 import { estimateReleaseVelocity, trimTrail } from '../physics/release.ts';
 import { springStep } from '../physics/spring.ts';

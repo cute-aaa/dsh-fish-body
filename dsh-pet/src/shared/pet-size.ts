@@ -4,7 +4,7 @@
  * 百分比说的是**人物本体**占屏宽多少，而 stage 是 16:9 画框、两侧各留透明边，
  * 所以换算要除以人物占画框的比例（见 shared/body-box 的 {@link bodyWidthRatio}）——
  * 这个比例随渲染方式变（webm 0.375、画布后端 0.84），不能写成常量。纯函数，不读 DOM。
- * @module dsh-pet/src/shared/pet-size
+ * @module dsh-fish-body/src/shared/pet-size
  */
 import { bodyWidthRatio } from './body-box.ts';
 import type { RendererKind, RenderSizes } from './types.ts';

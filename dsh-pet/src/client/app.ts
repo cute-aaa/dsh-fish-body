@@ -3,7 +3,7 @@
  * 不负责页面业务：宠物页面在 pet.ts，设置页在 settings.ts。
  * 依赖 DSH 注入的 slots / locale / remote / commandUi 等 Cordis 服务。
  * 任何可选能力缺失都只降级功能，绝不让整个插件加载失败。
- * @module dsh-pet/src/client/app
+ * @module dsh-fish-body/src/client/app
  */
 import { makePetUI } from './pet.ts';
 import { registerRenderers } from './pet/render/index.ts';
@@ -42,7 +42,7 @@ export function makeFactory(): (require: (mod: string) => any) => any {
     try {
       primitives = require('@deepseek-ai/dsh-client-ui-primitives');
     } catch (error) {
-      console.warn('[dsh-pet] 图标模块不可用：' + (error instanceof Error ? error.message : String(error)));
+      console.warn('[fish-body] 图标模块不可用：' + (error instanceof Error ? error.message : String(error)));
     }
 
     // react-dom 也是平台种子模块，仅用于把图标同步渲成 SVG 供 CSS mask 使用。
@@ -64,7 +64,7 @@ export function makeFactory(): (require: (mod: string) => any) => any {
       };
     } catch (error) {
       console.warn(
-        '[dsh-pet] 图标渲染器不可用（react-dom 缺失）：' + (error instanceof Error ? error.message : String(error)),
+        '[fish-body] 图标渲染器不可用（react-dom 缺失）：' + (error instanceof Error ? error.message : String(error)),
       );
     }
 
@@ -77,15 +77,15 @@ export function makeFactory(): (require: (mod: string) => any) => any {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DSH 注入的 ctx（locale/slots/webServer 等 service 无静态类型）
     function apply(ctx: any) {
       // 设置页文案字典。
-      ctx.effect(() => ctx.locale.register(NS, dicts), 'dsh-pet: dictionaries');
+      ctx.effect(() => ctx.locale.register(NS, dicts), 'fish-body: dictionaries');
       const t = ctx.locale.bind(NS);
       // 渲染后端注册表：webm + layered/live2d 占位；宠物卡挂载时按 pets[].renderer 选一个。
-      ctx.effect(() => registerRenderers(), 'dsh-pet: renderers');
+      ctx.effect(() => registerRenderers(), 'fish-body: renderers');
       // 侧栏对话的文案独立成命名空间：只覆盖对话面板，不与设置页字典混在一起。
-      ctx.effect(() => ctx.locale.register(CHAT_NS, chatDicts), 'dsh-pet: chat dictionaries');
+      ctx.effect(() => ctx.locale.register(CHAT_NS, chatDicts), 'fish-body: chat dictionaries');
       const chatT = ctx.locale.bind(CHAT_NS);
       // 会话鱼的文案再独立一份：设置分区与浮层共用，不塞进「桌宠配置」的大字典。
-      ctx.effect(() => ctx.locale.register(FISH_NS, fishDicts), 'dsh-pet: session fish dictionaries');
+      ctx.effect(() => ctx.locale.register(FISH_NS, fishDicts), 'fish-body: session fish dictionaries');
       const fishT = ctx.locale.bind(FISH_NS);
 
       // 会话鱼：浮层（根插槽）、当前会话上报器（会话插槽）与设置分区共用同一份字典。
@@ -139,7 +139,7 @@ export function makeFactory(): (require: (mod: string) => any) => any {
               return name || undefined;
             },
           }),
-        'dsh-pet: notifications',
+        'fish-body: notifications',
       );
 
       // /pet 选择框：选中后提交 /pet <id>，由 host 命令落地。
@@ -148,7 +148,7 @@ export function makeFactory(): (require: (mod: string) => any) => any {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DSH 注入服务无静态类型
         const commandUi = (ctx as any).get?.('commandUi');
         if (!commandUi || typeof commandUi.decorate !== 'function') {
-          console.warn('[dsh-pet] 命令选择框不可用：commandUi 服务缺失（/pet 仍可手输 id 或名字）');
+          console.warn('[fish-body] 命令选择框不可用：commandUi 服务缺失（/pet 仍可手输 id 或名字）');
           return () => {};
         }
         return commandUi.decorate({
@@ -170,7 +170,7 @@ export function makeFactory(): (require: (mod: string) => any) => any {
             },
           },
         });
-      }, 'dsh-pet: /pet picker');
+      }, 'fish-body: /pet picker');
 
       // 给 /chat /pet /balance 补上「/」菜单的行标题与图标。
       // DSH 没有官方入口，这里包装 commandUi.candidates；命令本身的行为不受影响。
@@ -180,7 +180,7 @@ export function makeFactory(): (require: (mod: string) => any) => any {
         const commandUi = (ctx as any).get?.('commandUi') as CommandUiLike | undefined;
         const icons = primitives;
         if (commandUi === undefined || icons === undefined) {
-          console.warn('[dsh-pet] 命令图标不可用（命令本身仍可用，只是没有图标）');
+          console.warn('[fish-body] 命令图标不可用（命令本身仍可用，只是没有图标）');
           return () => {};
         }
         return installCommandFaces(
@@ -194,7 +194,7 @@ export function makeFactory(): (require: (mod: string) => any) => any {
             ['balance', { label: () => t('cmd.balance'), icon: icons.IconGaugeOutlineRegular }],
           ]),
         );
-      }, 'dsh-pet: command faces');
+      }, 'fish-body: command faces');
 
       // 设置页导航「桌宠配置」的图标：DSH 只给白名单分区配图标，只能在 DOM 层补。
       // 依据与降级策略见 nav-icon.ts。
@@ -202,11 +202,11 @@ export function makeFactory(): (require: (mod: string) => any) => any {
         const renderIcon = renderIconSvg;
         const icon = primitives?.IconSlidersTwoOutlineMedium;
         if (renderIcon === undefined || icon === undefined) {
-          console.warn('[dsh-pet] 设置页导航图标不可用（那一行仍是齿轮）');
+          console.warn('[fish-body] 设置页导航图标不可用（那一行仍是齿轮）');
           return () => {};
         }
         return installSectionNavIcon({ label: () => t('nav'), renderSvg: () => renderIcon(icon) });
-      }, 'dsh-pet: settings nav icon');
+      }, 'fish-body: settings nav icon');
 
       // 宠物 overlay：容器渲染多个 PetCard。
       ctx.slots.inject('shell.overlay', function* () {
@@ -258,7 +258,7 @@ export function makeFactory(): (require: (mod: string) => any) => any {
           sidebarChat.dispose();
           card.dispose();
         };
-      }, 'dsh-pet: shortcuts');
+      }, 'fish-body: shortcuts');
 
       // 右侧栏「桌宠对话」：可选能力，服务缺失时只告警，不影响其它部位。
       // 确认弹窗用平台原语（primitives 缺失时面板内部退化为内联确认条）。
@@ -287,10 +287,10 @@ export function makeFactory(): (require: (mod: string) => any) => any {
             sidebarChatReady ? { commandId: PET_CHAT_COMMAND_ID } : {},
           );
         } catch (error) {
-          console.error('[dsh-pet] 右侧栏对话面板注册失败（已忽略，不影响启动）：', error);
+          console.error('[fish-body] 右侧栏对话面板注册失败（已忽略，不影响启动）：', error);
           return () => {};
         }
-      }, 'dsh-pet: sidebar chat tab');
+      }, 'fish-body: sidebar chat tab');
     }
 
     module.exports = { apply, inject, name };

@@ -4,7 +4,7 @@
  * 这些字段一起变（「对话怎么带上下文」是一个需求），也都随「保存」整包写入；
  * 模型候选清单不在这里——它是页面级的一次性拉取，归 `use-remote-data`。
  * owns only 对话分区的编辑态与开关，never 候选清单、保存与其它分区字段。
- * @module dsh-pet/src/client/settings/use-model-settings
+ * @module dsh-fish-body/src/client/settings/use-model-settings
  */
 import type { ModelSelection } from '../../shared/types.ts';
 import type { MainConfigPatch } from './config/index.ts';

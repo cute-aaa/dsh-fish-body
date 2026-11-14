@@ -8,7 +8,7 @@
  *
  * 另外给 motion 条目塞一个 `Duration`（Cubism 不认这个字段，会忽略）：举手 / 竖手指这类片段是
  * 循环的，前端要按它计时收尾，否则点一次就把宠物钉在那个姿态上（见 shared/live2d-motions）。
- * @module dsh-pet/src/host/model-extras
+ * @module dsh-fish-body/src/host/model-extras
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';

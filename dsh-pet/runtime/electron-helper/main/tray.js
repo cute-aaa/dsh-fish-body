@@ -4,7 +4,7 @@
  *
  * 托盘是桌面模式唯一不进浏览器的入口——某只宠物改成 web/none 后窗口与右键菜单一起消失，
  * 只有托盘还能把它切回来。菜单是静态的：切换 display 后宿主会重启本进程，新进程按新配置重建。
- * @module dsh-pet/runtime/electron-helper/main/tray
+ * @module dsh-fish-body/runtime/electron-helper/main/tray
  */
 
 const path = require('node:path');
@@ -90,7 +90,7 @@ function createTray({
   /** 写回某只宠物的 display：宿主写完配置会重启本进程，响应可能永远不回（同 sprite.js 的 setPetDisplay） */
   function traySetPetDisplay(id, display) {
     hostRequest('POST', petRoute + '/pet-display', JSON.stringify({ id, display })).catch((e) => {
-      console.error('[dsh-pet-desktop-helper] tray pet-display failed:', String(e && e.message ? e.message : e));
+      console.error('[fish-body-desktop] tray pet-display failed:', String(e && e.message ? e.message : e));
     });
   }
 
@@ -103,7 +103,7 @@ function createTray({
   function traySetPetSize(id, size) {
     const body = size === undefined ? { id } : { id, size };
     hostRequest('POST', petRoute + '/pet-size', JSON.stringify(body)).catch((e) => {
-      console.error('[dsh-pet-desktop-helper] tray pet-size failed:', String(e && e.message ? e.message : e));
+      console.error('[fish-body-desktop] tray pet-size failed:', String(e && e.message ? e.message : e));
     });
   }
 
@@ -120,10 +120,7 @@ function createTray({
     hostRequest('POST', petRoute + '/pet-click-through', JSON.stringify({ id, value }))
       .then(() => refreshTray())
       .catch((e) => {
-        console.error(
-          '[dsh-pet-desktop-helper] tray pet-click-through failed:',
-          String(e && e.message ? e.message : e),
-        );
+        console.error('[fish-body-desktop] tray pet-click-through failed:', String(e && e.message ? e.message : e));
       });
   }
 
@@ -135,14 +132,14 @@ function createTray({
     hostRequest('POST', petRoute + '/voice/volume', JSON.stringify({ volume }))
       .then(() => refreshTray())
       .catch((e) => {
-        console.error('[dsh-pet-desktop-helper] tray voice volume failed:', String(e && e.message ? e.message : e));
+        console.error('[fish-body-desktop] tray voice volume failed:', String(e && e.message ? e.message : e));
       });
   }
 
   /** 托盘里的维护动作：两个都会把本进程换掉（重载配置 / 重新组合插件），所以不 await、不重试。 */
   function trayPost(route, label) {
     hostRequest('POST', petRoute + route).catch((e) => {
-      console.error('[dsh-pet-desktop-helper] tray ' + label + ' failed:', String(e && e.message ? e.message : e));
+      console.error('[fish-body-desktop] tray ' + label + ' failed:', String(e && e.message ? e.message : e));
     });
   }
 
@@ -160,7 +157,7 @@ function createTray({
     let img = nativeImage.createFromPath(file);
     if (img.isEmpty()) {
       // 读不到图标 = 托盘不可见但菜单逻辑照跑，最难查的一种坏法：必须留下能定位的日志
-      console.error('[dsh-pet-desktop-helper] tray icon missing or unreadable: ' + file);
+      console.error('[fish-body-desktop] tray icon missing or unreadable: ' + file);
       return img;
     }
     img = img.resize({ width: 16, height: 16 });
@@ -180,7 +177,7 @@ function createTray({
     try {
       return JSON.parse((await hostRequest('GET', petRoute + '/quit')).body || '{}').canQuit === true;
     } catch (e) {
-      console.error('[dsh-pet-desktop-helper] quit capability probe failed:', String(e && e.message ? e.message : e));
+      console.error('[fish-body-desktop] quit capability probe failed:', String(e && e.message ? e.message : e));
       return false;
     }
   }
@@ -385,7 +382,7 @@ function createTray({
       // Windows 上 setContextMenu 只接管右键，左键默认什么都不做（macOS 相反：左键即弹菜单）
       if (platform.leftClickPopsMenu) tray.on('click', () => tray.popUpContextMenu());
     } catch (e) {
-      console.error('[dsh-pet-desktop-helper] tray init failed:', String(e && e.message ? e.message : e));
+      console.error('[fish-body-desktop] tray init failed:', String(e && e.message ? e.message : e));
     }
   }
 
@@ -396,7 +393,7 @@ function createTray({
       const menu = await buildMenu();
       if (menu !== null) tray.setContextMenu(menu);
     } catch (e) {
-      console.error('[dsh-pet-desktop-helper] tray refresh failed:', String(e && e.message ? e.message : e));
+      console.error('[fish-body-desktop] tray refresh failed:', String(e && e.message ? e.message : e));
     }
   }
 
@@ -409,7 +406,7 @@ function createTray({
       try {
         tray.destroy();
       } catch (e) {
-        console.error('[dsh-pet-desktop-helper] tray destroy failed:', String(e && e.message ? e.message : e));
+        console.error('[fish-body-desktop] tray destroy failed:', String(e && e.message ? e.message : e));
       }
       tray = null;
     },

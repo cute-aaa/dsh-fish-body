@@ -1,6 +1,6 @@
 /**
  * 会话鱼播报文案：模板选择、任务插值与截断、无任务时的泛化回落。
- * @module dsh-pet/src/host/session-fish/lines.test
+ * @module dsh-fish-body/src/host/session-fish/lines.test
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -3,7 +3,7 @@
  *
  * 默认文件都在包内 assets/sound/，所以「配置里没有任何音效文件」时事件槽依然有声音。
  * 动作音、hook 与睡眠两段**没有**默认：动画太杂、hook 是调用方语义，乱响比不响更糟。
- * @module dsh-pet/src/shared/sfx/defaults
+ * @module dsh-fish-body/src/shared/sfx/defaults
  */
 import type { SfxEventSlot } from '../types.ts';
 

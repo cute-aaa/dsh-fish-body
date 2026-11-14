@@ -7,7 +7,7 @@
  * 重启与重置不在这一行：它们是维护动作，改一次就不动，已迁到「系统 → 插件维护」。
  * 顶部一行只有一条状态：有反馈就显示反馈，否则显示未保存条数——两者不并排，避免底部栏左右各一句话。
  * owns only 按钮与状态的排布，never 保存 / 关闭 / 撤销的实现。
- * @module dsh-pet/src/client/settings/bar
+ * @module dsh-fish-body/src/client/settings/bar
  */
 import type { FunctionComponent } from 'react';
 import type { Feedback } from './feedback.ts';

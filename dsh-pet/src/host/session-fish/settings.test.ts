@@ -1,6 +1,6 @@
 /**
  * 会话鱼设置：读侧宽容、写侧严格、写失败保留旧值。
- * @module dsh-pet/src/host/session-fish/settings.test
+ * @module dsh-fish-body/src/host/session-fish/settings.test
  */
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -6,7 +6,7 @@
  * 与一个**不带目录**的文件名。文件名散落在 `Animation/` 与 `Exp3/`，所以这里要探一遍目录。
  *
  * 只做解析与探测，不写盘、不碰网络；补全成 model3 的 `Motions` / `Expressions` 归 ./model-extras。
- * @module dsh-pet/src/host/vtube
+ * @module dsh-fish-body/src/host/vtube
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';

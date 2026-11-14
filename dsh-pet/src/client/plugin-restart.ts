@@ -5,7 +5,7 @@
  * 没有 HMR 时进程内换不掉已加载的 ESM，只有桌面 Helper 会被重建。两种模式都如实回给调用方，
  * 由它决定提示什么——右键菜单走控制台告警，设置页走底部栏文案。
  * owns only 一次请求与模式判定，never 提示文案与页面状态。
- * @module dsh-pet/src/client/plugin-restart
+ * @module dsh-fish-body/src/client/plugin-restart
  */
 import { ROUTE_PATH } from '../shared/constants.ts';
 

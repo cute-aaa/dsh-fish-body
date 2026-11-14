@@ -2,7 +2,7 @@
  * 渲染后端装配：把三种实现注册进注册表，供宠物卡按 pets[].renderer 选一个。
  * 三种后端都是真实现；动作菜单的差异化在 shared/menu/renderer-actions，本模块只管登记。
  * 注册返回 disposer 由调用方决定生命周期；本模块只做一次性登记，不挂载、不读配置。
- * @module dsh-pet/src/client/pet/render
+ * @module dsh-fish-body/src/client/pet/render
  */
 import { registerRenderer } from './registry.ts';
 import { createWebmRenderer } from './webm.ts';

@@ -4,7 +4,7 @@
  * 只在本机回环上由 ./server 提供；不包含构建步骤，也不依赖外部 CDN。
  * 必须始终成立：脚本从地址片段读一次令牌后立刻清掉片段；页面不内联脚本与样式，
  * 以便 CSP 保持 default-src 'none'。
- * @module dsh-pet/src/standalone/settings-page
+ * @module dsh-fish-body/src/standalone/settings-page
  */
 import { CORNER_SET } from '../host/config/constants.ts';
 import { VOICES } from '../host/voice/voices.ts';

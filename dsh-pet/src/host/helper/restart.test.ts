@@ -16,6 +16,6 @@ describe('helperOutputIsMeaningful —— 空白输出不算「进程真的跑�
   });
 
   test('有实际内容 → 算输出', () => {
-    assert.equal(helperOutputIsMeaningful('[dsh-pet] helper booted'), true);
+    assert.equal(helperOutputIsMeaningful('[fish-body] helper booted'), true);
   });
 });

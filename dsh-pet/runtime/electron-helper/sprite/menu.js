@@ -3,7 +3,7 @@
  *
  * PetSprite 由 sprite.js 定义，本文件只往原型上挂方法，必须在其后加载。
  * 菜单结构与文案来自 shared-core（两端同一份）；这里只决定点下去之后做什么。
- * @module dsh-pet/runtime/electron-helper/sprite-menu
+ * @module dsh-fish-body/runtime/electron-helper/sprite-menu
  */
 'use strict';
 
@@ -275,10 +275,10 @@ Object.assign(PetSprite.prototype, {
   showBalanceFromMenu() {
     S.postAction(BALANCE_URL)
       .then((ok) => {
-        if (!ok) console.warn('[dsh-pet] 菜单查看余额：刷新动作未成功');
+        if (!ok) console.warn('[fish-body] 菜单查看余额：刷新动作未成功');
       })
       .catch((e) => {
-        console.error('[dsh-pet] 菜单查看余额异常', e);
+        console.error('[fish-body] 菜单查看余额异常', e);
       });
   },
 
@@ -295,10 +295,10 @@ Object.assign(PetSprite.prototype, {
     S.postAction(WHISPER_URL + '?pet=' + encodeURIComponent(this.pet.id) + '&surface=desktop' + pic)
       .then((ok) => {
         if (!ok)
-          console.warn('[dsh-pet] 菜单碎碎念：生成动作未成功 pet=' + this.pet.id + (image ? ' image=' + image : ''));
+          console.warn('[fish-body] 菜单碎碎念：生成动作未成功 pet=' + this.pet.id + (image ? ' image=' + image : ''));
       })
       .catch((e) => {
-        console.warn('[dsh-pet] 菜单碎碎念异常', e);
+        console.warn('[fish-body] 菜单碎碎念异常', e);
       });
   },
 
@@ -386,7 +386,7 @@ Object.assign(PetSprite.prototype, {
       clamp: this.visibleClampRect(),
       onSent: () => {
         // 发送成功：回复已写进 S → 版本号变 → 挂着的长轮询立刻返回并弹气泡
-        console.info('[dsh-pet] 对话已发送 pet=' + this.pet.id);
+        console.info('[fish-body] 对话已发送 pet=' + this.pet.id);
       },
       onClose: () => {
         this.chatMount = null;
@@ -467,7 +467,7 @@ Object.assign(PetSprite.prototype, {
   // 不重试，失败只记日志——重载本身就是把本进程换掉。
   reloadDesktop() {
     fetch(BASE + '/reload', { method: 'POST' }).catch((e) => {
-      console.warn('[dsh-pet] 重载配置请求失败（宿主不可达？）', e);
+      console.warn('[fish-body] 重载配置请求失败（宿主不可达？）', e);
     });
   },
 
@@ -475,7 +475,7 @@ Object.assign(PetSprite.prototype, {
   // 本窗口一起换掉；没有 HMR 时只有本窗口重建。与 reloadDesktop 同一处境：本进程会被换掉，故不 await。
   reloadPlugin() {
     fetch(BASE + '/plugin-restart', { method: 'POST' }).catch((e) => {
-      console.warn('[dsh-pet] 重启插件请求失败（宿主不可达？）', e);
+      console.warn('[fish-body] 重启插件请求失败（宿主不可达？）', e);
     });
   },
 
@@ -520,10 +520,10 @@ Object.assign(PetSprite.prototype, {
   postConfig(intent, label) {
     S.postPetConfig(BASE, this.pet.id, intent)
       .then((result) => {
-        if (!result.ok) console.warn('[dsh-pet] ' + label + '请求失败：' + (result.message || ''));
+        if (!result.ok) console.warn('[fish-body] ' + label + '请求失败：' + (result.message || ''));
       })
       .catch((e) => {
-        console.warn('[dsh-pet] ' + label + '请求失败（宿主不可达？）', e);
+        console.warn('[fish-body] ' + label + '请求失败（宿主不可达？）', e);
       });
   },
 
@@ -535,13 +535,13 @@ Object.assign(PetSprite.prototype, {
     S.postPetConfig(BASE, this.pet.id, { kind: 'provider-voice', provider, voice })
       .then((result) => {
         if (!result.ok) {
-          console.warn('[dsh-pet] 音色切换未成功 provider=' + provider + ' voice=' + voice);
+          console.warn('[fish-body] 音色切换未成功 provider=' + provider + ' voice=' + voice);
           return;
         }
         this.voiceProviders = S.readVoiceProviders(result.providers);
       })
       .catch((e) => {
-        console.warn('[dsh-pet] 音色切换请求失败（宿主不可达？）', e);
+        console.warn('[fish-body] 音色切换请求失败（宿主不可达？）', e);
       });
   },
 

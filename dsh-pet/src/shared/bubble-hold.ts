@@ -2,7 +2,7 @@
  * 说话气泡的收起时机：合成期间挂起计时，播完再留一小段尾巴。
  * 纯状态机：只给出「下一次该等多少毫秒」，计时器与渲染由两端各自持有。
  * 不决定这一句该不该念——那是 {@link module:dsh-pet/src/shared/voice} 的门禁。
- * @module dsh-pet/src/shared/bubble-hold
+ * @module dsh-fish-body/src/shared/bubble-hold
  */
 import type { VoiceUtteranceEvent } from './voice.ts';
 

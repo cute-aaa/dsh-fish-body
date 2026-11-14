@@ -4,13 +4,13 @@
  * 配置唯一来源是宿主 /config 的成品聚合（一步 fetch → S.flattenConfigPets 拍平），失败大声报错并每 5s
  * 重试，没有静默兜底。窗口 = 宠物包围盒 + 四周外扩余量，宠物移动由本页逐帧上报给主进程。
  * 不实现宠物行为与系统通知（见 sprite.js）。
- * @module dsh-pet/runtime/electron-helper/renderer
+ * @module dsh-fish-body/runtime/electron-helper/renderer
  */
 'use strict';
 
 // 配置（大声报错；失败 5s 重试）
 function showError(message) {
-  console.error('[dsh-pet] ' + message);
+  console.error('[fish-body] ' + message);
   window.__dshPetDebug.configOk = false;
   errorEl.textContent = 'dsh-pet 配置错误：' + message;
   errorEl.classList.add('visible');
@@ -94,7 +94,7 @@ async function loadSfxIndex(pet) {
     return index;
   } catch (e) {
     console.warn(
-      '[dsh-pet] 音效索引加载失败 pet=' +
+      '[fish-body] 音效索引加载失败 pet=' +
         pet.id +
         '：' +
         (e && e.message ? String(e.message) : String(e)) +
@@ -131,7 +131,7 @@ async function boot() {
       // 安静关掉、不弹条、不重试。托盘是否还在看 main 条目的 trayEnabled，与这里无关。
       // 宿主流由 syncDesktop() 在配置变化时重建 Helper；手动流需自行重启。
       hideError();
-      console.info('[dsh-pet] no desktop pets; closing this helper window (tray kept only if trayEnabled)');
+      console.info('[fish-body] no desktop pets; closing this helper window (tray kept only if trayEnabled)');
       window.close();
       return;
     }
@@ -156,7 +156,7 @@ async function boot() {
     // 首次失败先静默（多半是启动竞态，见 bootFailures 的说明），下一次 5s 重试仍失败才报。
     bootFailures += 1;
     if (bootFailures > 1) showError(msg);
-    else console.error('[dsh-pet] ' + msg + ' (first boot, retrying)');
+    else console.error('[fish-body] ' + msg + ' (first boot, retrying)');
     scheduleReboot();
   }
 }

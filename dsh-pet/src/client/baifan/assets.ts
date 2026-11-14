@@ -4,7 +4,7 @@
  * 只取名字，不拼地址——点播走 `/anim` 的 name 形态，地址由各端渲染器按宠物素材根拼
  * （网页端相对路径、桌面端用宿主下发的 BASE），因此不依赖页面 origin（桌面壳的 origin 不是 http）。
  * 槽位顺序是玩法契约：跑向屏幕底部 / 追饭侧身跑 / 期待 / 吃碗饭 / 吃饭团。
- * @module dsh-pet/src/client/baifan/assets
+ * @module dsh-fish-body/src/client/baifan/assets
  */
 
 /** 一场演出要用的五段动画名。 */
