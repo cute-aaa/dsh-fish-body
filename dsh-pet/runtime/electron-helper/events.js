@@ -524,6 +524,12 @@ function startLoops() {
     for (const s of sprites) if (s.whisperText === event.text) s.applyWhisperHold(hold);
   });
 
+  // 识屏循环：开关关着时 startScreenWatch 直接返回（一条桥请求都不发）。
+  // 放在这里而不是 init：它要 BASE 与 petBridge 都已就绪，也是「窗口真的活着」之后才该跑的活。
+  if (window.dshScreenWatch) {
+    for (const s of sprites) window.dshScreenWatch.start(s.pet);
+  }
+
   // 统一轮询是自调度的长轮询（请求 → 处理 → 立刻再请求）：宿主在版本没变时挂起，空闲时
   // 1 请求/秒，叶子一变立刻收到。本窗口只装一只宠物，所以每个窗口各跑一份；全局计数器意味着
   // 任意写入会唤醒所有窗口（有意为之）。

@@ -75,6 +75,11 @@ contextBridge.exposeInMainWorld('petBridge', {
   captureScreen() {
     return ipcRenderer.invoke('pet:capture-screen');
   },
+  // 识屏取帧：主进程缩到长边 1280 并先判黑图。
+  // 返回 { ok:true, attachment:{mediaType,data}, width, height, bytes } 或 { ok:false, reason }。
+  captureScreenFrame() {
+    return ipcRenderer.invoke('pet:screen-frame');
+  },
   // 宠物间碰撞（跨窗 broker）：位置与速度随 setBounds 捎带，主进程汇聚后广播；被撞方收 pet:hit 后按新初速抛出。
   onFlightStates(cb) {
     ipcRenderer.on('pet:flight-states', (e, states) => cb(states));

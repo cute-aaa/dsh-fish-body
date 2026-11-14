@@ -83,6 +83,11 @@ Object.assign(PetSprite.prototype, {
     if (picker) tools.push(picker);
     // 大小：只作用于当前渲染方式（写 pets[].sizes[renderer]），另一套素材的尺寸不受影响
     tools.push(S.sizeMenuBranch(S.renderSizeOf(this.pet), Number(this.pet.size) || this.size));
+    // 看一眼屏幕：识屏开关关着时整项不出现（点了也只会得到 unsupported）。
+    // 手动语义：跳过间隔与「DSH 空闲」两道门，但一样走宿主的 /screen/frame 与同一套提示词。
+    if (this.pet.screen && this.pet.screen.readEnabled === true) {
+      tools.push({ label: '看一眼屏幕', action: 'look-screen' });
+    }
     // 音色：第三方语音实现（GSV）的嗓子清单；与「模型/皮肤」分开——那是画面，这是声音。
     // 与网页端同一份分支（S.voiceMenuBranch）：当前项打勾，服务没起时整层置灰并带原因。
     // 点下去只写 voice-providers.json，不重建窗口；下一句合成时 provider 自己切权重。
@@ -194,6 +199,10 @@ Object.assign(PetSprite.prototype, {
     }
     if (leaf.action === 'todo') {
       this.toggleTodo(); // 打开待办面板（右键菜单入口）
+      return;
+    }
+    if (leaf.action === 'look-screen') {
+      this.lookAtScreen(); // 立刻拍一帧交给宿主识屏（手动：跳过间隔与空闲门）
       return;
     }
     if (leaf.action === 'home') {
@@ -320,6 +329,21 @@ Object.assign(PetSprite.prototype, {
       return;
     }
     this.showChatFromMenu(file);
+  },
+
+  /** 立刻拍一帧交给宿主识屏（右键「看一眼屏幕」）。失败只打日志，不弹提示——背景行为以安静为底色。 */
+  lookAtScreen() {
+    const watch = window.dshScreenWatch;
+    if (!watch || typeof watch.snapNow !== 'function') return;
+    watch
+      .snapNow()
+      .then((r) => {
+        if (r && r.ok === true) return;
+        console.info('[fish-body] 看一眼屏幕失败：' + String((r && r.reason) || 'unknown'));
+      })
+      .catch(() => {
+        /* 拿不到画面/宿主拒收：日志已在 screen.js 里留过 */
+      });
   },
 
   /** 截一帧（主进程取宠物所在屏）；形状与浏览器侧 EncodedImage 一致，拿不到就抛给调用方决定。 */

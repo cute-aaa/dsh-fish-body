@@ -5,6 +5,7 @@
  * @module dsh-fish-body/src/shared/types
  */
 import type { HotkeyMap } from './hotkeys.ts';
+import type { ScreenConfig } from './screen-config.ts';
 
 /** 支持的角落。 */
 export type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
@@ -148,6 +149,9 @@ export interface Pet {
   physics?: PhysicsParams;
   /** 全局默认：是否锁定在当前屏幕——抛掷与自主漫游都只在当前所在那块屏内活动 */
   confineToScreen?: boolean;
+  /** 全局默认：看屏幕与避让（十三个平键在拍平时收成这个嵌套对象，见 shared/screen-config）。
+   *  网页端不用它；桌面 Helper 读它决定「这一拍拍不拍屏幕」与「现在该不该躲」。 */
+  screen?: ScreenConfig;
   /** 全局：九个悬停键的键位（由 main 条目顶层那一段吹入，改动见 shared/hotkeys）。
    *  缺省 = 出厂键位；两端（网页 / 桌面）都用这一份，因此菜单键帽与实际判定永远一致。 */
   hotkeys?: HotkeyMap;

@@ -7,6 +7,19 @@
  */
 import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../../shared/fonts.ts';
 import { isValidSize } from '../../shared/pet-size.ts';
+import {
+  AVOID_DELAY_MAX,
+  AVOID_DELAY_MIN,
+  AVOID_POLL_MAX,
+  AVOID_POLL_MIN,
+  AVOID_RESTORE_MAX,
+  AVOID_RESTORE_MIN,
+  SCREEN_IDLE_MAX,
+  SCREEN_IDLE_MIN,
+  SCREEN_INTERVAL_MAX,
+  SCREEN_INTERVAL_MIN,
+  parseClockMinutes,
+} from '../../shared/screen-config.ts';
 import { isKnownVoice } from '../voice/voices.ts';
 import { FONT_FAMILY_SET, RENDERER_SET } from './constants.ts';
 import { sfxValid } from './sfx.ts';
@@ -192,6 +205,32 @@ export function assetsValid(value: unknown): boolean {
   return typeof pool === 'string' && pool.trim() !== '';
 }
 
+/**
+ * 数值键是否落在闭区间内（接受 `"120"` 这类字符串写法：手写配置里常见，与 chatMemoryRounds 同口径）。
+ *
+ * @param value - 待判定值。
+ * @param min - 下限（含）。
+ * @param max - 上限（含）。
+ * @returns 是否合法。
+ */
+function numberInRange(value: unknown, min: number, max: number): boolean {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= min && n <= max;
+}
+
+/**
+ * 避让白名单是否合法：字符串数组，逐项非空且不超长；条数上限交给写侧严格拒绝。
+ *
+ * 读侧只按形状判——条数超限也照读（多几条最多是多躲几次），写侧才拒绝。
+ *
+ * @param value - 待判定值。
+ * @returns 是否合法。
+ */
+function avoidAppsValid(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.every((item) => typeof item === 'string' && item.trim() !== '' && item.trim().length <= 64);
+}
+
 /** 顶层标量字段的合法性（非法与缺失同处理：取默认值 + 告警） */
 export function topFieldValid(key: string, value: unknown): boolean {
   switch (key) {
@@ -279,6 +318,30 @@ export function topFieldValid(key: string, value: unknown): boolean {
     case 'assets':
       // 共享资源池的根（`assets.pool`）：字符串、非空；缺省即默认 `<用户根>/skin`。
       return assetsValid(value);
+    // 看屏幕 / 避让（十三个键，规则与 shared/screen-config 的归一化同一套区间）：
+    // 读侧非法 → 告警一次并回落默认（`screenConfigOf` 读的就是回落后的值）。
+    case 'screenReadEnabled':
+    case 'screenReadIdleOnly':
+    case 'avoidFullscreenEnabled':
+    case 'avoidMaximizeEnabled':
+    case 'avoidAppsEnabled':
+      return typeof value === 'boolean';
+    case 'screenReadIntervalSec':
+      return numberInRange(value, SCREEN_INTERVAL_MIN, SCREEN_INTERVAL_MAX);
+    case 'screenReadIdleSec':
+      return numberInRange(value, SCREEN_IDLE_MIN, SCREEN_IDLE_MAX);
+    case 'avoidDelayMs':
+      return numberInRange(value, AVOID_DELAY_MIN, AVOID_DELAY_MAX);
+    case 'avoidRestoreDelayMs':
+      return numberInRange(value, AVOID_RESTORE_MIN, AVOID_RESTORE_MAX);
+    case 'avoidPollMs':
+      return numberInRange(value, AVOID_POLL_MIN, AVOID_POLL_MAX);
+    case 'screenReadQuietFrom':
+    case 'screenReadQuietTo':
+      // 空串 = 不设静默时段（默认就是这个）。
+      return typeof value === 'string' && (value.trim() === '' || parseClockMinutes(value) !== null);
+    case 'avoidApps':
+      return avoidAppsValid(value);
     case 'sleepRefuseTexts':
     case 'sleepStartTexts':
     case 'sleepEndTexts': {

@@ -131,10 +131,12 @@ export interface PetRouteDeps {
   readonly sleepBlocked: (petId: string, params: URLSearchParams) => RouteResult | null;
   /** 插件日志出口（文件 + 终端）。 */
   readonly log: FileLogger;
-  /** 宿主上下文的最小结构：路由只用到 logger 与 llm 服务。 */
+  /** 宿主上下文的最小结构：路由只用到 logger、llm 服务与当前对话的模型。 */
   readonly ctx: {
     logger?: { warn?(message: string): void };
     llm?: unknown;
+    /** 当前对话的模型（识屏选模型与回落链要用；独立模式没有这个服务）。 */
+    agentDefaultModel?: { currentSelection(): { provider: string; model: string } };
     /** Cordis 服务查找：取 `hmr` 等可选服务（缺失时返回 undefined）。 */
     get?: (name: string) => unknown;
   };

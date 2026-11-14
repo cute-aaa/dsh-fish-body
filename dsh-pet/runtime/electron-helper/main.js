@@ -22,7 +22,8 @@ try {
   );
   process.exit(3);
 }
-const { app, BrowserWindow, ipcMain, screen, shell, protocol, Tray, Menu, nativeImage, powerMonitor } = electronApi;
+const { app, BrowserWindow, ipcMain, screen, shell, protocol, Tray, Menu, nativeImage, powerMonitor, session } =
+  electronApi;
 const path = require('node:path');
 const fsSync = require('node:fs');
 const fsPromises = require('node:fs/promises');
@@ -317,6 +318,24 @@ app.whenReady().then(() => {
 
   linuxPointer?.start();
   petWindows.create();
+
+  // 识屏的兜底取帧路径：getDisplayMedia 在 Electron 里必须有 handler，否则渲染端直接抛
+  // NotSupportedError。这里自动选第一块屏（桌宠没有「用户点选共享目标」的交互可走），
+  // 只在主路径判黑图时才会被渲染端用到（见 sprite/screen.js）。
+  try {
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      electronApi.desktopCapturer
+        .getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } })
+        .then((sources) => {
+          const source =
+            sources.find((item) => String(item.display_id) === String(screen.getPrimaryDisplay().id)) ?? sources[0];
+          callback(source ? { video: source } : {});
+        })
+        .catch(() => callback({}));
+    });
+  } catch (error) {
+    console.error('[fish-body-desktop] 注册 getDisplayMedia handler 失败:', String((error && error.message) || error));
+  }
 
   // 合盖/唤醒是任务栏按钮重建最集中的时刻：resume / unlock-screen 后把每只宠物重新摘一次。
   // powerMonitor 只能在 ready 之后使用，所以挂在这里而不是模块顶层。
