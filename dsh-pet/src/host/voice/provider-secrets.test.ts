@@ -14,6 +14,7 @@ import {
   providerSecretSeamOf,
   readSecretPresence,
   secretFieldsOf,
+  secretRefsOf,
   writeSecretFields,
   type ProviderSecretSeam,
 } from './provider-secrets.ts';
@@ -108,5 +109,52 @@ describe('writeSecretFields —— 写与清除', () => {
     const result = await writeSecretFields(seam, FIELDS, { baseURL: 'https://a' }, ['apiKey', 'baseURL']);
     assert.deepEqual(result, { saved: [], cleared: ['apiKey'] });
     assert.equal(seam.store.has('DSH_TEST_KEY'), false, 'clear 之后凭据库里就没有这一项了');
+  });
+});
+
+/** 带只读回退引用的字段（云端复用 `DEEPSEEK_API_KEY` 就是这一形态）。 */
+const WITH_FALLBACK: readonly VoiceField[] = [
+  {
+    key: 'apiKey',
+    label: 'API Key',
+    kind: 'password',
+    credentialRef: 'DSH_TEST_KEY',
+    credentialFallbacks: ['DEEPSEEK_API_KEY', '  '],
+  },
+];
+
+describe('credentialFallbacks —— 只读回退', () => {
+  test('引用表：主引用在前，空串回退被丢掉', () => {
+    assert.deepEqual(secretRefsOf(WITH_FALLBACK[0]!), ['DSH_TEST_KEY', 'DEEPSEEK_API_KEY']);
+  });
+
+  test('只有回退引用在场：算「已配」（省掉重复粘贴）', async () => {
+    const seam = fakeSeam(new Map([['DEEPSEEK_API_KEY', 'sk-host']]));
+    assert.deepEqual(await readSecretPresence(seam, WITH_FALLBACK), { apiKey: true });
+  });
+
+  test('主引用在场也照旧算「已配」，且优先读它', async () => {
+    const seam = fakeSeam(
+      new Map([
+        ['DSH_TEST_KEY', 'sk-own'],
+        ['DEEPSEEK_API_KEY', 'sk-host'],
+      ]),
+    );
+    assert.deepEqual(await readSecretPresence(seam, WITH_FALLBACK), { apiKey: true });
+  });
+
+  test('写入与清除只动主引用，绝不改写宿主凭据', async () => {
+    const seam = fakeSeam(new Map([['DEEPSEEK_API_KEY', 'sk-host']]));
+    await writeSecretFields(seam, WITH_FALLBACK, { apiKey: 'sk-own' });
+    assert.equal(seam.store.get('DSH_TEST_KEY'), 'sk-own');
+    assert.equal(seam.store.get('DEEPSEEK_API_KEY'), 'sk-host', '宿主的 key 不能被动');
+
+    await writeSecretFields(seam, WITH_FALLBACK, {}, ['apiKey']);
+    assert.equal(seam.store.has('DSH_TEST_KEY'), false);
+    assert.equal(seam.store.get('DEEPSEEK_API_KEY'), 'sk-host', '清除也不能连带删掉宿主的 key');
+  });
+
+  test('主引用与回退都没配：仍是「未配」', async () => {
+    assert.deepEqual(await readSecretPresence(fakeSeam(), WITH_FALLBACK), { apiKey: false });
   });
 });

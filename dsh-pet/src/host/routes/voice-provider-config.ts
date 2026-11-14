@@ -11,7 +11,7 @@
 import type { RouteResult } from '../http.ts';
 import type { RouteInput } from './types.ts';
 import { failResult, invalidJson, methodNotAllowed, okResult } from './result.ts';
-import { voiceProviderStatuses } from '../voice/registry.ts';
+import { voiceProviderOf, voiceProviderStatuses } from '../voice/registry.ts';
 import type { VoiceField } from '../voice/registry.ts';
 import { providerConfigPath, readProviderValues, writeProviderFields } from '../voice/gsv/store.ts';
 import {
@@ -42,17 +42,18 @@ interface ProviderConfigBody {
 /**
  * 校验并写一批普通配置项。
  *
- * @param keys - 该实现声明的全部键（含密钥键：多写的键一律拒，而不是静默丢弃）。
+ * @param fields - 该实现声明的全部配置项（含密钥项：多写的键一律拒，而不是静默丢弃）。
  * @param patch - 请求体里的 `patch`。
  * @returns 归一化后的键值；不合法时返回一句可直接回给前端的应答。
  */
 function validatePatch(
-  keys: readonly string[],
+  fields: readonly VoiceField[],
   patch: unknown,
 ): { ok: true; value: Record<string, string> } | { ok: false; res: RouteResult } {
   if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
     return { ok: false, res: failResult('bad-request', 'patch 必须是对象') };
   }
+  const keys = fields.map((field) => field.key);
   const value: Record<string, string> = {};
   for (const [key, raw] of Object.entries(patch as Record<string, unknown>)) {
     // 只认该实现声明过的键：多写的键静默丢弃会让设置页以为保存成功，所以直接拒。
@@ -65,6 +66,11 @@ function validatePatch(
     // baseURL 只收 http(s)：写个别的东西进去，探活会一直失败而界面看不出原因。
     if (key === 'baseURL' && trimmed !== '' && !/^https?:\/\//i.test(trimmed)) {
       return { ok: false, res: failResult('bad-request', 'baseURL 必须以 http:// 或 https:// 开头') };
+    }
+    // 声明了候选值的字段（下拉）：写进一个不在列表里的值，界面上会显示成空，用户以为没保存
+    const options = fields.find((field) => field.key === key)?.options;
+    if (options !== undefined && options.length > 0 && trimmed !== '' && !options.includes(trimmed)) {
+      return { ok: false, res: failResult('bad-request', `${key} 只能是 ${options.join(' / ')}`) };
     }
     value[key] = trimmed;
   }
@@ -134,7 +140,7 @@ export async function handleProviderConfig(deps: ProviderConfigDeps, input: Rout
   const hasPatch = patchRaw !== undefined && patchRaw !== null;
   const clearRaw = parsed.clear;
   if (!hasPatch && clearRaw === undefined) return failResult('bad-request', 'patch 必填');
-  const checkedPatch = hasPatch ? validatePatch(keys, patchRaw) : { ok: true as const, value: {} };
+  const checkedPatch = hasPatch ? validatePatch(status.fields, patchRaw) : { ok: true as const, value: {} };
   if (!checkedPatch.ok) return checkedPatch.res;
   const checkedClear = validateClear(secretKeys, clearRaw);
   if (!checkedClear.ok) return checkedClear.res;
@@ -159,6 +165,13 @@ export async function handleProviderConfig(deps: ProviderConfigDeps, input: Rout
       await writeSecretFields(seam, status.fields as readonly VoiceField[], secretPatch, checkedClear.value);
   } catch (error) {
     return failResult('generate-error', error instanceof Error ? error.message : String(error));
+  }
+  // 配置或密钥刚变：让实现的探活结论立刻翻牌（付费开关打开后要马上能用，不必等它的软过期）。
+  // refresh 是可选能力，实现没声明就跳过；它自己失败也不能把「已经写成功」变成失败。
+  try {
+    await voiceProviderOf(status.id)?.refresh?.();
+  } catch {
+    // 探活失败只是暂时不可用，写盘本身已经成功
   }
   // 配置变了要立刻重扫：设置页拿这份新状态刷新音色下拉，不用等 provider 的软过期。
   const secrets = seam ? await readSecretPresence(seam, status.fields) : {};

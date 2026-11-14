@@ -83,11 +83,26 @@ export function secretFieldsOf(fields: readonly VoiceField[]): VoiceField[] {
 }
 
 /**
+ * 一项密钥的全部候选引用：主引用在前，其后是只读回退引用。
+ *
+ * 回退引用的用途是复用宿主已有的凭据（例如 DSH 自己的 `DEEPSEEK_API_KEY`），
+ * 让用户不必为了同一个 key 再粘贴一次；写入与清除永远只动主引用。
+ *
+ * @param field - 该密钥字段的声明。
+ * @returns 非空引用名，按优先顺序。
+ */
+export function secretRefsOf(field: VoiceField): string[] {
+  const refs = [field.credentialRef ?? '', ...(field.credentialFallbacks ?? [])];
+  return refs.map((ref) => ref.trim()).filter((ref) => ref !== '');
+}
+
+/**
  * 读每一项密钥的在场情况。
  *
  * @param seam - 凭据面。
  * @param fields - 该实现的配置项声明。
- * @returns `{ apiKey: true }` 这样的表；没有密钥字段或都读不出来时是空对象（单项失败只当「未配」）。
+ * @returns `{ apiKey: true }` 这样的表；**主引用或任一回退引用在场就算已配**。
+ *   没有密钥字段或都读不出来时是空对象（单项失败只当「未配」）。
  */
 export async function readSecretPresence(
   seam: ProviderSecretSeam,
@@ -95,13 +110,23 @@ export async function readSecretPresence(
 ): Promise<Record<string, boolean>> {
   const state: Record<string, boolean> = {};
   for (const field of secretFieldsOf(fields)) {
-    const ref = field.credentialRef ?? '';
-    try {
-      state[field.key] = await seam.configured(ref);
-    } catch {
-      // 凭据库偶发读失败不该让整张表单打不开：显示「未配」，用户重填一次即可
+    const refs = secretRefsOf(field);
+    if (refs.length === 0) {
       state[field.key] = false;
+      continue;
     }
+    let configured = false;
+    for (const ref of refs) {
+      try {
+        if (await seam.configured(ref)) {
+          configured = true;
+          break;
+        }
+      } catch {
+        // 凭据库偶发读失败不该让整张表单打不开：换下一个引用试，最后仍算「未配」
+      }
+    }
+    state[field.key] = configured;
   }
   return state;
 }

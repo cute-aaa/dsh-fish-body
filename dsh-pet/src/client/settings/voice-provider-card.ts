@@ -89,6 +89,17 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
       if (item.kind !== 'password') return item.placeholder ?? '';
       return props.secrets[item.key] === true ? t('voiceProviderSecretSaved') : (item.placeholder ?? '');
     };
+    /**
+     * 下拉的选中值：草稿为空或不在候选里时显示第一项。
+     *
+     * 不为此插一个空项——「没配」与「配成第一项」在这里的语义本来就一样（关 / 默认音色），
+     * 多一个空项只会让用户以为还有个「未设置」状态要选。
+     */
+    const selectedOf = (item: VoiceFieldView): string => {
+      const options = item.options ?? [];
+      const current = props.values[item.key] ?? '';
+      return options.includes(current) ? current : (options[0] ?? '');
+    };
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
@@ -129,14 +140,24 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
                         : []),
                     ],
                   })
-                : h('input', {
-                    type: 'text',
-                    className: INPUT_CLASS,
-                    value: props.values[item.key] ?? '',
-                    placeholder: item.placeholder ?? '',
-                    disabled: props.busy,
-                    onChange: (event: { target: { value: string } }) => props.onChange(item.key, event.target.value),
-                  }),
+                : item.kind === 'select' && (item.options?.length ?? 0) > 0
+                  ? h('select', {
+                      className: INPUT_CLASS,
+                      value: selectedOf(item),
+                      disabled: props.busy,
+                      onChange: (event: { target: { value: string } }) => props.onChange(item.key, event.target.value),
+                      children: (item.options ?? []).map((option) =>
+                        h('option', { key: option, value: option, children: [option] }),
+                      ),
+                    })
+                  : h('input', {
+                      type: 'text',
+                      className: INPUT_CLASS,
+                      value: props.values[item.key] ?? '',
+                      placeholder: item.placeholder ?? '',
+                      disabled: props.busy,
+                      onChange: (event: { target: { value: string } }) => props.onChange(item.key, event.target.value),
+                    }),
               item.description,
             ),
           ),

@@ -52,3 +52,21 @@ test('switchableProviders：只看有音色的第三方实现', () => {
     ['gsv'],
   );
 });
+
+test('fields：select 的候选值要带出来，脏值丢掉', () => {
+  const [provider] = readVoiceProviders([
+    {
+      id: 'cloud',
+      fields: [
+        { key: 'voice', label: '音色', kind: 'select', options: [' stella ', 'tide', '', 42, null] },
+        { key: 'baseURL', label: '地址', kind: 'text', options: 'not-an-array' },
+        { key: 'empty', label: '空下拉', kind: 'select', options: [] },
+      ],
+    },
+  ]);
+  assert.ok(provider);
+  const [voice, baseURL, empty] = provider.fields;
+  assert.deepEqual(voice?.options, ['stella', 'tide'], '空白与非法项都要丢掉');
+  assert.equal('options' in (baseURL ?? {}), false, '非数组当没有（渲染回输入框）');
+  assert.equal('options' in (empty ?? {}), false, '空数组不留下，等于退回输入框');
+});

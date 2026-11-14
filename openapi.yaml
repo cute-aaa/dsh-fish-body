@@ -3342,7 +3342,10 @@ paths:
                           type: boolean
                   providers:
                     type: array
-                    description: 合成链（第三方按注册顺序在前，内置 edge 收尾）。
+                    description: |
+                      合成链（免费第三方按注册顺序在前，内置 edge 收尾）。
+                      **按量计费的实现不在自动链里**：它们只有被用户在设置页显式开启时才作为链首来源，
+                      失败后回落这条免费链（见 `/voice/provider-config` 的付费开关）。
                     items:
                       type: object
                       required:
@@ -3404,6 +3407,13 @@ paths:
                                 type: string
                               options:
                                 type: array
+                                items:
+                                  type: string
+                              credentialFallbacks:
+                                type: array
+                                description: |
+                                  主引用没值时按序回退的**只读**凭据引用（例如复用宿主已有的 `DEEPSEEK_API_KEY`）。
+                                  只影响「配没配」与合成时取值；保存与清除永远只动 `credentialRef` 指向的那一项。
                                 items:
                                   type: string
                               description:
@@ -3510,6 +3520,8 @@ paths:
         值一律 trim 后落盘；**空串 = 删掉该键**（回落代码默认，例如 baseURL 回 `http://127.0.0.1:9880`）。
         `baseURL` 只收 `http(s)://` 开头；键必须是该实现 `fields` 里声明过的，多写的直接 400 级业务失败
         （静默丢弃会让设置页以为保存成功）。保存后立刻重扫音色，响应里带回新的 `providers`。
+        声明了 `options` 的字段（下拉）只收候选值之一；保存成功后还会让该实现立刻重探一次可用性
+        （付费开关与密钥都要马上生效，不必等它的软过期）。
 
         密钥字段（`kind: password` 且声明了 `credentialRef`）不走配置文件，写进 DSH 凭据库：
         `patch` 里非空才写、空串是「不改」（值从不回传，界面只能给空框），要删必须放进 `clear`。

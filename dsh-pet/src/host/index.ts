@@ -26,9 +26,17 @@ import { createVoiceService } from './voice/speak.ts';
 import { createHearService } from './voice/hear.ts';
 import { openDirectory } from './open-folder.ts';
 import { createGsvProvider } from './voice/gsv/provider.ts';
-import { createCloudProvider, cloudSettingsOf } from './voice/cloud/provider.ts';
+import {
+  createCloudProvider,
+  CLOUD_API_KEY_FALLBACK,
+  CLOUD_API_KEY_REF,
+  CLOUD_PROVIDER_ID,
+  cloudConfigured,
+  cloudSettingsOf,
+} from './voice/cloud/provider.ts';
 import { gsvSettingsOf } from './voice/gsv/settings.ts';
-import { providerConfigPath, readProviderConfig } from './voice/gsv/store.ts';
+import { providerConfigPath, readProviderConfig, readProviderValues } from './voice/gsv/store.ts';
+import { credentialRef } from '@deepseek-ai/dsh-credentials';
 import { registerVoiceProvider } from './voice/registry.ts';
 import { TodoStore } from './todo/store.ts';
 import type { PetRouteDeps } from './routes/types.ts';
@@ -73,12 +81,33 @@ export function apply(ctx: any): void {
     },
     'fish-body: gsv voice provider',
   );
-  // 云端 TTS 骨架（T3.5）：只有配置项与「尚未接入」，一个请求都不发，因此没有 dispose。
-  // 注册顺序排在 GSV 之后：日后真正放行时，本地优先于云端（延迟与费用都更低）。
-  const unregisterCloud = registerVoiceProvider(
-    createCloudProvider({ settings: () => cloudSettingsOf(readProviderConfig(providerConfigPath(userRoot))) }),
-  );
+  // 云端 TTS（DeepSeek，按量计费）：**不进自动回退链**——链只收不花钱的实现（见 voice/chain.ts）。
+  // 只有用户在设置页打开「使用云端语音」时，speak 才把它排到链首；它自己失败则回落免费链。
+  // 注册顺序排在 GSV 之后：免费实现优先于付费实现，是这条链路的基本取向。
+  const readCloudKey = async (): Promise<string | undefined> => {
+    const service = setup.optionalService('credentials') as
+      { resolve(ref: ReturnType<typeof credentialRef>): Promise<{ value?: string } | undefined> } | undefined;
+    if (!service || typeof service.resolve !== 'function') return undefined;
+    // 主引用优先，没有就复用宿主已有的 DEEPSEEK_API_KEY（只读）
+    for (const ref of [CLOUD_API_KEY_REF, CLOUD_API_KEY_FALLBACK]) {
+      try {
+        const resolved = await service.resolve(credentialRef(ref));
+        if (resolved?.value) return resolved.value;
+      } catch {
+        // 凭据库读失败不该让合成抛：换下一个引用试
+      }
+    }
+    return undefined;
+  };
+  const cloud = createCloudProvider({
+    settings: () => cloudSettingsOf(readProviderConfig(providerConfigPath(userRoot))),
+    readKey: readCloudKey,
+    log,
+  });
+  const unregisterCloud = registerVoiceProvider(cloud);
   ctx.effect(() => () => unregisterCloud(), 'fish-body: cloud voice provider');
+  // 探活只判配置齐全，不发请求（TTS 没有免费 ping）；结果供 availability() 同步读
+  void cloud.refresh?.();
 
   const workStatusBridge = createWorkStatusBridge({ state, workStatus, EXTERNAL_WORK_SESSION });
   const { publishWorkStatus, stopWorkStatusFlush } = workStatusBridge;
@@ -148,6 +177,15 @@ export function apply(ctx: any): void {
       log,
       // 播报去表情（设置页开关，默认开）：合成前把文本里的表情摘掉，纯表情整句跳过。
       stripEmoji: () => readAllConfig(configPaths).main?.speakStripEmoji !== false,
+      // 付费语音的总开关：开了才把云端排到链首（每次合成现读，关掉立刻生效）
+      preferredProvider: () => {
+        try {
+          const values = readProviderValues(providerConfigPath(userRoot), CLOUD_PROVIDER_ID, ['useCloud']);
+          return cloudConfigured(cloudSettingsOf({ cloud: values })) ? CLOUD_PROVIDER_ID : undefined;
+        } catch {
+          return undefined;
+        }
+      },
     }),
     // 语音识别：能力来自宿主（DSH 的 speechToText），没启用时服务自己在调用时回 unsupported
     speech: createHearService({ speechToText: () => setup.optionalService('speechToText') }),

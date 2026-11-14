@@ -211,3 +211,75 @@ describe('拒绝路径', () => {
     assert.equal((jsonOf(missing) as { reason: string }).reason, 'provider-missing');
   });
 });
+
+/** 带下拉字段的假实现：验证候选值校验与「保存后立刻探活」。 */
+function registerSelectStub(): { dispose: () => void; refreshes: () => number } {
+  let refreshes = 0;
+  const dispose = registerVoiceProvider({
+    id: 'paid',
+    name: '付费语音',
+    fields: [
+      { key: 'useCloud', label: '使用云端语音', kind: 'select', options: ['off', 'on'] },
+      { key: 'baseURL', label: '服务地址', kind: 'text' },
+    ],
+    refresh: async () => {
+      refreshes += 1;
+      return true;
+    },
+    synthesize: async () => ({ data: new Uint8Array([1]), mime: 'audio/mpeg' }),
+  });
+  return { dispose, refreshes: () => refreshes };
+}
+
+describe('下拉字段与保存后探活', () => {
+  test('候选值之外的值被拒：写进去只会在界面上显示成空，用户以为没保存', async () => {
+    const stub = registerSelectStub();
+    try {
+      const result = await handleProviderConfig(
+        depsOf(tempRoot(), fakeCredentials().seam),
+        input('POST', 'paid', { provider: 'paid', patch: { useCloud: 'yes' } }),
+      );
+      const body = jsonOf(result) as { reason: string; message: string };
+      assert.equal(body.reason, 'bad-request');
+      assert.match(body.message, /useCloud/);
+      assert.equal(stub.refreshes(), 0, '被拒的写入不该触发探活');
+    } finally {
+      stub.dispose();
+    }
+  });
+
+  test('合法值写进配置文件，并立刻探活一次（开关打开后马上能用）', async () => {
+    const stub = registerSelectStub();
+    const root = tempRoot();
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'paid', { provider: 'paid', patch: { useCloud: 'on' } }),
+      );
+      assert.equal(result.kind, 'json');
+      assert.equal((jsonOf(result) as { ok: boolean }).ok, true);
+      const file = JSON.parse(readFileSync(userPaths(root).voiceProviders, 'utf8')) as {
+        paid: Record<string, string>;
+      };
+      assert.equal(file.paid.useCloud, 'on');
+      assert.equal(stub.refreshes(), 1);
+    } finally {
+      stub.dispose();
+    }
+  });
+
+  test('空串仍是「删掉该键」，不算非法值', async () => {
+    const stub = registerSelectStub();
+    try {
+      const result = await handleProviderConfig(
+        depsOf(tempRoot(), fakeCredentials().seam),
+        input('POST', 'paid', { provider: 'paid', patch: { useCloud: '' } }),
+      );
+      const body = jsonOf(result) as { reason?: string; values?: Record<string, string> };
+      assert.equal(body.reason, undefined, JSON.stringify(body));
+      assert.equal(body.values?.useCloud, '');
+    } finally {
+      stub.dispose();
+    }
+  });
+});

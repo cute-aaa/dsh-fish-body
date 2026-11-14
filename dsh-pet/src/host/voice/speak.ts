@@ -3,7 +3,8 @@
  *
  * 队列放在这里而不是路由里：并发上限是资源约束，与 HTTP 无关。串行保证同一时刻只有
  * 一条上游连接，也保证先点先响——并发合成会让顺序不可预测。
- * 合成顺序由 voice/chain.ts 决定：可用的第三方在前、内置 edge 收尾，前一环失败自动落到下一环。
+ * 合成顺序由 voice/chain.ts 决定：可用的**免费**第三方在前、内置 edge 收尾，前一环失败自动落到下一环；
+ * 按量计费的实现只有被显式开启时才排到链首，失败仍旧回落免费链。
  * 落盘也在这里：合成实现只回 `{ data, mime }`（见 voice/audio.ts），扩展名与
  * `/voice/speak` 的 Content-Type 都由这一份 mime 推出来。
  * @module dsh-fish-body/src/host/voice/speak
@@ -11,7 +12,7 @@
 import { rename, rm, writeFile } from 'node:fs/promises';
 import { audioExtOf, normalizeAudioMime } from './audio.ts';
 import { cacheKey, cachePath, ensureCacheDir, findCachedClip, pruneCache } from './cache.ts';
-import { voiceChain, type VoiceChainInput, type VoiceChainLink } from './chain.ts';
+import { voiceChainWithPreferred, type VoiceChainInput, type VoiceChainLink } from './chain.ts';
 import { stripEmoji } from './emoji.ts';
 import { BUILTIN_VOICE_ID, voiceProviderEntries, type VoiceProvider } from './registry.ts';
 import { VoiceSynthError, synthesize, type SynthInput } from './edge.ts';
@@ -113,11 +114,22 @@ export function createVoiceService(options: {
   staleWaitMs?: number;
   /** 念之前要不要摘掉文本里的表情（设置页开关，默认摘）；每次合成现读。 */
   stripEmoji?: () => boolean;
+  /** 用户显式开启的付费实现 id（`voice-providers.json` 里的付费开关）；每次合成现读。 */
+  preferredProvider?: () => string | undefined;
 }): VoiceService {
   const { userRoot, log } = options;
   const synthesizeImpl = options.synthesize ?? synthesize;
   const staleWaitMs = options.staleWaitMs ?? STALE_WAIT_MS;
   const shouldStrip = options.stripEmoji ?? ((): boolean => true);
+  /** 首选来源：读配置可能抛（文件被写坏），抛了就当没开——不能让一个开关把整句话打断。 */
+  const preferredId = (): string | undefined => {
+    try {
+      const id = options.preferredProvider?.();
+      return typeof id === 'string' && id.trim() !== '' ? id.trim() : undefined;
+    } catch {
+      return undefined;
+    }
+  };
   /** 已占用的队列名额（含正在跑的那个）。 */
   let queueUsed = 0;
   /** 串行链：上一件事收尾（成功或失败）后才轮到下一件。 */
@@ -145,13 +157,19 @@ export function createVoiceService(options: {
     const text = shouldStrip() ? stripEmoji(parsed.value.text) : parsed.value.text;
     if (text === '') return { ok: false, reason: 'bad-request', message: 'text is only emoji' };
     const { voice, rate } = parsed.value;
-    // 每次请求现查一次：第三方可能运行中才注册、也可能被卸载，启动快照会漏掉这两种
-    const links = voiceChain(synthesizeImpl);
+    // 每次请求现查一次：第三方可能运行中才注册、也可能被卸载，启动快照会漏掉这两种；
+    // 付费开关同理——用户随时会关掉，缓存的是配置读出来的值，不是链本身。
+    const wanted = preferredId();
+    const links = voiceChainWithPreferred(wanted, synthesizeImpl);
     const source = links[0]?.id ?? 'edge';
+    // 开了付费实现却没排上（没配 key / 探活失败）：用户会以为在用云端，必须留痕
+    if (wanted !== undefined && source !== wanted) {
+      log?.warn?.(`[fish-body] voice speak: preferred ${wanted} unavailable, using free chain`);
+    }
     const startedMs = Date.now();
-    // 缓存按「来源 + 当前的嗓子」分开存：注册表里的实现（含此刻不可用的）与内置都探一遍——
+    // 缓存按「来源 + 当前的嗓子」分开存：链里的实现与免费实现（含此刻不可用的）都探一遍——
     // 第三方临时挂掉时用同一嗓子的旧音频顶上，比换成 edge 的另一个声音更自然。
-    for (const origin of cacheOrigins()) {
+    for (const origin of cacheOrigins(links)) {
       const cached = await findCachedClip(userRoot, cacheKeyOf(origin.id, origin.timbre, text, voice, rate));
       if (cached) {
         log?.info?.(`[fish-body] voice speak: cache=hit chars=${text.length} voice=${origin.id} mime=${cached.mime}`);
@@ -222,12 +240,20 @@ function cacheKeyOf(source: string, timbre: string, text: string, voice: string,
   return cacheKey(source, source === BUILTIN_VOICE_ID ? voice : timbre, rate, text);
 }
 
-/** 缓存要探的来源：全部已注册实现（含此刻不可用的）在前，内置收尾；每条带当下嗓子指纹。 */
-function cacheOrigins(): { id: string; timbre: string }[] {
-  const external = voiceProviderEntries().map((entry) => ({
-    id: entry.provider.id,
-    timbre: timbreOf(entry.provider),
-  }));
+/**
+ * 缓存要探的来源：链里的实现 + 全部免费实现（含此刻不可用的）在前，内置收尾；每条带当下嗓子指纹。
+ *
+ * 付费实现只在它确实排进了链时才参与：用户关掉云端之后，不该再播到它以前合成的旧音频
+ * （那会让「关掉了」看起来没生效），而免费实现临时挂掉时用旧音频顶上是有价值的。
+ *
+ * @param links - 本次合成要用的链。
+ * @returns 按「来源 + 嗓子」查缓存的顺序表。
+ */
+function cacheOrigins(links: readonly VoiceChainLink[]): { id: string; timbre: string }[] {
+  const inChain = new Set(links.map((link) => link.id));
+  const external = voiceProviderEntries()
+    .filter((entry) => entry.provider.billable !== true || inChain.has(entry.provider.id))
+    .map((entry) => ({ id: entry.provider.id, timbre: timbreOf(entry.provider) }));
   return [...external, { id: BUILTIN_VOICE_ID, timbre: '' }];
 }
 

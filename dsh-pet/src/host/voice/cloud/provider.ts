@@ -1,18 +1,20 @@
 /**
- * 云端 TTS 的**配置骨架**（T3.5）：只声明「接一个云端语音服务需要填什么」与「尚未接入」，
- * 一个网络请求都不发。
+ * 云端 TTS：DeepSeek 的 `POST /v1/tools/tts`，**按量计费，不进自动回退链**。
  *
- * 为什么先落骨架而不是直接接一家：云端的差异全在协议（OpenAI 兼容 / 各家私有），
- * 而这里真正缺的从来不是代码，是「地址、模型、音色、密钥」这四个值以及它们该存在哪。
- * 把这四项目做成声明式 `fields` 之后，接入具体协议只剩 `synthesize()` 一个函数要写，
- * 设置页与密钥存储一行都不用改。
+ * 为什么不进链：链的语义是「自动挑一个能出声的实现」。云端按字符收钱，混进链里等于在本地服务
+ * 没起时静默花用户的钱。所以它标 `billable: true`，只有用户在设置页打开「使用云端语音」时，
+ * 才由 `speak.ts` 通过 `voiceChainWithPreferred` 排到链首；失败后可回落免费链（失败请求不计费）。
  *
- * 为什么 `availability()` 恒为假：骨架期一旦让它「可用」，回退链就会把它排在本地语音之前，
- * 每句话都先失败一次再落到下一环——多一次 400、多一行 `link cloud failed`，用户只觉得变慢了。
- * 所以骨架期明确报「尚未接入」，让链直接跳过。
+ * 为什么字段里没有「模型」：DeepSeek TTS 没有 model 参数（音色由 `voice_id` 决定），
+ * 留着它只会永远判「缺必填」。语速同理——接口不支持，`rate` 被忽略，说明写在字段描述里。
+ *
+ * `availability()` 必须同步（链每次合成都现查一次），而密钥在凭据库要异步读，
+ * 所以沿用 GSV 的做法：探活结论缓存在 `verdict` 里，由 `refresh()` 异步更新。
+ * 探活**不发网络请求**——TTS 没有廉价 ping，拿一句话去试就等于花钱。
  * @module dsh-fish-body/src/host/voice/cloud/provider
  */
-import type { VoiceField, VoiceProvider, VoiceProviderAvailability } from '../registry.ts';
+import type { VoiceField, VoiceProvider, VoiceProviderAvailability, ProviderVoiceInfo } from '../registry.ts';
+import type { AudioClip } from '../audio.ts';
 
 /** 实现 id；参与缓存键，写成 `cloud` 便于日后按服务商拆成 `cloud-openai` 之类。 */
 export const CLOUD_PROVIDER_ID = 'cloud';
@@ -25,48 +27,81 @@ export const CLOUD_PROVIDER_ID = 'cloud';
  */
 export const CLOUD_API_KEY_REF = 'DSH_FISH_BODY_CLOUD_TTS_KEY';
 
-/** 一段云端配置（全是字符串；密钥不在这里，它在 DSH 凭据库）。 */
+/**
+ * 主引用没值时复用的宿主凭据（DSH 自己的 DeepSeek provider 用的就是它）。
+ *
+ * 只读：保存与清除永远只动 {@link CLOUD_API_KEY_REF}，否则用户在设置页点一次「清除」
+ * 就会顺手删掉整个 DSH 的模型凭据。
+ */
+export const CLOUD_API_KEY_FALLBACK = 'DEEPSEEK_API_KEY';
+
+/** 官方接口根地址；`baseURL` 留空时用它。 */
+export const DEFAULT_CLOUD_BASE_URL = 'https://api.deepseek.com';
+
+/** 合成路径（相对根地址，固定）。 */
+const TTS_PATH = '/v1/tools/tts';
+
+/** 单次合成超时（ms）：链外层给 15s，这里留出收尾余量。 */
+const REQUEST_TIMEOUT_MS = 12_000;
+
+/** 服务端错误文案的截断长度：只留够定位的一句话，不把整页 HTML 灌进日志。 */
+const MAX_ERROR_DETAIL = 512;
+
+/** 一个合法 wav 头的最小字节数；比它还短说明返回了空壳。 */
+const MIN_WAV_BYTES = 44;
+
+/** 主引用没值、需要密钥时的人话。 */
+const MISSING_KEY_REASON = `未配置 API Key（可复用 ${CLOUD_API_KEY_FALLBACK}）`;
+
+/** 这个实现能念的音色（设置页下拉的选项）。 */
+const CLOUD_VOICES: readonly ProviderVoiceInfo[] = [
+  { id: 'stella', name: 'stella 海星', tag: '女声（默认）' },
+  { id: 'tide', name: 'tide 暗潮', tag: '男声' },
+];
+
+/** 一段云端配置（全是字符串/布尔；密钥不在这里，它在 DSH 凭据库）。 */
 export interface CloudSettings {
-  /** OpenAI 兼容的接口根地址（末尾不带 `/audio/speech`）。 */
+  /** 接口根地址（末尾不带 `/v1/tools/tts`）；空串按官方默认。 */
   readonly baseURL: string;
-  /** 模型名（服务商定义的标识，如 `tts-1`）。 */
-  readonly model: string;
-  /** 音色名（服务商定义，如 `alloy`）。 */
+  /** 音色 id（`stella` / `tide`）；非法值按默认音色处理。 */
   readonly voice: string;
+  /** 用户是否显式开启（按量计费的总开关）；关着时它完全不参与合成。 */
+  readonly useCloud: boolean;
 }
 
-/** 全空配置：未配置时的初值。 */
-export const EMPTY_CLOUD_SETTINGS: CloudSettings = { baseURL: '', model: '', voice: '' };
+/** 全空配置：未配置时的初值（地址留空 = 用官方默认）。 */
+export const EMPTY_CLOUD_SETTINGS: CloudSettings = { baseURL: '', voice: '', useCloud: false };
 
 /**
  * 云端语音的配置项声明。
  *
  * `apiKey` 是 `password` + `credentialRef`：值不进 `voice-providers.json`，写进 DSH 凭据库
  * （见 `../provider-secrets.ts`）——配置文件会被备份、会被贴进 issue，密钥不该在那里面。
+ * `credentialFallbacks` 让它能直接复用宿主已有的 DeepSeek 凭据，省一次粘贴。
  */
 export const CLOUD_FIELDS: readonly VoiceField[] = [
+  {
+    key: 'useCloud',
+    label: '使用云端语音',
+    kind: 'select',
+    options: ['off', 'on'],
+    description:
+      '开启后每句都请求 DeepSeek 并按字符计费（汉字算 2 字符，每万字符 3 元、限时 1.5 元）；' +
+      '它不参与自动回退，但自己失败时会回落本地免费语音',
+  },
   {
     key: 'baseURL',
     label: '服务地址',
     kind: 'text',
-    required: true,
-    placeholder: 'https://api.example.com/v1',
-    description: 'OpenAI 兼容接口的根地址；骨架期只保存，不会真的请求',
-  },
-  {
-    key: 'model',
-    label: '模型',
-    kind: 'text',
-    required: true,
-    placeholder: 'tts-1',
-    description: '服务商定义的模型标识',
+    placeholder: DEFAULT_CLOUD_BASE_URL,
+    description: '接口根地址，路径固定 /v1/tools/tts；留空用官方地址',
   },
   {
     key: 'voice',
     label: '音色',
-    kind: 'text',
-    placeholder: 'alloy',
-    description: '服务商定义的音色名；留空表示用服务端默认音色',
+    kind: 'select',
+    options: ['stella', 'tide'],
+    description: 'stella 海星女声（默认）/ tide 暗潮男声；该接口不支持调节语速，语速滑块对它无效',
   },
   {
     key: 'apiKey',
@@ -75,9 +110,22 @@ export const CLOUD_FIELDS: readonly VoiceField[] = [
     required: true,
     placeholder: 'sk-…',
     credentialRef: CLOUD_API_KEY_REF,
-    description: '存进 DSH 凭据库，不写进配置文件',
+    credentialFallbacks: [CLOUD_API_KEY_FALLBACK],
+    description: `存进 DSH 凭据库，不写进配置文件；本机已有 ${CLOUD_API_KEY_FALLBACK} 时可直接复用`,
   },
 ];
+
+/** 造这个实现的依赖（测试注入假 fetch，单测不打真网）。 */
+export interface CloudProviderDeps {
+  /** 现读配置（改完不必重启插件）。 */
+  settings(): CloudSettings;
+  /** 按主引用 → 回退引用取密钥；没有时回 undefined。每次合成现读，不缓存值。 */
+  readKey(): Promise<string | undefined>;
+  /** 传输层替身；缺省用全局 fetch。 */
+  fetch?: typeof fetch;
+  /** 留痕；不传则静默。 */
+  log?: { info?(message: string): void; warn?(message: string): void };
+}
 
 /** 把一个 unknown 当对象看；不是对象就当空对象（配置被写坏时不炸）。 */
 function recordOf(value: unknown): Record<string, unknown> {
@@ -93,45 +141,164 @@ function str(value: unknown): string {
  * 从 `voice-providers.json` 的解析结果里取云端设置。
  *
  * @param source - 整个 provider 配置对象（`{ cloud: {...} }`），可以是 undefined。
- * @returns 三个字符串；缺项为空串（由 {@link cloudMissingFields} 变成一句人话）。
+ * @returns 三个值；缺项给空串 / false（由 {@link cloudConfigured} 变成一句人话）。
  */
 export function cloudSettingsOf(source: unknown): CloudSettings {
   const conf = recordOf(recordOf(source).cloud);
-  return { baseURL: str(conf.baseURL), model: str(conf.model), voice: str(conf.voice) };
+  return { baseURL: str(conf.baseURL), voice: str(conf.voice), useCloud: str(conf.useCloud) === 'on' };
+}
+
+/** 生效的接口根地址：留空用官方默认，末尾斜杠去掉（否则拼出 `//v1/tools/tts`）。 */
+export function cloudBaseURL(settings: CloudSettings): string {
+  const raw = settings.baseURL.trim();
+  return (raw === '' ? DEFAULT_CLOUD_BASE_URL : raw).replace(/\/+$/, '');
+}
+
+/** 生效的音色 id：只认 stella / tide，其它一律按默认（服务端认不出别的东西）。 */
+export function cloudVoiceId(settings: CloudSettings): string {
+  return settings.voice === 'tide' ? 'tide' : 'stella';
+}
+
+/** 根地址是否像话（写个非 URL 进去，请求必然失败而界面看不出原因）。 */
+function baseURLValid(settings: CloudSettings): boolean {
+  return /^https?:\/\//i.test(cloudBaseURL(settings));
 }
 
 /**
- * 还缺哪些必填项（给人话用的字段名，直接进不可用理由）。
+ * 读服务端错误详情：优先取 `error.message`，非 JSON 就截断原样。
  *
- * @param settings - {@link cloudSettingsOf} 的结果。
- * @returns 缺失字段的配置键（不含密钥：密钥的在场由凭据库回答，不在这份同步快照里）。
+ * @param res - 非 2xx 的响应。
+ * @returns 一段可直接进日志与人话的文案。
  */
-export function cloudMissingFields(settings: CloudSettings): string[] {
-  const missing: string[] = [];
-  if (!settings.baseURL) missing.push('服务地址');
-  if (!settings.model) missing.push('模型');
-  return missing;
+async function readErrorDetail(res: Response): Promise<string> {
+  try {
+    const raw = (await res.text()).trim();
+    if (raw === '') return res.statusText || '无内容';
+    try {
+      const parsed = JSON.parse(raw) as { error?: { message?: unknown } };
+      const message = parsed.error?.message;
+      if (typeof message === 'string' && message.trim() !== '') return message.trim().slice(0, MAX_ERROR_DETAIL);
+    } catch {
+      // 不是 JSON：落到下面的原样截断
+    }
+    return raw.slice(0, MAX_ERROR_DETAIL);
+  } catch {
+    return res.statusText || '读取响应失败';
+  }
 }
 
 /**
- * 造云端语音实现（骨架）。
+ * 造云端语音实现。
  *
- * @param opts.settings - 现读配置（改完不必重启插件）。
- * @returns 注册用的实现：`fields` 齐全、`synthesize` 明确抛「尚未接入」。
+ * @param deps - 现读配置、取密钥、可注入的传输层与日志。
+ * @returns 注册用的实现：`billable: true`，`availability()` 读探活缓存，`synthesize()` 真请求。
  */
-export function createCloudProvider(opts: { readonly settings: () => CloudSettings }): VoiceProvider {
+export function createCloudProvider(deps: CloudProviderDeps): VoiceProvider {
+  /** 最近一次探活结论（`availability()` 只能同步读它）。 */
+  let verdict: VoiceProviderAvailability = { ok: false, reason: '云端语音尚未探活' };
+  /** 最近一次合成失败的原因；合成成功即清空。 */
+  let lastError: string | undefined;
+  const transport = deps.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
+
+  /** 配置读不出来时给一份默认：探活与缓存指纹不该因为一个坏配置文件而抛。 */
+  function safeSettings(): CloudSettings {
+    try {
+      return deps.settings();
+    } catch {
+      return EMPTY_CLOUD_SETTINGS;
+    }
+  }
+
+  /** 探一次「能不能用」：只看配置，不发请求（TTS 没有免费探活）。 */
+  async function refresh(): Promise<boolean> {
+    const settings = safeSettings();
+    if (!baseURLValid(settings)) {
+      verdict = { ok: false, reason: '服务地址必须以 http:// 或 https:// 开头' };
+      return false;
+    }
+    let key: string | undefined;
+    try {
+      key = await deps.readKey();
+    } catch {
+      key = undefined;
+    }
+    const ready = typeof key === 'string' && key !== '';
+    verdict = ready ? { ok: true } : { ok: false, reason: MISSING_KEY_REASON };
+    if (ready) lastError = undefined;
+    return ready;
+  }
+
+  /** 真合成一次：文本 → wav 字节。 */
+  async function synthesizeOnce(text: string): Promise<AudioClip> {
+    const settings = safeSettings();
+    const key = await deps.readKey();
+    if (typeof key !== 'string' || key === '') {
+      lastError = MISSING_KEY_REASON;
+      throw new Error(`cloud tts: ${MISSING_KEY_REASON}`);
+    }
+    const body = {
+      text,
+      voice_id: cloudVoiceId(settings),
+      // 只收 wav / pcm；pcm 是裸流（无容器），缓存与播放链路都认不了，所以只要 wav
+      format: 'wav',
+      // 台词里常带 markdown 强调符，念出来是「星号」；交给服务端在合成前摘掉
+      filter_markdown: true,
+    };
+    let res: Response;
+    try {
+      res = await transport(cloudBaseURL(settings) + TTS_PATH, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      lastError = `请求失败：${detail}`;
+      throw new Error(`cloud tts 请求失败：${detail}`, { cause: error });
+    }
+    if (!res.ok) {
+      const detail = await readErrorDetail(res);
+      lastError = `${res.status}：${detail}`;
+      throw new Error(`cloud tts ${res.status}: ${detail}`);
+    }
+    const data = new Uint8Array(await res.arrayBuffer());
+    if (data.length < MIN_WAV_BYTES) {
+      lastError = '返回的音频为空';
+      throw new Error('cloud tts: 返回的音频为空');
+    }
+    lastError = undefined;
+    deps.log?.info?.(
+      `[fish-body] voice cloud: chars=${text.length} bytes=${data.length} voice=${cloudVoiceId(settings)}`,
+    );
+    return { data, mime: 'audio/wav' };
+  }
+
   return {
     id: CLOUD_PROVIDER_ID,
-    name: '云端语音（骨架）',
+    name: 'DeepSeek 云端语音（按量计费）',
     fields: CLOUD_FIELDS,
-    availability(): VoiceProviderAvailability {
-      const missing = cloudMissingFields(opts.settings());
-      if (missing.length > 0) return { ok: false, reason: `未配置云端语音：还缺 ${missing.join(' / ')}` };
-      // 配置齐了也不放行：放行等于让每句话都先失败一次（见模块头）。
-      return { ok: false, reason: '云端 TTS 尚未接入（骨架）：配置已保存，合成会落到本地语音或 edge' };
-    },
-    async synthesize(): Promise<never> {
-      throw new Error('云端 TTS 尚未接入（T3.5 骨架）');
-    },
+    billable: true,
+    availability: () => verdict,
+    listVoices: () => CLOUD_VOICES,
+    activeVoice: () => cloudVoiceId(safeSettings()),
+    // 指纹进缓存键：换音色不该命中旧嗓子合成的音频
+    cacheTag: () => cloudVoiceId(safeSettings()),
+    lastError: () => lastError,
+    refresh,
+    synthesize: (input) => synthesizeOnce(input.text),
   };
+}
+
+/**
+ * 这个实现是否被用户显式开启（`useCloud === 'on'`）。
+ *
+ * 单独抽出来是给装配侧用的：`index.ts` 只关心「该不该把它排到链首」，
+ * 不该为此构造整个实现或读密钥。
+ *
+ * @param settings - {@link cloudSettingsOf} 的结果。
+ * @returns 开启为 true。
+ */
+export function cloudConfigured(settings: CloudSettings): boolean {
+  return settings.useCloud === true;
 }
