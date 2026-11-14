@@ -92,6 +92,33 @@ export async function fetchMoveStatus(): Promise<MoveStatus | undefined> {
 export type MoveStartOutcome =
   { readonly kind: 'started' } | { readonly kind: 'busy' } | { readonly kind: 'rejected'; readonly message: string };
 
+/** 一个位置的体积统计（`GET /layout/size` 的响应）。 */
+export interface DirSize {
+  /** 文件数（符号链接算一个）。 */
+  readonly files: number;
+  /** 总字节数。 */
+  readonly bytes: number;
+}
+
+/**
+ * 数一个位置现在有多少东西。
+ *
+ * 进「更改位置」的说明步时问一次：用户得先知道这次要搬多少，再决定搬到哪。
+ *
+ * @param which - 数哪一项。
+ * @returns 统计；请求失败或响应形状不对时 undefined（界面隐藏数量那一行，不挡流程）。
+ */
+export async function fetchDirSize(which: MovableLocation): Promise<DirSize | undefined> {
+  try {
+    const response = await fetch(ROUTE_PATH + '/layout/size?which=' + which);
+    const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    if (payload?.ok === false) return undefined;
+    return { files: num(payload?.files), bytes: num(payload?.bytes) };
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * 启动一次搬迁。
  *

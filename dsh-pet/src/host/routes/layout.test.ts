@@ -37,12 +37,12 @@ function deps(root: string, home: string): PetRouteDeps {
   } as unknown as PetRouteDeps;
 }
 
-/** 造一次调用。 */
+/** 造一次调用：`rest` 可以带查询串，路由拿到的 `rest` 只有路径（与真实分派一致）。 */
 function call(d: PetRouteDeps, rest: string, method: string, body?: unknown) {
   const url = new URL('http://localhost/' + rest);
   return handleLayoutRoutes(d, {
     url,
-    rest,
+    rest: url.pathname.replace(/^\//, ''),
     method,
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
@@ -116,6 +116,51 @@ describe('POST /layout/location', () => {
         assert.equal(obj.ok, false, JSON.stringify(body) + ' 应当被拒');
         assert.equal(obj.reason, 'bad-request');
       }
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('GET /layout/size', () => {
+  test('数出皮肤目录的文件数与字节数', async () => {
+    resetMoveState();
+    const { home, root } = tempHome();
+    try {
+      const d = deps(root, home);
+      const body = await json(d, 'layout/size?which=skin', 'GET');
+      assert.equal(body.ok, true);
+      assert.equal(body.which, 'skin');
+      // tempHome 放了一个 cat-config.json（11 字节）+ 一个空目录。
+      assert.equal(body.files, 1);
+      assert.equal(body.bytes, 11);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('目录还不存在时回 0，而不是失败', async () => {
+    resetMoveState();
+    const { home, root } = tempHome();
+    try {
+      const d = deps(root, home);
+      rmSync(join(root, 'skin'), { recursive: true, force: true });
+      const body = await json(d, 'layout/size?which=skin', 'GET');
+      assert.equal(body.ok, true);
+      assert.equal(body.files, 0);
+      assert.equal(body.bytes, 0);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('which 非法：拒绝且不扫盘', async () => {
+    resetMoveState();
+    const { home, root } = tempHome();
+    try {
+      const body = await json(deps(root, home), 'layout/size?which=cache', 'GET');
+      assert.equal(body.ok, false);
+      assert.equal(body.reason, 'bad-request');
     } finally {
       rmSync(home, { recursive: true, force: true });
     }

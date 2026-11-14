@@ -141,9 +141,11 @@ describe('fs-card —— 一张卡讲完文件在哪', () => {
     assert.equal(rows.length, meta.layout.length + meta.readonly.length);
     const keys = rows.map((row) => String(row.props.key));
     assert.equal(new Set(keys).size, keys.length, '同一条路径不许画两遍');
-    const firstPrefix = byClass(rows[0], 'dsh-pet-cfg__treePrefix');
-    // 根节点是唯一的 0 层，所以它是「最后一个」；子项靠缩进表达层级。
-    assert.equal(firstPrefix?.props.children, '└─ ');
+    // 根行顶格：没有前缀那一格，网格少一列（靠 is-root 换网格，名字才真的贴住左边缘）。
+    assert.match(String(rows[0]?.props.className), /is-root/);
+    assert.equal(byClass(rows[0], 'dsh-pet-cfg__treePrefix'), undefined);
+    // 第一个子项直接落在第 0 列。
+    assert.equal(byClass(rows[1], 'dsh-pet-cfg__treePrefix')?.props.children, '├─ ');
     const dirNames = allByClass(tree, 'dsh-pet-cfg__treeName').map((item) => String(item.props.children));
     assert.ok(dirNames.includes('config/'), '目录名带尾斜杠');
     assert.ok(dirNames.includes('logs.txt'), '文件名不带');

@@ -29,7 +29,8 @@ export const fr: Record<Key, string> = {
   'shortcut.hear': 'Saisie vocale',
   'shortcut.capture': 'Capture d’écran vers le chat',
   shortcutCardTitle: 'Raccourcis',
-  shortcutCardHint: 'Deux groupes une fois déployé : raccourcis du compagnon et raccourcis globaux.',
+  shortcutCardHint:
+    'Trois groupes une fois deplie : touches du pet (modifiables), touches d affichage (modifiables) et raccourcis globaux.',
   shortcutRowChat: 'Ouvrir le chat',
   shortcutRowHold: 'Maintenir pour parler',
   shortcutRowHear: 'Saisie vocale',
@@ -38,10 +39,21 @@ export const fr: Record<Key, string> = {
   shortcutRowTodo: 'Tâches',
   shortcutRowSleep: 'Dormir / réveiller',
   shortcutRowDisplay: 'Position d’affichage',
+  shortcutGroupDisplay: 'Touches d affichage',
+  shortcutGroupDisplayHint:
+    'Survoler le pet puis appuyer change sa position — identique au sous-menu « Position d affichage ».',
+  shortcutRowDisplayWeb: 'Web seulement',
+  shortcutRowDisplayDesktop: 'Bureau seulement',
+  shortcutRowDisplayBoth: 'Les deux',
+  shortcutRowDisplayNone: 'Aucun',
+  shortcutCapture: 'Appuyez sur une touche…',
+  shortcutKeycapHint: 'Cliquez puis appuyez sur la nouvelle touche (Esc annule)',
+  shortcutReset: 'Touches par defaut',
+  shortcutResetHint: 'Ne prend effet qu apres enregistrement.',
   shortcutRowSidebar: 'Ouvrir le chat latéral',
   shortcutGroupPet: 'Raccourcis du compagnon',
   shortcutGroupPetHint:
-    'Sur le web, il suffit de survoler le compagnon. Dans la fenêtre du bureau, cliquez d’abord sur le compagnon pour qu’il prenne le focus clavier.',
+    'Cliquez une touche puis appuyez sur la nouvelle (une seule lettre ou un chiffre). Deux actions ne partagent jamais une touche : elles sont echangees. Enregistrez pour appliquer.',
   shortcutGroupGlobal: 'Raccourcis globaux',
   shortcutGroupGlobalHint:
     'Distribués par DSH dans le web et la fenêtre du bureau ; modifiables dans Réglages → Général → Raccourcis.',
@@ -148,9 +160,21 @@ export const fr: Record<Key, string> = {
   fsLocationChange: "Changer d'emplacement…",
   fsLocationPick: 'Choisir un nouvel emplacement…',
   fsLocationManual: 'Saisir un chemin',
-  fsLocationConfirmTitle: 'Deplacer le dossier',
+  fsLocationConfirmTitle: 'Migrer vers un nouvel emplacement',
   fsLocationConfirmBody:
-    "Deplacer le contenu de {from} vers {to}. Apres la copie, le nombre de fichiers et la taille sont verifies, et l'ancien emplacement n'est supprime qu'ensuite — en cas d'echec, les deux restent. Un redemarrage du plugin applique le changement.",
+    "Le contenu est d'abord copie, puis le nombre de fichiers et la taille sont verifies, et l'ancien emplacement n'est supprime qu'ensuite — en cas d'echec, les deux restent. Un redemarrage du plugin applique le changement.",
+  fsLocationIntroTitle: 'Ou placer « {name} » ?',
+  fsLocationIntroBody:
+    "Des que vous choisissez un nouvel emplacement, tout le contenu y est migre — c'est un deplacement, pas une copie en plus. Copie, verification du nombre de fichiers et de la taille, puis suppression de l'ancien emplacement ; en cas d'echec, les deux restent.",
+  fsLocationFrom: 'Ancien : {from}',
+  fsLocationTo: 'Nouveau : {to}',
+  fsLocationSize: '{files} fichiers · {size}',
+  fsLocationSizeEmpty: 'Ce dossier est encore vide',
+  fsLocationSizeScanning: 'Calcul de la taille…',
+  fsLocationPicking: 'En attente du selecteur de dossiers…',
+  fsLocationProgress: '{done}/{total} fichiers · {size}',
+  fsLocationStart: 'Lancer la migration',
+  fsLocationAgain: 'Choisir a nouveau',
   fsLocationMoving: 'Deplacement vers {to}',
   fsLocationDone: 'Deplace vers {to}',
   fsLocationNeedsRestart: 'Effectif apres un redemarrage du plugin',
@@ -405,7 +429,7 @@ export const fr: Record<Key, string> = {
   uninstallStep2:
     '2. Retirez le plugin lui-même (dans un terminal ; il est aussi retiré de la couche bundle du profil) :',
   uninstallStep3:
-    '3. Pour tout effacer, supprimez la racine de données {root} : cache/ est sans risque ; supprimer config/ ou data/ fait perdre les réglages et la mémoire de discussion (sauvegardez config/main-config.jsonc si vous voulez les garder).',
+    '3. Pour tout effacer, supprimez la racine de données {root} : cache/ contient les caches vocaux et les installeurs ; supprimer config/ ou data/ fait perdre les réglages et la mémoire de discussion (sauvegardez config/main-config.jsonc si vous voulez les garder).',
   motionTitle: 'Fréquence des actions',
   motionHint:
     "Quatre champs : repos / rotation / déplacement sont modifiables ; l'action aléatoire est calculée (100 − les trois autres). Valeur globale pour tous les compagnons ; un pet pack peut la remplacer dans son fichier de type.",

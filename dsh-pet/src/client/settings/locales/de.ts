@@ -29,7 +29,8 @@ export const de: Record<Key, string> = {
   'shortcut.hear': 'Spracheingabe',
   'shortcut.capture': 'Bildschirmfoto in den Chat',
   shortcutCardTitle: 'Tastenkürzel',
-  shortcutCardHint: 'Aufgeklappt zwei Gruppen: Pet-Tastenkürzel und globale Tastenkürzel.',
+  shortcutCardHint:
+    'Drei Gruppen beim Aufklappen: Tasten des Pets (aenderbar), Anzeige-Tasten (aenderbar), globale Kurzbefehle.',
   shortcutRowChat: 'Chat öffnen',
   shortcutRowHold: 'Zum Sprechen halten',
   shortcutRowHear: 'Spracheingabe',
@@ -38,10 +39,21 @@ export const de: Record<Key, string> = {
   shortcutRowTodo: 'Aufgaben',
   shortcutRowSleep: 'Schlafen / Aufwachen',
   shortcutRowDisplay: 'Anzeigeposition',
+  shortcutGroupDisplay: 'Anzeige-Tasten',
+  shortcutGroupDisplayHint:
+    'Bei schwebender Maus schalten diese Tasten das Pet an die passende Position — wie das Kontextmenue „Anzeigeposition“.',
+  shortcutRowDisplayWeb: 'Nur Web',
+  shortcutRowDisplayDesktop: 'Nur Desktop',
+  shortcutRowDisplayBoth: 'Beides',
+  shortcutRowDisplayNone: 'Nichts',
+  shortcutCapture: 'Taste druecken…',
+  shortcutKeycapHint: 'Klicken, dann die neue Taste druecken (Esc bricht ab)',
+  shortcutReset: 'Standardtasten',
+  shortcutResetHint: 'Wirkt erst nach dem Speichern.',
   shortcutRowSidebar: 'Seitenleisten-Chat öffnen',
   shortcutGroupPet: 'Pet-Tastenkürzel',
   shortcutGroupPetHint:
-    'Im Web genügt der Zeiger auf dem Pet. Im Desktop-Fenster zuerst auf das Pet klicken, damit es den Tastaturfokus bekommt.',
+    'Auf eine Taste klicken und eine neue druecken (nur ein Buchstabe oder eine Ziffer). Zwei Aktionen teilen sich nie eine Taste — sie tauschen. Zum Anwenden speichern.',
   shortcutGroupGlobal: 'Globale Tastenkürzel',
   shortcutGroupGlobalHint:
     'Werden von DSH im Web und im Desktop-Fenster verteilt; änderbar unter Einstellungen → Allgemein → Tastenkürzel.',
@@ -147,9 +159,21 @@ export const de: Record<Key, string> = {
   fsLocationChange: 'Ort aendern…',
   fsLocationPick: 'Neuen Ort waehlen…',
   fsLocationManual: 'Pfad eingeben',
-  fsLocationConfirmTitle: 'Ordner verschieben',
+  fsLocationConfirmTitle: 'An neuen Ort migrieren',
   fsLocationConfirmBody:
-    'Inhalt von {from} nach {to} verschieben. Nach dem Kopieren werden Dateizahl und Groesse geprueft, erst dann wird der alte Ort entfernt — schlaegt es fehl, bleiben beide. Ein Plugin-Neustart uebernimmt die Aenderung.',
+    'Erst kopieren, dann Dateizahl und Groesse pruefen, erst danach den alten Ort entfernen — schlaegt es fehl, bleiben beide. Ein Plugin-Neustart uebernimmt die Aenderung.',
+  fsLocationIntroTitle: 'Wohin soll „{name}“?',
+  fsLocationIntroBody:
+    'Sobald ein neuer Ort gewaehlt ist, wandert der ganze Inhalt dorthin — ein Umzug, keine zweite Kopie. Kopieren, Dateizahl und Groesse pruefen, dann den alten Ort entfernen; bei einem Fehler bleiben beide.',
+  fsLocationFrom: 'Alt: {from}',
+  fsLocationTo: 'Neu: {to}',
+  fsLocationSize: '{files} Dateien · {size}',
+  fsLocationSizeEmpty: 'In diesem Ordner liegt noch nichts',
+  fsLocationSizeScanning: 'Groesse wird ermittelt…',
+  fsLocationPicking: 'Warte auf den System-Ordnerdialog…',
+  fsLocationProgress: '{done}/{total} Dateien · {size}',
+  fsLocationStart: 'Migration starten',
+  fsLocationAgain: 'Neu waehlen',
   fsLocationMoving: 'Verschiebe nach {to}',
   fsLocationDone: 'Verschoben nach {to}',
   fsLocationNeedsRestart: 'Wirkt nach einem Plugin-Neustart',
@@ -401,7 +425,7 @@ export const de: Record<Key, string> = {
   uninstallStep2:
     '2. Das Plugin selbst entfernen (im Terminal ausführen; entfernt es auch aus der Bundle-Schicht des Profils):',
   uninstallStep3:
-    '3. Wenn alles weg soll, den Datenstamm {root} löschen: cache/ ist unschädlich; config/ oder data/ löschen kostet Einstellungen und Chat-Gedächtnis (vorher config/main-config.jsonc sichern, wenn Sie es behalten wollen).',
+    '3. Wenn alles weg soll, den Datenstamm {root} löschen: cache/ enthält Sprach-Caches und Installer; config/ oder data/ löschen kostet Einstellungen und Chat-Gedächtnis (vorher config/main-config.jsonc sichern, wenn Sie es behalten wollen).',
   motionTitle: 'Aktionshäufigkeit',
   motionHint:
     'Vier Felder: Leerlauf / Drehen / Bewegen sind editierbar, die Zufallsaktion wird berechnet (100 − die anderen drei). Globaler Standard für alle Pets; ein Pet-Pack kann ihn in seiner Art-Datei überschreiben.',

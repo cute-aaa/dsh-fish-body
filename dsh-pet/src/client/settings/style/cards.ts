@@ -114,8 +114,21 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__treeRow>.dsh-pet-cfg__folderBtn{grid-column:4;justify-self:start}',
   // 还没产生的目录降一级：与「有东西」区分开，避免用户去找不存在的文件夹。
   '.dsh-pet-cfg__treeRow.is-missing .dsh-pet-cfg__treeName{color:var(--dsw-alias-label-tertiary)}',
+  // 根行顶格、没有枝干：靠半档字重顶上「这是整棵树的根」，不需要缩进或额外图标。
+  // 前缀那格不存在（渲染时就跳过了），所以整行改用少一列的网格，名字才真的贴住卡片左边缘。
+  '.dsh-pet-cfg__treeRow.is-root{grid-template-columns:minmax(0,max-content) minmax(0,1fr) auto}',
+  '.dsh-pet-cfg__treeRow.is-root .dsh-pet-cfg__treeName{grid-column:1;font-weight:500}',
+  '.dsh-pet-cfg__treeRow.is-root .dsh-pet-cfg__treeDesc{grid-column:2}',
+  '.dsh-pet-cfg__treeRow.is-root>.dsh-pet-cfg__folderBtn{grid-column:3}',
   // 只读参考那一组的徽标：只靠描边与字色区分，不上底色（一列徽标涂色会盖过目录名）。
   '.dsh-pet-cfg__treeBadge{grid-column:4;justify-self:start;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}',
+
+  // 快捷键的键帽：看着像一颗键，点一下进捕获态。等宽字体 + 固定最小宽度，改绑后整列不会跳。
+  '.dsh-pet-cfg__keycap{min-width:64px;padding:2px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-sm);background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-primary);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-meta);line-height:18px;cursor:pointer;white-space:nowrap}',
+  '.dsh-pet-cfg__keycap:hover:not(:disabled){border-color:var(--dsw-alias-border-l1)}',
+  '.dsh-pet-cfg__keycap:disabled{color:var(--dsw-alias-label-tertiary);cursor:default}',
+  // 捕获态：描边升到主业务色，文字改成「按一个键…」——唯一的提醒，不再额外挂提示条。
+  '.dsh-pet-cfg__keycap.is-capturing{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}',
 
   // 未保存改动的圆点：跟着分区标签或卡头走，只占 6px，不换行。
   '.dsh-pet-cfg__dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-business-primary);vertical-align:middle}',

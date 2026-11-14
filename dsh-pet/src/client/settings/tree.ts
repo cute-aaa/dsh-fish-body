@@ -4,6 +4,10 @@
  * 为什么在客户端算：宿主只给结构与顺序（谁在第几层、存不存在），画成树的样式属于展示层；
  * 这样同一个响应也能被别的消费者（脚本、测试）当结构数据用，不必去解析制表符。
  * 纯函数：不读盘、不依赖 react，便于单测把「最后一个子项」「祖先还有兄弟」这些边角钉住。
+ *
+ * 根行（`depth === 0`）**不画枝干**：它占满整行宽度、右边就是一句说明，前面再顶一个 `└─ `
+ * 只会让整棵树整体右移、和卡片左边缘对不齐。所以第一层子项直接落在第 0 列。
+ * 由此推出一个前提：一次渲染里只有一个根（`layoutNodes()` 就是唯一根），多根会把两棵树的枝干并排画在一起。
  * @module dsh-fish-body/src/client/settings/tree
  */
 
@@ -51,14 +55,16 @@ function ancestorHasNext(rows: readonly TreeRow[], index: number, level: number)
  * 每一行的前缀字符串（等宽字体下呈树形）。
  *
  * 缩进用「两个空格 + 竖线/空白」：目录名本身长度不一，固定宽度前缀才不会让层级看起来在漂。
+ * 根行没有前缀，所以祖先列从第 1 层算起——第 0 列留给第一层子项的 `├─ / └─`。
  *
  * @param rows - 扁平行列表（顺序即展示顺序）。
- * @returns 与 `rows` 等长的前缀数组；深度 0 的行拿到 `'└─ '` 或 `'├─ '` 之一。
+ * @returns 与 `rows` 等长的前缀数组；深度 0 的行拿到空串，深度 1 的行拿到 `'└─ '` 或 `'├─ '` 之一。
  */
 export function treePrefixes(rows: readonly TreeRow[]): string[] {
   return rows.map((row, index) => {
+    if (row.depth <= 0) return '';
     let out = '';
-    for (let level = 0; level < row.depth; level += 1) {
+    for (let level = 1; level < row.depth; level += 1) {
       out += ancestorHasNext(rows, index, level) ? '│  ' : '   ';
     }
     out += hasNextSibling(rows, index) ? '├─ ' : '└─ ';

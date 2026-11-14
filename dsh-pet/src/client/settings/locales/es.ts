@@ -30,7 +30,8 @@ export const es: Record<Key, string> = {
   'shortcut.hear': 'Entrada de voz',
   'shortcut.capture': 'Captura de pantalla al chat',
   shortcutCardTitle: 'Atajos',
-  shortcutCardHint: 'Al expandir hay dos grupos: atajos de la mascota y atajos globales.',
+  shortcutCardHint:
+    'Tres grupos al desplegar: teclas del pet (editables), teclas de posicion (editables) y atajos globales.',
   shortcutRowChat: 'Abrir chat',
   shortcutRowHold: 'Mantener para hablar',
   shortcutRowHear: 'Entrada de voz',
@@ -39,10 +40,21 @@ export const es: Record<Key, string> = {
   shortcutRowTodo: 'Tareas',
   shortcutRowSleep: 'Dormir / despertar',
   shortcutRowDisplay: 'Posición de visualización',
+  shortcutGroupDisplay: 'Teclas de posicion',
+  shortcutGroupDisplayHint:
+    'Con el raton sobre el pet, estas teclas lo cambian a la posicion correspondiente (igual que el submenu «Posicion de visualizacion»).',
+  shortcutRowDisplayWeb: 'Solo web',
+  shortcutRowDisplayDesktop: 'Solo escritorio',
+  shortcutRowDisplayBoth: 'Ambos',
+  shortcutRowDisplayNone: 'Ninguno',
+  shortcutCapture: 'Pulsa una tecla…',
+  shortcutKeycapHint: 'Haz clic y pulsa la nueva tecla (Esc cancela)',
+  shortcutReset: 'Restaurar teclas',
+  shortcutResetHint: 'Aun hay que guardar para aplicarlo.',
   shortcutRowSidebar: 'Abrir el chat lateral',
   shortcutGroupPet: 'Atajos de la mascota',
   shortcutGroupPetHint:
-    'En la web basta con pasar el puntero sobre la mascota. En la ventana del escritorio hay que hacer clic en la mascota para que reciba el foco del teclado.',
+    'Haz clic en una tecla y pulsa la nueva (solo una letra o un digito). Dos acciones nunca comparten tecla: se intercambian. Guarda para aplicar.',
   shortcutGroupGlobal: 'Atajos globales',
   shortcutGroupGlobalHint:
     'Los distribuye DSH en la web y en la ventana del escritorio; se cambian en Ajustes → General → Atajos.',
@@ -149,9 +161,21 @@ export const es: Record<Key, string> = {
   fsLocationChange: 'Cambiar ubicacion…',
   fsLocationPick: 'Elegir nueva ubicacion…',
   fsLocationManual: 'Escribir una ruta',
-  fsLocationConfirmTitle: 'Mover carpeta',
+  fsLocationConfirmTitle: 'Migrar a una nueva ubicacion',
   fsLocationConfirmBody:
-    'Mover el contenido de {from} a {to}. Tras copiar se verifican cantidad de archivos y tamano, y solo entonces se elimina la ubicacion anterior; si falla, se conservan ambas. El cambio se aplica al reiniciar el plugin.',
+    'Primero se copia, luego se verifican cantidad de archivos y tamano, y solo entonces se elimina la ubicacion anterior; si falla, se conservan ambas. El cambio se aplica al reiniciar el plugin.',
+  fsLocationIntroTitle: '¿A donde mover «{name}»?',
+  fsLocationIntroBody:
+    'Al elegir una nueva ubicacion, todo el contenido se migra alli: es una mudanza, no una copia extra. Copiar, verificar cantidad y tamano, y luego eliminar la ubicacion anterior; si falla, se conservan ambas.',
+  fsLocationFrom: 'Anterior: {from}',
+  fsLocationTo: 'Nueva: {to}',
+  fsLocationSize: '{files} archivos · {size}',
+  fsLocationSizeEmpty: 'La carpeta aun no tiene archivos',
+  fsLocationSizeScanning: 'Calculando tamano…',
+  fsLocationPicking: 'Esperando al selector de carpetas…',
+  fsLocationProgress: '{done}/{total} archivos · {size}',
+  fsLocationStart: 'Iniciar migracion',
+  fsLocationAgain: 'Elegir otra vez',
   fsLocationMoving: 'Moviendo a {to}',
   fsLocationDone: 'Movido a {to}',
   fsLocationNeedsRestart: 'Se aplica tras reiniciar el plugin',
@@ -403,7 +427,7 @@ export const es: Record<Key, string> = {
   uninstallStep2:
     '2. Quita el plugin en sí (ejecútalo en la terminal; también lo elimina de la capa de bundles del perfil):',
   uninstallStep3:
-    '3. Si quieres eliminarlo todo, borra la raíz de datos {root}: cache/ no hace daño; borrar config/ o data/ pierde los ajustes y la memoria del chat (haz una copia de config/main-config.jsonc si quieres conservarlos).',
+    '3. Si quieres eliminarlo todo, borra la raíz de datos {root}: cache/ contiene caches de voz e instaladores; borrar config/ o data/ pierde los ajustes y la memoria del chat (haz una copia de config/main-config.jsonc si quieres conservarlos).',
   motionTitle: 'Frecuencia de acciones',
   motionHint:
     'Cuatro casillas: espera / giro / movimiento son editables; la acción aleatoria se calcula (100 − las otras tres). Valor global para todas las mascotas; un pet pack puede sobrescribirlo en su archivo de tipo.',

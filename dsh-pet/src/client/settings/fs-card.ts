@@ -16,7 +16,15 @@ import type { FunctionComponent } from 'react';
 import type * as ReactNS from 'react';
 import type { ConfigMeta, MetaNode, RuntimeSnapshot, RuntimeStatus } from './config/http.ts';
 import { makeFolderButton } from './folder-button.ts';
-import { fetchMoveStatus, pickFolder, startMove, type MovableLocation } from './layout-api.ts';
+import {
+  fetchDirSize,
+  fetchMoveStatus,
+  pickFolder,
+  startMove,
+  type DirSize,
+  type MovableLocation,
+  type MoveStatus,
+} from './layout-api.ts';
 import { requestPluginRestart, schedulePageReload } from '../plugin-restart.ts';
 import { fetchRuntime, resetRuntimeDir, saveRuntimeDir, startRuntimeDownload } from './runtime-api.ts';
 import type { SettingsRuntime } from './runtime.ts';
@@ -39,12 +47,24 @@ const RUNTIME_POLL_MS = 2500;
 /** 搬迁轮询间隔：搬迁是秒到分钟级的，700ms 让字节数肉眼可见地走。 */
 const MOVE_POLL_MS = 700;
 
-/** 一次编辑的流程状态。 */
+/**
+ * 一次编辑的流程状态。
+ *
+ * `intro` 是这次改动的关键：点「更改位置…」先把「现在有什么、接下来会发生什么」讲清楚，
+ * 再让用户去选目录——系统选目录框不会替我们说明「旧目录的内容会被搬走」。
+ */
 type EditState =
   | { readonly kind: 'idle' }
-  | { readonly kind: 'picking'; readonly which: MovableLocation }
-  | { readonly kind: 'manual'; readonly which: MovableLocation; readonly text: string; readonly message?: string }
-  | { readonly kind: 'confirm'; readonly which: MovableLocation; readonly target: string }
+  | { readonly kind: 'intro'; readonly which: MovableLocation; readonly size?: DirSize; readonly scanFailed?: boolean }
+  | { readonly kind: 'picking'; readonly which: MovableLocation; readonly size?: DirSize }
+  | {
+      readonly kind: 'manual';
+      readonly which: MovableLocation;
+      readonly text: string;
+      readonly size?: DirSize;
+      readonly message?: string;
+    }
+  | { readonly kind: 'confirm'; readonly which: MovableLocation; readonly target: string; readonly size?: DirSize }
   | { readonly kind: 'moving'; readonly which: MovableLocation; readonly target: string }
   | { readonly kind: 'done'; readonly which: MovableLocation; readonly target: string }
   | { readonly kind: 'failed'; readonly which: MovableLocation; readonly message: string };
@@ -72,6 +92,11 @@ function percentOf(done: number, total: number): number {
   return Math.min(100, Math.max(0, Math.round((done / total) * 100)));
 }
 
+/** 可选字段的展开：没有统计结果时不带这个键，状态形状保持干净。 */
+function sizeArg(size: DirSize | undefined): { readonly size?: DirSize } {
+  return size === undefined ? {} : { size };
+}
+
 /**
  * 造「文件与目录」卡。
  *
@@ -86,11 +111,13 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
   /** 一行树节点：前缀 + 名字 + 说明（+ 只读参考组的徽标 + 「打开」）。 */
   const row = (node: MetaNode, prefix: string, badgeText?: string) => {
     const desc = treeNote(t, node.key);
+    // 根行没有前缀：整行顶格，网格也少一列（见 style/cards.ts 的 .is-root）。
+    const isRoot = prefix === '';
     return h('div', {
       key: node.key,
-      className: 'dsh-pet-cfg__treeRow' + (node.exists ? '' : ' is-missing'),
+      className: 'dsh-pet-cfg__treeRow' + (isRoot ? ' is-root' : '') + (node.exists ? '' : ' is-missing'),
       children: [
-        h('span', { key: 'p', className: 'dsh-pet-cfg__treePrefix', children: prefix }),
+        isRoot ? null : h('span', { key: 'p', className: 'dsh-pet-cfg__treePrefix', children: prefix }),
         h('span', {
           key: 'n',
           className: 'dsh-pet-cfg__treeName',
@@ -144,6 +171,8 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
     const [polling, setPolling] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [edit, setEdit] = useState<EditState>({ kind: 'idle' });
+    // 搬迁中的实时进度（文件数 / 当前路径）：搬完就清掉，免得下一次进来还挂着上一回的进度。
+    const [moveProgress, setMoveProgress] = useState<MoveStatus | undefined>(undefined);
 
     // 运行时轮询：点了下载 / 检测到正在下载时每 2.5s 问一次，装好就停。
     // effect 里建 timer、清理里拆，切分区 / 关设置页都不会留下一个还在 setState 的定时器。
@@ -172,7 +201,9 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
       let alive = true;
       const timer = setInterval(() => {
         void fetchMoveStatus().then((status) => {
-          if (!alive || status === undefined || status.busy) return;
+          if (!alive || status === undefined) return;
+          setMoveProgress(status);
+          if (status.busy) return;
           setEdit(
             status.error === undefined
               ? { kind: 'done', which: edit.which, target: status.movedTo ?? edit.target }
@@ -236,14 +267,47 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
       });
     };
 
-    /** 弹原生选目录框 → 得到目标后进确认。 */
+    /** 一句话的体量说明：`1,204 个文件 · 356.2 MB`；空目录直说，不显示 `0.0 MB`。 */
+    const sizeText = (size: DirSize): string =>
+      size.files === 0
+        ? t('fsLocationSizeEmpty')
+        : t('fsLocationSize').replace('{files}', String(size.files)).replace('{size}', humanBytes(size.bytes));
+
+    /** 点「更改位置…」：先进说明步，并顺手数清当前位置有多大。 */
     const beginEdit = (which: MovableLocation): void => {
+      setMoveProgress(undefined);
+      setEdit({ kind: 'intro', which });
+      void fetchDirSize(which).then((size) => {
+        // 用户可能在统计回来之前就取消了：只在还停在这一步时补数据。
+        setEdit((current) =>
+          current.kind === 'intro' && current.which === which
+            ? size === undefined
+              ? { ...current, scanFailed: true }
+              : { ...current, size }
+            : current,
+        );
+      });
+    };
+
+    /** 弹原生选目录框 → 得到目标后进确认。 */
+    const pickTarget = (which: MovableLocation, size?: DirSize): void => {
       const current = which === 'root' ? paths.root : (paths.skin ?? '');
-      setEdit({ kind: 'picking', which });
+      setEdit({ kind: 'picking', which, ...(size === undefined ? {} : { size }) });
       void pickFolder(t('fsLocationPick'), current === '' ? undefined : current).then((picked) => {
-        if (picked.kind === 'picked') setEdit({ kind: 'confirm', which, target: picked.path });
-        else if (picked.kind === 'cancelled') setEdit({ kind: 'idle' });
-        else setEdit({ kind: 'manual', which, text: '', message: picked.message });
+        if (picked.kind === 'picked') {
+          setEdit({ kind: 'confirm', which, target: picked.path, ...(size === undefined ? {} : { size }) });
+          return;
+        }
+        // 取消选目录不等于取消整件事：退回说明步，用户不必再看一遍统计。
+        if (picked.kind === 'cancelled') setEdit({ kind: 'intro', which, ...(size === undefined ? {} : { size }) });
+        else
+          setEdit({
+            kind: 'manual',
+            which,
+            text: '',
+            message: picked.message,
+            ...(size === undefined ? {} : { size }),
+          });
       });
     };
 
@@ -295,7 +359,78 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
           ? t('fsRootSourcePointer')
           : t('fsRootSourceDefault');
 
-    /** 确认弹窗：搬目录是不可撤销的重活，必须先把「旧位置会被移除」讲清楚。 */
+    /** 说明步：先讲清「现在有什么、接下来会怎么搬」，再让用户去选目录。 */
+    const introNode =
+      edit.kind === 'intro'
+        ? h('div', {
+            key: 'intro',
+            className: 'dsh-pet-cfg__note is-tight',
+            children: [
+              h('b', {
+                key: 't',
+                children: t('fsLocationIntroTitle').replace('{name}', t(edit.which === 'root' ? 'fsRoot' : 'fsSkin')),
+              }),
+              h('div', {
+                key: 'from',
+                className: 'dsh-pet-cfg__mono',
+                children: t('fsLocationFrom').replace(
+                  '{from}',
+                  edit.which === 'root' ? paths.root : (paths.skin ?? ''),
+                ),
+              }),
+              h('div', {
+                key: 'size',
+                className: 'dsh-pet-cfg__treeDesc',
+                children:
+                  edit.size === undefined
+                    ? edit.scanFailed === true
+                      ? ''
+                      : t('fsLocationSizeScanning')
+                    : sizeText(edit.size),
+              }),
+              h('div', {
+                key: 'body',
+                className: 'dsh-pet-cfg__treeDesc',
+                children: t('fsLocationIntroBody'),
+              }),
+              h('div', {
+                key: 'a',
+                className: 'dsh-pet-cfg__path',
+                children: [
+                  h('button', {
+                    key: 'pick',
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn is-sm is-primary',
+                    onClick: () => pickTarget(edit.which, edit.size),
+                    children: t('fsLocationPick'),
+                  }),
+                  h('button', {
+                    key: 'manual',
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn is-sm',
+                    onClick: () => setEdit({ kind: 'manual', which: edit.which, text: '', ...sizeArg(edit.size) }),
+                    children: t('fsLocationManual'),
+                  }),
+                  h('button', {
+                    key: 'c',
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn is-sm',
+                    onClick: () => setEdit({ kind: 'idle' }),
+                    children: t('cancel'),
+                  }),
+                ],
+              }),
+            ],
+          })
+        : null;
+
+    /** 等系统选目录框：它可能开在别的窗口上层，这里得说明「正在等」而不是没反应。 */
+    const pickingNode =
+      edit.kind === 'picking'
+        ? h('div', { key: 'picking', className: 'dsh-pet-cfg__note is-tight', children: t('fsLocationPicking') })
+        : null;
+
+    /** 确认弹窗：旧位置与新位置并排摆出来，讲清「旧目录会被移除」。 */
     const confirmNode =
       edit.kind === 'confirm'
         ? h('div', {
@@ -311,11 +446,25 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
               children: [
                 h('div', { key: 't', className: 'dsh-pet-cfg__dialogTitle', children: t('fsLocationConfirmTitle') }),
                 h('div', {
+                  key: 'from',
+                  className: 'dsh-pet-cfg__dialogBody',
+                  children: t('fsLocationFrom').replace(
+                    '{from}',
+                    edit.which === 'root' ? paths.root : (paths.skin ?? ''),
+                  ),
+                }),
+                h('div', {
+                  key: 'to',
+                  className: 'dsh-pet-cfg__dialogBody',
+                  children: t('fsLocationTo').replace('{to}', edit.target),
+                }),
+                edit.size === undefined
+                  ? null
+                  : h('div', { key: 'size', className: 'dsh-pet-cfg__dialogBody', children: sizeText(edit.size) }),
+                h('div', {
                   key: 'b',
                   className: 'dsh-pet-cfg__dialogBody',
-                  children: t('fsLocationConfirmBody')
-                    .replace('{from}', edit.which === 'root' ? paths.root : (paths.skin ?? ''))
-                    .replace('{to}', edit.target),
+                  children: t('fsLocationConfirmBody'),
                 }),
                 h('div', {
                   key: 'a',
@@ -329,11 +478,18 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
                       children: t('cancel'),
                     }),
                     h('button', {
+                      key: 'again',
+                      type: 'button',
+                      className: 'dsh-pet-cfg__btn',
+                      onClick: () => pickTarget(edit.which, edit.size),
+                      children: t('fsLocationAgain'),
+                    }),
+                    h('button', {
                       key: 'ok',
                       type: 'button',
                       className: 'dsh-pet-cfg__btn is-primary',
                       onClick: () => confirmMove(edit.which, edit.target),
-                      children: t('fsLocationChange'),
+                      children: t('fsLocationStart'),
                     }),
                   ],
                 }),
@@ -361,6 +517,7 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
                     kind: 'manual',
                     which: edit.which,
                     text: e.target.value,
+                    ...sizeArg(edit.size),
                     ...(edit.message === undefined ? {} : { message: edit.message }),
                   }),
               }),
@@ -369,7 +526,8 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
                 type: 'button',
                 className: 'dsh-pet-cfg__btn is-sm is-primary',
                 disabled: edit.text.trim() === '',
-                onClick: () => setEdit({ kind: 'confirm', which: edit.which, target: edit.text.trim() }),
+                onClick: () =>
+                  setEdit({ kind: 'confirm', which: edit.which, target: edit.text.trim(), ...sizeArg(edit.size) }),
                 children: t('ok'),
               }),
               h('button', {
@@ -386,13 +544,23 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
           })
         : null;
 
-    /** 进度 / 结论行：搬家中、搬完（带重启）、失败（带原因）。 */
+    /** 进度 / 结论行：搬家中（带文件数与当前路径）、搬完（带重启）、失败（带原因）。 */
     const progressNode =
       edit.kind === 'moving'
         ? h('div', {
             key: 'move',
             className: 'dsh-pet-cfg__note is-tight',
-            children: [t('fsLocationMoving').replace('{to}', edit.target)],
+            children: [
+              t('fsLocationMoving').replace('{to}', edit.target),
+              moveProgress === undefined
+                ? ''
+                : ' · ' +
+                  t('fsLocationProgress')
+                    .replace('{done}', String(moveProgress.copiedFiles))
+                    .replace('{total}', String(moveProgress.totalFiles))
+                    .replace('{size}', humanBytes(moveProgress.copiedBytes)) +
+                  (moveProgress.current === '' ? '' : ' · ' + moveProgress.current),
+            ],
           })
         : edit.kind === 'done'
           ? h('div', {
@@ -422,6 +590,8 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
         locationRow('skin', paths.skin ?? '', t('fsSkinHint'), 'skin', undefined, () => beginEdit('skin')),
       ]),
       progressNode,
+      introNode,
+      pickingNode,
       manualNode,
       section(t('fsTree'), [
         h('div', { key: 'tree', className: 'dsh-pet-cfg__tree', children: tree }),

@@ -1,5 +1,6 @@
 /**
- * 位置变更：`GET/POST /layout/location`（数据根与用户皮肤目录搬到别处）与 `POST /pick-folder`（原生选目录）。
+ * 位置变更：`GET/POST /layout/location`（数据根与用户皮肤目录搬到别处）、`GET /layout/size`
+ * （搬之前先数清有多少）与 `POST /pick-folder`（原生选目录）。
  *
  * 为什么是异步 + 轮询：搬一个几百 MB 的数据根要几十秒，一次 HTTP 请求挂着不合适（代理与浏览器都会先超时）。
  * POST 只负责把它跑起来，GET 返回进度；搬完的落点（指针文件 / `locations.json`）由本模块写。
@@ -12,7 +13,7 @@
 import { existsSync, statSync } from 'node:fs';
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { patchLocations, resolveSkinDir, writeRootPointer } from '../locations.ts';
-import { checkMoveTarget, moveTree, type MoveProgress } from '../move-tree.ts';
+import { checkMoveTarget, dirSize, moveTree, type MoveProgress } from '../move-tree.ts';
 import { pickFolder } from '../pick-folder.ts';
 import { pathsOf } from './paths.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
@@ -159,9 +160,28 @@ function runMove(deps: PetRouteDeps, which: MovableLocation, target: string): st
   return undefined;
 }
 
-/** 位置变更领域：未命中返回 undefined，命中返回应答。 */
+/**
+ * 位置变更领域：未命中返回 undefined，命中返回应答。
+ */
 export async function handleLayoutRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
   const { rest, method } = input;
+
+  // 「这次要搬多少」：界面在让用户选目录之前先问一次，好把文件数与体积讲清楚。
+  // 只读扫描，不建目录、不写文件；扫不动就如实回失败，界面隐藏数量那一行。
+  if (rest === 'layout/size') {
+    if (method !== 'GET') return methodNotAllowed();
+    const which = input.url.searchParams.get('which');
+    if (which !== 'root' && which !== 'skin') return failResult('bad-request', 'which 只能是 root / skin');
+    const paths = pathsOf(deps);
+    const target = which === 'root' ? paths.root : paths.skinsDir;
+    try {
+      const size = dirSize(target);
+      return okResult({ ok: true, which, path: target, ...size });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return failResult('generate-error', '统计目录大小失败：' + reason);
+    }
+  }
 
   if (rest === 'layout/location') {
     if (method === 'GET') {

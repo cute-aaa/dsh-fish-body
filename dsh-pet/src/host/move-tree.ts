@@ -100,6 +100,21 @@ function scan(dir: string): TreeStats {
 }
 
 /**
+ * 数一个目录有多大（文件数 + 字节数）。
+ *
+ * 用来在「更改位置」之前把「这次要搬多少」先讲清楚——用户看不到数量级时，
+ * 「会整体迁移」只是一句空话。目录不存在时不报错、报 0：那正是「还没建」的正常状态。
+ *
+ * @param dir - 目录的绝对路径。
+ * @returns 文件数与字节数；目录不存在时两者都是 0。
+ */
+export function dirSize(dir: string): { readonly files: number; readonly bytes: number } {
+  if (!existsSync(dir)) return { files: 0, bytes: 0 };
+  const stats = scan(dir);
+  return { files: stats.files, bytes: stats.bytes };
+}
+
+/**
  * 目标与源的关系检查：不能相同、不能互相包含（否则复制会把源写进自己的子树里）。
  *
  * @param from - 源目录。
