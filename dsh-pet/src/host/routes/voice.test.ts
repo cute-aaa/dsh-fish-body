@@ -191,6 +191,8 @@ function providerDeps(userRoot: string): PetRouteDeps {
     voice: { listVoices: () => VOICES, speak: async () => ({ ok: true, file: '/x' }) },
     speech: { hear: async () => ({ ok: true, text: '' }) },
     userRoot,
+    // 这条用例不测密钥：宿主凭据服务缺席（独立模式就是这个形状），密钥字段一律「未配」
+    optionalService: () => undefined,
   } as unknown as PetRouteDeps;
 }
 
@@ -292,7 +294,13 @@ describe('voice/provider-config —— 接入配置读写', () => {
       );
       assert.equal(result?.kind, 'json');
       if (result?.kind !== 'json') return;
-      assert.deepEqual(result.obj, { ok: true, provider: 'gsv', values: { baseURL: '', voicesDir: '' } });
+      assert.deepEqual(result.obj, {
+        ok: true,
+        provider: 'gsv',
+        values: { baseURL: '', voicesDir: '' },
+        // 这个 stub 没有密钥字段，所以 `secrets` 是空表（真实实现里它回答「密钥配没配」）
+        secrets: {},
+      });
     } finally {
       dispose();
     }

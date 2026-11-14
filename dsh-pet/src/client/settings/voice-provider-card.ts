@@ -1,9 +1,11 @@
 /**
- * 本地语音接入卡：按宿主声明的 `fields` 生成输入框，保存到 `<DSH_HOME>/dsh-pet/voice-providers.json`。
+ * 语音接入卡：按宿主声明的 `fields` 生成输入框，保存到 `<userRoot>/config/voice-providers.json`，
+ * 其中 `password` 字段的值写进 DSH 凭据库（配置文件里一个字节都不留）。
  *
- * 为什么表单由宿主声明驱动而不是写死四个路径：换一台机器、换一个 GPT-SoVITS 部署，
- * 要填的东西就变了；声明在 provider 里（`fields`），两端与设置页都不用跟着改代码（T3.6 的第一步）。
- * 与语音卡分开一张卡：音色是「日常切换」，目录与地址是「一次性接入配置」，混在一起会天天误触。
+ * 为什么表单由宿主声明驱动而不是写死几个路径：换一台机器、换一个部署，要填的东西就变了；
+ * 声明在 provider 里（`fields`），两端与设置页都不用跟着改代码（T3.6）。一张卡对应一个实现，
+ * 本地 GSV 与云端骨架因此可以并排出现，各自有自己的保存结论与启停按钮。
+ * 与语音卡分开：音色是「日常切换」，目录与地址是「一次性接入配置」，混在一起会天天误触。
  * @module dsh-fish-body/src/client/settings/voice-provider-card
  */
 import type { FunctionComponent } from 'react';
@@ -15,9 +17,9 @@ import { makeUiKit, INPUT_CLASS } from './ui.ts';
 export interface VoiceProviderCardProps {
   /** 保存中或配置未就绪时禁用控件。 */
   readonly busy: boolean;
-  /** 实现展示名（「GSV（本地 GPT-SoVITS）」）。 */
+  /** 实现展示名（「GSV（本地 GPT-SoVITS）」/「云端语音（骨架）」）。 */
   readonly name: string;
-  /** 此刻可用否：不可用时顶部直接显示原因（服务没起、目录没配）。 */
+  /** 此刻可用否：不可用时顶部直接显示原因（服务没起、目录没配、尚未接入）。 */
   readonly available: boolean;
   /** 不可用原因。 */
   readonly reason: string;
@@ -30,14 +32,20 @@ export interface VoiceProviderCardProps {
   readonly lastError: string;
   /** 宿主声明的配置项。 */
   readonly fields: readonly VoiceFieldView[];
-  /** 当前值（键 = `fields[].key`）。 */
+  /** 当前值（键 = `fields[].key`；密钥字段恒为空串，值从不回传）。 */
   readonly values: Readonly<Record<string, string>>;
+  /** 密钥字段配没配（键 = 密钥字段的 key）。 */
+  readonly secrets: Readonly<Record<string, boolean>>;
   /** 上一次保存的结论（成功/失败一句话）。 */
   readonly message: string;
   /** 改一个字段的草稿值（保存前不落盘）。 */
   readonly onChange: (key: string, value: string) => void;
   /** 提交全部草稿值。 */
   readonly onSave: () => void;
+  /** 删掉一项已保存的密钥（立即落盘）。 */
+  readonly onClearSecret: (key: string) => void;
+  /** 这个实现有启停能力吗（声明了 `startScript` 才显示两个按钮）。 */
+  readonly showProcess: boolean;
   /** 配了启动脚本 → 「启动服务」有脚本可跑。 */
   readonly canStart: boolean;
   /** 配了停止脚本 → 「停止服务」有脚本可跑。 */
@@ -73,27 +81,62 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
     // 刚发过启动时按住「启动」——服务要几十秒才起来，连点会起出两份抢同一个端口。
     const startDisabled = props.busy || props.processBusy || !props.canStart || props.running || props.starting;
     const stopDisabled = props.busy || props.processBusy || !props.canStop || !props.running;
+    /**
+     * 密钥字段的占位文案：已保存时明说「留空不改」，否则用户会以为那是自己的密钥被清空了。
+     * （值从不回传，输入框本来就只能是空的。）
+     */
+    const placeholderOf = (item: VoiceFieldView): string => {
+      if (item.kind !== 'password') return item.placeholder ?? '';
+      return props.secrets[item.key] === true ? t('voiceProviderSecretSaved') : (item.placeholder ?? '');
+    };
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
-        cardHead(t('voiceProviderTitle'), t('voiceProviderHint')),
+        cardHead(props.name, t('voiceProviderHint')),
         // 出问题时把原因摆在最上面：先让人知道「服务没起/目录没配/念不出来」，再去改下面的路径。
         status
-          ? h('div', { className: 'dsh-pet-cfg__msg is-err', children: [props.name + '：' + status] })
-          : h('div', { className: 'dsh-pet-cfg__msg', children: [props.name + '：' + t('voiceProviderReady')] }),
+          ? h('div', { className: 'dsh-pet-cfg__msg is-err', children: [status] })
+          : h('div', { className: 'dsh-pet-cfg__msg', children: [t('voiceProviderReady')] }),
         h('div', {
           className: 'dsh-pet-cfg__grid2',
           children: props.fields.map((item) =>
             field(
               item.label + (item.required ? ' *' : ''),
-              h('input', {
-                type: item.kind === 'password' ? 'password' : 'text',
-                className: INPUT_CLASS,
-                value: props.values[item.key] ?? '',
-                placeholder: item.placeholder ?? '',
-                disabled: props.busy,
-                onChange: (event: { target: { value: string } }) => props.onChange(item.key, event.target.value),
-              }),
+              // 密钥字段多一个「清除」：值不回传，所以「清空」不能靠删掉输入框里的字来猜。
+              item.kind === 'password'
+                ? h('div', {
+                    className: 'dsh-pet-cfg__actions',
+                    children: [
+                      h('input', {
+                        type: 'password',
+                        className: INPUT_CLASS,
+                        value: props.values[item.key] ?? '',
+                        placeholder: placeholderOf(item),
+                        disabled: props.busy,
+                        onChange: (event: { target: { value: string } }) =>
+                          props.onChange(item.key, event.target.value),
+                      }),
+                      ...(props.secrets[item.key] === true
+                        ? [
+                            h('button', {
+                              type: 'button',
+                              className: 'dsh-pet-cfg__btn',
+                              disabled: props.busy,
+                              onClick: () => props.onClearSecret(item.key),
+                              children: [t('voiceProviderSecretClear')],
+                            }),
+                          ]
+                        : []),
+                    ],
+                  })
+                : h('input', {
+                    type: 'text',
+                    className: INPUT_CLASS,
+                    value: props.values[item.key] ?? '',
+                    placeholder: item.placeholder ?? '',
+                    disabled: props.busy,
+                    onChange: (event: { target: { value: string } }) => props.onChange(item.key, event.target.value),
+                  }),
               item.description,
             ),
           ),
@@ -109,20 +152,25 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
               children: [t('voiceProviderSave')],
             }),
             // 启停：只跑用户填的脚本。启动要几十秒，所以点完只回一句「已发送」，可用性由探活翻牌。
-            h('button', {
-              type: 'button',
-              className: 'dsh-pet-cfg__btn',
-              disabled: startDisabled,
-              onClick: props.onStart,
-              children: [t('voiceProviderStart')],
-            }),
-            h('button', {
-              type: 'button',
-              className: 'dsh-pet-cfg__btn',
-              disabled: stopDisabled,
-              onClick: props.onStop,
-              children: [t('voiceProviderStop')],
-            }),
+            // 云端这类没有本地进程的实现不显示这两个按钮（`showProcess` 由字段声明决定）。
+            ...(props.showProcess
+              ? [
+                  h('button', {
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn',
+                    disabled: startDisabled,
+                    onClick: props.onStart,
+                    children: [t('voiceProviderStart')],
+                  }),
+                  h('button', {
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn',
+                    disabled: stopDisabled,
+                    onClick: props.onStop,
+                    children: [t('voiceProviderStop')],
+                  }),
+                ]
+              : []),
             props.message
               ? h('div', {
                   className: 'dsh-pet-cfg__msg' + (props.message.startsWith('!') ? ' is-err' : ''),

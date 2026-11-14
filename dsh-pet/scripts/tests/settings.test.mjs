@@ -118,7 +118,17 @@ const echoFish = (route) => {
 
 async function open(
   t,
-  { get = customized, put, post, fishPut, viewport = { width: 900, height: 900 }, lang = 'en', reducedMotion } = {},
+  {
+    get = customized,
+    put,
+    post,
+    fishPut,
+    viewport = { width: 900, height: 900 },
+    lang = 'en',
+    reducedMotion,
+    // 语音实现清单：给了就让「声音」分区出现对应的接入卡（默认走兜底 JSON，没有 provider）。
+    voiceProviders = null,
+  } = {},
 ) {
   const context = await browser.newContext(reducedMotion ? { reducedMotion, viewport } : { viewport });
   t.after(() => context.close());
@@ -330,6 +340,9 @@ async function open(
       restarts.push(request.method());
       // helper 模式：不触发页面刷新，测试才看得到后续断言。
       return route.fulfill({ json: { ok: true, mode: 'helper' } });
+    }
+    if (path === '/dsh-pet-7340/voice/voices' && voiceProviders !== null) {
+      return route.fulfill({ json: { ok: true, voices: [], providers: voiceProviders } });
     }
     return route.fulfill({
       json: { providers: [{ id: 'test', name: 'Test', models: [{ id: 'model', name: 'Model' }] }] },
@@ -908,4 +921,74 @@ test('system → shortcuts: Escape cancels the capture without changing anything
   await page.getByText('Press a key…', { exact: true }).waitFor();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: /^Todo list：D 键$/ }).waitFor();
+});
+
+/** 云端 TTS 骨架（T3.5）的 provider 形状：只有声明式 fields，没有音色可切。 */
+const cloudProvider = {
+  id: 'cloud',
+  name: '云端语音（骨架）',
+  builtin: false,
+  available: false,
+  reason: '未配置云端语音：还缺 服务地址 / 模型',
+  voices: [],
+  voice: '',
+  fields: [
+    { key: 'baseURL', label: '服务地址', kind: 'text', required: true },
+    { key: 'model', label: '模型', kind: 'text', required: true },
+    { key: 'apiKey', label: 'API Key', kind: 'password', required: true, placeholder: 'sk-…' },
+  ],
+};
+
+test('audio → 每个语音实现一张接入卡：云端骨架按 fields 生成，密钥是 password 输入', async (t) => {
+  const { page } = await open(t, {
+    voiceProviders: [cloudProvider],
+    viewport: { width: 900, height: 1800 },
+  });
+  await tab(page, 'Sound').click();
+  await page.getByText('Voice connection', { exact: true }).waitFor();
+  await page.getByText('云端语音（骨架）', { exact: true }).waitFor();
+  // 密钥字段是 password，且带「清除」按钮的容器（未配置时按钮不出现）
+  assert.equal(await page.locator('.dsh-pet-cfg__card input[type="password"]').count(), 1);
+  await page.getByPlaceholder('sk-…').waitFor();
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    await page.screenshot({
+      path: join(process.env.DSH_PET_UI_ARTIFACTS, 'voice-cloud-card.png'),
+      fullPage: true,
+      animations: 'disabled',
+    });
+  }
+});
+
+test('search: 按当前值跨分区定位，点结果切分区并高亮命中项', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 1600 } });
+  await page.locator('.dsh-pet-cfg__panel').waitFor();
+  const box = page.getByPlaceholder('Search settings, titles or current values…');
+
+  // 值搜索：1200 是重力（外观与手感分区里的字段值，见 customized 夹具），起点在「桌宠」分区，
+  // 说明索引确实把还没打开的分区也读进来了。
+  await box.fill('1200');
+  const row = page.locator('.dsh-pet-cfg__searchRow').first();
+  await row.waitFor();
+  assert.match(await row.textContent(), /Look & feel/);
+  assert.match(await row.textContent(), /1200/);
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    await page.screenshot({ path: join(process.env.DSH_PET_UI_ARTIFACTS, 'search-results.png') });
+  }
+
+  await row.click();
+  await page
+    .getByRole('tab', { name: /^Look & feel/ })
+    .and(page.locator('[aria-selected="true"]'))
+    .waitFor();
+  // 跳过去高亮：命中的字段短暂带 is-search-hit
+  await page.locator('.dsh-pet-cfg__panel .is-search-hit').first().waitFor();
+
+  // 没有匹配时给一句人话，而不是一张空列表
+  await box.fill('zzz-no-such-setting');
+  await page.getByText('No matching setting', { exact: true }).waitFor();
+  // Esc 退出搜索态，回到分区面板
+  await box.press('Escape');
+  await page.locator('.dsh-pet-cfg__panel').waitFor();
 });

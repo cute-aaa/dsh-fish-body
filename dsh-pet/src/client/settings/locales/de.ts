@@ -5,6 +5,10 @@ import type { Key } from './zh.ts';
 
 export const de: Record<Key, string> = {
   nav: 'Desktop-Pet-Konfiguration',
+  searchPlaceholder: 'Einstellungen, Titel oder aktuelle Werte suchen…',
+  searchResults: 'Suchergebnisse',
+  searchEmpty: 'Keine passende Einstellung',
+  searchWholeCard: 'Ganze Karte',
   tabLook: 'Aussehen',
   petCardTitle: 'Pet-Konfiguration',
   avatarLabel: 'Avatar',
@@ -317,8 +321,11 @@ export const de: Record<Key, string> = {
   voiceNameLabel: 'Stimme',
   voiceLocalLabel: 'Stimme (lokal)',
   voiceLocalHint: 'Klang der lokalen Sprachausgabe; gilt ab dem naechsten Satz',
-  voiceProviderTitle: 'Lokale Stimme (GSV)',
-  voiceProviderHint: 'GPT-SoVITS-Adresse und Materialordner; Stimmen werden nach dem Speichern neu gescannt',
+  voiceProviderTitle: 'Sprachverbindung',
+  voiceProviderHint:
+    'Verbindungseinstellungen je Stimmanbieter; gelten sofort, Schluessel liegen im Credential-Store des Hosts',
+  voiceProviderSecretSaved: 'Gespeichert; leer lassen zum Behalten',
+  voiceProviderSecretClear: 'Entfernen',
   voiceProviderSave: 'Verbindung speichern',
   voiceProviderSaved: 'Gespeichert; Stimmliste aktualisiert',
   voiceProviderReady: 'Dienst ist online',

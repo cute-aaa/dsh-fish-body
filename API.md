@@ -124,11 +124,23 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `POST /dsh-pet-7340/voice/speak` | 合成并返回音频：`{ text, voice?, rate? }`；同一输入命中缓存，队列最多排 3 个 |
 | `POST /dsh-pet-7340/voice/hear`  | 识别音频回文字：`{ audio }`，16kHz/单声道/PCM16 WAV 的 base64                |
 | `GET /dsh-pet-7340/voice/voices` | 可用音色列表 + 合成链状态；前端拿它渲染选择器，不要硬编码 id                 |
+| `GET /dsh-pet-7340/voice/provider-config?provider=` | 读一个实现的接入配置：`values`（普通项）+ `secrets`（密钥**配没配**，值从不回传） |
+| `POST /dsh-pet-7340/voice/provider-config` | 写接入配置：`{ provider, patch, clear? }`；普通项进 `voice-providers.json`，密钥项进 DSH 凭据库 |
+| `POST /dsh-pet-7340/voice/provider-voice` | 切某个实现的音色：`{ provider, voice }`，立即落盘（不是「保存」的一部分） |
 
 合成链是「注册的第三方在前、内置 edge 收尾」，任一环失败就**静默**落到下一环（用户只会听到换了嗓子）。
 `/voice/voices` 的 `providers[]` 因此有两个互不替代的字段：`reason` 是「这一环现在能不能用」，
 `lastError` 是「通着但上一句念失败了」（参考音频坏了、上游 `/tts` 报错…，合成成功即消失）——
 后者是「本地音色其实没用上」唯一可见的线索，设置页的接入卡把它当警告显示。
+
+**密钥不进配置文件**：`kind: password` 且声明了 `credentialRef` 的字段（今天只有云端骨架的 `apiKey`）
+写进 DSH 凭据库——配置文件会被备份、会被贴进 issue。写入语义：`patch` 里非空才写、**空串是「不改」**
+（值不回传，界面只能给空框），要删必须放进 `clear`。宿主凭据库没有写入能力时（独立模式的替身只有
+`resolve`）回 `unsupported`，不静默丢弃用户填的密钥。
+
+**云端 TTS 目前是骨架**（`id: cloud`）：只声明配置项（服务地址 / 模型 / 音色 / API Key），`availability()`
+恒为假、`synthesize()` 明确抛「尚未接入」。这不是偷懒——骨架期一旦放行，回退链就会把它排在本地语音之前，
+每句话先失败一次再落到下一环，用户只觉得变慢了。
 
 `POST /voice/provider-process` 只跑 `config/voice-providers.json` 里填的启停脚本，**不建控制台窗口**：
 脚本的 stdout/stderr 追加到 `<DSH_HOME>/fish-body/logs/gsv/<provider>-start.log`。这不是风格问题——

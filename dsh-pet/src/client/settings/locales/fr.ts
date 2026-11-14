@@ -5,6 +5,10 @@ import type { Key } from './zh.ts';
 
 export const fr: Record<Key, string> = {
   nav: 'Configuration des compagnons',
+  searchPlaceholder: 'Rechercher un réglage, un titre ou une valeur actuelle…',
+  searchResults: 'Résultats',
+  searchEmpty: 'Aucun réglage ne correspond',
+  searchWholeCard: 'Carte entière',
   tabLook: 'Apparence',
   petCardTitle: 'Compagnon',
   avatarLabel: 'Avatar',
@@ -319,9 +323,11 @@ export const fr: Record<Key, string> = {
   voiceLocalLabel: 'Voix (locale)',
   voiceLocalHint: 'Timbre du service vocal local ; s’applique dès la phrase suivante',
   voiceNameFallbackHint: 'Ignore tant que la voix locale est disponible : ne choisit que la voix edge si GSV tombe',
-  voiceProviderTitle: 'Voix locale (GSV)',
+  voiceProviderTitle: 'Connexion vocale',
   voiceProviderHint:
-    'URL du service GPT-SoVITS et dossiers de ressources ; les voix sont rescannées après enregistrement',
+    'Réglages de connexion de chaque fournisseur de voix ; appliqués aussitôt, les clés vont dans le stockage des identifiants du host',
+  voiceProviderSecretSaved: 'Enregistré ; laissez vide pour conserver',
+  voiceProviderSecretClear: 'Effacer',
   voiceProviderSave: 'Enregistrer la connexion',
   voiceProviderSaved: 'Enregistré ; liste des voix actualisée',
   voiceProviderReady: 'Service en ligne',

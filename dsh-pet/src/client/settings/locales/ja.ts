@@ -5,6 +5,10 @@ import type { Key } from './zh.ts';
 
 export const ja: Record<Key, string> = {
   nav: 'デスクトップペット設定',
+  searchPlaceholder: '設定項目・タイトル・現在の値を検索…',
+  searchResults: '検索結果',
+  searchEmpty: '一致する設定がありません',
+  searchWholeCard: 'カード全体',
   tabLook: '外観',
   petCardTitle: 'ペットの設定',
   avatarLabel: 'アバター',
@@ -316,8 +320,11 @@ export const ja: Record<Key, string> = {
   voiceLocalLabel: '声質（ローカル）',
   voiceLocalHint: 'ローカル音声サービスの声質。次の文から反映されます',
   voiceNameFallbackHint: 'ローカル音色が使える間は効きません（GSV 停止時の edge の声だけを決めます）',
-  voiceProviderTitle: 'ローカル音声（GSV）',
-  voiceProviderHint: 'GPT-SoVITS の接続先と素材フォルダ。保存すると音色を再スキャンします',
+  voiceProviderTitle: '音声の接続',
+  voiceProviderHint:
+    '音声プロバイダーごとの接続設定。保存するとすぐ反映され、キーはホストの資格情報ストアに保存されます',
+  voiceProviderSecretSaved: '保存済み（空欄なら変更しません）',
+  voiceProviderSecretClear: '削除',
   voiceProviderSave: '接続設定を保存',
   voiceProviderSaved: '保存しました（音色を再読み込み）',
   voiceProviderReady: 'サービスはオンラインです',

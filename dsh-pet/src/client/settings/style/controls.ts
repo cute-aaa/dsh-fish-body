@@ -132,4 +132,25 @@ export const CONTROLS_CSS = [
   '.dsh-pet-sel__panel{position:fixed;z-index:2147483000;display:flex;flex-direction:column;gap:2px;padding:4px;overflow:hidden;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--pcg-radius);background:var(--dsw-alias-bg-layer-1);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary)}',
   '.dsh-pet-sel__list{display:flex;flex-direction:column;min-height:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin}',
   '.dsh-pet-sel__item[aria-selected="true"],.dsh-pet-mp__item[aria-checked="true"]{color:var(--dsw-alias-state-business-primary)}',
+
+  // 设置搜索：输入框一行（计数贴右），搜索态下结果列表替掉分区面板。
+  '.dsh-pet-cfg__search{display:flex;align-items:center;gap:8px;min-width:0}',
+  '.dsh-pet-cfg__searchInp{box-sizing:border-box;flex:1 1 auto;min-width:0;height:var(--pcg-ctl-h);padding:0 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:var(--pcg-fs-body);outline:none;transition:border-color var(--pcg-dur-fast) var(--pcg-ease)}',
+  '.dsh-pet-cfg__searchInp:focus{border-color:var(--dsw-alias-state-business-primary)}',
+  // 原生清除按钮的宽度不受本页 token 控制，只让它跟文字同色，别在深色主题里变成一个亮白叉。
+  '.dsh-pet-cfg__searchInp::-webkit-search-cancel-button{cursor:pointer;filter:grayscale(1);opacity:.6}',
+  '.dsh-pet-cfg__searchCount{flex:none;min-width:20px;font-size:var(--pcg-fs-meta);line-height:16px;text-align:right;color:var(--dsw-alias-label-tertiary)}',
+  // 结果列表按内容高度走（不写 min-height:0）：宿主容器是固定高度时，列方向 flex 会把 0 基准的
+  // 子项压扁，行被裁掉且看不出来；上限 60vh 只是防止 40 条结果把整页顶出去。
+  '.dsh-pet-cfg__searchList{display:flex;flex-direction:column;gap:2px;max-height:60vh;overflow-y:auto;scrollbar-width:thin}',
+  '.dsh-pet-cfg__searchRow{display:flex;align-items:baseline;gap:8px;width:100%;padding:6px 8px;border:none;border-radius:var(--pcg-radius-sm);background:transparent;color:inherit;font:inherit;font-size:var(--pcg-fs-body);line-height:20px;text-align:left;cursor:pointer}',
+  '@media (hover:hover){.dsh-pet-cfg__searchRow:hover{background:var(--dsw-alias-interactive-bg-hover)}}',
+  '.dsh-pet-cfg__searchRow.is-active{background:var(--dsw-alias-interactive-bg-hover)}',
+  `.dsh-pet-cfg__searchRow:focus-visible{outline:none;${FOCUS_RING}}`,
+  // 路径（分区 › 卡片）与值都收窄：一行里最重要的一直是中间那个名称。
+  '.dsh-pet-cfg__searchPath{flex:none;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--pcg-fs-meta);color:var(--dsw-alias-label-tertiary)}',
+  '.dsh-pet-cfg__searchName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+  '.dsh-pet-cfg__searchValue{flex:none;max-width:42%;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--pcg-fs-meta);color:var(--dsw-alias-label-tertiary)}',
+  // 命中高亮：点结果跳过去之后短暂标出「搜到的是这几项」，到点自己摘掉（见 search.ts）。
+  '.dsh-pet-cfg .is-search-hit{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:var(--pcg-radius-sm)}',
 ].join('\n');

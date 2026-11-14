@@ -26,6 +26,7 @@ import { createVoiceService } from './voice/speak.ts';
 import { createHearService } from './voice/hear.ts';
 import { openDirectory } from './open-folder.ts';
 import { createGsvProvider } from './voice/gsv/provider.ts';
+import { createCloudProvider, cloudSettingsOf } from './voice/cloud/provider.ts';
 import { gsvSettingsOf } from './voice/gsv/settings.ts';
 import { providerConfigPath, readProviderConfig } from './voice/gsv/store.ts';
 import { registerVoiceProvider } from './voice/registry.ts';
@@ -72,6 +73,12 @@ export function apply(ctx: any): void {
     },
     'fish-body: gsv voice provider',
   );
+  // 云端 TTS 骨架（T3.5）：只有配置项与「尚未接入」，一个请求都不发，因此没有 dispose。
+  // 注册顺序排在 GSV 之后：日后真正放行时，本地优先于云端（延迟与费用都更低）。
+  const unregisterCloud = registerVoiceProvider(
+    createCloudProvider({ settings: () => cloudSettingsOf(readProviderConfig(providerConfigPath(userRoot))) }),
+  );
+  ctx.effect(() => () => unregisterCloud(), 'fish-body: cloud voice provider');
 
   const workStatusBridge = createWorkStatusBridge({ state, workStatus, EXTERNAL_WORK_SESSION });
   const { publishWorkStatus, stopWorkStatusFlush } = workStatusBridge;

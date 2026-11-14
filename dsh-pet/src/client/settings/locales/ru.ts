@@ -5,6 +5,10 @@ import type { Key } from './zh.ts';
 
 export const ru: Record<Key, string> = {
   nav: 'Настройки питомца',
+  searchPlaceholder: 'Поиск по настройкам, заголовкам и текущим значениям…',
+  searchResults: 'Результаты поиска',
+  searchEmpty: 'Нет подходящих настроек',
+  searchWholeCard: 'Вся карточка',
   tabLook: 'Внешний вид',
   petCardTitle: 'Питомец',
   avatarLabel: 'Аватар',
@@ -318,8 +322,11 @@ export const ru: Record<Key, string> = {
   voiceLocalLabel: 'Голос (локальный)',
   voiceLocalHint: 'Тембр локального голосового сервиса; применяется со следующей фразы',
   voiceNameFallbackHint: 'Не действует, пока доступен локальный голос: выбирает лишь голос edge на случай отказа GSV',
-  voiceProviderTitle: 'Локальный голос (GSV)',
-  voiceProviderHint: 'Адрес GPT-SoVITS и каталоги материалов; голоса пересканируются после сохранения',
+  voiceProviderTitle: 'Подключение голоса',
+  voiceProviderHint:
+    'Настройки подключения каждого голосового провайдера; применяются сразу, ключи хранятся в хранилище учётных данных хоста',
+  voiceProviderSecretSaved: 'Сохранено; оставьте пустым, чтобы не менять',
+  voiceProviderSecretClear: 'Удалить',
   voiceProviderSave: 'Сохранить подключение',
   voiceProviderSaved: 'Сохранено; список голосов обновлён',
   voiceProviderReady: 'Сервис в сети',

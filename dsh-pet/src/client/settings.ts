@@ -33,7 +33,16 @@ import { useSaveHotkey } from './settings/save-hotkey.ts';
 import { makeSnapshot, withoutFish } from './settings/snapshot.ts';
 import { readSavedTab, saveTab, settingsTabStorage } from './settings/tab-memory.ts';
 import type { SettingsRuntime } from './settings/runtime.ts';
-import { DEFAULT_SETTINGS_TAB, makeTabBar, tabButtonId, tabPanelId, type SettingsTabId } from './settings/tabs.ts';
+import { highlightMatches } from './settings/search.ts';
+import { useSettingsSearch } from './settings/use-settings-search.ts';
+import {
+  DEFAULT_SETTINGS_TAB,
+  SETTINGS_TABS,
+  makeTabBar,
+  tabButtonId,
+  tabPanelId,
+  type SettingsTabId,
+} from './settings/tabs.ts';
 import { attachTipLayer } from './settings/tip-layer.ts';
 import { useAppearanceSettings } from './settings/use-appearance-settings.ts';
 import { useAvatarUpload } from './settings/use-avatar-upload.ts';
@@ -289,6 +298,31 @@ export function makePetConfigSection(
     };
     const panels = panelsOf(deps);
 
+    // 搜索要能命中还没打开的分区，所以它的索引层会用同一个 `panels` 把六个分区各渲染一次
+    // （`display:none`，读完成条目立刻卸掉）。选中结果后由 `pickResult` 切分区并高亮。
+    const panelRef = useRef<HTMLDivElement | null>(null);
+    const [flash, setFlash] = useState<{ query: string; seq: number } | null>(null);
+    const pickResult = useCallback((id: SettingsTabId, query: string): void => {
+      selectTab(id);
+      // 同一个词连点两次也要重新闪一下：靠 seq 让 effect 每次都跑
+      setFlash((current) => ({ query, seq: (current?.seq ?? 0) + 1 }));
+    }, []);
+    const search = useSettingsSearch(rt, {
+      tabs: SETTINGS_TABS.map((def) => ({ id: def.id, label: t(def.titleKey) })),
+      renderPanel: (id) => panels[id](),
+      onPick: pickResult,
+    });
+
+    // 切完分区再高亮：面板在这一次提交里已经是新分区，滚到第一处命中
+    useEffect(() => {
+      const run = (): void => {
+        const root = panelRef.current;
+        if (root === null || flash === null) return;
+        highlightMatches(root, flash.query);
+      };
+      run();
+    }, [flash]);
+
     return h('section', {
       ref: rootRef,
       className: 'dsh-pet-cfg',
@@ -296,21 +330,29 @@ export function makePetConfigSection(
       'aria-label': t('nav'),
       style: { maxWidth: '720px' },
       children: [
+        // 搜索框固定在分区标签条上方：搜的是「六个分区里的所有项」，所以不属于任何一页。
+        search.box,
+
         // 页头只剩分区标签条：分区名已经在设置页的左侧导航里，再写一遍标题只是重复。
         h(TabBar, { active: tab, onSelect: selectTab, dirty: tabsDirty }),
 
         h(LoadStatus, { loadState, onRetry: retry }),
 
-        // 只渲染当前分区：其余分区的卡片不构造节点（字段状态仍在各 hook 里，切回来不丢）。
-        // key 跟随分区 id：切页时重新挂载，入场动画才会重播（CSS 只动透明度与位移）。
-        h('div', {
-          key: tab,
-          role: 'tabpanel',
-          id: tabPanelId(tab),
-          'aria-labelledby': tabButtonId(tab),
-          className: 'dsh-pet-cfg__panel',
-          children: panels[tab](),
-        }),
+        // 搜索态用结果列表替掉面板（面板仍保留在页面上会跟结果抢滚动位置）。
+        search.active
+          ? search.results
+          : h('div', {
+              key: tab,
+              ref: panelRef,
+              role: 'tabpanel',
+              id: tabPanelId(tab),
+              'aria-labelledby': tabButtonId(tab),
+              className: 'dsh-pet-cfg__panel',
+              children: panels[tab](),
+            }),
+
+        // 建索引那一帧才存在的隐藏容器；读完成条目立刻卸掉。
+        search.indexLayer,
 
         // 底部栏：不属于任何分区，任何一页都在同一位置。
         h(Bar, {

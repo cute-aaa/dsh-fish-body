@@ -34,6 +34,8 @@ temp/
 
 # ── dsh-pet 设置页截图产出（DSH_PET_UI_ARTIFACTS，跑 npm run test:ui 即可重生，不入仓库）──
 dsh-pet/artifacts/
+# 早期一轮在仓库根跑截图时留下的同批产出（同一原因：可重生）
+.ui-artifacts/
 
 # ── dsh-pet 构建产物（全部由 src/ 构建生成，不入仓库；克隆后先 npm run prepare:webm）──
 #   lib/                      tsdown bundle（lib/index.js、lib/client.js）+ tsc 声明（lib/types/*.d.ts，npm run types）

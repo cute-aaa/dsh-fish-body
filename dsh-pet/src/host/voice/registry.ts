@@ -32,6 +32,13 @@ export interface VoiceField {
   readonly options?: readonly string[];
   /** 一句说明，设置页显示在控件下方。 */
   readonly description?: string;
+  /**
+   * `password` 字段在 DSH 凭据库里的引用名（如 `DSH_FISH_BODY_CLOUD_TTS_KEY`）。
+   *
+   * 声明了就**不**进 `voice-providers.json`：值由凭据库持有，配置里一个字节都不留；
+   * 没声明的 `password` 字段按普通文本处理（会有明文落盘的风险，所以新实现一律声明它）。
+   */
+  readonly credentialRef?: string;
 }
 
 /** 可用性结论：不可用时给一句人话，直接显示在设置页上。 */

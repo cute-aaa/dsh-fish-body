@@ -4,6 +4,10 @@
 
 export const zh = {
   nav: '桌宠配置',
+  searchPlaceholder: '搜索设置项、标题或当前值…',
+  searchResults: '搜索结果',
+  searchEmpty: '没有匹配的设置项',
+  searchWholeCard: '整张卡片',
   tabLook: '外观',
   petCardTitle: '宠物配置',
   avatarLabel: '头像',
@@ -300,8 +304,10 @@ export const zh = {
   voiceLocalLabel: '音色（本地）',
   voiceLocalHint: '本机语音服务的音色，切换后下一句生效',
   voiceNameFallbackHint: '本地音色可用时这一项不生效：它只决定 GSV 不可用时 edge 用谁的嗓子',
-  voiceProviderTitle: '本地语音接入（GSV）',
-  voiceProviderHint: 'GPT-SoVITS 的服务地址与素材目录；保存后立即重扫音色',
+  voiceProviderTitle: '语音接入',
+  voiceProviderHint: '每个语音实现自己的连接配置；保存后立即生效，密钥存进宿主凭据库',
+  voiceProviderSecretSaved: '已保存；留空则不修改',
+  voiceProviderSecretClear: '清除',
   voiceProviderSave: '保存接入配置',
   voiceProviderSaved: '已保存，音色清单已刷新',
   voiceProviderReady: '服务在线，音色可用',

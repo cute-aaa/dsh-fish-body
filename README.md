@@ -297,7 +297,7 @@ AI 提示词 → 绿幕视频 → 透明动画 → 插件，换角色、换动�
 ├─ config/                    设置（用户的东西，删了等于重置）
 │  ├─ main-config.jsonc       主配置：JSONC 带注释，可手改；设置页「同步」写的就是它
 │  ├─ session-fish.json       会话鱼设置（独立文件，整份重写不碰主配置的注释）
-│  └─ voice-providers.json    本地语音接入（服务地址 / 音色 / 素材目录）
+│  └─ voice-providers.json    语音接入（服务地址 / 音色 / 素材目录；API Key 在 DSH 凭据库，不在这份文件里）
 ├─ data/                      数据（用户的东西）
 │  ├─ memory.json             对话记忆（按宠物分桶）
 │  └─ todos.json              待办清单
