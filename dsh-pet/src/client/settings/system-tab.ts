@@ -1,9 +1,10 @@
 /**
- * 「系统」分区：提醒与桌面、备份与恢复、快捷键参考、文件与目录，以及插件维护。
+ * 「系统」分区：提醒与桌面、看屏幕与避让、快捷键参考，以及页尾的「维护动作」一组
+ * （备份与恢复、文件与目录、插件维护）。
  *
- * 这一页全是「插件与本机的关系」：怎么提醒、能不能点、键位是什么、文件落在哪、怎么卸干净、怎么重启。
- * 前四张卡都不产生「未保存改动」（开关随保存写，其余只读），只有提醒卡会出圆点；
- * 维护卡里的重启 / 重置由外壳执行，同样不进「未保存」的账。
+ * 这一页分两段读：前半是「插件与本机的关系」（怎么提醒、能不能点、键位是什么），后半是维护动作
+ * （备份 / 搬家 / 重启 / 重置 / 卸载）——它们配一次就不动，所以整组沉到页尾，也都不占底部操作栏。
+ * 前两张卡会产生「未保存改动」；备份、文件与目录、维护卡由外壳执行，不进「未保存」的账。
  * owns only 这一块的装配，never 开关状态、路径拉取与运行时下载。
  * @module dsh-fish-body/src/client/settings/system-tab
  */
@@ -24,6 +25,7 @@ import type { GlobalSettings } from './use-global-settings.ts';
 import type { ScreenSettings } from './use-screen-settings.ts';
 import type { HotkeysSettings } from './use-hotkeys-settings.ts';
 import type { RemoteData } from './use-remote-data.ts';
+import { makeUiKit } from './ui.ts';
 
 /** 系统分区的输入。 */
 export interface SystemTabProps {
@@ -41,7 +43,7 @@ export interface SystemTabProps {
   readonly dirty: DirtyQuery;
   /** 备份与恢复的状态与动作。 */
   readonly backup: SettingsBackupState;
-  /** 重启插件与重置设置。 */
+  /** 重启插件（先保存 / 不保存两种）与重置设置。 */
   readonly maintenance: MaintenanceActions;
   /** 看屏幕与避让的十三项。 */
   readonly screen: ScreenSettings;
@@ -56,6 +58,7 @@ export interface SystemTabProps {
  */
 export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionComponent<SystemTabProps> {
   const { h, t } = rt;
+  const { section } = makeUiKit({ h, t });
   const SystemCard = makeSystemCard(rt);
   const BackupCard = makeBackupCard(rt);
   const ShortcutsCard = makeShortcutsCard(rt, ctx);
@@ -79,13 +82,7 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
         }),
         // 看屏幕与避让：十三项时机全在这张卡里，紧跟系统卡（同为「插件与本机的关系」）。
         h(ScreenCard, { key: 'screen', busy, screen, dirty }),
-        // 维护动作紧跟系统卡：备份/恢复与具体设置项无关，也不产生「未保存改动」。
-        h(BackupCard, {
-          key: 'backup',
-          busy: busy || backup.busy,
-          onExport: backup.exportNow,
-          onPick: backup.pick,
-        }),
+        // 快捷键是编辑性动作（随「保存」落盘、会亮圆点），所以留在维护组之前。
         h(ShortcutsCard, {
           key: 'shortcuts',
           hotkeys: hotkeys.values,
@@ -94,17 +91,28 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
           disabled: busy,
           dirty,
         }),
-        // 文件与目录：路径、可删性、运行时与卸载都在一张卡里；读不到 meta 就整块不出现
-        // （缺路径提示比给错路径更安全）。
-        remote.paths ? h(FsCard, { key: 'fs', paths: remote.paths }) : null,
-        // 维护卡放最后：它是这一页唯一的破坏性 / 全局动作，不该在滚动首屏里被误点。
-        h(MaintenanceCard, {
-          key: 'maintenance',
-          busy,
-          intro: t('intro'),
-          onRestart: maintenance.restart,
-          onReset: maintenance.reset,
-        }),
+        // 维护动作一组：备份与恢复 → 文件与目录 → 插件维护。
+        // 三者都不产生「未保存改动」，都是「配一次就不动」，所以聚在一处并沉到页尾；
+        // 组内顺序按风险递增：只读的备份 → 会搬目录的文件卡 → 破坏性的重启 / 重置。
+        section(t('maintenanceSection'), [
+          h(BackupCard, {
+            key: 'backup',
+            busy: busy || backup.busy,
+            onExport: backup.exportNow,
+            onPick: backup.pick,
+          }),
+          // 文件与目录：路径、可删性、运行时与卸载都在一张卡里；读不到 meta 就整块不出现
+          // （缺路径提示比给错路径更安全）。搬迁完成后的「立即重启」走与维护卡同一个实现。
+          remote.paths ? h(FsCard, { key: 'fs', paths: remote.paths, onRestart: maintenance.restartNow }) : null,
+          // 维护卡放最后：它是这一组里唯一的破坏性 / 全局动作，不该在滚动首屏里被误点。
+          h(MaintenanceCard, {
+            key: 'maintenance',
+            busy,
+            intro: t('intro'),
+            onRestart: maintenance.restart,
+            onReset: maintenance.reset,
+          }),
+        ]),
       ],
     });
   };

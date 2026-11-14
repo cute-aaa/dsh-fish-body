@@ -31,9 +31,15 @@ import type { ModelSettings } from './use-model-settings.ts';
 import type { PetList } from './use-pet-list.ts';
 import type { VoiceSettings } from './use-voice-settings.ts';
 
-/** 维护动作（重启 / 重置）：只在系统分区的「插件维护」卡里出现。 */
+/**
+ * 维护动作（重启 / 重置）：只在系统分区末尾的「维护动作」一组里出现。
+ *
+ * 两个重启入口共用同一份实现（`use-plugin-restart`），差别只有「要不要先存盘」：
+ * `restart` 先保存再重启（维护卡与底部栏），`restartNow` 直接重启（搬迁完成后让新位置生效）。
+ */
 export interface MaintenanceActions {
   restart(): void;
+  restartNow(): void;
   reset(): void;
 }
 

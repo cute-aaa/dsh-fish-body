@@ -12,7 +12,6 @@ import { avatarUrl } from '../shared/avatar.ts';
 import type { SessionFishSettings } from '../shared/session-fish.ts';
 import type { FunctionComponent } from 'react';
 import type { ShortcutHost } from './app-shortcut.ts';
-import { requestPluginRestart, schedulePageReload } from './plugin-restart.ts';
 import { makeBar } from './settings/bar.ts';
 import { petBridge } from './settings/bridge.ts';
 import {
@@ -28,6 +27,7 @@ import { baselineFromConfig, diffSnapshot, dirtyTabs, makeDirtyQuery, type FormS
 import { NO_FEEDBACK, type Feedback } from './settings/feedback.ts';
 import { makeLoadStatus } from './settings/load-status.ts';
 import { makeSettingsPanels, type SettingsPanelDeps } from './settings/panels.ts';
+import { restartHintCount } from './settings/restart-hint.ts';
 import { buildSaveFields } from './settings/save-fields.ts';
 import { useSaveHotkey } from './settings/save-hotkey.ts';
 import { makeSnapshot, withoutFish } from './settings/snapshot.ts';
@@ -51,6 +51,7 @@ import { useHotkeysSettings } from './settings/use-hotkeys-settings.ts';
 import { useModelSettings } from './settings/use-model-settings.ts';
 import { usePermissionTest } from './settings/use-permission-test.ts';
 import { usePetList } from './settings/use-pet-list.ts';
+import { usePluginRestart } from './settings/use-plugin-restart.ts';
 import { useRemoteData } from './settings/use-remote-data.ts';
 import { useRevert } from './settings/use-revert.ts';
 import { useScreenSettings } from './settings/use-screen-settings.ts';
@@ -105,12 +106,16 @@ export function makePetConfigSection(
     const rootRef = useRef<HTMLElement | null>(null);
     // 确认 / 提示弹窗：remove 删除宠物、lastOne 只剩一只删不了、reset 重置设置、corrupt 用户配置已损坏。
     const [dialog, setDialog] = useState<DialogState>(null);
-    // 基线：最近一次服务端权威值；null = 还没加载好，此时一个圆点都不画。
+    // 基线（最近一次服务端权威值）：null = 还没加载好，此时一个圆点都不画。
     const [baseline, setBaseline] = useState<FormSnapshot | null>(null);
+    // 已保存、但还要重建桌面窗口 / 重启插件才生效的改动条数：底部栏据此给出提示与「立即重启」。
+    const [restartPending, setRestartPending] = useState(0);
     // 会话鱼不在成品配置里，它的基线单独记；成品配置后到时再一起塞进 baseline。
     const fishBaselineRef = useRef<SessionFishSettings | null>(null);
     // 当前快照的最新值：保存成功后用它推进基线（回调里读不到渲染期的局部变量）。
     const snapshotRef = useRef<FormSnapshot | null>(null);
+    // 基线的镜像：保存成功时要在「推进基线之前」算一次 diff（哪几条改动需要重启才生效）。
+    const baselineRef = useRef<FormSnapshot | null>(null);
 
     /** 会话鱼权威值到达（加载 / 保存 / 重置成功）：记下来并补进基线。 */
     const markFish = useCallback((settings: SessionFishSettings): void => {
@@ -194,6 +199,7 @@ export function makePetConfigSection(
     // 此刻的表单快照：形状与基线一致，diff 之后才知道哪些字段还没保存。
     const snapshot = makeSnapshot({ list, global, hotkeys, sfx, voice, model, look, fish, screen });
     snapshotRef.current = snapshot;
+    baselineRef.current = baseline;
 
     const paths = baseline === null ? NO_PATHS : diffSnapshot(baseline, snapshot);
     const dirty = makeDirtyQuery(paths);
@@ -203,6 +209,13 @@ export function makePetConfigSection(
     const markSaved = useCallback((scope: 'main' | 'all'): void => {
       const now = snapshotRef.current;
       if (now === null) return;
+      // 「需重启才生效」的条数只在 main 那一步算：`saveAll` 先写主配置、再写会话鱼，两次都会回来
+      // 调这里；第二次回来时基线可能已经推进过一次（React 在这两个 await 之间可能重渲染），
+      // 那时 diff 已经是空的——照算就会把刚置上的计数又抹回 0。
+      if (scope === 'main') {
+        const before = baselineRef.current;
+        if (before !== null) setRestartPending(restartHintCount(diffSnapshot(before, now)));
+      }
       // 主配置那一半取「此刻的表单」；会话鱼那一半永远取它的权威值——`fish.save` 已经用宿主回包
       // 更新过基线，这里再拿保存前的快照盖回去，会让刚保存完的那一页又亮起点。
       setBaseline((current) => ({
@@ -265,23 +278,24 @@ export function makePetConfigSection(
       });
     };
 
-    /** 重启：先保存（失败就不重启），再让宿主重新组合本插件。 */
+    // 重启只有一份实现（settings/use-plugin-restart）：这里只决定「要不要先存盘」。
+    const pluginRestart = usePluginRestart(rt, setMsg);
+    /**
+     * 维护卡与底部栏的「立即重启」：先保存，再把插件重新组合。
+     *
+     * 保存失败就不重启（`saveAll` 返回 false 时 hook 自己中止），免得把没落盘的改动当成已保存。
+     * 重启真的生效后清掉「需重启」计数——提示的语义就是「重启后消失」。
+     */
     const restart = (): void => {
-      void write.saveAll().then(async (ok) => {
-        if (!ok) return;
-        setMsg({ kind: '', text: t('restarting') });
-        const mode = await requestPluginRestart();
-        if (mode === null) {
-          setMsg({ kind: 'err', text: t('restartFailed') });
-          return;
-        }
-        if (mode === 'hmr') {
-          setMsg({ kind: 'ok', text: t('restartHmr') });
-          schedulePageReload();
-          return;
-        }
-        setMsg({ kind: 'ok', text: t('restartHelper') });
-      });
+      pluginRestart.restart({ save: () => write.saveAll(), onDone: () => setRestartPending(0) });
+    };
+    /**
+     * 搬迁完成后的重启：**不保存**。
+     *
+     * 那条路只负责让新位置生效，表单里若有校验错误也不该把这件事一起挡掉（数据已经搬完了）。
+     */
+    const restartNow = (): void => {
+      pluginRestart.restart({ onDone: () => setRestartPending(0) });
     };
 
     const deps: SettingsPanelDeps = {
@@ -300,7 +314,7 @@ export function makePetConfigSection(
       perm: { msg: permission.message, test: permission.test },
       backup,
       screen,
-      maintenance: { restart, reset: write.requestReset },
+      maintenance: { restart, restartNow, reset: write.requestReset },
       dirty,
     };
     const panels = panelsOf(deps);
@@ -370,6 +384,16 @@ export function makePetConfigSection(
           onCancel: () => close?.(),
           onApply: () => void write.saveAll(),
           onConfirm: confirm,
+          // 有「已保存但需重启才生效」的改动时才给这条：没有就完全不渲染，不占位也不留空按钮。
+          ...(restartPending > 0
+            ? {
+                restart: {
+                  count: restartPending,
+                  onRestart: restart,
+                  busy: pluginRestart.busy,
+                },
+              }
+            : {}),
         }),
 
         dialog

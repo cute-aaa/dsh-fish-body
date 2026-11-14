@@ -430,6 +430,7 @@ export const es: Record<Key, string> = {
   modelEmpty: 'No hay modelos que coincidan.',
   modelNoModels: 'No hay modelos disponibles.',
   modelLoading: 'Actualizando la lista de modelos…',
+  modelReload: 'Recargar la lista de modelos',
   modelTriggerAria: 'Seleccionar modelo, actual {model}',
   modelUnknown: ' (configuración actual, no está en la lista)',
   modelNone: 'Este proveedor no tiene modelos disponibles',
@@ -541,6 +542,7 @@ export const es: Record<Key, string> = {
   restartHelper:
     'HMR no disponible: se reconstruyó la ventana de escritorio, pero los cambios en el host aún requieren reiniciar el perfil.',
   restartFailed: 'No se pudo reiniciar el plugin; revisa el registro del plugin.',
+  restartNeededHint: 'Se aplica tras reiniciar el complemento',
   resetSettings: 'Restablecer ajustes',
   resetHint:
     'Restaura todos los ajustes a los valores predeterminados del proyecto (mascotas, personas, física, fuente, sonido, voz, modelos y peces de sesión). Al confirmar se escribe de inmediato.',
@@ -577,6 +579,7 @@ export const es: Record<Key, string> = {
   restoreConfirm: 'Restaurar',
   tabFeel: 'Aspecto y sensación',
   barDirty: '{n} cambios sin guardar',
+  restartPending: '{n} cambios se aplican tras reiniciar el complemento',
   barRevert: 'Descartar cambios',
   barRevertHint: 'Descarta los cambios sin guardar y vuelve a los valores del archivo de configuración.',
   revertDone: 'Se descartaron los cambios sin guardar.',
@@ -585,9 +588,10 @@ export const es: Record<Key, string> = {
   secDisplay: 'Visualización y posición',
   secFeatures: 'Funciones',
   secAdvanced: 'Avanzado',
+  maintenanceSection: 'Acciones de mantenimiento',
   maintenanceTitle: 'Mantenimiento',
   maintenanceHint:
-    'Reiniciar el complemento, restaurar los valores predeterminados y cómo se organiza esta página. Son acciones que se ajustan una vez, así que no ocupan la barra inferior.',
+    'Copia de seguridad y restauración, mover la raíz de datos o la carpeta de skins, reiniciar el complemento, restaurar los valores predeterminados. Son acciones que se ajustan una vez, así que se agrupan al final de la página y no ocupan la barra inferior.',
   chatCostTitle: 'Cuánto cuestan estos interruptores',
   chatCostHint:
     'Cada nota corresponde a un interruptor de arriba. Un interruptor apagado no envía ni un carácter al modelo.',

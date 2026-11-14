@@ -420,6 +420,7 @@ export const ja: Record<Key, string> = {
   modelEmpty: '一致するモデルがありません。',
   modelNoModels: '利用できるモデルがありません。',
   modelLoading: 'モデル一覧を更新中…',
+  modelReload: 'モデル一覧を再取得',
   modelTriggerAria: 'モデルを選択（現在 {model}）',
   modelUnknown: ' （現在の設定、一覧にありません）',
   modelNone: 'このプロバイダーに利用できるモデルはありません',
@@ -528,6 +529,7 @@ export const ja: Record<Key, string> = {
   restartHelper:
     'HMR が無効です：デスクトップウィンドウは再構築しましたが、ホスト側コードの変更は profile の再起動が必要です。',
   restartFailed: 'プラグインの再起動に失敗しました。プラグインのログを確認してください。',
+  restartNeededHint: 'プラグインの再起動後に反映されます',
   resetSettings: '設定をリセット',
   resetHint:
     'すべての設定をプロジェクト既定値に戻します（ペット一覧・人設・物理・フォント・効果音・音声・モデル・セッション魚を含む）。確認するとすぐに書き込みます。',
@@ -563,6 +565,7 @@ export const ja: Record<Key, string> = {
   restoreConfirm: '復元',
   tabFeel: '見た目と操作感',
   barDirty: '未保存 {n} 件',
+  restartPending: 'うち {n} 件はプラグインの再起動後に反映されます',
   barRevert: '変更を破棄',
   barRevertHint: '保存していない変更を破棄し、設定ファイルの値に戻します。',
   revertDone: '未保存の変更を破棄しました。',
@@ -571,9 +574,10 @@ export const ja: Record<Key, string> = {
   secDisplay: '表示と位置',
   secFeatures: '機能',
   secAdvanced: '詳細',
+  maintenanceSection: 'メンテナンス操作',
   maintenanceTitle: 'プラグインの保守',
   maintenanceHint:
-    'プラグインの再起動、組み込み既定値への復元、このページの構成について。一度設定すれば触らない操作なので、下部バーには置きません。',
+    'バックアップと復元、データルートやスキンフォルダの移動、プラグインの再起動、組み込み既定値への復元。一度設定すれば触らない操作なので、ページ末尾にまとめ、下部バーには置きません。',
   chatCostTitle: 'トークン消費の説明',
   chatCostHint: '以下の3つは上の3つのスイッチにそれぞれ対応します。オフのスイッチはリクエストに1文字も含めません。',
   sfxSourcesTitle: 'ソース・パス・命名規則',

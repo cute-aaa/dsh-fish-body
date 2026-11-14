@@ -64,6 +64,31 @@ export interface VoiceProviderCardProps {
   readonly onStop: () => void;
 }
 
+/** 上一次动作的结论（保存或启停）。 */
+export interface VoiceActionStatus {
+  /** 已剥掉 `!` 前缀的文案。 */
+  readonly text: string;
+  /** 是否失败（原来的 `!` 前缀）。 */
+  readonly failed: boolean;
+}
+
+/**
+ * 把「保存结论」与「启停结论」合成一条。
+ *
+ * 两条都放在按钮行里时，右半截排着一串按钮、左半截是两段文字，读起来像按钮的注解；
+ * 而且两个结论同屏出现时，用户也分不清哪条是刚点出来的。规则只有一条：**启停优先**——
+ * 它总是最后一次点击（保存完才可能点启停），两者都空才不显示。
+ *
+ * @param message - 上一次保存的结论（失败带 `!` 前缀）。
+ * @param processMessage - 上一次启停的结论（失败带 `!` 前缀）。
+ * @returns 要显示的那一条；都没有时 `null`。
+ */
+export function actionStatusOf(message: string, processMessage: string): VoiceActionStatus | null {
+  const raw = processMessage !== '' ? processMessage : message;
+  const text = raw.replace(/^!/, '');
+  return text === '' ? null : { text, failed: raw.startsWith('!') };
+}
+
 /**
  * 造接入卡。
  * @param rt - 注入的 react 能力与翻译函数。
@@ -77,6 +102,7 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
     if (props.fields.length === 0) return null;
     // 不可用优先（连都连不上），其次「通着但上一句合成失败」，都没有才是就绪。
     const status = props.available ? props.lastError : props.reason;
+    const action = actionStatusOf(props.message, props.processMessage);
     // 两个按钮互斥，且都看「服务地址此刻通不通」：通了只该停，不通只该启；
     // 刚发过启动时按住「启动」——服务要几十秒才起来，连点会起出两份抢同一个端口。
     const startDisabled = props.busy || props.processBusy || !props.canStart || props.running || props.starting;
@@ -192,20 +218,16 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
                   }),
                 ]
               : []),
-            props.message
-              ? h('div', {
-                  className: 'dsh-pet-cfg__msg' + (props.message.startsWith('!') ? ' is-err' : ''),
-                  children: [props.message.replace(/^!/, '')],
-                })
-              : null,
-            props.processMessage
-              ? h('div', {
-                  className: 'dsh-pet-cfg__msg' + (props.processMessage.startsWith('!') ? ' is-err' : ''),
-                  children: [props.processMessage.replace(/^!/, '')],
-                })
-              : null,
           ],
         }),
+        // 动作结论单独一行：它说的是「上一次点击的结果」，与顶部「服务通不通」分开，也不该挤进按钮行。
+        action === null
+          ? null
+          : h('div', {
+              className: 'dsh-pet-cfg__msg' + (action.failed ? ' is-err' : ''),
+              role: 'status',
+              children: action.text,
+            }),
       ],
     });
   };

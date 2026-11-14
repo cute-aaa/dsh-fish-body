@@ -98,3 +98,31 @@ describe('ModelCard —— 对话开关', () => {
     for (const picker of pickers) assert.equal(picker.props.disabled, true);
   });
 });
+
+describe('ModelCard —— 重新拉取模型清单', () => {
+  /** 卡头那个按钮（文案键是 modelReload / modelLoading，只有它有这俩之一）。 */
+  const reloadButton = (tree: unknown): Node | undefined =>
+    flatten(tree).find(
+      (node) =>
+        node.tag === 'button' && (node.props.children === 'modelReload' || node.props.children === 'modelLoading'),
+    );
+
+  test('卡头有「重新拉取」，点击回传到 onReloadCatalog', () => {
+    const calls: string[] = [];
+    const tree = ModelCard(props(allOff, { onReloadCatalog: () => calls.push('reload') }) as never);
+    const button = reloadButton(tree);
+    assert.ok(button, '对话分区唯一的维护动作就是重拉清单，它得在卡头');
+    assert.equal(button?.props.children, 'modelReload');
+    (button?.props.onClick as () => void)();
+    assert.deepEqual(calls, ['reload']);
+  });
+
+  test('拉取中：按钮换成「正在刷新」并置灰（拉失败时清单仍是旧值）', () => {
+    const tree = ModelCard(props(allOff, { catalogLoading: true, failed: true }) as never);
+    const button = reloadButton(tree);
+    assert.equal(button?.props.children, 'modelLoading');
+    assert.equal(button?.props.disabled, true);
+    // 拉取失败那行提示还在：按钮不是替代品，它只是能再试一次。
+    assert.ok(flatten(tree).some((node) => node.props.children === 'modelCatalogFailed'));
+  });
+});

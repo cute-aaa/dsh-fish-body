@@ -140,6 +140,7 @@ async function open(
     restores = [],
     runtimePosts = [],
     movePosts = [],
+    models = [],
     errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   t.after(() => assert.deepEqual(errors, []));
@@ -336,6 +337,13 @@ async function open(
         },
       });
     }
+    // 候选模型清单：显式接一层，用例才能数「重新拉取」真的又请求了一次。
+    if (path === '/dsh-pet-7340/models') {
+      models.push(request.method());
+      return route.fulfill({
+        json: { providers: [{ id: 'test', name: 'Test', models: [{ id: 'model', name: 'Model' }] }] },
+      });
+    }
     if (path === '/dsh-pet-7340/plugin-restart') {
       restarts.push(request.method());
       // helper 模式：不触发页面刷新，测试才看得到后续断言。
@@ -358,6 +366,7 @@ async function open(
     restores,
     runtimePosts,
     movePosts,
+    models,
     setPickPath: (value) => {
       pickPath = value;
     },
@@ -1030,4 +1039,86 @@ test('system → screen: switches and timings all reach the save body', async (t
   assert.equal(body.avoidAppsEnabled, true);
   assert.deepEqual(body.avoidApps, ['chrome.exe', '哔哩哔哩'], '逗号分隔切成数组，原样保留写法');
   assert.equal(body.screenReadEnabled, false, '没动的开关照旧带出去');
+});
+
+test('system → 维护动作：备份 / 文件与目录 / 插件维护聚在页尾一组，重启只有一个按钮', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 1800 } });
+  await tab(page, 'System').click();
+  // 分组标题：这一组是「配一次就不动」的动作，与上面的开关分开读。
+  await page.getByText('Maintenance tasks', { exact: true }).waitFor();
+
+  // 组内顺序：只读的备份 → 会搬目录的文件卡 → 破坏性的重启 / 重置。
+  const order = await page.evaluate(() => {
+    const panel = document.querySelector('.dsh-pet-cfg__panel');
+    return [...panel.querySelectorAll('.dsh-pet-cfg__cardTitle, .dsh-pet-cfg__foldToggle')].map((node) =>
+      node.textContent.trim(),
+    );
+  });
+  const backup = order.findIndex((text) => text.includes('Backup'));
+  const fs = order.findIndex((text) => text.includes('Files & folders'));
+  const maintenance = order.findIndex((text) => text.includes('Maintenance'));
+  assert.ok(backup >= 0 && fs > backup && maintenance > fs, '维护组顺序：' + order.join(' | '));
+
+  // 重启只有一个入口（备份卡与文件卡都不再有第二个「重启」按钮）。
+  assert.equal(await page.getByRole('button', { name: 'Restart', exact: true }).count(), 1);
+});
+
+test('需重启的设置在改动后给出提示，保存后底部栏可一键重启', async (t) => {
+  const { page, writes, restarts } = await open(t, { viewport: { width: 900, height: 1800 } });
+
+  // 「系统托盘」在「要重建桌面窗口」的表里：改一下，开关下方立刻出现提示。
+  await tab(page, 'System').click();
+  await page.getByRole('checkbox', { name: 'System tray' }).click();
+  const hint = page.locator('.dsh-pet-cfg__note.is-restart').first();
+  await hint.waitFor();
+  assert.equal(await hint.innerText(), 'Needs a plugin restart to take effect');
+
+  // 保存：底部栏出现「其中 n 项需重启插件后生效」+ 立即重启。
+  await apply(page);
+  const bar = page.locator('.dsh-pet-cfg__bar');
+  await bar.getByText(/1 of these changes need a plugin restart/, { exact: false }).waitFor();
+
+  // 点立即重启：先保存（这一下没有新改动，但按钮走的是同一条 saveAll），再打 /plugin-restart。
+  const before = writes.length;
+  await bar.getByRole('button', { name: 'Restart now', exact: true }).click();
+  await page.getByText(/HMR is unavailable/, { exact: false }).waitFor();
+  assert.equal(restarts.length, 1, '立即重启要真的打 /plugin-restart');
+  assert.ok(writes.length >= before, '重启前会先保存');
+});
+
+test('普通设置改动不出现重启提示（不制造噪音）', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 1800 } });
+  await tab(page, 'Sound').click();
+  // 音效总开关属于即时生效的项：改了不该出现「需重启」。
+  await page.getByRole('checkbox', { name: 'Sound', exact: true }).first().click();
+  assert.equal(await page.locator('.dsh-pet-cfg__note.is-restart').count(), 0);
+});
+
+test('声音 → 接入卡：保存与启停的结论只占一行', async (t) => {
+  const { page } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [
+      {
+        id: 'cloud',
+        name: 'Cloud voice',
+        available: true,
+        fields: [{ key: 'voice', label: 'Voice', kind: 'select', options: ['stella', 'tide'] }],
+      },
+    ],
+  });
+  await tab(page, 'Sound').click();
+  // 云端卡只有一行「就绪」，没有第二条空行（动作结论还没产生）。
+  const card = page.locator('.dsh-pet-cfg__card').filter({ hasText: 'Cloud voice' }).first();
+  await card.waitFor();
+  assert.equal(await card.locator('.dsh-pet-cfg__msg').count(), 1);
+});
+
+test('对话 → 重新拉取模型清单：不必刷整页', async (t) => {
+  const { page, models } = await open(t);
+  await tab(page, 'Chat').click();
+  const initial = models.length;
+  assert.ok(initial >= 1, '打开设置页会拉一次候选清单');
+  await page.getByRole('button', { name: 'Reload model list', exact: true }).click();
+  await page.waitForTimeout(300);
+  assert.ok(models.length > initial, '点一下要再请求一次 /models');
 });

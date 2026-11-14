@@ -17,7 +17,7 @@ import {
 } from '../../shared/session-fish.ts';
 import type { SessionFishSkinOption } from '../session-fish/api.ts';
 import type { FishSkinView } from './fish-skins.ts';
-import { openFolderOf } from './open-folder.ts';
+import { makeFolderButton } from './folder-button.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit, numberInputProps } from './ui.ts';
 
@@ -52,6 +52,7 @@ function clampInt(value: number, min: number, max: number, fallback: number): nu
 export function makeFishFields(rt: SettingsRuntime): FunctionComponent<FishFieldsProps> {
   const { h, t } = rt;
   const { field } = makeUiKit({ h, t });
+  const FolderButton = makeFolderButton(rt);
 
   return function FishFields(props: FishFieldsProps) {
     const { busy, draft, skins, update } = props;
@@ -98,13 +99,14 @@ export function makeFishFields(rt: SettingsRuntime): FunctionComponent<FishField
                 onClick: props.onRescan,
                 children: props.skinBusy ? t('fish.skinRescan') + '…' : t('fish.skinRescan'),
               }),
-              h('button', {
+              // 打开目录走共用的 FolderButton：目录还没建时先问再建、失败给一句说明。
+              // 这里曾经直接 `openFolderOf(..., create = true)`：静默建目录，失败也没人告诉用户。
+              h(FolderButton, {
                 key: 'folder',
-                type: 'button',
-                className: 'dsh-pet-cfg__btn is-text',
+                which: 'fish-skin',
                 disabled: busy,
-                onClick: () => void openFolderOf('fish-skin', undefined, true),
-                children: t('fish.openSkinFolder'),
+                label: t('fish.openSkinFolder'),
+                variant: 'text',
               }),
             ],
           }),

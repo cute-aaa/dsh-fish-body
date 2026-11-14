@@ -427,6 +427,7 @@ export const en: Record<Key, string> = {
   modelEmpty: 'No matching models.',
   modelNoModels: 'No models available.',
   modelLoading: 'Refreshing model list…',
+  modelReload: 'Reload model list',
   modelTriggerAria: 'Select model, current {model}',
   modelUnknown: ' (current config, not in the list)',
   modelNone: 'No models available for this provider',
@@ -534,6 +535,7 @@ export const en: Record<Key, string> = {
   restartHelper:
     'HMR is unavailable: the desktop window was rebuilt, but host code changes still need a profile restart.',
   restartFailed: 'Could not restart the plugin — check the plugin log.',
+  restartNeededHint: 'Needs a plugin restart to take effect',
   resetSettings: 'Reset settings',
   resetHint:
     'Restore every setting to the project defaults (pets, personas, physics, font, sound, voice, models and session fish). Confirming writes immediately.',
@@ -569,6 +571,7 @@ export const en: Record<Key, string> = {
   restoreConfirm: 'Restore',
   tabFeel: 'Look & feel',
   barDirty: '{n} unsaved changes',
+  restartPending: '{n} of these changes need a plugin restart',
   barRevert: 'Discard changes',
   barRevertHint: 'Throw away the unsaved edits and go back to the values in the configuration file.',
   revertDone: 'Discarded the unsaved changes.',
@@ -577,9 +580,10 @@ export const en: Record<Key, string> = {
   secDisplay: 'Display & position',
   secFeatures: 'Features',
   secAdvanced: 'Advanced',
+  maintenanceSection: 'Maintenance tasks',
   maintenanceTitle: 'Maintenance',
   maintenanceHint:
-    'Restart the plugin, restore the built-in defaults, and how this page is organised. These are set-once actions, so they stay out of the bottom bar.',
+    'Back up and restore, move the data root or skin folder, restart the plugin, reset to the built-in defaults. These are set-once actions, so they sit together at the end of this page and stay out of the bottom bar.',
   chatCostTitle: 'How much these toggles cost',
   chatCostHint:
     'Each note belongs to one toggle above. A toggle that is off sends not a single character to the model.',

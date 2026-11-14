@@ -129,6 +129,41 @@ describe('toggleCell —— 开关格', () => {
   });
 });
 
+describe('restartHint —— 需重启插件后生效', () => {
+  test('改到「要重建桌面窗口」的字段：字段下方多一行提示', () => {
+    const dirty = { count: 1, has: (prefix: string) => prefix === 'pets.0.renderer' };
+    const kit = makeUiKit({ h, t: (key) => key }, dirty);
+    const touched = kit.field('渲染方式', h('input', {}), undefined, 'pets.0.renderer') as unknown as Node;
+    const [note] = byClass(touched, 'is-restart');
+    assert.ok(note, '需重启的字段要有一行提示');
+    assert.match(String(note.props.className), /dsh-pet-cfg__note/);
+    assert.deepEqual(note.props.children, 'restartNeededHint');
+    assert.equal(note.props.role, 'note');
+  });
+
+  test('改的是普通字段 / 没改动：都不出提示', () => {
+    const dirty = { count: 2, has: (prefix: string) => prefix === 'look.font.size' || prefix === 'global.trayEnabled' };
+    const kit = makeUiKit({ h, t: (key) => key }, dirty);
+    // 有改动，但不在「需重启」表里。
+    const plain = kit.field('字号', h('input', {}), undefined, 'look.font.size') as unknown as Node;
+    assert.deepEqual(byClass(plain, 'is-restart'), []);
+    // 在表里，但没有改动：提示跟着改动走，不是常显说明。
+    const clean = kit.field('锁定屏幕', h('input', {}), undefined, 'global.confineToScreen') as unknown as Node;
+    assert.deepEqual(byClass(clean, 'is-restart'), []);
+  });
+
+  test('开关同理：命中后整格竖排，未命中保持一行', () => {
+    const dirty = { count: 1, has: (prefix: string) => prefix === 'global.confineToScreen' };
+    const kit = makeUiKit({ h, t: (key) => key }, dirty);
+    const touched = kit.toggleCell('confineToggle', true, false, () => {}, 'global.confineToScreen') as unknown as Node;
+    assert.match(String(touched.props.className), /is-stacked/, '提示要单独占一行，不能挤在开关右侧');
+    assert.equal(byClass(touched, 'is-restart').length, 1);
+    const clean = kit.toggleCell('trayToggle', true, false, () => {}, 'global.trayEnabled') as unknown as Node;
+    assert.equal(clean.props.className, 'dsh-pet-cfg__switch');
+    assert.doesNotMatch(String(clean.props.className), /is-stacked/);
+  });
+});
+
 describe('cardHead —— 卡片头', () => {
   test('标题 + 问号；没有说明时只有标题', () => {
     const withHint = ui.cardHead('宠物配置', '每只宠物独立配置');

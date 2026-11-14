@@ -42,6 +42,10 @@ export interface ModelCardProps {
   catalog: readonly ModelCatalogGroup[] | null;
   /** 候选清单拉取失败。 */
   failed: boolean;
+  /** 候选清单正在拉取（卡头的「重新拉取」据此禁用并换文案）。 */
+  catalogLoading: boolean;
+  /** 重新拉取候选清单：失败后不必刷整页。 */
+  onReloadCatalog(): void;
   /** 碎碎念用的模型。 */
   whisperModel: ModelSelection;
   /** 对话用的模型。 */
@@ -116,7 +120,20 @@ export function makeModelCard(
           key: 'card',
           className: 'dsh-pet-cfg__card',
           children: [
-            cardHead(t('modelTitle'), t('modelHint'), 'model'),
+            // 卡头右侧的「重新拉取模型清单」：候选清单是这张卡唯一的外部依赖，
+            // 过去拉失败只能刷整页（会连带丢掉别的分区的未保存改动），这里给一个就地重试。
+            cardHead(
+              t('modelTitle'),
+              t('modelHint'),
+              'model',
+              h('button', {
+                type: 'button',
+                className: 'dsh-pet-cfg__btn is-sm',
+                disabled: busy || props.catalogLoading,
+                onClick: props.onReloadCatalog,
+                children: props.catalogLoading ? t('modelLoading') : t('modelReload'),
+              }),
+            ),
             failed
               ? h('p', {
                   key: 'failed',

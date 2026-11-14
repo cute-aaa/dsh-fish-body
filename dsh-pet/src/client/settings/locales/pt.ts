@@ -428,6 +428,7 @@ export const pt: Record<Key, string> = {
   modelEmpty: 'Nenhum modelo corresponde.',
   modelNoModels: 'Nenhum modelo disponível.',
   modelLoading: 'Atualizando a lista de modelos…',
+  modelReload: 'Recarregar a lista de modelos',
   modelTriggerAria: 'Escolher modelo, atual {model}',
   modelUnknown: ' (configuração atual, fora da lista)',
   modelNone: 'Este provedor não tem modelos disponíveis',
@@ -538,6 +539,7 @@ export const pt: Record<Key, string> = {
   restartHelper:
     'HMR indisponível: a janela da área de trabalho foi reconstruída, mas alterações no host ainda exigem reiniciar o perfil.',
   restartFailed: 'Falha ao reiniciar o plugin; veja o log do plugin.',
+  restartNeededHint: 'Aplica-se após reiniciar o plugin',
   resetSettings: 'Redefinir configurações',
   resetHint:
     'Restaura todas as configurações para os padrões do projeto (pets, personas, física, fonte, som, voz, modelos e peixes de sessão). Ao confirmar, grava imediatamente.',
@@ -574,6 +576,7 @@ export const pt: Record<Key, string> = {
   restoreConfirm: 'Restaurar',
   tabFeel: 'Aspeto e sensação',
   barDirty: '{n} alterações não guardadas',
+  restartPending: '{n} alterações aplicam-se após reiniciar o plugin',
   barRevert: 'Descartar alterações',
   barRevertHint: 'Descarta as alterações não guardadas e volta aos valores do ficheiro de configuração.',
   revertDone: 'As alterações não guardadas foram descartadas.',
@@ -582,9 +585,10 @@ export const pt: Record<Key, string> = {
   secDisplay: 'Apresentação e posição',
   secFeatures: 'Funcionalidades',
   secAdvanced: 'Avançado',
+  maintenanceSection: 'Ações de manutenção',
   maintenanceTitle: 'Manutenção',
   maintenanceHint:
-    'Reiniciar o plugin, restaurar os valores predefinidos e como esta página está organizada. São ações que se ajustam uma vez, por isso não ocupam a barra inferior.',
+    'Cópia de segurança e restauro, mover a raiz de dados ou a pasta de skins, reiniciar o plugin, restaurar os valores predefinidos. São ações que se ajustam uma vez, por isso ficam agrupadas no fim da página e não ocupam a barra inferior.',
   chatCostTitle: 'Quanto custam estes interruptores',
   chatCostHint:
     'Cada nota corresponde a um interruptor acima. Um interruptor desligado não envia um único caractere ao modelo.',

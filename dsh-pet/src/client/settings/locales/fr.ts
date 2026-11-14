@@ -430,6 +430,7 @@ export const fr: Record<Key, string> = {
   modelEmpty: 'Aucun modèle correspondant.',
   modelNoModels: 'Aucun modèle disponible.',
   modelLoading: 'Actualisation de la liste des modèles…',
+  modelReload: 'Recharger la liste des modèles',
   modelTriggerAria: 'Choisir un modèle, actuellement {model}',
   modelUnknown: ' (configuration actuelle, absent de la liste)',
   modelNone: 'Aucun modèle disponible pour ce fournisseur',
@@ -544,6 +545,7 @@ export const fr: Record<Key, string> = {
   restartHelper:
     'HMR indisponible : la fenêtre de bureau a été reconstruite, mais les modifications côté hôte nécessitent un redémarrage du profil.',
   restartFailed: 'Échec du redémarrage du plugin ; consultez le journal du plugin.',
+  restartNeededHint: 'Prend effet après un redémarrage du plugin',
   resetSettings: 'Réinitialiser les réglages',
   resetHint:
     'Restaure tous les réglages aux valeurs par défaut du projet (compagnons, personas, physique, police, son, voix, modèles et poissons de session). La confirmation écrit immédiatement.',
@@ -581,6 +583,7 @@ export const fr: Record<Key, string> = {
   restoreConfirm: 'Restaurer',
   tabFeel: 'Aspect et ressenti',
   barDirty: '{n} modifications non enregistrées',
+  restartPending: '{n} modifications prennent effet après un redémarrage du plugin',
   barRevert: 'Annuler les modifications',
   barRevertHint: 'Abandonne les modifications non enregistrées et revient aux valeurs du fichier de configuration.',
   revertDone: 'Les modifications non enregistrées ont été abandonnées.',
@@ -589,9 +592,10 @@ export const fr: Record<Key, string> = {
   secDisplay: 'Affichage et position',
   secFeatures: 'Fonctions',
   secAdvanced: 'Avancé',
+  maintenanceSection: 'Actions de maintenance',
   maintenanceTitle: 'Maintenance',
   maintenanceHint:
-    "Redémarrer le plugin, restaurer les valeurs par défaut et la façon dont cette page est organisée. Ces actions ne servent qu'une fois : elles restent hors de la barre du bas.",
+    'Sauvegarde et restauration, déplacement de la racine des données ou du dossier des skins, redémarrage du plugin, retour aux valeurs par défaut. Ces actions ne servent qu’une fois : elles sont regroupées en bas de page et restent hors de la barre du bas.',
   chatCostTitle: 'Ce que ces options coûtent en tokens',
   chatCostHint:
     "Chaque note correspond à une option ci-dessus. Une option désactivée n'envoie pas le moindre caractère au modèle.",

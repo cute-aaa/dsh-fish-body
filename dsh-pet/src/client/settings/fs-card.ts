@@ -25,7 +25,6 @@ import {
   type MovableLocation,
   type MoveStatus,
 } from './layout-api.ts';
-import { requestPluginRestart, schedulePageReload } from '../plugin-restart.ts';
 import { fetchRuntime, resetRuntimeDir, saveRuntimeDir, startRuntimeDownload } from './runtime-api.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { treePrefixes } from './tree.ts';
@@ -36,6 +35,13 @@ import { MONO_STACK, makeUiKit } from './ui.ts';
 export interface FsCardProps {
   /** 数据根、树、只读参考与运行时状态。 */
   readonly paths: ConfigMeta;
+  /**
+   * 让新位置生效：重启插件。
+   *
+   * 由系统分区从「维护动作」那一组传进来，与维护卡的「重启」是同一份实现（那一条会先保存，
+   * 这一条不会——搬迁已经落盘，表单里的校验错误不该把「新位置生效」一起挡掉）。
+   */
+  readonly onRestart: () => void;
 }
 
 /** 折叠正文的 id：与卡头按钮的 `aria-controls` 成对。 */
@@ -326,13 +332,6 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
       });
     };
 
-    /** 重启插件让新位置生效。 */
-    const restart = (): void => {
-      void requestPluginRestart().then((mode) => {
-        if (mode === 'hmr') schedulePageReload();
-      });
-    };
-
     // 防御：meta 形状不对（老宿主 / 半升级）时按空树渲染，不让一张卡把整个设置页带崩。
     const layout = Array.isArray(paths.layout) ? paths.layout : [];
     const prefixes = treePrefixes(layout);
@@ -573,7 +572,7 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
                   key: 'r',
                   type: 'button',
                   className: 'dsh-pet-cfg__btn is-sm is-primary',
-                  onClick: restart,
+                  onClick: props.onRestart,
                   children: t('fsLocationRestart'),
                 }),
               ],

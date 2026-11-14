@@ -427,6 +427,7 @@ export const de: Record<Key, string> = {
   modelEmpty: 'Keine passenden Modelle.',
   modelNoModels: 'Keine Modelle verfügbar.',
   modelLoading: 'Modellliste wird aktualisiert…',
+  modelReload: 'Modellliste neu laden',
   modelTriggerAria: 'Modell wählen, aktuell {model}',
   modelUnknown: ' (aktuelle Konfiguration, nicht in der Liste)',
   modelNone: 'Für diesen Anbieter sind keine Modelle verfügbar',
@@ -540,6 +541,7 @@ export const de: Record<Key, string> = {
   restartHelper:
     'HMR ist nicht aktiv: Das Desktop-Fenster wurde neu aufgebaut, Host-Änderungen brauchen aber weiterhin einen Profil-Neustart.',
   restartFailed: 'Plugin-Neustart fehlgeschlagen; siehe Plugin-Log.',
+  restartNeededHint: 'Wird nach einem Plugin-Neustart wirksam',
   resetSettings: 'Einstellungen zurücksetzen',
   resetHint:
     'Setzt alle Einstellungen auf die Projektstandardwerte zurück (Begleiter, Personas, Physik, Schrift, Ton, Stimme, Modelle und Sitzungsfische). Nach der Bestätigung wird sofort geschrieben.',
@@ -576,6 +578,7 @@ export const de: Record<Key, string> = {
   restoreConfirm: 'Wiederherstellen',
   tabFeel: 'Aussehen & Verhalten',
   barDirty: '{n} ungespeicherte Änderungen',
+  restartPending: '{n} Änderungen werden erst nach einem Plugin-Neustart wirksam',
   barRevert: 'Änderungen verwerfen',
   barRevertHint: 'Die ungespeicherten Änderungen verwerfen und zu den Werten der Konfigurationsdatei zurückkehren.',
   revertDone: 'Die ungespeicherten Änderungen wurden verworfen.',
@@ -584,9 +587,10 @@ export const de: Record<Key, string> = {
   secDisplay: 'Anzeige & Position',
   secFeatures: 'Funktionen',
   secAdvanced: 'Erweitert',
+  maintenanceSection: 'Wartungsaufgaben',
   maintenanceTitle: 'Wartung',
   maintenanceHint:
-    'Plugin neu starten, die eingebauten Standardwerte wiederherstellen und wie diese Seite aufgebaut ist. Diese Aktionen stellt man einmal ein, deshalb stehen sie nicht in der unteren Leiste.',
+    'Sichern und Wiederherstellen, Datenstamm oder Skin-Ordner verschieben, Plugin neu starten, auf die eingebauten Standardwerte zurücksetzen. Diese Aktionen stellt man einmal ein, deshalb stehen sie gesammelt am Seitenende und nicht in der unteren Leiste.',
   chatCostTitle: 'Was diese Schalter an Tokens kosten',
   chatCostHint:
     'Jeder Hinweis gehört zu einem Schalter oben. Ein ausgeschalteter Schalter sendet kein einziges Zeichen mit.',

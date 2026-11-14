@@ -109,6 +109,50 @@ describe('VoiceProviderCard —— 下拉字段', () => {
   });
 });
 
+
+describe('VoiceProviderCard —— 动作结论只占一行', () => {
+  /** 卡片里的 `__msg` 行（顶部可用性 + 底部动作结论）。 */
+  const messagesOf = (tree: unknown): Node[] =>
+    flatten(tree).filter((node) => String(node.props.className ?? '').includes('dsh-pet-cfg__msg'));
+
+  test('保存与启停的结论不并排：启停优先，只渲染一条', () => {
+    const tree = Card(
+      props({
+        fields: [voiceField],
+        showProcess: true,
+        canStart: true,
+        message: 'voiceProviderSaved',
+        processMessage: 'voiceProviderStarted',
+      }),
+    );
+    const texts = messagesOf(tree).map((node) =>
+      flatten(node)
+        .map((inner) => inner.props.children)
+        .join(''),
+    );
+    // 第一行是「服务通不通」，第二行才是「上一次点了什么」——两条各有各的意思，不合并。
+    assert.deepEqual(texts, ['voiceProviderReady', 'voiceProviderStarted']);
+  });
+
+  test('没有启停结论时显示保存结论；失败带 is-err', () => {
+    const tree = Card(props({ fields: [voiceField], message: '!保存被拒' }));
+    const [action] = messagesOf(tree).slice(-1);
+    assert.equal(
+      flatten(action)
+        .map((inner) => inner.props.children)
+        .join(''),
+      '保存被拒',
+    );
+    assert.match(String(action.props.className), /is-err/);
+  });
+
+  test('两个结论都没有：不渲染多余的空行', () => {
+    const tree = Card(props({ fields: [voiceField] }));
+    // 只剩顶部那一行「就绪」。
+    assert.equal(messagesOf(tree).length, 1);
+  });
+});
+
 describe('VoiceProviderCard —— 其它分支没被弄坏', () => {
   test('text 字段仍是输入框', () => {
     const base: VoiceFieldView = { key: 'baseURL', label: '服务地址', kind: 'text', required: false };
