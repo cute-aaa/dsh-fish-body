@@ -21,8 +21,12 @@ import {
   parseClockMinutes,
 } from '../../shared/screen-config.ts';
 import { isKnownVoice } from '../voice/voices.ts';
+import { MAX_RESOURCE_DIRS } from '../../shared/pool.ts';
 import { FONT_FAMILY_SET, RENDERER_SET } from './constants.ts';
 import { sfxValid } from './sfx.ts';
+
+/** 单个素材根路径的长度上限（字符）：正常路径远短于它，超了基本是粘错内容。 */
+const MAX_RESOURCE_DIR_CHARS = 1024;
 
 /** 内置玩法动画的槽位数：`animations.baifan` 必须恰好这么多个（顺序是玩法契约，见 shared/types 的 Animations）。 */
 const ACTIVITY_SLOTS = 5;
@@ -193,16 +197,25 @@ export function petSizesValid(value: unknown): boolean {
 }
 
 /**
- * `assets` 段校验：对象；`pool` 缺省（= 默认 `<用户根>/skin`）或非空字符串。
+ * `assets` 段校验：对象；`pool` 缺省（= 默认 `<用户根>/assets/pet`）或非空字符串；
+ * `resourceDirs` 缺省或「不超过 {@link MAX_RESOURCE_DIRS} 条非空字符串」。
  *
- * 池根允许绝对路径，所以这里不限制分隔符与字符集——真正的路径守卫生成在 host/pool/resolve
- * （每个相对片段都过 insideRoot）。未知子键忽略（与 sfx 同口径：不因为多写一个键整段失效）。
+ * 池根与额外素材根都允许绝对路径，所以这里不限制分隔符与字符集——真正的路径守卫生成在
+ * host/pool/resolve（每个相对片段都过 insideRoot）。存在性也不在这里判：素材盘拔掉不该让整段配置失效。
+ * 未知子键忽略（与 sfx 同口径：不因为多写一个键整段失效）。
+ *
+ * @param value - 待判定的 `assets` 段。
+ * @returns 形状合法返回 true。
  */
 export function assetsValid(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const pool = (value as Record<string, unknown>).pool;
-  if (pool === undefined || pool === null) return true;
-  return typeof pool === 'string' && pool.trim() !== '';
+  const conf = value as Record<string, unknown>;
+  const pool = conf.pool;
+  if (pool !== undefined && pool !== null && !(typeof pool === 'string' && pool.trim() !== '')) return false;
+  const dirs = conf.resourceDirs;
+  if (dirs === undefined || dirs === null) return true;
+  if (!Array.isArray(dirs) || dirs.length > MAX_RESOURCE_DIRS) return false;
+  return dirs.every((item) => typeof item === 'string' && item.trim() !== '' && item.length <= MAX_RESOURCE_DIR_CHARS);
 }
 
 /**

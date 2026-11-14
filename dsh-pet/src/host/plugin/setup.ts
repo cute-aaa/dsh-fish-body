@@ -25,13 +25,8 @@ import { readLocations, resolveSkinDir } from '../locations.ts';
 import { userPaths, type UserPaths } from '../user-layout.ts';
 import { resolveUserRoot, type RootLog } from '../user-root.ts';
 import { POOL_LAYER_DIR, POOL_SOUND_DIR, isReservedAssetRoot } from '../../shared/pool.ts';
-import {
-  poolEntryDir,
-  poolGlobalSoundDir,
-  poolLayerDir,
-  poolRendererSoundDir,
-  resolvePoolRoot,
-} from '../pool/resolve.ts';
+import { poolGlobalSoundDir, poolLayerDir, poolRendererSoundDir, resolvePoolRoots } from '../pool/resolve.ts';
+import { poolEntryDirAcross } from '../pool/roots.ts';
 import { poolStructureBaseOf } from '../pool/scan.ts';
 import type { RendererKind } from '../../shared/types.ts';
 import type { SfxDirs } from '../sfx/scan.ts';
@@ -94,8 +89,10 @@ export interface HostSetup {
   ) => SfxDirs;
   /** 用户级共享音效目录（`<数据根>/assets/sound`）。 */
   readonly soundUserRoot: string;
-  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）；每次调用现读配置。 */
+  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/assets/pet`）；每次调用现读配置。 */
   readonly poolRoot: () => string;
+  /** 池根的有序表：主根在前，其后是 `assets.resourceDirs` 里的外部素材根（同 id 先到先得）。 */
+  readonly poolRoots: () => string[];
   /** 会话鱼的皮肤池目录（用户目录 + 包内动画）。 */
   readonly fishSkinDirs: () => FishSkinDirs;
   /** 软取宿主可选服务 */
@@ -264,14 +261,19 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
    *
    * 刻意没有「旧位置回落」：`<数据根>/skin/` 在新布局里是用户皮肤目录，
    * 再拿它当池读等于把用户的皮肤当内置素材，比池空着更糟（迁移那一步会把旧池搬到 assets/pet）。
+   *
+   * 返回的是**根序表**：主根（`assets.pool`）在前，其后是 `assets.resourceDirs` 里的外部素材根。
+   * 顺序即优先级——同 id 资源先到先得，取文件也按这个顺序试。
    */
-  const poolRootOf = (): string => {
+  const poolRootsOf = (): string[] => {
     try {
-      return resolvePoolRoot(userRoot, readAllConfig(configPaths).main?.assets);
+      return resolvePoolRoots(userRoot, readAllConfig(configPaths).main?.assets);
     } catch {
-      return resolvePoolRoot(userRoot, undefined);
+      return resolvePoolRoots(userRoot, undefined);
     }
   };
+  /** 主池根（多数调用点只关心它：根级的 sound/ 与渲染兜底目录仍按主根取）。 */
+  const poolRootOf = (): string => poolRootsOf()[0] ?? '';
 
   // 最终路径表：池根要按配置解析，所以这里是 userPaths 的第二次调用（第一次只给 logger 用）。
   const paths = userPaths(userRoot, { pool: poolRootOf(), skin: resolveSkinDir(userRoot, locations) });
@@ -316,7 +318,9 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     const ownSound = fromPool ? undefined : resolveAsset(petConfigDir, assetRoot + '-sound');
     const ownAnimation = fromPool ? undefined : resolveAsset(petConfigDir, assetRoot + '-animation');
     const poolWebmDir = poolLayerDir(poolRoot, 'webm');
-    const poolSkinDir = poolEntryDir(poolRoot, renderer, model);
+    // 资源目录按根序找第一个存在的：外部素材根里的皮肤，它的 `<前缀>-click.wav` 就在自己目录里，
+    // 第 1/2 级因此对多根天然生效（根级的 sound/ 与渲染兜底目录仍取主根，见交接 P5 §八）。
+    const poolSkinDir = poolEntryDirAcross(poolRootsOf(), renderer, model);
     const structureBase = poolSkinDir === undefined ? undefined : poolStructureBaseOf(poolSkinDir);
 
     return {
@@ -426,6 +430,7 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     soundDirsFor,
     soundUserRoot,
     poolRoot: poolRootOf,
+    poolRoots: poolRootsOf,
     fishSkinDirs: () => fishSkinDirs(userRoot),
     optionalService,
     standaloneAiPolicy,

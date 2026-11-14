@@ -25,6 +25,7 @@ import {
   userConfigUnparsable,
   type ConfigPaths,
 } from './config.ts';
+import { MAX_RESOURCE_DIRS } from '../shared/pool.ts';
 
 /** 内置默认配置的完整最小形态（animations 整段必须合法——合并是整段替换/整段回退） */
 const BASE = {
@@ -1760,6 +1761,17 @@ describe('readAllConfig —— 共享资源池（assets.pool）', () => {
   test('绝对路径池根合法', () => {
     const abs = join(tmpdir(), 'elsewhere', 'skin');
     assert.deepEqual(read({ assets: { pool: abs } }).main.assets, { pool: abs });
+  });
+
+  test('assets.resourceDirs：形状合法就透传，超上限 / 含非字符串整段回落默认', () => {
+    assert.deepEqual(read({ assets: { pool: 'p', resourceDirs: ['a', 'b'] } }).main.assets, {
+      pool: 'p',
+      resourceDirs: ['a', 'b'],
+    });
+    const tooMany = Array.from({ length: MAX_RESOURCE_DIRS + 1 }, (_, index) => 'd' + String(index));
+    assert.deepEqual(read({ assets: { pool: 'p', resourceDirs: tooMany } }).main.assets, { pool: 'skin' });
+    assert.deepEqual(read({ assets: { pool: 'p', resourceDirs: ['a', 42] } }).main.assets, { pool: 'skin' });
+    assert.deepEqual(read({ assets: { pool: 'p', resourceDirs: 'a' } }).main.assets, { pool: 'skin' });
   });
 
   test('assets.pool 为空串 / 非字符串 / 整段非对象：回落内置默认', () => {

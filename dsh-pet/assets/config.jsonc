@@ -276,7 +276,14 @@
   // 旧值 "skin" / "assets/skin" 仍能被识别：读到时自动归一成 "assets/pet" 并在日志里提醒一次。
   // `pool` 是保留字：不能作为 pet pack 的文件名前缀（pets/pool-config.json 会被跳过并告警）。
   // 目录不存在 = 空池：不报错、不告警，行为与没有这段配置完全一样。
-  "assets": { "pool": "assets/pet" },
+  //
+  // resourceDirs：额外的素材根（绝对路径，或相对用户根），**按顺序并入池视图**，最多 8 条。
+  // 用途是直接接外部皮肤工程，不用把文件搬进数据根，例如：
+  //   "resourceDirs": ["D:/AI/FishChi/body/skins", "G:/my-live2d-models"]
+  // 顺序即优先级：同 id 资源先到先得（主池根最优先，然后按数组顺序）；
+  // `/skins`、`/skin/pool/...`、`/thumb/pool/...` 与池里的音效都按这个顺序找。
+  // 某条路径不存在只是少一个根（不报错）；同一个目录写两遍会被自动去重。
+  "assets": { "pool": "assets/pet", "resourceDirs": [] },
   // ===================== 工作状态联动文案（条目级，与 animations/physics 同级；种类文件 pets/<名>-config.json 顶层可覆盖） =====================
   // 工作状态气泡文本（pets[].workStatusEnabled 开启时展示；仅在 events.workStatus 动画触发时弹）。
   // 结构 = 二维数组，外层索引即档位（与 events.workStatus 动画索引一一对应，勿在中间插入新档）：

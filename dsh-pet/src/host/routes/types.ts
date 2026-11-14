@@ -154,8 +154,14 @@ export interface PetRouteDeps {
     ext: string,
     opts?: { renderer?: RendererKind; model?: string },
   ) => SfxDirs;
-  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）。 */
+  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/assets/pet`）。 */
   readonly poolRoot: () => string;
+  /**
+   * 池根的有序表：主根在前，其后是 `assets.resourceDirs` 里的外部素材根。
+   *
+   * 可选：精简测试桩只给 `poolRoot`，此时按单根处理（与多根加入之前的行为一致）。
+   */
+  readonly poolRoots?: () => string[];
   /** 会话鱼的皮肤池目录（用户目录 + 包内动画）；缺省按 `userRoot` 现算。 */
   readonly fishSkinDirs?: () => FishSkinDirs;
   /** 用平台文件管理器打开一个目录（设置页的「打开素材文件夹」）。 */

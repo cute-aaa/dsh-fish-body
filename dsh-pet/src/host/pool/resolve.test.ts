@@ -15,7 +15,10 @@ import {
   poolRendererSoundDir,
   poolWebmFile,
   resolvePoolRoot,
+  resolvePoolRoots,
+  resolveResourceDirs,
 } from './resolve.ts';
+import { MAX_RESOURCE_DIRS } from '../../shared/pool.ts';
 
 // 用带盘符的绝对路径（Windows 上 join(sep,'u') 只有根没有盘符，resolve 比对会多出盘符）。
 const USER = resolve(sep, 'u', 'fish-body');
@@ -95,5 +98,55 @@ describe('displayPathOf', () => {
     assert.equal(displayPathOf(USER, join(USER, 'assets', 'pet', 'sound', 'click.wav')), 'assets/pet/sound/click.wav');
     const outside = join(sep, 'mnt', 'pool', 'sound', 'click.wav');
     assert.equal(displayPathOf(USER, outside), outside.replace(/\\/g, '/'));
+  });
+});
+
+describe('resolveResourceDirs —— 额外的素材根', () => {
+  test('缺省 / 非数组 / 全空白：空数组（不是错误）', () => {
+    for (const assets of [undefined, null, 'x', [], { resourceDirs: 'nope' }, { resourceDirs: [] }]) {
+      assert.deepEqual(resolveResourceDirs(USER, assets), []);
+    }
+    assert.deepEqual(resolveResourceDirs(USER, { resourceDirs: ['   ', '', 42] }), []);
+  });
+
+  test('绝对路径原样、相对路径挂到用户根下，顺序不变', () => {
+    const absolute = join(sep, 'mnt', 'skins');
+    assert.deepEqual(resolveResourceDirs(USER, { resourceDirs: [absolute, 'my-skins', join(sep, 'd', 'more')] }), [
+      absolute,
+      join(USER, 'my-skins'),
+      join(sep, 'd', 'more'),
+    ]);
+  });
+
+  test('与主根重复的项丢掉（同目录扫两遍只会互相告警）', () => {
+    const primary = join(USER, 'assets', 'pet');
+    assert.deepEqual(resolveResourceDirs(USER, { resourceDirs: ['assets/pet'] }, primary), []);
+    // Windows 上大小写不敏感：同一个目录换个写法仍是同一个
+    assert.deepEqual(resolveResourceDirs(USER, { resourceDirs: ['ASSETS/PET'] }, primary), []);
+  });
+
+  test('数组内部的重复只留一次', () => {
+    assert.deepEqual(resolveResourceDirs(USER, { resourceDirs: ['a', 'a', 'A'] }), [join(USER, 'a')]);
+  });
+
+  test('超过上限就截断（多出来的根不该让每条路由去多探几层）', () => {
+    const many = Array.from({ length: MAX_RESOURCE_DIRS + 3 }, (_, index) => 'dir' + String(index));
+    assert.equal(resolveResourceDirs(USER, { resourceDirs: many }).length, MAX_RESOURCE_DIRS);
+  });
+});
+
+describe('resolvePoolRoots —— 根序表', () => {
+  test('主根永远在第一位，其后是 resourceDirs', () => {
+    const roots = resolvePoolRoots(USER, { resourceDirs: ['extra1', 'extra2'] });
+    assert.deepEqual(roots, [join(USER, 'assets', 'pet'), join(USER, 'extra1'), join(USER, 'extra2')]);
+  });
+
+  test('没有额外根时只有主根（调用方不必分支）', () => {
+    assert.deepEqual(resolvePoolRoots(USER, undefined), [join(USER, 'assets', 'pet')]);
+  });
+
+  test('assets.pool 写绝对路径时主根跟着走，去重仍生效', () => {
+    const custom = join(sep, 'mnt', 'mypool');
+    assert.deepEqual(resolvePoolRoots(USER, { pool: custom, resourceDirs: [custom, 'x'] }), [custom, join(USER, 'x')]);
   });
 });

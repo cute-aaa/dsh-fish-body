@@ -26,6 +26,14 @@ export const POOL_DEFAULT_DIR = 'assets/pet';
  */
 export const POOL_LEGACY_DIRS: readonly string[] = ['skin', 'assets/skin'];
 
+/**
+ * `assets.resourceDirs` 的条数上限。
+ *
+ * 为什么要上限：每多一个根，一次取文件请求就多几次目录探测；8 条足够接几个外部素材库，
+ * 再多该做的是整理素材，而不是让每条路由去扫二十个根。
+ */
+export const MAX_RESOURCE_DIRS = 8;
+
 /** 渲染方式在池里的子目录名。 */
 export const POOL_LAYER_DIR: Readonly<Record<RendererKind, string>> = {
   layered: 'layered',

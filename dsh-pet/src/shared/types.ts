@@ -370,6 +370,14 @@ export interface ResolvedSfxCue {
 export interface AssetsConfig {
   /** 池根：相对用户根（默认 `skin`）或绝对路径；空串/非法即回落默认。 */
   pool?: string;
+  /**
+   * 额外的素材根（绝对路径或相对用户根）：**按顺序并入池视图**。
+   *
+   * 与 `pool` 同一语义层级——都是「这台机器上的共享素材库」，主根写在 `pool`、其余排在这里。
+   * 用途是直接接外部皮肤工程（`D:\AI\FishChi\body\skins` 这类），不必把文件搬进数据根。
+   * 同 id 资源先到先得：主根优先，然后按本数组顺序。
+   */
+  resourceDirs?: string[];
 }
 
 /**

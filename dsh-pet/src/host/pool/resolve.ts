@@ -6,7 +6,13 @@
  * @module dsh-fish-body/src/host/pool/resolve
  */
 import { isAbsolute, join, normalize, relative, resolve } from 'node:path';
-import { POOL_DEFAULT_DIR, POOL_LAYER_DIR, POOL_LEGACY_DIRS, POOL_SOUND_DIR } from '../../shared/pool.ts';
+import {
+  MAX_RESOURCE_DIRS,
+  POOL_DEFAULT_DIR,
+  POOL_LAYER_DIR,
+  POOL_LEGACY_DIRS,
+  POOL_SOUND_DIR,
+} from '../../shared/pool.ts';
 import type { RendererKind } from '../../shared/types.ts';
 
 /** 三渲染方式的白名单（顺序即池内目录的探测顺序）。 */
@@ -41,6 +47,54 @@ export function resolvePoolRoot(userRoot: string, assets: unknown): string {
     return join(userRoot, POOL_DEFAULT_DIR);
   }
   return isAbsolute(value) ? normalize(value) : join(userRoot, value);
+}
+
+/**
+ * 额外的素材根（`assets.resourceDirs`）：绝对路径或相对用户根，按顺序去重。
+ *
+ * 语义与 `assets.pool` 同级——都是「这台机器上的共享素材库」，只是主根写在 `pool`、其余排在这里。
+ * 手改配置可能绕过校验层，所以这里逐项宽容：非字符串 / 空白项直接跳过（不是错误），
+ * 路径只做 `normalize` 不做 `existsSync`（素材盘拔掉时不该让整段配置失效）。
+ * 与主根重复的项会被丢掉——同一个目录扫两遍只会让同名资源互相告警。
+ *
+ * @param userRoot - 本插件的用户数据根。
+ * @param assets - 成品配置里读到的 `assets` 段。
+ * @param primaryRoot - 已解析好的主根（缺省时现算）；用于去重与顺序基准。
+ * @returns 绝对路径列表，最多 {@link MAX_RESOURCE_DIRS} 条；没有额外根时为空数组。
+ */
+export function resolveResourceDirs(userRoot: string, assets: unknown, primaryRoot?: string): string[] {
+  const raw =
+    assets && typeof assets === 'object' && !Array.isArray(assets)
+      ? (assets as Record<string, unknown>).resourceDirs
+      : undefined;
+  if (!Array.isArray(raw)) return [];
+  const primary = primaryRoot ?? resolvePoolRoot(userRoot, assets);
+  const seen = new Set<string>([normalize(primary).toLowerCase()]);
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const value = item.trim();
+    if (value === '') continue;
+    const absolute = isAbsolute(value) ? normalize(value) : join(userRoot, value);
+    const key = absolute.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(absolute);
+    if (out.length >= MAX_RESOURCE_DIRS) break;
+  }
+  return out;
+}
+
+/**
+ * 池根的**有序表**：主根在前，其后是 `resourceDirs`（同 id 资源先到先得就靠这个顺序）。
+ *
+ * @param userRoot - 本插件的用户数据根。
+ * @param assets - 成品配置里读到的 `assets` 段。
+ * @returns 至少一项（主根永远不会缺席）。
+ */
+export function resolvePoolRoots(userRoot: string, assets: unknown): string[] {
+  const primary = resolvePoolRoot(userRoot, assets);
+  return [primary, ...resolveResourceDirs(userRoot, assets, primary)];
 }
 
 /**
