@@ -158,8 +158,23 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `PATCH /dsh-pet-7340/todos/{id}`  | 修改一条：`{ text?, dueAt?, done? }` 至少给一个              |
 | `DELETE /dsh-pet-7340/todos/{id}` | 删除一条（幂等，回 `removed` 条数）                          |
 
-## 十一、会话鱼
+## 十一、看屏幕与避让
 
+五个端点都由桌面 Helper 驱动（宿主推不动 Helper：Windows 上 Electron 主进程收不到 piped stdin），
+第三方一般只需要读状态或手动触发一次。
+
+| 接口                                     | 功能                                                                                                                    |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `GET /dsh-pet-7340/screen/tick?pet=`     | Helper 每 5 秒问一次「这一拍拍不拍」：`{ ok, capture, reason }`，`reason` = `disabled` / `manual` / `throttled` / `busy` / `quiet` / `ready`。**无副作用**；手动请求只有真的拍下去才被消费 |
+| `POST /dsh-pet-7340/screen/frame?pet=`   | 交一帧：`{ attachment: { mediaType, data } }` → 读图 → 一句话进 `say` 叶子。持锁时先门禁后花钱（`locked`），开关关着 `unsupported`，读图失败 `generate-error`（文案带「模型可能不支持读图」）。`?debug=1` 会把这一帧另存到 `<用户根>/screen-frame.jpg` |
+| `POST /dsh-pet-7340/screen/request?pet=` | 记一个手动请求（跳过间隔 / 忙闲 / 静默三张门），下一拍 `reason=manual`；开关关着 `unsupported`                        |
+| `POST /dsh-pet-7340/screen/event?pet=`   | Helper 上报最近一帧前台快照（`kind: foreground`），只存最近一条，供设置页显示「当前前台 …」                             |
+| `GET /dsh-pet-7340/screen/state?pet=`    | 读十三个归一化后的配置项 + `manualPending` / `lastMs` / `last`（上次结论）/ `foreground`（最近前台与判定）               |
+
+十三个配置键（`screenRead*` 六个、`avoid*` 七个，平键写在配置顶层、拍平时收成 `pet.screen`）见
+[`docs/交接-P4.md`](docs/交接-P4.md) 第三节；越界值运行期夹取、写盘整包拒绝。
+
+## 十二、会话鱼
 | 接口                                        | 功能                                                                                                                      |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `GET /dsh-pet-7340/session-fish`            | 读会话鱼设置（独立文件 `<数据根>/config/session-fish.json`；文件缺失/损坏时回默认值）                                      |
