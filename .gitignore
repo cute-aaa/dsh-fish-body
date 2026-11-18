@@ -58,3 +58,6 @@ dsh-pet/dist-app/
 Thumbs.db
 desktop.ini
 _legacy_tmp/
+
+# DevFlow 状态文件的自动备份（每次 approve/finish 会生成）
+*.bak
