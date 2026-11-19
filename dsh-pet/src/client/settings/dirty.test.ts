@@ -142,12 +142,26 @@ describe('dirtyTabs —— 实例字段级归属（控件搬了家，圆点跟�
     assert.deepEqual(lit, [tab], `${path} 应只点亮 ${tab}`);
   };
 
-  test('渲染 / 位置 / 尺寸 / 鼠标穿透 → 外观与手感', () => {
+  /** 多页共编的字段：点亮的页集合必须与给定顺序无关地相等。 */
+  const exactly = (path: string, tabs: readonly string[]): void => {
+    const lit = Object.entries(dirtyTabs(new Set([path])))
+      .filter(([, on]) => on)
+      .map(([id]) => id)
+      .sort();
+    assert.deepEqual(lit, [...tabs].sort(), `${path} 应点亮 ${tabs.join(' + ')}`);
+  };
+
+  test('渲染 / 位置 / 每渲染尺寸 / 鼠标穿透 → 外观与手感', () => {
     only('pets.0.renderer', 'feel');
     only('pets.0.model', 'feel');
     only('pets.0.sizes.live2d', 'feel');
+    only('pets.0.sizePercent', 'feel');
     only('pets.0.position.marginX', 'feel');
     only('pets.0.clickThrough', 'feel');
+  });
+
+  test('基准尺寸两页都有控件：改一次两页都亮（桌宠的「大小」+ 外观的「尺寸」基准）', () => {
+    exactly('pets.0.size', ['pet', 'feel']);
   });
 
   test('名字 / 人设正文 / 角色引用 → 桌宠', () => {

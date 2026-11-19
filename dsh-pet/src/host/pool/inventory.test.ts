@@ -1,7 +1,9 @@
-/**
- * 渲染资源清单（readRenderResources）的单元测试：三个桶的存在性、目录、数量与缺文件。
+﻿/**
+ * 渲染资源清单（readRenderResources）的单元测试：三个桶的存在性、目录、数量、回落与缺文件。
  *
- * 只构造临时目录，不碰真实素材；判定口径与 `/skin/<root>/skins|models` 同一份（见 routes/assets）。
+ * 口径（QA-16 / QA-31 的共同判据）：`dir` 是本行的用户目录，`count`/`items` **只数 `dir`**；
+ * 这只宠物的专用目录、其它池根与包内素材只能出现在 `fallback` 里。
+ * 只构造临时目录，不碰真实素材。
  * @module dsh-fish-body/src/host/pool/inventory.test
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -39,7 +41,7 @@ test('三桶：有清单 / 目录空 / 目录不存在', () => {
       resources.layered.items.map((item) => [item.id, item.source]),
       [['character1', 'pool']],
     );
-    assert.equal(resources.layered.dir, join(pool, 'layered'), '没有皮肤目录时给池桶目录');
+    assert.equal(resources.layered.dir, join(pool, 'layered'), '行目录就是用户桶目录');
     assert.deepEqual(resources.layered.missingFiles, []);
 
     assert.equal(resources.live2d.status, 'missing');
@@ -64,7 +66,7 @@ test('三桶：有清单 / 目录空 / 目录不存在', () => {
   }
 });
 
-test('皮肤目录存在时 dir 指向皮肤目录，items 先 pack 后池', () => {
+test('专用皮肤目录存在：count 仍是行目录的 0，专用目录的条目进 fallback(pack)', () => {
   const { dir, pool } = tempPool();
   try {
     const packSkin = join(dir, 'fish-skin');
@@ -74,24 +76,26 @@ test('皮肤目录存在时 dir 指向皮肤目录，items 先 pack 后池', () 
     put(join(pool, 'layered', 'character1', 'manifest.json'));
 
     const resources = readRenderResources({ poolRoot: pool, packSkinDir: packSkin });
-    assert.equal(resources.layered.dir, packSkin);
+    // 行目录仍是用户桶目录（行名 skin/layered 说的就是它）。
+    assert.equal(resources.layered.dir, join(pool, 'layered'));
     assert.deepEqual(
       resources.layered.items.map((item) => [item.id, item.source]),
-      [
-        ['winter', 'pack'],
-        ['character1', 'pool'],
-      ],
+      [['character1', 'pool']],
+      'count 只数行目录里的资源',
     );
-    assert.deepEqual(
-      resources.live2d.items.map((item) => [item.id, item.source]),
-      [['fish.model3.json', 'pack']],
-    );
+    assert.deepEqual(resources.layered.fallback, { count: 1, source: 'pack' }, '专用目录的 winter 只能进回落');
+    // 行目录里没有 live2d 模型 → count 0，模型进回落。
+    assert.equal(resources.live2d.count, 0);
+    assert.deepEqual(resources.live2d.fallback, { count: 1, source: 'pack' });
+    // 有回落就算可用，不弹缺文件横幅。
+    assert.equal(resources.live2d.status, 'ok');
+    assert.deepEqual(resources.live2d.missingFiles, []);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('webm：多个候选目录合并去重，dir 取第一个存在的目录', () => {
+test('webm：fd 目录只数行目录，专属与包内动画分别进 fallback', () => {
   const { dir, pool } = tempPool();
   try {
     const packAnim = join(dir, 'fish-animation');
@@ -99,22 +103,68 @@ test('webm：多个候选目录合并去重，dir 取第一个存在的目录', 
     writeFileSync(join(packAnim, 'wave.webm'), 'x');
     put(join(pool, 'webm', 'wave.webm'), 'x');
     put(join(pool, 'webm', 'idle.webm'), 'x');
+    const builtinAnim = join(dir, 'builtin-webm');
+    mkdirSync(builtinAnim, { recursive: true });
+    writeFileSync(join(builtinAnim, 'blink.webm'), 'x');
 
     const resources = readRenderResources({
       poolRoot: pool,
       animDirs: [
         { dir: packAnim, source: 'pack' },
         { dir: join(pool, 'webm'), source: 'pool' },
+        { dir: builtinAnim, source: 'pool' },
       ],
     });
-    assert.equal(resources.webm.dir, packAnim);
+    assert.equal(resources.webm.dir, join(pool, 'webm'));
     assert.deepEqual(
       resources.webm.items.map((item) => [item.id, item.source]),
       [
-        ['wave', 'pack'],
         ['idle', 'pool'],
+        ['wave', 'pool'],
       ],
+      '只数行目录里的 webm',
     );
+    // 回落：wave（专属目录，与行目录同名被去重）+ blink（包内）。
+    assert.deepEqual(resources.webm.fallback, { count: 1, source: 'builtin' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('行目录空、其余来源都有货：status=ok + fallback 条数与来源', () => {
+  const { dir, pool } = tempPool();
+  try {
+    const extraRoot = join(dir, 'builtin');
+    put(join(extraRoot, 'layered', 'a', 'manifest.json'));
+    put(join(extraRoot, 'layered', 'b', 'manifest.json'));
+    const resources = readRenderResources({ poolRoot: pool, poolRoots: [pool, extraRoot] });
+    assert.equal(resources.layered.count, 0);
+    assert.equal(resources.layered.status, 'ok', '有回落就算可用');
+    assert.deepEqual(resources.layered.fallback, { count: 2, source: 'builtin' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('无 manifest 的 rig 皮肤放进行目录：要被数成行目录资源，且不显示成「来自内置」', () => {
+  const { dir, pool } = tempPool();
+  try {
+    // 行目录（用户 skin/layered）里放一个只有 rig/schema、没有 manifest 的皮肤：
+    // 结构判定与池扫描同一套（pickStructure 认 rig/schema 键），只认 manifest 会数成 0。
+    const rig = join(pool, 'layered', 'rig-only');
+    mkdirSync(rig, { recursive: true });
+    writeFileSync(join(rig, 'rig.json'), '{"rig":{"bones":[]}}');
+    writeFileSync(join(rig, 'schema.json'), '{"schema":{"slots":[]}}');
+    const builtin = join(dir, 'builtin');
+    put(join(builtin, 'layered', 'builtin-skin', 'manifest.json'));
+
+    const resources = readRenderResources({ poolRoot: pool, poolRoots: [pool, builtin] });
+    assert.equal(resources.layered.count, 1, '行目录里的 rig 皮肤必须被数出来');
+    assert.deepEqual(
+      resources.layered.items.map((i) => [i.id, i.source]),
+      [['rig-only', 'pool']],
+    );
+    assert.deepEqual(resources.layered.fallback, { count: 1, source: 'builtin' }, '只有另一个根的条目才算内置回落');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

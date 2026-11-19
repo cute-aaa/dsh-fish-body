@@ -667,6 +667,10 @@ export const ja: Record<Key, string> = {
   skinDirsTitle: 'スキンフォルダー',
   skinDirsHint:
     'この 3 行は自分のスキンフォルダー（skin/layered・skin/live2d・skin/webm）です。描画方式ごとに素材を入れると設定ページで選べます。内蔵スキンは assets/pet にあり、同名のユーザースキンがないときだけフォールバックします。パスはホストが返し、「開く」で直接開きます。',
+  'skinSource.pack': 'このペットのフォルダー',
+  'skinSource.pool': 'スキンプール',
+  'skinSource.builtin': '内蔵素材',
+  skinDirsFallback: 'ほかに {n} 件（{source}）',
   skinDirsCount: '{n} 件',
   skinDirsMissing: '{file} がありません',
   'renderDir.layered': 'レイヤースキン',

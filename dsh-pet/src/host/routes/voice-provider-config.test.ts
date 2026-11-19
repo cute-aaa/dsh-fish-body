@@ -8,13 +8,21 @@
  *   4. 宿主凭据库不能写时回 `unsupported`，而不是静默丢掉用户填的密钥。
  */
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, test } from 'node:test';
 
 import { handleProviderConfig } from './voice-provider-config.ts';
 import { registerVoiceProvider, resetVoiceProviders } from '../voice/registry.ts';
+import {
+  CLOUD_API_KEY_FALLBACK,
+  CLOUD_API_KEY_REF,
+  EMPTY_CLOUD_SETTINGS,
+  cloudAxesOf,
+  cloudSettingsOf,
+  createCloudProvider,
+} from '../voice/cloud/provider.ts';
 import { userPaths } from '../user-layout.ts';
 import type { PetRouteDeps } from './types.ts';
 
@@ -280,6 +288,324 @@ describe('下拉字段与保存后探活', () => {
       assert.equal(body.values?.useCloud, '');
     } finally {
       stub.dispose();
+    }
+  });
+});
+
+describe('POST：需要鉴权的协议必须有 key（D-07，按生效预设判）', () => {
+  /**
+   * 与云端四轴同形的假实现：`authStyle` / `protocol` 存空串表示「跟随预设」，
+   * 结论由 `needsKey`/`keyRefs` 钩子给出 —— 这正是云端 provider 的做法（`cloudAxesOf` / `cloudKeyRefs`）。
+   */
+  const registerAxisStub = (): (() => void) =>
+    registerVoiceProvider({
+      id: 'cloud-axis',
+      name: '云端语音（四轴骨架）',
+      fields: [
+        { key: 'preset', label: '服务预设', kind: 'select', options: ['none', 'openai-speech', 'deepseek'] },
+        { key: 'useCloud', label: '使用云端语音', kind: 'select', options: ['on', 'off'] },
+        { key: 'protocol', label: '接口协议', kind: 'select', options: ['openai', 'custom'] },
+        { key: 'authStyle', label: '鉴权方式', kind: 'select', options: ['bearer', 'none'] },
+        { key: 'baseURL', label: '服务地址', kind: 'text' },
+        { key: 'bodyTemplate', label: '请求体模板', kind: 'text' },
+        {
+          key: 'apiKey',
+          label: 'API Key',
+          kind: 'password',
+          credentialRef: 'DSH_TEST_TTS_KEY',
+          credentialFallbacks: ['DSH_TEST_TTS_KEY_HOST'],
+        },
+      ],
+      // 直接复用生产实现的两条判据（`cloudAxesOf` / `cloudKeyRefs`）：这样测的就是真实口径，
+      // 不是我在测试里另写一份「大致相同」的规则。
+      needsKey: (values) => {
+        // 与生产同一判据：只有「云端开着」时才要 key（P2-9 的逃生口）
+        const settings = cloudSettingsOf({ cloud: values });
+        return settings.useCloud && cloudAxesOf(settings).authStyle !== 'none';
+      },
+      keyRefs: (values) =>
+        cloudAxesOf(cloudSettingsOf({ cloud: values })).preset === 'deepseek'
+          ? ['DSH_TEST_TTS_KEY', 'DSH_TEST_TTS_KEY_HOST']
+          : ['DSH_TEST_TTS_KEY'],
+      availability: () => ({ ok: false, reason: '尚未接入' }),
+      synthesize: async () => {
+        throw new Error('尚未接入');
+      },
+    });
+
+  test('① preset=openai-speech + authStyle 空 + key 空 + 宿主只有 DEEPSEEK_API_KEY → 400', async () => {
+    const dispose = registerAxisStub();
+    const root = tempRoot();
+    // 宿主 key 挂在「回退引用」上：非 deepseek 预设不得认它
+    const { store, seam } = fakeCredentials();
+    store.set('DSH_TEST_TTS_KEY_HOST', 'host-key');
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, seam),
+        input('POST', 'cloud-axis', {
+          patch: {
+            useCloud: 'on',
+            preset: 'openai-speech',
+            protocol: 'openai',
+            authStyle: '',
+            baseURL: 'https://a/v1',
+          },
+        }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, false);
+      assert.equal(obj.reason, 'bad-request');
+      assert.match(String(obj.message), /API Key 未填/);
+      assert.equal(existsSync(userPaths(root).voiceProviders), false, '被拒时不得写普通项');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('② preset=deepseek + key 空 + 宿主有回退 key → 200（允许回退）', async () => {
+    const dispose = registerAxisStub();
+    const root = tempRoot();
+    const { store, seam } = fakeCredentials();
+    store.set('DSH_TEST_TTS_KEY_HOST', 'host-key');
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, seam),
+        input('POST', 'cloud-axis', {
+          patch: {
+            useCloud: 'on',
+            preset: 'deepseek',
+            protocol: 'custom',
+            authStyle: '',
+            bodyTemplate: '{"text":"{text}"}',
+          },
+        }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, true);
+      assert.deepEqual(obj.secrets, { apiKey: true }, '回退引用在场就算已配');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('③ authStyle=none + key 空 → 200（本机服务不要鉴权）', async () => {
+    const dispose = registerAxisStub();
+    const root = tempRoot();
+    const { seam } = fakeCredentials();
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, seam),
+        input('POST', 'cloud-axis', {
+          patch: {
+            useCloud: 'on',
+            preset: 'openai-speech',
+            protocol: 'custom',
+            authStyle: 'none',
+            baseURL: 'http://127.0.0.1:9',
+          },
+        }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, true);
+      assert.deepEqual(obj.secrets, { apiKey: false });
+    } finally {
+      dispose();
+    }
+  });
+
+  test('④ preset=custom（none）+ 合法 bodyTemplate + authStyle 空 + 无 key → 400', async () => {
+    const dispose = registerAxisStub();
+    const root = tempRoot();
+    const { seam } = fakeCredentials();
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, seam),
+        input('POST', 'cloud-axis', {
+          patch: {
+            useCloud: 'on',
+            preset: 'none',
+            protocol: 'custom',
+            authStyle: '',
+            baseURL: 'https://c/v1',
+            bodyTemplate: '{"text":"{text}"}',
+          },
+        }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, false);
+      assert.match(String(obj.message), /API Key 未填/);
+    } finally {
+      dispose();
+    }
+  });
+
+  test('⑦ useCloud:"off" + 无 key → 200（关掉云端是逃生口，不能被 key 校验锁死）', async () => {
+    const dispose = registerAxisStub();
+    const root = tempRoot();
+    const { seam } = fakeCredentials();
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, seam),
+        input('POST', 'cloud-axis', {
+          patch: { useCloud: 'off', preset: 'openai-speech', protocol: 'openai', authStyle: 'bearer' },
+        }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, true, '关掉云端必须能存');
+      assert.equal((obj.values as Record<string, string>).useCloud, 'off');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('⑤ authStyle=bearer + clear:["apiKey"]（凭据库已有 key）→ 400，且配置字节不变', async () => {
+    const dispose = registerAxisStub();
+    const root = tempRoot();
+    const { store, seam } = fakeCredentials();
+    store.set('DSH_TEST_TTS_KEY', 'user-key');
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, seam),
+        input('POST', 'cloud-axis', {
+          patch: {
+            useCloud: 'on',
+            preset: 'openai-speech',
+            protocol: 'openai',
+            authStyle: 'bearer',
+            baseURL: 'https://a/v1',
+          },
+          clear: ['apiKey'],
+        }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, false, '需要鉴权时清空 key 必须被拒');
+      assert.match(String(obj.message), /不能清空/);
+      assert.equal(existsSync(userPaths(root).voiceProviders), false, '400 分支不得写普通项');
+      assert.equal(store.get('DSH_TEST_TTS_KEY'), 'user-key', '400 分支不得动凭据');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('⑥ deepseek + clear:["apiKey"] + 宿主回退 key → 允许，落盘后仍算已配', async () => {
+    const dispose = registerAxisStub();
+    const root = tempRoot();
+    const { store, seam } = fakeCredentials();
+    store.set('DSH_TEST_TTS_KEY', 'user-key');
+    store.set('DSH_TEST_TTS_KEY_HOST', 'host-key');
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, seam),
+        input('POST', 'cloud-axis', {
+          patch: {
+            useCloud: 'on',
+            preset: 'deepseek',
+            protocol: 'custom',
+            authStyle: '',
+            bodyTemplate: '{"text":"{text}"}',
+          },
+          clear: ['apiKey'],
+        }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, true, 'deepseek 有宿主 key 兜底，清掉用户那把仍然可用');
+      assert.equal(store.has('DSH_TEST_TTS_KEY'), false, '用户那把确实被清掉');
+      assert.deepEqual(obj.secrets, { apiKey: true }, '回退引用仍算已配');
+    } finally {
+      dispose();
+    }
+  });
+});
+
+describe('P2-9 / 生产云端口径：needsKey 与 keyRefs 必须由实现给出（不是测试替身）', () => {
+  /**
+   * 造生产实现（`createCloudProvider`），只注入「现读配置」与「读密钥」两个依赖。
+   * 目的不是再测一遍业务，而是把那两条**安全边界**钉在实现上：上面的 ①–⑦ 用的是
+   * 复制了同款判据的测试桩，桩与实现一起漂移时那些用例仍会绿——这里直接问实现。
+   */
+  const productionCloud = (): ReturnType<typeof createCloudProvider> =>
+    createCloudProvider({
+      settings: () => EMPTY_CLOUD_SETTINGS,
+      readKey: async () => undefined,
+    });
+
+  test('needsKey 认 useCloud：关掉云端时没有 key 也不要求 key（P2-9 逃生口）', () => {
+    const cloud = productionCloud();
+    assert.equal(
+      cloud.needsKey?.({ useCloud: 'off', preset: 'openai-speech', authStyle: 'bearer' }),
+      false,
+      '关着云端不该要 key',
+    );
+    assert.equal(
+      cloud.needsKey?.({ useCloud: 'on', preset: 'openai-speech', authStyle: 'bearer' }),
+      true,
+      '开着云端 + 需鉴权 → 要 key',
+    );
+    assert.equal(
+      cloud.needsKey?.({ useCloud: 'on', preset: 'openai-speech', authStyle: 'none' }),
+      false,
+      '本机服务不要鉴权',
+    );
+    // 空串表示「跟随预设」：openai-speech 的预设鉴权是 bearer → 仍要 key（D-07 假修的根因）
+    assert.equal(
+      cloud.needsKey?.({ useCloud: 'on', preset: 'openai-speech', authStyle: '', protocol: '' }),
+      true,
+      '空 authStyle 要走预设',
+    );
+  });
+
+  test('keyRefs 只对 deepseek 放开宿主回退引用（否则把宿主 key 发给第三方）', () => {
+    const cloud = productionCloud();
+    assert.deepEqual(cloud.keyRefs?.({ useCloud: 'on', preset: 'openai-speech' }), [CLOUD_API_KEY_REF]);
+    assert.deepEqual(cloud.keyRefs?.({ useCloud: 'on', preset: 'azure' }), [CLOUD_API_KEY_REF]);
+    assert.deepEqual(cloud.keyRefs?.({ useCloud: 'on', preset: 'deepseek' }), [
+      CLOUD_API_KEY_REF,
+      CLOUD_API_KEY_FALLBACK,
+    ]);
+  });
+
+  test('路由 + 生产实现：useCloud:"off" + 凭据库无 key → 200 且真的落盘', async () => {
+    const dispose = registerVoiceProvider(productionCloud());
+    const root = tempRoot();
+    const { store, seam } = fakeCredentials(); // 一个密钥都没有
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, seam),
+        input('POST', 'cloud', { patch: { useCloud: 'off' } }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, true, JSON.stringify(obj));
+      assert.equal((obj.values as Record<string, string>).useCloud, 'off');
+      assert.equal(store.size, 0, '不该因此去写凭据');
+      const saved = JSON.parse(readFileSync(userPaths(root).voiceProviders, 'utf8')) as {
+        cloud: Record<string, string>;
+      };
+      assert.equal(saved.cloud.useCloud, 'off', '关云端必须能存下来');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('路由 + 生产实现：openai-speech + clear:["apiKey"] → ok:false，且不写文件、不动凭据', async () => {
+    const dispose = registerVoiceProvider(productionCloud());
+    const root = tempRoot();
+    const { store, seam } = fakeCredentials();
+    store.set(CLOUD_API_KEY_REF, 'user-key');
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, seam),
+        input('POST', 'cloud', {
+          patch: { useCloud: 'on', preset: 'openai-speech', protocol: 'openai', authStyle: 'bearer' },
+          clear: ['apiKey'],
+        }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, false, JSON.stringify(obj));
+      assert.match(String(obj.message), /不能清空/);
+      assert.equal(existsSync(userPaths(root).voiceProviders), false, '被拒时不得写普通项');
+      assert.equal(store.get(CLOUD_API_KEY_REF), 'user-key', '被拒时不得动凭据');
+    } finally {
+      dispose();
     }
   });
 });

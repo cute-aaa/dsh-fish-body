@@ -119,22 +119,29 @@ export function baselineFromConfig(entries: readonly ConfigEntry[], patch: MainC
 /**
  * 实例字段 → 分区：`pets.<下标>.<字段>` 命中这张表就用它，未命中回落到 {@link TAB_PREFIXES}。
  *
- * 为什么需要它：渲染方式 / 位置 / 尺寸 / 鼠标穿透已经搬到「外观与手感」，但路径仍在 `pets.*` 下，
+ * 为什么需要它：渲染方式 / 位置 / 尺寸 / 鼠标穿透在「外观与手感」里有控件，但路径仍在 `pets.*` 下，
  * 只按前缀归会让圆点**亮在「桌宠」而控件在「外观」**。这张表是字段归属的唯一真相：
  * 新增实例字段要么进这里，要么落到 `pet` 前缀（设计页里显式登记 `personaCharacter` 就是为此）。
+ *
+ * 值是**数组**，判据只有一条：**哪些页面上有会改这个字段的控件，就点亮哪些页**。
+ * 多页归属是常态，单页才是特例——不要把 `size` 之类改回单值映射：
+ * 基准尺寸在「桌宠 → 宠物配置」行（`pet-card-parts.ts` 的 identity 组）与
+ * 「外观与手感 → 尺寸」折叠卡的基准值（`render-card.ts` 的 `groups.size`）里都有控件，
+ * 改一次两页都该亮，否则用户在 A 页改、去 B 页看，会以为「这页没改过」。
+ * 每渲染尺寸覆盖（`sizes.*`）与占屏比（`sizePercent`）只有外观页有控件，所以仍单页。
  */
-const PET_FIELD_TABS: Readonly<Record<string, SettingsTabId>> = {
-  display: 'feel',
-  renderer: 'feel',
-  model: 'feel',
-  size: 'feel',
-  sizePercent: 'feel',
-  sizes: 'feel',
-  position: 'feel',
-  clickThrough: 'feel',
-  personaCharacter: 'pet',
-  name: 'pet',
-  whisperPrompt: 'pet',
+const PET_FIELD_TABS: Readonly<Record<string, SettingsTabId | readonly SettingsTabId[]>> = {
+  display: ['feel'],
+  renderer: ['feel'],
+  model: ['feel'],
+  size: ['pet', 'feel'],
+  sizePercent: ['feel'],
+  sizes: ['feel'],
+  position: ['feel'],
+  clickThrough: ['feel'],
+  personaCharacter: ['pet'],
+  name: ['pet'],
+  whisperPrompt: ['pet'],
 };
 
 /** 一个路径前缀属于哪个分区；最长前缀优先。 */
@@ -270,14 +277,14 @@ export function makeDirtyQuery(paths: ReadonlySet<string>): DirtyQuery {
   };
 }
 
-/** 一条路径归属的分区；没有匹配（例如未来新增的路径忘了登记）返回 undefined。 */
-function tabOfPath(path: string): SettingsTabId | undefined {
+/** 一条路径归属的分区（可能多页）；没有匹配（例如未来新增的路径忘了登记）返回空数组。 */
+function tabsOfPath(path: string): readonly SettingsTabId[] {
   // 先按实例字段判：`pets.<下标>.<字段>` 的归属由 PET_FIELD_TABS 说了算（见那张表的注释）。
   // 取第一段字段名即可——`pets.0.position.marginX` / `pets.0.sizes.live2d` 都要落到 `position` / `sizes`。
   const petField = /^pets\.\d+\.([^.]+)(?:\.|$)/.exec(path);
   if (petField !== null) {
     const tab = PET_FIELD_TABS[petField[1]];
-    if (tab !== undefined) return tab;
+    if (tab !== undefined) return typeof tab === 'string' ? [tab] : tab;
   }
   let best: SettingsTabId | undefined;
   let bestLength = -1;
@@ -288,7 +295,7 @@ function tabOfPath(path: string): SettingsTabId | undefined {
       bestLength = prefix.length;
     }
   }
-  return best;
+  return best === undefined ? [] : [best];
 }
 
 /**
@@ -300,8 +307,7 @@ function tabOfPath(path: string): SettingsTabId | undefined {
 export function dirtyTabs(paths: ReadonlySet<string>): Record<SettingsTabId, boolean> {
   const out = Object.fromEntries(SETTINGS_TABS.map((tab) => [tab.id, false])) as Record<SettingsTabId, boolean>;
   for (const path of paths) {
-    const tab = tabOfPath(path);
-    if (tab !== undefined) out[tab] = true;
+    for (const tab of tabsOfPath(path)) out[tab] = true;
   }
   return out;
 }

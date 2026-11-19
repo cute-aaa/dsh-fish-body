@@ -3554,31 +3554,44 @@ paths:
                   description: 要删除的密钥字段键（只能是密钥字段）。
       responses:
         "200":
-          description: 保存后的值与实现状态。
+          description: |
+            保存成功，或**业务失败**（`ok: false` + `reason` + `message`）。
+
+            本路由的校验失败一律走 200：客户端按 `ok` 分支，不看 HTTP 状态码。
+            两类业务失败与密钥有关（D-07）：
+            1. `bad-request` +「API Key 未填：这一协议需要鉴权」——云端开着、生效协议的 `authStyle !== none`、
+               本次没带 key、凭据库里也没有（`deepseek` 预设可用宿主 key 兜底时不报）；
+            2. `bad-request` +「API Key 必填：这一协议需要鉴权，不能清空」——同样条件，且请求把 `apiKey`
+               放进了 `clear`（清空 = 用户主动删密钥，不能让配置落到「永远不可用」的状态）；
+               `deepseek` 预设且回退引用仍有 key 时允许清空。
+
+            关掉云端（`useCloud: 'off'`）不受上面两条约束：没有 key 也必须能存（逃生口）。
           content:
             application/json:
               schema:
-                type: object
-                required: [ok, provider, values, secrets, providers]
-                properties:
-                  ok:
-                    type: boolean
-                    const: true
-                  provider:
-                    type: string
-                  values:
-                    type: object
-                    additionalProperties:
-                      type: string
-                  secrets:
-                    type: object
-                    additionalProperties:
-                      type: boolean
-                    description: 写入后每项密钥的在场情况。
-                  providers:
-                    type: array
-                    items:
-                      type: object
+                oneOf:
+                  - type: object
+                    required: [ok, provider, values, secrets, providers]
+                    properties:
+                      ok:
+                        type: boolean
+                        const: true
+                      provider:
+                        type: string
+                      values:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      secrets:
+                        type: object
+                        additionalProperties:
+                          type: boolean
+                        description: 写入后每项密钥的在场情况。
+                      providers:
+                        type: array
+                        items:
+                          type: object
+                  - $ref: "#/components/schemas/FailureResponse"
         "400":
           description: 请求体不是合法 JSON。
 
@@ -4569,10 +4582,14 @@ paths:
       operationId: listRenderResources
       summary: 渲染资源三桶清单（设置页用）
       description: |
-        按渲染方式给出 `layered` / `live2d` / `webm` 三个桶：`status`（`ok` 有资源 / `empty` 目录在但
-        没有结构文件 / `missing` 目录不在）、`dir`（该桶主目录的绝对路径；皮肤目录存在时给皮肤目录，
-        否则给池桶目录）、`count`（`= items.length`）、`items`（`{id,label,source}`）、`expect`
-        （这个桶认什么结构文件）与 `missingFiles`（空桶时缺的具体文件名，非空桶为空数组）。
+        按渲染方式给出 `layered` / `live2d` / `webm` 三个桶：`status`（`ok` 有资源可用 / `empty`
+        目录在但没有结构文件 / `missing` 目录不在且没有回落）、`dir`（本行的**用户目录**
+        `<用户皮肤根>/<桶>`，行名写的就是它）、`count`（`= items.length`，**只数 `dir` 里的资源**）、
+        `items`（`{id,label,source}`）、`expect`（这个桶认什么结构文件）、`missingFiles`（空桶时缺的
+        具体文件名，非空桶为空数组）与 `fallback`（行目录之外还能用的资源：`{count, source}`；没有则缺省）。
+
+        这只宠物自己的皮肤目录、其它池根与包内共享素材一律只进 `fallback`，不并入 `count` ——
+        否则「行上写的目录」与「数出来的数量」会不符（用户会以为 skin/layered 里有 114 个资源）。
 
         与 `/skin/{root}/skins`、`/skin/{root}/models` 共用同一套扫描判定；后两者的响应形状不变。
         设置页只展示宿主给的 `dir`（不自己拼路径），池根改成绝对路径后三行仍然说真话。
@@ -5709,23 +5726,24 @@ components:
 
     RenderResourceBucket:
       type: object
-      required: [status, dir, count, items, expect, missingFiles]
+      required: [status, dir, count, items, available, expect, missingFiles]
       description: |
         一个渲染方式桶。`status` 三态与 `missingFiles` 的判定由宿主给出（设置页只做模板插值，不拼路径）。
+        `count`/`items` 只覆盖 `dir`（本行的用户目录）；别的来源单独放 `fallback`。
       properties:
         status:
           type: string
           enum: [ok, empty, missing]
           description: |
-            `ok` = 有资源；`empty` = 目录在但没有结构文件（只有 layered 会这样，其它两种按 missing 处理）；
-            `missing` = 目录不在。
+            `ok` = 有资源可用（`dir` 里有，或 `fallback` 有）；`empty` = 目录在但没有结构文件
+            （只有 layered 会这样，其它两种按 missing 处理）；`missing` = 目录不在且没有回落。
         dir:
           type: string
-          description: 该桶主目录的绝对路径（皮肤目录存在时给皮肤目录，否则给池桶目录）。
+          description: 本行的用户目录绝对路径（`<用户皮肤根>/<layered|live2d|webm>`）；`count` 数的是它。
         count:
           type: integer
           minimum: 0
-          description: 等于 `items.length`。
+          description: 等于 `items.length`，只数 `dir` 里的资源。
         items:
           type: array
           items:
@@ -5739,7 +5757,37 @@ components:
                 type: string
               source:
                 type: string
-                enum: [pack, pool]
+                enum: [pack, pool, builtin]
+                description: |
+                  `pool` = 行目录；`pack` = 这只宠物的专用皮肤目录；`builtin` = 其它池根 / 包内共享素材。
+        available:
+          type: array
+          description: |
+            选择器可用的全部资源（`dir` 在前，其后是回落来源）。`items`/`count` 只服务「这一行有几个」，
+            模型/皮肤下拉用这一份——少了回落项，正在用的内置皮肤会被判成「已失效」。
+          items:
+            type: object
+            required: [id, label, source]
+            properties:
+              id:
+                type: string
+              label:
+                type: string
+              source:
+                type: string
+                enum: [pack, pool, builtin]
+        fallback:
+          type: object
+          description: 行目录之外还能用的资源；没有时字段缺省（设置页不渲染这一段）。
+          required: [count, source]
+          properties:
+            count:
+              type: integer
+              minimum: 0
+            source:
+              type: string
+              enum: [pack, pool, builtin]
+              description: 回落条数最多的来源（并列时 builtin > pack > pool）。
         expect:
           type: array
           items:

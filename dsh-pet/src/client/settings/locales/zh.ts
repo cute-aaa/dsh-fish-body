@@ -627,6 +627,10 @@ export const zh = {
   skinDirsTitle: '皮肤目录',
   skinDirsHint:
     '这三行是你自己的皮肤目录（skin/layered、skin/live2d、skin/webm）：按渲染方式把资源放进去，设置页就能选到；内置皮肤在 assets/pet，只在没有同名用户皮肤时作回落。路径由宿主给，点「打开」直接到那个目录。',
+  'skinSource.pack': '这只宠物的目录',
+  'skinSource.pool': '皮肤池',
+  'skinSource.builtin': '内置素材',
+  skinDirsFallback: '另有 {n} 项来自{source}',
   skinDirsCount: '{n} 个资源',
   skinDirsMissing: '缺 {file}',
   'renderDir.layered': '分层皮肤',

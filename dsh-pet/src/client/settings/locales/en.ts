@@ -676,6 +676,10 @@ export const en: Record<Key, string> = {
   skinDirsTitle: 'Skin folders',
   skinDirsHint:
     'These three rows are your own skin folders (skin/layered, skin/live2d, skin/webm): drop assets in by renderer and the picker in settings lists them. Built-in skins live in assets/pet and only act as a fallback when no user skin of the same name exists. Paths come from the host; “Open” goes straight there.',
+  'skinSource.pack': "this pet's folder",
+  'skinSource.pool': 'the skin pool',
+  'skinSource.builtin': 'built-in assets',
+  skinDirsFallback: '{n} more in {source}',
   skinDirsCount: '{n} items',
   skinDirsMissing: 'missing {file}',
   'renderDir.layered': 'Layered skins',

@@ -353,7 +353,7 @@ describe('usePersonaPolish —— 取消不写草稿', () => {
       usePersonaPolish(rt, { petId: 'a', report, onChange: (patch) => changes.push(patch.whisperPrompt) }),
     );
     assert.equal(view.preview, null);
-    assert.deepEqual(changes, [], '取消不得写草稿');
+    assert.deepEqual([...changes], [], '取消不得写草稿');
 
     await view.polish('原文');
     view = render(() =>

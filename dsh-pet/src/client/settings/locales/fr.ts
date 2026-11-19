@@ -691,6 +691,10 @@ export const fr: Record<Key, string> = {
   skinDirsTitle: 'Dossiers de peau',
   skinDirsHint:
     'Ces trois lignes sont vos propres dossiers de peau (skin/layered, skin/live2d, skin/webm) : déposez les ressources par rendu et le sélecteur des réglages les liste. Les peaux intégrées sont dans assets/pet et ne servent que de repli quand aucune peau à vous ne porte le même nom. Le chemin vient de l’hôte, « Ouvrir » y va directement.',
+  'skinSource.pack': 'dossier de ce compagnon',
+  'skinSource.pool': 'la réserve de skins',
+  'skinSource.builtin': 'ressources intégrées',
+  skinDirsFallback: '{n} de plus dans {source}',
   skinDirsCount: '{n} éléments',
   skinDirsMissing: 'manque {file}',
   'renderDir.layered': 'Peaux en calques',

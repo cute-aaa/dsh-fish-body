@@ -59,7 +59,7 @@ test('registerPersonaSource：id 重复抛错，不覆盖先注册的', () => {
 
 test('registerPersonaSource：id / name / resolve 非法时抛错', () => {
   resetPersonaSources();
-  const valid = fakeSource('x') as Record<string, unknown>;
+  const valid = fakeSource('x') as unknown as Record<string, unknown>;
   assert.throws(() => registerPersonaSource({ ...valid, id: '' } as never), /id/);
   assert.throws(() => registerPersonaSource({ ...valid, name: '' } as never), /name/);
   assert.throws(() => registerPersonaSource({ ...valid, resolve: 1 } as never), /resolve/);

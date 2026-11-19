@@ -1417,6 +1417,18 @@ export function createCloudProvider(deps: CloudProviderDeps): VoiceProvider {
       return cloudFieldsFor(safeSettings());
     },
     billable: true,
+    // 路由保存接入配置时只问这两项，不自己解析裸值：`authStyle`/`protocol` 存空串表示「跟随预设」，
+    // 裸值判断会把「预设要求鉴权」误判成「不需要 key」（D-07 的假修根因）。
+    // 生效值统一走 `cloudAxesOf`（预设默认 + 非空覆盖），与合成时用的是同一套口径。
+    // cloudSettingsOf 读的是整份 provider 配置（{ cloud: {...} }）；这里拿到的是 cloud 段的扁平值。
+    // 只在「云端开着」时才要 key：关掉云端是用户的逃生口，没配 key 也必须能存（P2-9）。
+    needsKey: (values) => {
+      const settings = cloudSettingsOf({ cloud: values });
+      return settings.useCloud && cloudAxesOf(settings).authStyle !== 'none';
+    },
+    // 允许读的引用同样按生效预设收窄：只有 deepseek 才允许回退宿主 `DEEPSEEK_API_KEY`，
+    // 否则「baseURL 指到第三方却读宿主 key」等于把宿主的模型凭据发给陌生服务。
+    keyRefs: (values) => cloudKeyRefs(cloudSettingsOf({ cloud: values })),
     availability: () => verdict,
     // 音色是自由文本、没有可枚举的清单，只把「当前这一个」报出来：右键菜单与设置页据此显示在用什么嗓子，
     // 切到别的音色得改接入卡（/voice/provider-voice 只收清单里的值）

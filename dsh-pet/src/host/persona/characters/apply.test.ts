@@ -265,7 +265,7 @@ test('清除引用：提交空串 personaCharacter → 磁盘上该键消失、�
     const textAfterApply = applied[0].whisperPrompt;
 
     const cleared = applied.map((item) => ({ ...item, personaCharacter: '' }));
-    const clean = saveUserConfig({ pets: cleared }, null);
+    const clean = saveUserConfig({ pets: cleared });
     assert.ok(clean, '空串不该让整包被拒');
     await writeFile(userConfigPath, JSON.stringify(clean, null, 2), 'utf8');
 

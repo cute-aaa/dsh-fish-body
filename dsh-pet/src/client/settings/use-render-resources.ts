@@ -10,14 +10,29 @@ import { ROUTE_PATH } from '../../shared/constants.ts';
 import type { Feedback } from './feedback.ts';
 import type { SettingsRuntime } from './runtime.ts';
 
+/** 一条资源的来源：行目录 / 这只宠物的专用目录 / 其它池与内置素材。 */
+export type RenderSource = 'pack' | 'pool' | 'builtin';
+
+/** 行目录之外还能用的资源（宿主给的数量与来源）。 */
+export interface RenderFallbackView {
+  readonly count: number;
+  readonly source: RenderSource;
+}
+
 /** 一个桶（与 `GET /skin/{root}/resources` 同形）。 */
 export interface RenderBucketView {
   readonly status: 'ok' | 'empty' | 'missing';
+  /** 行目录（`skin/<渲染方式>`）：`count` 数的就是它。 */
   readonly dir: string;
   readonly count: number;
-  readonly items: readonly { id: string; label: string; source: 'pack' | 'pool' }[];
+  /** 只含行目录里的资源（计数用）。 */
+  readonly items: readonly { id: string; label: string; source: RenderSource }[];
+  /** 选择器可用：行目录 + 回落来源（缺失时退回 `items`）。 */
+  readonly available?: readonly { id: string; label: string; source: RenderSource }[];
   readonly expect: readonly string[];
   readonly missingFiles: readonly string[];
+  /** 行目录之外还能用的资源；没有这一段就是 undefined。 */
+  readonly fallback?: RenderFallbackView;
 }
 
 /** 三桶清单。 */

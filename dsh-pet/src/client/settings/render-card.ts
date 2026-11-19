@@ -57,7 +57,11 @@ export function makeRenderCard(rt: SettingsRuntime): FunctionComponent<RenderCar
     const modelOptions =
       renderer === 'webm'
         ? []
-        : (bucket?.items ?? []).map((item) => ({ id: item.id, label: item.label + ' · ' + item.source }));
+        : // 选择器要「用户能选什么」：行目录 + 回落来源（`available`），只用 `items` 会把内置皮肤判成已失效。
+          (bucket?.available ?? bucket?.items ?? []).map((item) => ({
+            id: item.id,
+            label: item.label + ' · ' + item.source,
+          }));
     const currentModel = String(pet.model ?? '');
     if (renderer !== 'webm' && currentModel !== '' && !modelOptions.some((item) => item.id === currentModel)) {
       // 已失效：当前 model 不在清单里（皮肤被删了 / 池根改了）——插一条显式项，别让下拉显示成空。

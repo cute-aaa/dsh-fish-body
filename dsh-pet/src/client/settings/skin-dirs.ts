@@ -62,14 +62,21 @@ export function makeSkinDirs(rt: SettingsRuntime): FunctionComponent<SkinDirsPro
           // 行名写成 skin/<渲染方式>：路径由宿主给（用户皮肤目录），但用户第一眼要看出这是 skin/ 下的哪一类。
           const label = 'skin/' + renderer;
           const count = label + ' · ' + t('skinDirsCount').replace('{n}', String(bucket?.count ?? 0));
+          // 回落：行目录之外的可用资源单独说一句，绝不并进 `count`（那会让行名与数字对不上）。
+          const fallback = bucket?.fallback;
+          const sourceText = fallback === undefined ? '' : t('skinSource.' + fallback.source);
+          const fallbackText =
+            fallback === undefined
+              ? ''
+              : ' · ' + t('skinDirsFallback').replace('{n}', String(fallback.count)).replace('{source}', sourceText);
           const expectText =
             expected.length === 0 ? '' : ' · ' + t('skinDirsExpect').replace('{list}', expected.join('、'));
           // 「目录不在」（missing）与「目录在、没资源」（empty）是两件事：文案、徽标、行样式都分开。
           const detail =
             status === 'ok'
-              ? count
+              ? count + fallbackText
               : status === 'empty'
-                ? label + ' · ' + t('skinDirsEmpty') + expectText
+                ? label + ' · ' + t('skinDirsEmpty') + fallbackText + expectText
                 : label + ' · ⚠️ ' + t('skinDirsMissing').replace('{file}', expected.join('、')) + expectText;
           const badge =
             status === 'empty' ? t('skinDirsBadgeEmpty') : status === 'missing' ? t('skinDirsBadgeMissing') : undefined;

@@ -680,6 +680,10 @@ export const pt: Record<Key, string> = {
   skinDirsTitle: 'Pastas de pele',
   skinDirsHint:
     'Estas três linhas são as suas próprias pastas de pele (skin/layered, skin/live2d, skin/webm): coloque os recursos por render e o seletor das configurações lista-as. As peles embutidas ficam em assets/pet e só servem de reserva quando não existe uma pele sua com o mesmo nome. O caminho vem do host e «Abrir» vai directo.',
+  'skinSource.pack': 'pasta deste companheiro',
+  'skinSource.pool': 'o pool de skins',
+  'skinSource.builtin': 'recursos integrados',
+  skinDirsFallback: 'mais {n} em {source}',
   skinDirsCount: '{n} itens',
   skinDirsMissing: 'falta {file}',
   'renderDir.layered': 'Peles em camadas',

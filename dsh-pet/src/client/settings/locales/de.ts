@@ -686,6 +686,10 @@ export const de: Record<Key, string> = {
   skinDirsTitle: 'Skin-Ordner',
   skinDirsHint:
     'Diese drei Zeilen sind deine eigenen Skin-Ordner (skin/layered, skin/live2d, skin/webm): Assets nach Renderer hineinlegen, dann listet sie die Auswahl in den Einstellungen. Eingebaute Skins liegen in assets/pet und dienen nur als Rückfall, wenn kein eigener Skin gleichen Namens da ist. Pfade kommen vom Host, „Öffnen“ geht direkt dorthin.',
+  'skinSource.pack': 'Ordner dieses Begleiters',
+  'skinSource.pool': 'der Skin-Pool',
+  'skinSource.builtin': 'eingebaute Assets',
+  skinDirsFallback: '{n} weitere aus {source}',
   skinDirsCount: '{n} Einträge',
   skinDirsMissing: 'fehlt {file}',
   'renderDir.layered': 'Layered-Skins',

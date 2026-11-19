@@ -101,16 +101,19 @@ export function secretRefsOf(field: VoiceField): string[] {
  *
  * @param seam - 凭据面。
  * @param fields - 该实现的配置项声明。
+ * @param refsOverride - 覆盖引用集合（实现按生效配置收窄时传入）。
  * @returns `{ apiKey: true }` 这样的表；**主引用或任一回退引用在场就算已配**。
  *   没有密钥字段或都读不出来时是空对象（单项失败只当「未配」）。
  */
 export async function readSecretPresence(
   seam: ProviderSecretSeam,
   fields: readonly VoiceField[],
+  /** 覆盖可读引用（实现按生效配置收窄，例如云端只在 deepseek 预设允许回退宿主 key）。 */
+  refsOverride?: readonly string[],
 ): Promise<Record<string, boolean>> {
   const state: Record<string, boolean> = {};
   for (const field of secretFieldsOf(fields)) {
-    const refs = secretRefsOf(field);
+    const refs = refsOverride ?? secretRefsOf(field);
     if (refs.length === 0) {
       state[field.key] = false;
       continue;

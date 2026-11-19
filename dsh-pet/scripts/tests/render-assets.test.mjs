@@ -440,29 +440,28 @@ test('three buckets: real files in an isolated data root are scanned as ok', { s
   const body = await response.json();
   const dump = () => JSON.stringify(body);
 
+  // 口径（D-03 之后）：`count`/`items` 只数 `dir`（行目录）；能不能用看 `available`（行目录 + 回落）。
+  // 本 fixture 把素材放进**池根的子目录**与**用户根的根布局**里，两者都不在 `skin/<桶>` 这个行目录下，
+  // 所以它们出现在 `available` + `fallback` 里，`count` 保持 0 —— 这正是「行上写的目录」与「数出来的数量」对齐的判据。
   for (const kind of ['layered', 'live2d', 'webm']) {
     const bucket = body.renderers[kind];
     assert.equal(bucket.status, 'ok', `${kind} 桶里有真素材，必须是 ok（实际 ${bucket.status}）`);
-    assert.ok(bucket.count >= 1, `${kind} 桶至少要数出一个资源，实际 ${bucket.count}`);
+    assert.ok(
+      (bucket.available ?? []).length >= 1,
+      `${kind} 桶至少要有一个可用资源，实际 ${(bucket.available ?? []).length}`,
+    );
+    // P2-7：`count >= 0` 恒真，改成真的判据——数量必须等于 items，且（本 fixture 把素材放进
+    // 池根子目录/根布局，不在行目录里时）count 为 0 时 available 必须非空，二者不能同时为 0。
+    assert.equal(bucket.count, (bucket.items ?? []).length, `${kind} 的 count 必须等于 items.length`);
+    assert.ok(bucket.count > 0 || (bucket.available ?? []).length > 0, `${kind} 的 count 与 available 不能都为空`);
     assert.deepEqual(bucket.missingFiles, [], `${kind} 桶非空时不该再报缺文件`);
     assert.ok(insideDataRoot(bucket.dir), `${kind} 桶的 dir 必须指向临时数据根，实际 ${bucket.dir}`);
   }
 
-  assert.deepEqual(
-    body.renderers.layered.items.map((item) => item.id),
-    [layeredId],
-    '拷进来的真实皮肤 id 必须原样出现在池清单里',
-  );
-  assert.deepEqual(
-    body.renderers.live2d.items.map((item) => item.id),
-    [LIVE2D_ID],
-    'live2d 的 id 是相对池桶的 model3 路径',
-  );
-  assert.deepEqual(
-    body.renderers.webm.items.map((item) => item.id),
-    ['loop'],
-    'webm 的 id 是去扩展名的文件名',
-  );
+  const availIds = (kind) => (body.renderers[kind].available ?? []).map((item) => item.id);
+  assert.ok(availIds('layered').includes(layeredId), '拷进来的真实皮肤 id 必须出现在可用清单里');
+  assert.ok(availIds('live2d').includes(LIVE2D_ID), 'live2d 的 id 是相对池桶的 model3 路径');
+  assert.deepEqual(availIds('webm'), ['loop'], 'webm 的 id 是去扩展名的文件名');
 
   // 真文件不是空壳：webm 必须是 EBML 容器（1A 45 DF A3），否则「count>=1」只是数了个空文件。
   const webmBytes = readFileSync(join(dataRoot, 'assets', 'pet', 'webm', 'loop.webm'));
@@ -486,8 +485,10 @@ test('render card: layered and live2d ids are selectable in the model dropdown',
   await layeredOption.click();
   await page.waitForFunction(
     (id) =>
-      document.querySelector('.dsh-pet-sel__trigger[aria-label="Model / skin"] .dsh-pet-sel__label')?.textContent ===
-      id + ' · pool',
+      (
+        document.querySelector('.dsh-pet-sel__trigger[aria-label="Model / skin"] .dsh-pet-sel__label')?.textContent ??
+        ''
+      ).startsWith(id + ' · '),
     layeredId,
   );
 
@@ -500,8 +501,10 @@ test('render card: layered and live2d ids are selectable in the model dropdown',
   await live2dOption.click();
   await page.waitForFunction(
     (id) =>
-      document.querySelector('.dsh-pet-sel__trigger[aria-label="Model / skin"] .dsh-pet-sel__label')?.textContent ===
-      id + ' · pool',
+      (
+        document.querySelector('.dsh-pet-sel__trigger[aria-label="Model / skin"] .dsh-pet-sel__label')?.textContent ??
+        ''
+      ).startsWith(id + ' · '),
     LIVE2D_ID,
   );
 

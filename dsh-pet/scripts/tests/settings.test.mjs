@@ -111,27 +111,41 @@ const personaCharacters = {
 const renderResources = {
   root: 'main',
   renderers: {
+    // 夹具与 D-03 之后的真实形状一致：`count`/`items` 只数行目录，别的来源在 `fallback`，
+    // 选择器读 `available`（行目录 + 回落）；`count` 必须等于 `items.length`。
     layered: {
       status: 'ok',
-      dir: '/test/fish-body/assets/pet/layered',
+      dir: '/test/fish-body/skin/layered',
       count: 1,
       items: [{ id: 'pa15', label: 'pa15', source: 'pool' }],
+      available: [{ id: 'pa15', label: 'pa15', source: 'pool' }],
       expect: ['manifest.json'],
       missingFiles: [],
     },
     live2d: {
       status: 'missing',
-      dir: '/test/fish-body/assets/pet/live2d',
+      dir: '/test/fish-body/skin/live2d',
       count: 0,
       items: [],
+      available: [],
       expect: ['*.model3.json'],
       missingFiles: ['*.model3.json'],
     },
     webm: {
       status: 'ok',
-      dir: '/test/fish-body/assets/pet/webm',
+      dir: '/test/fish-body/skin/webm',
       count: 3,
-      items: [],
+      items: [
+        { id: 'a', label: 'a', source: 'pool' },
+        { id: 'b', label: 'b', source: 'pool' },
+        { id: 'c', label: 'c', source: 'pool' },
+      ],
+      available: [
+        { id: 'a', label: 'a', source: 'pool' },
+        { id: 'b', label: 'b', source: 'pool' },
+        { id: 'c', label: 'c', source: 'pool' },
+      ],
+      fallback: { count: 114, source: 'builtin' },
       expect: ['*.webm'],
       missingFiles: [],
     },
@@ -1065,6 +1079,15 @@ test('new sections: render pair, character card, skin rows and window behaviour'
   const missingText = await missing.first().innerText();
   assert.match(missingText, /⚠️/, '缺失行带 ⚠️');
   assert.match(missingText, /\*\.model3\.json/, '缺失行写清缺哪个文件');
+
+  // D-03：行名写的是行目录，数字只数行目录，别的来源单列「另有 N 项来自…」
+  const rowTexts = await rows.allInnerTexts();
+  // 这套 UI 测试跑英文文案（`1 items` / `114 more in built-in assets`），不要写死中文。
+  assert.match(rowTexts[0], /skin\/layered/, '第一行写行目录');
+  assert.match(rowTexts[0], /1 items/, '行目录里有 1 个资源');
+  assert.match(rowTexts[2], /3 items/, 'webm 行目录里有 3 个');
+  assert.match(rowTexts[2], /114/, '回落数量要显示');
+  assert.match(rowTexts[2], /built-in/i, '回落要标来源');
 
   assert.ok((await feel.getByText('Window behaviour', { exact: true }).count()) >= 1, '窗口行为卡在 feel 页');
 

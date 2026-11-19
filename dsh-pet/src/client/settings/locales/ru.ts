@@ -680,6 +680,10 @@ export const ru: Record<Key, string> = {
   skinDirsTitle: 'Папки скинов',
   skinDirsHint:
     'Эти три строки — ваши собственные папки скинов (skin/layered, skin/live2d, skin/webm): положите ресурсы по способу отрисовки, и они появятся в выборе в настройках. Встроенные скины лежат в assets/pet и служат только запасным вариантом, когда своего скина с тем же именем нет. Путь даёт хост, «Открыть» ведёт прямо туда.',
+  'skinSource.pack': 'папка этого питомца',
+  'skinSource.pool': 'пул скинов',
+  'skinSource.builtin': 'встроенные ресурсы',
+  skinDirsFallback: 'ещё {n} в {source}',
   skinDirsCount: '{n} шт.',
   skinDirsMissing: 'нет {file}',
   'renderDir.layered': 'Слоистые скины',

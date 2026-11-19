@@ -18,8 +18,10 @@ import {
   providerSecretSeamOf,
   readSecretPresence,
   secretFieldsOf,
+  secretRefsOf,
   writeSecretFields,
 } from '../voice/provider-secrets.ts';
+import type { ProviderSecretSeam } from '../voice/provider-secrets.ts';
 
 /** 单个配置项的长度上限（字符）：路径与 URL 都远短于这个，超了基本是粘错内容。 */
 const MAX_CONFIG_VALUE_CHARS = 512;
@@ -100,6 +102,39 @@ function validateClear(
 }
 
 /**
+ * 「清空用户那把 key 之后，回退引用里还有没有可用的」。
+ *
+ * 只认**回退**引用（主引用正是要被清掉的那把，不看它）。实现没给 `refs` 时按字段声明的
+ * `credentialFallbacks` 判；一个都没有就返回 false（= 清空会让人无 key 可用）。
+ *
+ * @param seam - 凭据面（不可用时为 undefined）。
+ * @param fields - 该实现的配置项声明。
+ * @param refs - 实现按生效配置给出的可读引用（主引用在前）。
+ * @returns 仍有一把可用 key 时 true。
+ */
+async function hasFallbackSecret(
+  seam: ProviderSecretSeam | null | undefined,
+  fields: readonly VoiceField[],
+  refs: readonly string[] | undefined,
+): Promise<boolean> {
+  if (!seam) return false;
+  // 按实现声明的密钥字段遍历，不写死 `apiKey`：第三方实现换字段名时不会被无条件拒。
+  for (const field of secretFieldsOf(fields)) {
+    const primary = (field.credentialRef ?? '').trim();
+    const all = refs ?? secretRefsOf(field);
+    for (const ref of all) {
+      if (ref === primary || ref === '') continue;
+      try {
+        if (await seam.configured(ref)) return true;
+      } catch {
+        // 读失败按「没有」处理：宁可让用户补一次 key，也不要把不可用的配置存下去
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * 处理 `/voice/provider-config` 的 GET / POST。
  *
  * @param deps - 数据根与可选服务。
@@ -157,6 +192,44 @@ export async function handleProviderConfig(deps: ProviderConfigDeps, input: Rout
   }
   if (Object.keys(plainPatch).length === 0 && !wantsSecretWrite) {
     return failResult('bad-request', 'patch 是空的');
+  }
+
+  // 需要鉴权的协议必须有 key：否则会「保存成功但用不了」——界面说有 key、实际一次都发不出去。
+  // 判定用**写入后**的生效值，但结论向实现索取：云端四轴的 `authStyle`/`protocol` 存空串表示
+  // 「跟随预设」，路由解析裸值会把「预设要求鉴权」误判成「不需要 key」（D-07 的假修根因）。
+  // 实现没声明 `needsKey` 时才退回裸值兜底（老实现与测试桩不声明也不会被拦）。
+  {
+    const effective = { ...readProviderValues(file, status.id, plainKeys), ...plainPatch };
+    // 钩子在**实现**上（`VoiceProvider`），不在 status 快照里：status 只是给设置页的形状。
+    const provider = voiceProviderOf(status.id);
+    const needsKey =
+      provider?.needsKey !== undefined
+        ? provider.needsKey(effective)
+        : (effective.authStyle ?? '') !== ''
+          ? (effective.authStyle ?? '') !== 'none'
+          : (effective.protocol ?? '') === 'custom';
+    const cleared = checkedClear.value.includes('apiKey');
+    if (needsKey) {
+      const incoming = (secretPatch.apiKey ?? '').trim();
+      // 允许的引用同样由实现给：云端只有 deepseek 预设才允许回退宿主 key。
+      const refs = provider?.keyRefs === undefined ? undefined : provider.keyRefs(effective);
+      // `clear` 的语义是「用户主动删掉这把密钥」，**不是**「这份配置不需要密钥」。
+      // 需要鉴权时清空必须被拒——否则会落盘一份永远不可用的配置（D-07 的第四个通道）。
+      // 唯一的例外是「实现允许的回退引用里仍有 key」（deepseek + 宿主 key）：那时清掉用户那把仍能用。
+      if (cleared) {
+        const fallbackOk = await hasFallbackSecret(seam, status.fields, refs);
+        if (!fallbackOk) {
+          return failResult('bad-request', 'API Key 必填：这一协议需要鉴权，不能清空');
+        }
+      } else if (incoming === '') {
+        const presence = seam
+          ? refs === undefined
+            ? await readSecretPresence(seam, status.fields)
+            : await readSecretPresence(seam, status.fields, refs)
+          : {};
+        if (presence.apiKey !== true) return failResult('bad-request', 'API Key 未填：这一协议需要鉴权');
+      }
+    }
   }
 
   try {

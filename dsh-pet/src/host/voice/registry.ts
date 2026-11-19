@@ -80,6 +80,27 @@ export interface VoiceProvider {
    */
   readonly billable?: boolean;
   /**
+   * 「按**写入后生效值**，这份配置需不需要密钥」——由实现自己回答，路由不解析裸值。
+   *
+   * 为什么必须有这个钩子：云端四轴是「预设默认值 + 非空覆盖」，`authStyle`/`protocol` 存成空串
+   * 表示「跟随预设」。路由只看裸值会把「预设要求鉴权」误判成「不需要 key」，于是空 key 也能存盘，
+   * 到合成时才失败（QUA-19 / D-07 的假成功）。实现不给这个钩子时，路由按裸值兜底判。
+   *
+   * @param values - 该实现全部普通配置项的生效值（已合并本次 patch）。
+   * @returns 需要密钥为 true。
+   */
+  needsKey?(values: Readonly<Record<string, string>>): boolean;
+  /**
+   * 「这份配置允许读哪些凭据引用」（主引用在前，其后是只读回退引用）。
+   *
+   * 缺省 = 每个密钥字段的 `credentialRef` + `credentialFallbacks`。实现可以收窄：
+   * 云端只在 `deepseek` 预设下允许复用宿主 key，其它预设读宿主 key 等于把凭据发给第三方。
+   *
+   * @param values - 该实现全部普通配置项的生效值。
+   * @returns 允许的引用名；空数组表示「这项密钥没有可读引用」。
+   */
+  keyRefs?(values: Readonly<Record<string, string>>): readonly string[];
+  /**
    * 现在能不能用（服务没起、没配 key、音色没加载…）。
    *
    * 缺省视为可用；必须同步返回——每次合成都会现查一次，异步探测要自己缓存结论。

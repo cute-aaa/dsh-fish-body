@@ -687,6 +687,10 @@ export const es: Record<Key, string> = {
   skinDirsTitle: 'Carpetas de piel',
   skinDirsHint:
     'Estas tres filas son tus carpetas de piel (skin/layered, skin/live2d, skin/webm): deja los recursos según el render y el selector de los ajustes las lista. Las pieles integradas están en assets/pet y solo sirven de respaldo cuando no hay una piel tuya con el mismo nombre. La ruta la da el host y «Abrir» va directo.',
+  'skinSource.pack': 'carpeta de esta mascota',
+  'skinSource.pool': 'el pool de skins',
+  'skinSource.builtin': 'recursos integrados',
+  skinDirsFallback: '{n} más en {source}',
   skinDirsCount: '{n} recursos',
   skinDirsMissing: 'falta {file}',
   'renderDir.layered': 'Pieles por capas',
