@@ -202,8 +202,7 @@ export function readRenderResources(input: RenderResourcesInput): RenderResource
   const scans = roots.map((root) => createPoolReader(root).scan());
   const packDir = input.packSkinDir !== undefined && isDir(input.packSkinDir) ? input.packSkinDir : undefined;
   /** 各根里某渲染方式的 id 合起来（顺序即根的优先级）。 */
-  const idsAcross = (pick: (scan: PoolScan) => string[]): string[] =>
-    scans.flatMap((scan) => pick(scan));
+  const idsAcross = (pick: (scan: PoolScan) => string[]): string[] => scans.flatMap((scan) => pick(scan));
 
   const layeredDir = packDir ?? join(poolRoot, POOL_LAYER_DIR.layered);
   const layered = bucket({

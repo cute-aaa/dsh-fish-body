@@ -151,12 +151,20 @@ export const en: Record<Key, string> = {
   'fsDesc.cache.desktop': 'Desktop window profile: position and zoom.',
   'fsDesc.runtime': 'Runtime: the executable used by desktop windows.',
   'fsDesc.runtime.electron': 'Electron itself (about 350 MB).',
-  'fsDesc.skin': 'Your own skins: one <name>-* set of files and folders per skin.',
-  'fsDesc.assets': 'Assets: animations, sound effects, memes, the built-in skin pool, session-fish skins.',
+  'fsDesc.skin': 'Your own skin folders, split by renderer — drop assets in and the picker here lists them.',
+  'fsDesc.skin.layered':
+    'Layered PNG skins: one subfolder per skin, holding manifest.json and the layer PNGs. Drop it in, then hit “Rescan”.',
+  'fsDesc.skin.live2d':
+    'Live2D models: one subfolder per model, holding the *.model3.json and its textures. Drop it in, then hit “Rescan”.',
+  'fsDesc.skin.webm':
+    'Flat webm animations: put *.webm files straight in this level; the file name is the action name. Drop them in, then hit “Rescan”.',
+  'fsDesc.assets':
+    'Assets shipped with the package and shared (animations, sound, memes, session-fish skins); assets/pet holds the built-in resources, your own skins live in skin/.',
   'fsDesc.assets.animation': 'Animations for main (webm / mov); the file name is the action name.',
   'fsDesc.assets.sound': 'User-level sound files; unprefixed names apply to every pet.',
   'fsDesc.assets.memes': 'User-level meme images.',
-  'fsDesc.assets.pet': 'Built-in skin pool (layered / live2d / webm / sound).',
+  'fsDesc.assets.pet':
+    'Built-in assets shipped with the package (layered / live2d / webm / sound); your own skins go in skin/ and win when the name matches.',
   'fsDesc.assets.sessionFish': 'Session-fish skins: images, GIFs, videos.',
   'fsDesc.logs': 'Runtime log — the first thing to read when something goes wrong.',
   fsLocationChange: 'Change location…',
@@ -614,7 +622,8 @@ export const en: Record<Key, string> = {
   personaRemoveFailed: 'Delete failed: the character is missing or still referenced by another pet.',
   personaRemoveDone: 'Character removed from the library.',
   personaImportTooMany: 'At most {n} files at a time.',
-  personaImportTooLarge: 'File too large: up to 768 KiB each and 1 MiB in total.',
+  personaImportTooLarge:
+    'File too large: up to 768 KiB each and 768 KiB − 4 KiB in total (4 KiB kept back for base64 and the JSON wrapper).',
   personaImportFailed: 'Import failed: no usable content was extracted.',
   personaImportDone: 'Imported character “{name}”.',
   personaPolishEmpty: 'Write some text before polishing.',
@@ -647,7 +656,8 @@ export const en: Record<Key, string> = {
     'A file pet’s persona is managed by its own entry: you can browse and import here, but not apply or delete.',
   characterImport: 'Import documents…',
   characterImportPick: 'Choose documents',
-  characterImportHint: 'md / txt / json / png card / docx; up to 768 KiB each, 1 MiB total, 5 files.',
+  characterImportHint:
+    'md / txt / json / png card / docx; up to 768 KiB each and 768 KiB − 4 KiB in total (4 KiB kept back for base64 and the JSON wrapper), 5 files max.',
   characterImportedName: 'Name',
   characterImportedDescription: 'Description',
   characterImportedPersonality: 'Personality',
@@ -665,7 +675,7 @@ export const en: Record<Key, string> = {
   renderRescan: 'Rescan',
   skinDirsTitle: 'Skin folders',
   skinDirsHint:
-    'The three rows are the layered / live2d / webm folders; paths come from the host, “Open” goes straight there.',
+    'These three rows are your own skin folders (skin/layered, skin/live2d, skin/webm): drop assets in by renderer and the picker in settings lists them. Built-in skins live in assets/pet and only act as a fallback when no user skin of the same name exists. Paths come from the host; “Open” goes straight there.',
   skinDirsCount: '{n} items',
   skinDirsMissing: 'missing {file}',
   'renderDir.layered': 'Layered skins',

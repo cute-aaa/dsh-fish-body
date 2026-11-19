@@ -153,12 +153,20 @@ export const fr: Record<Key, string> = {
   'fsDesc.cache.desktop': 'Profil de la fenetre de bureau : position et zoom.',
   'fsDesc.runtime': "Runtime : l'executable utilise par les fenetres de bureau.",
   'fsDesc.runtime.electron': 'Electron lui-meme (environ 350 Mo).',
-  'fsDesc.skin': 'Vos skins : un jeu de fichiers et dossiers <nom>-* par skin.',
-  'fsDesc.assets': 'Assets : animations, sons, memes, pool de skins integre, skins du poisson de session.',
+  'fsDesc.skin': 'Vos propres dossiers de peau, un par rendu : déposez les ressources et le sélecteur les liste.',
+  'fsDesc.skin.layered':
+    'Peaux PNG en calques : un sous-dossier par peau, avec manifest.json et les PNG des calques. Déposez-la, puis cliquez sur « Réanalyser ».',
+  'fsDesc.skin.live2d':
+    'Modèles Live2D : un sous-dossier par modèle, avec le *.model3.json et ses textures. Déposez-le, puis cliquez sur « Réanalyser ».',
+  'fsDesc.skin.webm':
+    'Animations webm à plat : placez les *.webm directement à ce niveau ; le nom du fichier est celui de l’action. Déposez-les, puis cliquez sur « Réanalyser ».',
+  'fsDesc.assets':
+    'Ressources livrées avec le paquet et partagées (animations, sons, memes, peaux du poisson de session) ; assets/pet contient les ressources intégrées, vos peaux sont dans skin/.',
   'fsDesc.assets.animation': "Animations de main (webm / mov) ; le nom du fichier est le nom de l'action.",
   'fsDesc.assets.sound': 'Sons au niveau utilisateur ; un nom sans prefixe vaut pour tous les compagnons.',
   'fsDesc.assets.memes': 'Images de memes au niveau utilisateur.',
-  'fsDesc.assets.pet': 'Pool de skins integre (layered / live2d / webm / sound).',
+  'fsDesc.assets.pet':
+    'Ressources intégrées livrées avec le paquet (layered / live2d / webm / sound) ; vos peaux vont dans skin/ et l’emportent à nom égal.',
   'fsDesc.assets.sessionFish': 'Skins du poisson de session : images, GIF, videos.',
   'fsDesc.logs': 'Journal d execution — la premiere chose a lire en cas de probleme.',
   fsLocationChange: "Changer d'emplacement…",
@@ -626,7 +634,8 @@ export const fr: Record<Key, string> = {
   personaRemoveFailed: 'Échec de la suppression : le personnage est absent ou encore référencé.',
   personaRemoveDone: 'Personnage supprimé de la bibliothèque.',
   personaImportTooMany: '{n} fichiers au maximum à la fois.',
-  personaImportTooLarge: 'Fichier trop volumineux : 768 Kio chacun et 1 Mio au total.',
+  personaImportTooLarge:
+    'Fichier trop volumineux : 768 Kio chacun et 768 Kio − 4 Kio au total (4 Kio réservés au base64 et à l’enveloppe JSON).',
   personaImportFailed: 'Échec de l’import : aucun contenu exploitable extrait.',
   personaImportDone: 'Personnage « {name} » importé.',
   personaPolishEmpty: 'Écrivez du texte avant de polir.',
@@ -660,7 +669,8 @@ export const fr: Record<Key, string> = {
     'La persona d’un animal fichier est gérée par son entrée : ici on peut parcourir et importer, pas appliquer ni supprimer.',
   characterImport: 'Importer des documents…',
   characterImportPick: 'Choisir des documents',
-  characterImportHint: 'md / txt / json / carte png / docx ; 768 Kio chacun, 1 Mio au total, 5 fichiers.',
+  characterImportHint:
+    'md / txt / json / carte png / docx ; 768 Kio chacun et 768 Kio − 4 Kio au total (4 Kio réservés au base64 et à l’enveloppe JSON), 5 fichiers maximum.',
   characterImportedName: 'Nom',
   characterImportedDescription: 'Description',
   characterImportedPersonality: 'Personnalité',
@@ -680,7 +690,7 @@ export const fr: Record<Key, string> = {
   renderRescan: 'Réanalyser',
   skinDirsTitle: 'Dossiers de peau',
   skinDirsHint:
-    'Les trois lignes sont les dossiers layered / live2d / webm ; le chemin vient de l’hôte, « Ouvrir » y va directement.',
+    'Ces trois lignes sont vos propres dossiers de peau (skin/layered, skin/live2d, skin/webm) : déposez les ressources par rendu et le sélecteur des réglages les liste. Les peaux intégrées sont dans assets/pet et ne servent que de repli quand aucune peau à vous ne porte le même nom. Le chemin vient de l’hôte, « Ouvrir » y va directement.',
   skinDirsCount: '{n} éléments',
   skinDirsMissing: 'manque {file}',
   'renderDir.layered': 'Peaux en calques',

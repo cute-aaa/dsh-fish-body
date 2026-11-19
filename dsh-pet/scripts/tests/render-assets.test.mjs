@@ -134,6 +134,11 @@ before(async () => {
   if (skinDir !== undefined) {
     mkdirSync(join(pool, 'layered'), { recursive: true });
     cpSync(skinDir, join(pool, 'layered', layeredId), { recursive: true });
+    // 三桶的 `dir` 现在报**用户皮肤目录**（`<根>/skin/<渲染方式>`），所以同一份素材也摆一份
+    // 到用户目录：既验合并清单，也验「用户放进去就能选到」。
+    const userSkin = join(dataRoot, 'skin', 'layered');
+    mkdirSync(userSkin, { recursive: true });
+    cpSync(skinDir, join(userSkin, layeredId), { recursive: true });
   }
 
   const live2dDir = join(pool, 'live2d', 'mini');
@@ -433,6 +438,7 @@ test('three buckets: real files in an isolated data root are scanned as ok', { s
   const response = await fetch(`${url}/dsh-pet-7340/skin/main/resources`);
   assert.equal(response.status, 200);
   const body = await response.json();
+  const dump = () => JSON.stringify(body);
 
   for (const kind of ['layered', 'live2d', 'webm']) {
     const bucket = body.renderers[kind];

@@ -152,12 +152,20 @@ export const de: Record<Key, string> = {
   'fsDesc.cache.desktop': 'Profil des Desktop-Fensters: Position und Zoom.',
   'fsDesc.runtime': 'Laufzeit: die ausfuehrbare Datei fuer Desktop-Fenster.',
   'fsDesc.runtime.electron': 'Electron selbst (etwa 350 MB).',
-  'fsDesc.skin': 'Deine eigenen Skins: je Skin ein Satz <Name>-* Dateien und Ordner.',
-  'fsDesc.assets': 'Assets: Animationen, Effekte, Memes, eingebauter Skin-Pool, Session-Fisch-Skins.',
+  'fsDesc.skin': 'Deine eigenen Skin-Ordner, nach Renderer getrennt: Assets hineinlegen, dann listet sie die Auswahl.',
+  'fsDesc.skin.layered':
+    'Layered-PNG-Skins: ein Unterordner pro Skin mit manifest.json und den PNG-Ebenen. Danach „Neu scannen“ drücken.',
+  'fsDesc.skin.live2d':
+    'Live2D-Modelle: ein Unterordner pro Modell mit der *.model3.json und ihren Texturen. Danach „Neu scannen“ drücken.',
+  'fsDesc.skin.webm':
+    'Flache webm-Animationen: die *.webm direkt in diese Ebene legen; der Dateiname ist der Aktionsname. Danach „Neu scannen“ drücken.',
+  'fsDesc.assets':
+    'Mit dem Paket gelieferte und geteilte Assets (Animationen, Effekte, Memes, Session-Fisch-Skins); assets/pet enthält die eingebauten Ressourcen, deine eigenen Skins liegen in skin/.',
   'fsDesc.assets.animation': 'Animationen fuer main (webm / mov); der Dateiname ist der Aktionsname.',
   'fsDesc.assets.sound': 'Sounddateien auf Benutzerebene; Namen ohne Praefix gelten fuer alle Pets.',
   'fsDesc.assets.memes': 'Meme-Bilder auf Benutzerebene.',
-  'fsDesc.assets.pet': 'Eingebauter Skin-Pool (layered / live2d / webm / sound).',
+  'fsDesc.assets.pet':
+    'Mitgelieferte Assets aus dem Paket (layered / live2d / webm / sound); deine eigenen Skins liegen in skin/ und gewinnen bei gleichem Namen.',
   'fsDesc.assets.sessionFish': 'Session-Fisch-Skins: Bilder, GIFs, Videos.',
   'fsDesc.logs': 'Laufzeit-Log — der erste Ort zum Nachsehen bei Problemen.',
   fsLocationChange: 'Ort aendern…',
@@ -621,7 +629,8 @@ export const de: Record<Key, string> = {
   personaRemoveFailed: 'Löschen fehlgeschlagen: Der Charakter fehlt oder wird noch referenziert.',
   personaRemoveDone: 'Charakter aus der Bibliothek entfernt.',
   personaImportTooMany: 'Höchstens {n} Dateien auf einmal.',
-  personaImportTooLarge: 'Datei zu groß: je 768 KiB, insgesamt 1 MiB.',
+  personaImportTooLarge:
+    'Datei zu groß: je 768 KiB und insgesamt 768 KiB − 4 KiB (4 KiB Reserve für Base64 und den JSON-Rahmen).',
   personaImportFailed: 'Import fehlgeschlagen: kein nutzbarer Inhalt extrahiert.',
   personaImportDone: 'Charakter „{name}“ importiert.',
   personaPolishEmpty: 'Erst Text schreiben, dann polieren.',
@@ -655,7 +664,8 @@ export const de: Record<Key, string> = {
     'Die Persona eines Datei-Tiers gehört zu seinem Eintrag: hier nur ansehen und importieren, nicht anwenden oder löschen.',
   characterImport: 'Dokumente importieren…',
   characterImportPick: 'Dokumente wählen',
-  characterImportHint: 'md / txt / json / png-Karte / docx; je 768 KiB, insgesamt 1 MiB, höchstens 5 Dateien.',
+  characterImportHint:
+    'md / txt / json / png-Karte / docx; je 768 KiB und insgesamt 768 KiB − 4 KiB (4 KiB Reserve für Base64 und den JSON-Rahmen), höchstens 5 Dateien.',
   characterImportedName: 'Name',
   characterImportedDescription: 'Beschreibung',
   characterImportedPersonality: 'Persönlichkeit',
@@ -675,7 +685,7 @@ export const de: Record<Key, string> = {
   renderRescan: 'Neu scannen',
   skinDirsTitle: 'Skin-Ordner',
   skinDirsHint:
-    'Die drei Zeilen sind die Ordner layered / live2d / webm; Pfade kommen vom Host, „Öffnen“ geht direkt dorthin.',
+    'Diese drei Zeilen sind deine eigenen Skin-Ordner (skin/layered, skin/live2d, skin/webm): Assets nach Renderer hineinlegen, dann listet sie die Auswahl in den Einstellungen. Eingebaute Skins liegen in assets/pet und dienen nur als Rückfall, wenn kein eigener Skin gleichen Namens da ist. Pfade kommen vom Host, „Öffnen“ geht direkt dorthin.',
   skinDirsCount: '{n} Einträge',
   skinDirsMissing: 'fehlt {file}',
   'renderDir.layered': 'Layered-Skins',

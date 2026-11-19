@@ -152,12 +152,20 @@ export const pt: Record<Key, string> = {
   'fsDesc.cache.desktop': 'Perfil da janela de desktop: posicao e zoom.',
   'fsDesc.runtime': 'Runtime: o executavel usado pelas janelas de desktop.',
   'fsDesc.runtime.electron': 'O proprio Electron (cerca de 350 MB).',
-  'fsDesc.skin': 'Seus skins: um conjunto de arquivos e pastas <nome>-* por skin.',
-  'fsDesc.assets': 'Assets: animacoes, sons, memes, pool de skins embutido, skins do peixe de sessao.',
+  'fsDesc.skin': 'As suas próprias pastas de pele, uma por render: coloque os recursos e elas aparecem no seletor.',
+  'fsDesc.skin.layered':
+    'Peles PNG em camadas: uma subpasta por pele, com manifest.json e os PNG de cada camada. Depois clique em «Reexaminar».',
+  'fsDesc.skin.live2d':
+    'Modelos Live2D: uma subpasta por modelo, com o *.model3.json e as suas texturas. Depois clique em «Reexaminar».',
+  'fsDesc.skin.webm':
+    'Animações webm planas: coloque os *.webm directamente neste nível; o nome do ficheiro é o nome da acção. Depois clique em «Reexaminar».',
+  'fsDesc.assets':
+    'Recursos do pacote e partilhados (animações, sons, memes, peles do peixe de sessão); assets/pet guarda os recursos embutidos e as suas peles ficam em skin/.',
   'fsDesc.assets.animation': 'Animacoes do main (webm / mov); o nome do arquivo e o nome da acao.',
   'fsDesc.assets.sound': 'Sons no nivel do usuario; nomes sem prefixo valem para todos os pets.',
   'fsDesc.assets.memes': 'Imagens de memes no nivel do usuario.',
-  'fsDesc.assets.pet': 'Pool de skins embutido (layered / live2d / webm / sound).',
+  'fsDesc.assets.pet':
+    'Recursos embutidos que vêm com o pacote (layered / live2d / webm / sound); as suas peles ficam em skin/ e ganham quando o nome coincide.',
   'fsDesc.assets.sessionFish': 'Skins do peixe de sessao: imagens, GIFs, videos.',
   'fsDesc.logs': 'Log de execucao: a primeira coisa a ler quando algo falha.',
   fsLocationChange: 'Alterar local…',
@@ -619,7 +627,8 @@ export const pt: Record<Key, string> = {
   personaRemoveFailed: 'Falha ao excluir: o personagem não existe ou ainda é referenciado.',
   personaRemoveDone: 'Personagem removido da biblioteca.',
   personaImportTooMany: 'No máximo {n} arquivos por vez.',
-  personaImportTooLarge: 'Arquivo grande demais: até 768 KiB cada e 1 MiB no total.',
+  personaImportTooLarge:
+    'Arquivo grande demais: até 768 KiB cada e 768 KiB − 4 KiB no total (4 KiB reservados para base64 e o envelope JSON).',
   personaImportFailed: 'Falha na importação: nenhum conteúdo utilizável extraído.',
   personaImportDone: 'Personagem «{name}» importado.',
   personaPolishEmpty: 'Escreva algum texto antes de polir.',
@@ -651,7 +660,8 @@ export const pt: Record<Key, string> = {
   characterReadonly: 'A persona de um pet de arquivo é gerida pela entrada dele: aqui só se navega e importa.',
   characterImport: 'Importar documentos…',
   characterImportPick: 'Escolher documentos',
-  characterImportHint: 'md / txt / json / cartão png / docx; até 768 KiB cada, 1 MiB no total, 5 arquivos.',
+  characterImportHint:
+    'md / txt / json / cartão png / docx; até 768 KiB cada e 768 KiB − 4 KiB no total (4 KiB reservados para base64 e o envelope JSON), 5 arquivos no máximo.',
   characterImportedName: 'Nome',
   characterImportedDescription: 'Descrição',
   characterImportedPersonality: 'Personalidade',
@@ -668,7 +678,8 @@ export const pt: Record<Key, string> = {
   renderMissingFiles: 'Falta {files} — coloque os recursos em {path} e clique em «Reexaminar».',
   renderRescan: 'Reexaminar',
   skinDirsTitle: 'Pastas de pele',
-  skinDirsHint: 'As três linhas são as pastas layered / live2d / webm; o caminho vem do host e «Abrir» vai direto.',
+  skinDirsHint:
+    'Estas três linhas são as suas próprias pastas de pele (skin/layered, skin/live2d, skin/webm): coloque os recursos por render e o seletor das configurações lista-as. As peles embutidas ficam em assets/pet e só servem de reserva quando não existe uma pele sua com o mesmo nome. O caminho vem do host e «Abrir» vai directo.',
   skinDirsCount: '{n} itens',
   skinDirsMissing: 'falta {file}',
   'renderDir.layered': 'Peles em camadas',

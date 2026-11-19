@@ -144,10 +144,12 @@ export const zh = {
   'fsDesc.runtime': '运行时：桌面窗口用的可执行程序。',
   'fsDesc.runtime.electron': 'Electron 本体（约 350 MB）。',
   'fsDesc.skin': '你自己的皮肤目录：按渲染方式分三类，放进去就能在设置页选到。',
-  'fsDesc.skin.layered': '分层 PNG 皮肤：一个子目录一套，里面放 manifest.json 与各层 PNG。放进后到设置页点「重新扫描」。',
+  'fsDesc.skin.layered':
+    '分层 PNG 皮肤：一个子目录一套，里面放 manifest.json 与各层 PNG。放进后到设置页点「重新扫描」。',
   'fsDesc.skin.live2d': 'Live2D 模型：一个子目录一套，里面放 *.model3.json 与配套贴图。放进后到设置页点「重新扫描」。',
   'fsDesc.skin.webm': 'webm 平铺动画：*.webm 直接放在这一层，文件名就是动作名。放进后到设置页点「重新扫描」。',
-  'fsDesc.assets': '素材：动画、音效、表情、内置皮肤池、会话鱼皮肤。',
+  'fsDesc.assets':
+    '随包发布与共享的素材（动画、音效、表情、会话鱼皮肤）；其中 assets/pet 是内置资源，你自己的皮肤在 skin/。',
   'fsDesc.assets.animation': 'main 的动画（webm / mov），文件名就是动作名。',
   'fsDesc.assets.sound': '用户级音效，无前缀文件名对所有宠物生效。',
   'fsDesc.assets.memes': '用户级表情包图片。',
@@ -575,7 +577,7 @@ export const zh = {
   personaRemoveFailed: '删除失败：角色不存在，或被别的宠物引用着。',
   personaRemoveDone: '角色已从角色库删除。',
   personaImportTooMany: '一次最多 {n} 个文件。',
-  personaImportTooLarge: '文件太大：单份不超过 768 KiB，合计不超过 1 MiB。',
+  personaImportTooLarge: '文件太大：单份不超过 768 KiB，合计不超过 768 KiB − 4 KiB（base64 与 JSON 包装预留 4 KiB）。',
   personaImportFailed: '导入失败：没读出来可用的内容。',
   personaImportDone: '已导入角色「{name}」。',
   personaPolishEmpty: '先写点正文再润色。',
@@ -623,7 +625,8 @@ export const zh = {
   renderMissingFiles: '还缺 {files} —— 把素材放到 {path} 下，然后点「重新扫描」。',
   renderRescan: '重新扫描',
   skinDirsTitle: '皮肤目录',
-  skinDirsHint: '三行分别是 layered / live2d / webm 的约定目录；路径由宿主给，点「打开」直接到那个目录。',
+  skinDirsHint:
+    '这三行是你自己的皮肤目录（skin/layered、skin/live2d、skin/webm）：按渲染方式把资源放进去，设置页就能选到；内置皮肤在 assets/pet，只在没有同名用户皮肤时作回落。路径由宿主给，点「打开」直接到那个目录。',
   skinDirsCount: '{n} 个资源',
   skinDirsMissing: '缺 {file}',
   'renderDir.layered': '分层皮肤',

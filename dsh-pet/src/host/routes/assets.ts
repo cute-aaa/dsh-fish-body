@@ -255,13 +255,19 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
         const extraAnimDir = resolveAsset(petConfigDir, assetRoot + '-animation');
         if (extraAnimDir !== undefined) animDirs.push({ dir: extraAnimDir, source: 'pack' });
       }
-      if (poolBase !== '') animDirs.push({ dir: join(poolBase, POOL_LAYER_DIR.webm), source: 'pool' });
+      // 每个皮肤根都要试：用户 skin/webm 在前，内置池 ssets/pet/webm 在后。
+      for (const root of poolRootList) animDirs.push({ dir: join(root, POOL_LAYER_DIR.webm), source: 'pool' });
       if (!fromPool && typeof userRootFor === 'function' && typeof assetRootFor === 'function') {
         // 两条共享素材链不算「这只宠物的专属目录」，按池同一来源标注。
         animDirs.push({ dir: userRootFor('.webm'), source: 'pool' });
         animDirs.push({ dir: assetRootFor('.webm'), source: 'pool' });
       }
-      const resources = readRenderResources({ poolRoot: poolBase, poolRoots: poolRootList, packSkinDir: packDir, animDirs });
+      const resources = readRenderResources({
+        poolRoot: poolBase,
+        poolRoots: poolRootList,
+        packSkinDir: packDir,
+        animDirs,
+      });
       return { kind: 'json', status: 200, obj: { root: assetRoot, renderers: resources } };
     }
 

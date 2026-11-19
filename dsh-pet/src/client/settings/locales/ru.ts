@@ -152,12 +152,21 @@ export const ru: Record<Key, string> = {
   'fsDesc.cache.desktop': 'Профиль окна: положение и масштаб.',
   'fsDesc.runtime': 'Рантайм: исполняемый файл для окон на рабочем столе.',
   'fsDesc.runtime.electron': 'Сам Electron (около 350 МБ).',
-  'fsDesc.skin': 'Ваши скины: на каждый — набор файлов и папок <имя>-*.',
-  'fsDesc.assets': 'Ресурсы: анимации, звуки, мемы, встроенный пул скинов, скины рыбы сессии.',
+  'fsDesc.skin':
+    'Ваши собственные папки скинов, по одной на способ отрисовки: положите ресурсы — и они появятся в выборе.',
+  'fsDesc.skin.layered':
+    'Скины из слоёв PNG: один подкаталог на скин, внутри manifest.json и PNG слоёв. Положили — нажмите «Сканировать снова».',
+  'fsDesc.skin.live2d':
+    'Модели Live2D: один подкаталог на модель, внутри *.model3.json и её текстуры. Положили — нажмите «Сканировать снова».',
+  'fsDesc.skin.webm':
+    'Плоские анимации webm: кладите *.webm прямо на этот уровень, имя файла и есть имя действия. Положили — нажмите «Сканировать снова».',
+  'fsDesc.assets':
+    'Ресурсы из пакета и общие (анимации, звуки, мемы, скины рыбы сессии); в assets/pet лежат встроенные, ваши скины — в skin/.',
   'fsDesc.assets.animation': 'Анимации main (webm / mov); имя файла — имя действия.',
   'fsDesc.assets.sound': 'Звуки уровня пользователя; имя без префикса действует на всех питомцев.',
   'fsDesc.assets.memes': 'Картинки мемов уровня пользователя.',
-  'fsDesc.assets.pet': 'Встроенный пул скинов (layered / live2d / webm / sound).',
+  'fsDesc.assets.pet':
+    'Встроенные ресурсы из пакета (layered / live2d / webm / sound); ваши скины лежат в skin/ и при совпадении имён выигрывают.',
   'fsDesc.assets.sessionFish': 'Скины рыбы сессии: картинки, GIF, видео.',
   'fsDesc.logs': 'Журнал работы — первое, что стоит смотреть при проблемах.',
   fsLocationChange: 'Изменить расположение…',
@@ -616,7 +625,8 @@ export const ru: Record<Key, string> = {
   personaRemoveFailed: 'Удаление не удалось: персонаж отсутствует или на него ссылаются.',
   personaRemoveDone: 'Персонаж удалён из библиотеки.',
   personaImportTooMany: 'Не больше {n} файлов за раз.',
-  personaImportTooLarge: 'Файл слишком большой: до 768 KiB каждый и 1 MiB всего.',
+  personaImportTooLarge:
+    'Файл слишком большой: до 768 KiB каждый и 768 KiB − 4 KiB всего (4 KiB в запасе на base64 и обёртку JSON).',
   personaImportFailed: 'Импорт не удался: пригодного содержимого не найдено.',
   personaImportDone: 'Персонаж «{name}» импортирован.',
   personaPolishEmpty: 'Сначала напишите текст, потом полируйте.',
@@ -650,7 +660,8 @@ export const ru: Record<Key, string> = {
     'Персоной файлового питомца управляет его запись: здесь можно смотреть и импортировать, но не применять и не удалять.',
   characterImport: 'Импортировать документы…',
   characterImportPick: 'Выбрать документы',
-  characterImportHint: 'md / txt / json / png-карта / docx; до 768 KiB каждый, 1 MiB всего, не более 5 файлов.',
+  characterImportHint:
+    'md / txt / json / png-карта / docx; до 768 KiB каждый и 768 KiB − 4 KiB всего (4 KiB в запасе на base64 и обёртку JSON), не более 5 файлов.',
   characterImportedName: 'Имя',
   characterImportedDescription: 'Описание',
   characterImportedPersonality: 'Характер',
@@ -667,7 +678,8 @@ export const ru: Record<Key, string> = {
   renderMissingFiles: 'Не хватает {files} — положите ресурсы в {path} и нажмите «Сканировать снова».',
   renderRescan: 'Сканировать снова',
   skinDirsTitle: 'Папки скинов',
-  skinDirsHint: 'Три строки — папки layered / live2d / webm; путь даёт хост, «Открыть» ведёт прямо туда.',
+  skinDirsHint:
+    'Эти три строки — ваши собственные папки скинов (skin/layered, skin/live2d, skin/webm): положите ресурсы по способу отрисовки, и они появятся в выборе в настройках. Встроенные скины лежат в assets/pet и служат только запасным вариантом, когда своего скина с тем же именем нет. Путь даёт хост, «Открыть» ведёт прямо туда.',
   skinDirsCount: '{n} шт.',
   skinDirsMissing: 'нет {file}',
   'renderDir.layered': 'Слоистые скины',

@@ -150,12 +150,20 @@ export const ja: Record<Key, string> = {
   'fsDesc.cache.desktop': 'デスクトップウィンドウの profile：位置と拡大率。',
   'fsDesc.runtime': 'ランタイム：デスクトップウィンドウが使う実行ファイル。',
   'fsDesc.runtime.electron': 'Electron 本体（約 350 MB）。',
-  'fsDesc.skin': '自分のスキン。1 種類につき <名>-* のファイルとフォルダー一式。',
-  'fsDesc.assets': '素材：アニメーション・効果音・ミーム・内蔵スキンプール・セッション魚のスキン。',
+  'fsDesc.skin': '自分のスキンフォルダー。描画方式ごとに分かれていて、入れるだけで設定ページで選べます。',
+  'fsDesc.skin.layered':
+    'レイヤー PNG スキン：1 サブフォルダーに 1 セット。manifest.json と各レイヤーの PNG を入れます。入れたら設定ページで「再スキャン」を押します。',
+  'fsDesc.skin.live2d':
+    'Live2D モデル：1 サブフォルダーに 1 セット。*.model3.json とテクスチャを入れます。入れたら設定ページで「再スキャン」を押します。',
+  'fsDesc.skin.webm':
+    'webm の並べ再生アニメ：*.webm をこの階層に直接置きます。ファイル名がアクション名になります。入れたら設定ページで「再スキャン」を押します。',
+  'fsDesc.assets':
+    'パッケージ同梱と共有の素材（アニメーション・効果音・ミーム・セッション魚のスキン）。うち assets/pet は内蔵資源、自分のスキンは skin/ に置きます。',
   'fsDesc.assets.animation': 'main のアニメーション（webm / mov）。ファイル名が動作名です。',
   'fsDesc.assets.sound': 'ユーザー共通の効果音。接頭辞なしの名前はすべてのペットに効きます。',
   'fsDesc.assets.memes': 'ユーザー共通のミーム画像。',
-  'fsDesc.assets.pet': '内蔵スキンプール（layered / live2d / webm / sound）。',
+  'fsDesc.assets.pet':
+    'パッケージ同梱の内蔵素材（layered / live2d / webm / sound）。自分のスキンは skin/ に置きます（同名なら自分のものが優先）。',
   'fsDesc.assets.sessionFish': 'セッション魚のスキン：画像・GIF・動画。',
   'fsDesc.logs': '実行ログ。困ったときはまずこれを見ます。',
   fsLocationChange: '場所を変更…',
@@ -606,7 +614,8 @@ export const ja: Record<Key, string> = {
   personaRemoveFailed: '削除に失敗しました：キャラクターが無いか、他のペットが参照しています。',
   personaRemoveDone: 'キャラクターをライブラリから削除しました。',
   personaImportTooMany: '一度に最大 {n} ファイルまでです。',
-  personaImportTooLarge: 'ファイルが大きすぎます：1 件 768 KiB、合計 1 MiB までです。',
+  personaImportTooLarge:
+    'ファイルが大きすぎます：1 件 768 KiB、合計 768 KiB − 4 KiB（base64 と JSON 包装用に 4 KiB 確保）までです。',
   personaImportFailed: 'インポートに失敗しました：使える内容を抽出できませんでした。',
   personaImportDone: 'キャラクター「{name}」をインポートしました。',
   personaPolishEmpty: '本文を書いてから磨いてください。',
@@ -638,7 +647,8 @@ export const ja: Record<Key, string> = {
   characterReadonly: 'ファイルペットの人物設定は所属エントリが管理します：閲覧と取り込みのみ可能です。',
   characterImport: 'ドキュメントを取り込む…',
   characterImportPick: 'ドキュメントを選択',
-  characterImportHint: 'md / txt / json / png カード / docx。1 件 768 KiB、合計 1 MiB、最大 5 件。',
+  characterImportHint:
+    'md / txt / json / png カード / docx。1 件 768 KiB、合計 768 KiB − 4 KiB（base64 と JSON 包装用に 4 KiB 確保）、最大 5 件。',
   characterImportedName: '名前',
   characterImportedDescription: '説明',
   characterImportedPersonality: '性格',
@@ -655,7 +665,8 @@ export const ja: Record<Key, string> = {
   renderMissingFiles: '{files} がありません。{path} に素材を置いて「再スキャン」を押してください。',
   renderRescan: '再スキャン',
   skinDirsTitle: 'スキンフォルダー',
-  skinDirsHint: '3 行は layered / live2d / webm の約束フォルダーです。パスはホストが返し、「開く」で直接開きます。',
+  skinDirsHint:
+    'この 3 行は自分のスキンフォルダー（skin/layered・skin/live2d・skin/webm）です。描画方式ごとに素材を入れると設定ページで選べます。内蔵スキンは assets/pet にあり、同名のユーザースキンがないときだけフォールバックします。パスはホストが返し、「開く」で直接開きます。',
   skinDirsCount: '{n} 件',
   skinDirsMissing: '{file} がありません',
   'renderDir.layered': 'レイヤースキン',

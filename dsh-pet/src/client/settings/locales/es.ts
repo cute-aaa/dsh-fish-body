@@ -154,12 +154,20 @@ export const es: Record<Key, string> = {
   'fsDesc.cache.desktop': 'Perfil de la ventana de escritorio: posicion y zoom.',
   'fsDesc.runtime': 'Runtime: el ejecutable que usan las ventanas de escritorio.',
   'fsDesc.runtime.electron': 'Electron en si (unos 350 MB).',
-  'fsDesc.skin': 'Tus skins: un juego de archivos y carpetas <nombre>-* por skin.',
-  'fsDesc.assets': 'Assets: animaciones, sonidos, memes, pool de skins integrado, skins del pez de sesion.',
+  'fsDesc.skin': 'Tus carpetas de piel, separadas por render: deja los recursos y aparecen en el selector.',
+  'fsDesc.skin.layered':
+    'Pieles PNG por capas: una subcarpeta por piel con manifest.json y los PNG de cada capa. Al dejarla, pulsa «Reexplorar».',
+  'fsDesc.skin.live2d':
+    'Modelos Live2D: una subcarpeta por modelo con el *.model3.json y sus texturas. Al dejarlo, pulsa «Reexplorar».',
+  'fsDesc.skin.webm':
+    'Animaciones webm planas: pon los *.webm directamente en este nivel; el nombre del archivo es el de la acción. Al dejarlos, pulsa «Reexplorar».',
+  'fsDesc.assets':
+    'Recursos del paquete y compartidos (animaciones, sonidos, memes, pieles del pez de sesión); assets/pet guarda los recursos integrados y tus pieles van en skin/.',
   'fsDesc.assets.animation': 'Animaciones de main (webm / mov); el nombre del archivo es el de la accion.',
   'fsDesc.assets.sound': 'Sonidos a nivel de usuario; un nombre sin prefijo vale para todas las mascotas.',
   'fsDesc.assets.memes': 'Imagenes de memes a nivel de usuario.',
-  'fsDesc.assets.pet': 'Pool de skins integrado (layered / live2d / webm / sound).',
+  'fsDesc.assets.pet':
+    'Recursos integrados que vienen con el paquete (layered / live2d / webm / sound); tus pieles van en skin/ y ganan si el nombre coincide.',
   'fsDesc.assets.sessionFish': 'Skins del pez de sesion: imagenes, GIF, videos.',
   'fsDesc.logs': 'Registro de ejecucion: lo primero que mirar si algo falla.',
   fsLocationChange: 'Cambiar ubicacion…',
@@ -623,7 +631,8 @@ export const es: Record<Key, string> = {
   personaRemoveFailed: 'Error al borrar: el personaje no existe o aún lo usa otra mascota.',
   personaRemoveDone: 'Personaje eliminado de la biblioteca.',
   personaImportTooMany: 'Como máximo {n} archivos a la vez.',
-  personaImportTooLarge: 'Archivo demasiado grande: hasta 768 KiB cada uno y 1 MiB en total.',
+  personaImportTooLarge:
+    'Archivo demasiado grande: hasta 768 KiB cada uno y 768 KiB − 4 KiB en total (4 KiB reservados para base64 y el envoltorio JSON).',
   personaImportFailed: 'Error al importar: no se extrajo contenido utilizable.',
   personaImportDone: 'Personaje «{name}» importado.',
   personaPolishEmpty: 'Escribe algo de texto antes de pulir.',
@@ -657,7 +666,8 @@ export const es: Record<Key, string> = {
     'La persona de una mascota de archivo la gestiona su propia entrada: aquí solo puedes explorar e importar.',
   characterImport: 'Importar documentos…',
   characterImportPick: 'Elegir documentos',
-  characterImportHint: 'md / txt / json / tarjeta png / docx; hasta 768 KiB cada uno, 1 MiB en total y 5 archivos.',
+  characterImportHint:
+    'md / txt / json / tarjeta png / docx; hasta 768 KiB cada uno y 768 KiB − 4 KiB en total (4 KiB reservados para base64 y el envoltorio JSON), 5 archivos como máximo.',
   characterImportedName: 'Nombre',
   characterImportedDescription: 'Descripción',
   characterImportedPersonality: 'Personalidad',
@@ -675,7 +685,8 @@ export const es: Record<Key, string> = {
   renderMissingFiles: 'Falta {files}: pon los recursos en {path} y pulsa «Reexplorar».',
   renderRescan: 'Reexplorar',
   skinDirsTitle: 'Carpetas de piel',
-  skinDirsHint: 'Las tres filas son las carpetas layered / live2d / webm; la ruta la da el host y «Abrir» va directo.',
+  skinDirsHint:
+    'Estas tres filas son tus carpetas de piel (skin/layered, skin/live2d, skin/webm): deja los recursos según el render y el selector de los ajustes las lista. Las pieles integradas están en assets/pet y solo sirven de respaldo cuando no hay una piel tuya con el mismo nombre. La ruta la da el host y «Abrir» va directo.',
   skinDirsCount: '{n} recursos',
   skinDirsMissing: 'falta {file}',
   'renderDir.layered': 'Pieles por capas',
