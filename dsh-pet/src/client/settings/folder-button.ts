@@ -18,6 +18,10 @@ export interface FolderButtonProps {
   petId?: string;
   /** 保存中等场景禁用。 */
   disabled?: boolean;
+  /** 按钮文案；缺省取「打开文件夹」。有的行要说清打开的是哪个目录（会话鱼的「打开皮肤目录」）。 */
+  label?: string;
+  /** 尺寸与视觉：`sm` 是行内小按钮（目录树、位置行），`text` 是纯文字按钮（与下拉同格的次要动作）。 */
+  variant?: 'sm' | 'text';
 }
 
 /** 行内提示：问「是否创建」或说明一次失败。 */
@@ -99,10 +103,10 @@ export function makeFolderButton(rt: Pick<SettingsRuntime, 'h' | 't' | 'useState
         h('button', {
           key: 'b',
           type: 'button',
-          className: 'dsh-pet-cfg__btn is-sm',
+          className: 'dsh-pet-cfg__btn' + (props.variant === 'text' ? ' is-text' : ' is-sm'),
           disabled: props.disabled === true || busy,
           onClick: () => run(false),
-          children: t('sfxOpenFolder'),
+          children: props.label ?? t('sfxOpenFolder'),
         }),
         tipNode,
       ],

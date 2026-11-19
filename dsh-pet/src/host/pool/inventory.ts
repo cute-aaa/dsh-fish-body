@@ -11,7 +11,8 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { LAYERED_MANIFEST_PATHS, layeredBaseOf } from '../../shared/layered-paths.ts';
 import { POOL_LAYER_DIR } from '../../shared/pool.ts';
-import { createPoolReader } from './scan.ts';
+import { createPoolReader } from './roots.ts';
+import type { PoolScan } from './scan.ts';
 import type { RendererKind } from '../../shared/types.ts';
 
 /** 一个桶的存在性：ok = 有资源；empty = 目录在但没有结构文件；missing = 目录不在。 */
@@ -56,6 +57,8 @@ export interface RenderAnimDir {
 export interface RenderResourcesInput {
   /** 池根绝对路径（`resolvePoolRoot` 的结果）。 */
   readonly poolRoot: string;
+  /** 全部皮肤根（用户 `skin/` 在前、内置池在后）；给了就按根序合并，`dir` 报第一个根。 */
+  readonly poolRoots?: readonly string[];
   /** 用户的皮肤目录（`pet/<素材根>-skin/`）；不存在时按 undefined 传。 */
   readonly packSkinDir?: string;
   /** 平铺动画（webm）的候选目录，按「先 pack 后池」顺序。 */
@@ -192,18 +195,24 @@ function webmItems(dirs: readonly RenderAnimDir[]): RenderResourceItem[] {
  * @returns 三桶清单；目录不存在时 status = missing，不会抛。
  */
 export function readRenderResources(input: RenderResourcesInput): RenderResources {
-  const poolRoot = input.poolRoot;
-  const poolScan = poolRoot === '' ? undefined : createPoolReader(poolRoot).scan();
+  // 多个皮肤根（用户 `skin/` 在前、内置池在后）：`dir` 只报**第一个**根（用户目录，
+  // 因为那是用户真正该往里放东西的地方），资源清单则把所有根合并去重后一起给。
+  const roots = (input.poolRoots ?? [input.poolRoot]).filter((root) => root !== '');
+  const poolRoot = roots[0] ?? '';
+  const scans = roots.map((root) => createPoolReader(root).scan());
   const packDir = input.packSkinDir !== undefined && isDir(input.packSkinDir) ? input.packSkinDir : undefined;
+  /** 各根里某渲染方式的 id 合起来（顺序即根的优先级）。 */
+  const idsAcross = (pick: (scan: PoolScan) => string[]): string[] =>
+    scans.flatMap((scan) => pick(scan));
 
   const layeredDir = packDir ?? join(poolRoot, POOL_LAYER_DIR.layered);
   const layered = bucket({
     items: mergeRenderItems(
       packDir === undefined ? [] : listLayeredIds(packDir),
-      poolScan?.layered.map((entry) => entry.id) ?? [],
+      idsAcross((scan) => scan.layered.map((entry) => entry.id)),
     ),
     dir: layeredDir,
-    dirExists: packDir !== undefined || isDir(join(poolRoot, POOL_LAYER_DIR.layered)),
+    dirExists: packDir !== undefined || roots.some((root) => isDir(join(root, POOL_LAYER_DIR.layered))),
     expect: ['manifest.json'],
     canBeEmpty: true,
   });
@@ -212,10 +221,10 @@ export function readRenderResources(input: RenderResourcesInput): RenderResource
   const live2d = bucket({
     items: mergeRenderItems(
       packDir === undefined ? [] : listModelIds(packDir),
-      poolScan?.live2d.map((entry) => entry.id) ?? [],
+      idsAcross((scan) => scan.live2d.map((entry) => entry.id)),
     ),
     dir: live2dDir,
-    dirExists: packDir !== undefined || isDir(join(poolRoot, POOL_LAYER_DIR.live2d)),
+    dirExists: packDir !== undefined || roots.some((root) => isDir(join(root, POOL_LAYER_DIR.live2d))),
     expect: ['*.model3.json'],
     canBeEmpty: false,
   });

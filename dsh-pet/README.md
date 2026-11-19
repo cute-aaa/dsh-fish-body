@@ -28,18 +28,14 @@
 | `src/client/settings/snapshot.ts`               | 表单快照：各分区状态摊成与基线同形的对象                                          |
 | `src/client/settings/use-revert.ts`             | 「撤销改动」：重读配置与会话鱼，结论由加载状态落地                                |
 | `src/client/settings/pet-tab.ts`                | 桌宠分区：种类下拉 + 实例 chip + 选中实例的配置卡                                 |
-| `src/client/settings/pet-card.ts`               | 宠物卡：身份 / 角色卡 / 人设正文（折叠）/ 能力开关                                |
-| `src/client/settings/character-card.ts`         | 角色卡：来源扫描 / 角色列表 + 应用 / 删除 / 导入文档预览                          |
-| `src/client/settings/render-card.ts`            | 渲染卡：渲染方式 + 模型/皮肤同排 / 缺文件提示 / 重新扫描 / 位置与尺寸             |
-| `src/client/settings/skin-dirs.ts`              | 渲染卡下方三行目录（layered / live2d / webm 的存在性、资源数、打开）              |
-| `src/client/settings/window-behavior.ts`        | 窗口行为卡：鼠标穿透（这只）与锁定在当前屏幕（全部）                              |
-| `src/client/settings/tree-row.ts`               | 树行绘制（从 `fs-card.ts` 抽出，皮肤三行与文件树共用）                            |
-| `src/client/settings/use-persona-characters.ts` | 角色作用域：来源描述 / 角色列表 / 扫描 / 应用 / 删除（按 `pet.id` 换作用域）      |
-| `src/client/settings/use-persona-import.ts`     | 文档导入：选文件 → base64 → 预览 → 落库（取消不发请求）                           |
-| `src/client/settings/use-persona-polish.ts`     | AI 润色：请求 / 预览 / 应用 / 取消（取消不写草稿）                                |
-| `src/client/settings/use-render-resources.ts`   | `/skin/{root}/resources` 拉取与「重新扫描」                                       |
+| `src/client/settings/pet-card.ts`               | 宠物卡：身份 / 显示与位置 / 功能 / 人设（折叠）                                   |
 | `src/client/settings/pet-card-parts.ts`         | 宠物卡的字段组（身份 / 显示 / 位置 / 尺寸覆盖）与头像格                           |
-| `src/client/settings/feel-tab.ts`               | 外观与手感分区：渲染卡 → 皮肤三行 → 窗口行为 → 位置/尺寸 → 物理 / 动作频率 / 字体 |
+| `src/client/settings/feel-tab.ts`               | 外观与手感分区：物理 / 动作频率 / 字体                                            |
+| `src/client/settings/character-card.ts`         | 角色卡：来源下拉 / 扫描 / 角色列表 / 应用 / 导入文档预览 / 只读说明               |
+| `src/client/settings/render-card.ts`            | 渲染卡：渲染方式 + 模型/皮肤同行 → 缺文件提示 → 位置 → 尺寸折叠                   |
+| `src/client/settings/skin-dirs.ts`              | 皮肤目录三行：用户 skin 三类桶的存在性 / 资源数 / 打开                            |
+| `src/client/settings/tree-row.ts`               | 树行绘制（文件卡与皮肤目录共用）                                                  |
+| `src/client/settings/window-behavior.ts`        | 窗口行为卡：鼠标穿透（这只）/ 锁定在当前屏幕（全部）                              |
 | `src/client/settings/physics-card.ts`           | 物理卡 + 「移动端效果」折叠（震动 / 倾斜 / 摇一摇）                               |
 | `src/client/settings/motion-card.ts`            | 动作频率卡（随机动作是纯读数，不给假输入框）                                      |
 | `src/client/settings/font-card.ts`              | 字体卡：字体 / 字号 / 跟随缩放                                                    |
@@ -56,13 +52,15 @@
 | `src/client/settings/voice-provider-card.ts`    | 本地语音（GSV）接入配置与启停                                                     |
 | `src/client/settings/model-tab.ts`              | 对话分区装配                                                                      |
 | `src/client/settings/model-card.ts`             | 模型卡 + 「这些开关要花多少 token」折叠                                           |
-| `src/client/settings/system-tab.ts`             | 系统分区装配（提醒 → 备份 → 快捷键 → 文件与目录 → 维护）                          |
+| `src/client/settings/system-tab.ts`             | 系统分区装配（提醒 → 屏幕 → 快捷键 → 维护动作组）                                 |
 | `src/client/settings/system-card.ts`            | 提醒与桌面卡（含「测试弹窗」）                                                    |
-| `src/client/settings/maintenance-card.ts`       | 插件维护卡：重启 / 重置设置 / 页面说明                                            |
-| `src/client/settings/backup-card.ts`            | 备份与恢复卡                                                                      |
+| `src/client/settings/maintenance-card.ts`       | 插件维护卡：重启 / 重置设置 / 页面说明（与备份、文件目录同属维护动作组）          |
+| `src/client/settings/backup-card.ts`            | 备份与恢复卡（放在维护动作组最前：只读，风险最低）                                |
 | `src/client/settings/shortcuts-card.ts`         | 快捷键参考卡（折叠）                                                              |
 | `src/client/settings/fs-card.ts`                | 「文件与目录」卡：路径树（每行一个「打开文件夹」）+ 运行时 + 卸载                 |
-| `src/client/settings/bar.ts`                    | 底部常驻栏：状态（未保存条数 / 保存结论）+ 撤销 / 取消 / 应用 / 确定              |
+| `src/client/settings/bar.ts`                    | 底部常驻栏：状态（未保存条数 / 保存结论 / 需重启条数）+ 撤销 / 取消 / 应用 / 确定 |
+| `src/client/settings/use-plugin-restart.ts`     | 插件自重启的唯一实现：是否先存盘由参数决定                                        |
+| `src/client/settings/restart-hint.ts`           | 「需重启插件后生效」的路径表：改动路径 → 是否要重建桌面窗口                       |
 | `src/client/settings/dialog.ts`                 | 确认 / 提示弹窗（删除、只剩一只、重置、恢复、配置损坏）                           |
 | `src/client/settings/ui.ts`                     | 共用小件：字段、卡头、小节、说明行、开关格、折叠卡、尺寸控件                      |
 | `src/client/settings/css.ts`                    | 样式注入入口：拼 `style/` 三段，按 `data-plugin-css` 去重                         |
@@ -70,7 +68,29 @@
 | `src/client/settings/style/controls.ts`         | 控件层样式：输入、按钮、开关、分段标签、chip、滑块与两类自绘下拉                  |
 | `src/client/settings/style/cards.ts`            | 容器层样式：卡片、小节、列表行、折叠、底部栏、弹窗与容器查询                      |
 | `src/client/settings/use-*.ts`                  | 各分区的字段状态（宠物列表、全局、音效、语音、模型、外观、会话鱼、备份…）         |
+| `src/client/settings/use-persona-characters.ts` | 人设来源与角色库：加载、扫描、应用、删除                                          |
+| `src/client/settings/use-persona-import.ts`     | 文档导入：预算闸门 → 预览 → 落库                                                  |
+| `src/client/settings/use-persona-polish.ts`     | AI 润色：预览，应用才写草稿                                                       |
+| `src/client/settings/use-render-resources.ts`   | 三桶资源清单（`/skin/{root}/resources`）                                          |
 | `src/client/settings/config/`                   | 成品读取、HTTP 契约、保存与同步编排、表单校验                                     |
 | `src/client/settings/locales/`                  | 九种语言字典；`zh` 是键集真源                                                     |
 
-许可：代码 MIT；素材禁止商用；二创在公开渠道须署名（同上链接）。
+## 维护与回滚
+
+| 想做的事                   | 怎么做                                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| 重启插件（免重启 profile） | 设置页「系统 → 维护动作 → 重启」，或 `POST <插件路由>/plugin-restart`（有 HMR 时刷新页面即可）     |
+| 升级前留一份底             | `npm run rollback -- snapshot --label before-upgrade`，`--with-config` 连数据根的 `config/` 一起拍 |
+| 看有哪些底                 | `npm run rollback -- list`                                                                         |
+| 退回上一个可用状态         | `npm run rollback -- restore <id>`（默认干跑；加 `--apply` 执行，恢复前自动再拍 `pre-restore`）    |
+| 数据布局回滚               | `node scripts/migrate-layout.mjs --revert`（干跑）→ 加 `--apply`                                   |
+| 清掉旧快照                 | `npm run rollback -- prune <id> --apply`                                                           |
+
+- 快照收 `lib/`、`package.json`、`cordis.patch.yml`（+ 可选 `config/`），落在 `artifacts/rollback/`（已 gitignore）。
+  **不收** `data/`、`skin/`、`assets/pet/`、`node_modules/`、`dist-app/`——回滚不碰用户自己的东西。
+- 实现在 `src/host/rollback.ts`（纯逻辑 + 注入 fs）与 `scripts/rollback.mjs`（CLI，默认干跑）；
+  `scripts/` 不随 npm 包发布（`files` 白名单只留 `ensure-electron.mjs`），要回滚请在仓库里跑。
+- 设置页那边对应的入口：「系统 → 维护动作」（备份与恢复 / 文件与目录 / 重启 / 重置）；改到需要重建桌面窗口的项时，
+  字段下方会立刻出现「需重启插件后生效」，保存后底部栏给出「其中 n 项需重启」+「立即重启」。
+
+许可：代码 MIT；**素材禁止商用**；二创在公开渠道须署名（同上链接）；第三方组件、字体与 Live2D Cubism Core 见 [`../NOTICE`](../NOTICE)。

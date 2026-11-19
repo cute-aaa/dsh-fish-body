@@ -12,6 +12,7 @@ import type * as ReactNS from 'react';
 import type { jsx } from 'react/jsx-runtime';
 import { SIZE_MAX, SIZE_MIN, SIZE_STEP } from '../../shared/pet-size.ts';
 import { NO_DIRTY, type DirtyQuery } from './dirty.ts';
+import { needsRestart } from './restart-hint.ts';
 import type { H, JsxElement, SettingsRuntime } from './runtime.ts';
 
 /** 输入框与下拉框共用的类名。 */
@@ -251,6 +252,21 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>, dirty: DirtyQuer
   /** 这一项自己有没有改动（决定要不要给容器挂 `is-dirty`）。 */
   const itemDirty = (path?: string): boolean => path !== undefined && dirty.has(path);
 
+  /**
+   * 「需重启插件后生效」：改动过的、且生效要重建桌面窗口的那几项，标签下方立刻出现一行。
+   *
+   * 判定用 `./restart-hint` 的路径表，而不是在这里再列一遍字段：那张表是唯一真源，
+   * 卡片以后加字段、换排版都不会让提示漏掉。没改动 / 不在表里都返回 `null`，调用方不必分支。
+   */
+  const restartNote = (path?: string): ReturnType<typeof jsx> | null =>
+    path !== undefined && dirty.has(path) && needsRestart(path)
+      ? h('p', {
+          className: 'dsh-pet-cfg__note is-tight is-restart',
+          role: 'note',
+          children: t('restartNeededHint'),
+        })
+      : null;
+
   return {
     tip,
     q,
@@ -278,13 +294,19 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>, dirty: DirtyQuer
             ...(hint === undefined ? {} : tip(hint)),
           }),
           control,
+          restartNote(path),
         ],
       }),
-    toggleCell: (label, value, disabled, onToggle, path) =>
-      h('div', {
-        className: 'dsh-pet-cfg__switch' + (itemDirty(path) ? ' is-dirty' : ''),
-        children: switchNode(h, t, { dirty: itemDirty(path), disabled, label, onToggle, value }),
-      }),
+    toggleCell: (label, value, disabled, onToggle, path) => {
+      // 有重启提示时整格改成竖排：`.dsh-pet-cfg__switch` 平时是一行 flex，塞进第二行文本会跟开关挤在一起。
+      const restart = restartNote(path);
+      const cell = switchNode(h, t, { dirty: itemDirty(path), disabled, label, onToggle, value });
+      return h('div', {
+        className:
+          'dsh-pet-cfg__switch' + (itemDirty(path) ? ' is-dirty' : '') + (restart === null ? '' : ' is-stacked'),
+        children: restart === null ? cell : [cell, restart],
+      });
+    },
     section: (title, children) =>
       h('div', {
         className: 'dsh-pet-cfg__section',

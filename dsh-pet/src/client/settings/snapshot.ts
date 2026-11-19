@@ -14,6 +14,7 @@ import type { HotkeysSettings } from './use-hotkeys-settings.ts';
 import type { ModelSettings } from './use-model-settings.ts';
 import type { PetList } from './use-pet-list.ts';
 import type { SessionFishState } from './use-session-fish.ts';
+import type { ScreenSettings } from './use-screen-settings.ts';
 import type { SfxSettings } from './use-sfx-settings.ts';
 import type { VoiceSettings } from './use-voice-settings.ts';
 
@@ -27,6 +28,7 @@ export interface SnapshotSources {
   readonly model: ModelSettings;
   readonly look: AppearanceSettings;
   readonly fish: SessionFishState;
+  readonly screen: ScreenSettings;
 }
 
 /**
@@ -36,7 +38,7 @@ export interface SnapshotSources {
  * @returns 与基线同形的快照；会话鱼草稿没读到时为 `null`（整块不参与比较）。
  */
 export function makeSnapshot(sources: SnapshotSources): FormSnapshot {
-  const { list, global, hotkeys, sfx, voice, model, look, fish } = sources;
+  const { list, global, hotkeys, sfx, voice, model, look, fish, screen } = sources;
   return {
     pets: list.pets,
     global: { ...global.values, sfxVolume: global.sfxVolume },
@@ -60,6 +62,7 @@ export function makeSnapshot(sources: SnapshotSources): FormSnapshot {
     },
     look: { physics: look.physics, weights: look.weights, font: look.font },
     fish: fish.draft,
+    screen: screen.values,
   };
 }
 
@@ -78,5 +81,6 @@ export function withoutFish(snapshot: FormSnapshot): Omit<FormSnapshot, 'fish'> 
     voice: snapshot.voice,
     model: snapshot.model,
     look: snapshot.look,
+    screen: snapshot.screen,
   };
 }

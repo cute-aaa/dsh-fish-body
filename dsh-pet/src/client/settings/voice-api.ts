@@ -3,7 +3,7 @@
  *
  * 与状态机分开：这一层只做「请求 + 解析 + 归一化错误」，不碰 react、不碰轮询节奏。
  * 失败一律翻译成 `null`（读）或抛错（写）——调用方决定是保留原值还是把原因显示在卡里。
- * 凭据类字段不过这里：接入配置只透传宿主的 `values`，不做日志与回显。
+ * 密钥字段只回「配没配」（`secrets`），值本身永远不经这里：宿主从不把凭据回传给浏览器。
  * @module dsh-fish-body/src/client/settings/voice-api
  */
 import { ROUTE_PATH } from '../../shared/constants.ts';
@@ -17,6 +17,14 @@ export interface VoicesBody {
   readonly providers?: unknown;
 }
 
+/** 一个实现的接入配置：普通值 + 密钥的在场情况。 */
+export interface ProviderConfigBody {
+  /** 普通配置项（键 = `fields[].key`，不含密钥字段）。 */
+  readonly values: Record<string, string>;
+  /** 密钥字段配没配（键 = 密钥字段的 key）。 */
+  readonly secrets: Record<string, boolean>;
+}
+
 /**
  * 把网络值过滤成「字符串 → 字符串」的草稿表。
  *
@@ -28,6 +36,21 @@ export function readStringRecord(raw: unknown): Record<string, string> | null {
   const values: Record<string, string> = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (typeof value === 'string') values[key] = value;
+  }
+  return values;
+}
+
+/**
+ * 把网络值过滤成「字符串 → 布尔」的表（密钥在场情况）。
+ *
+ * @param raw - 响应体里的 `secrets`（可能是任意值）。
+ * @returns 只含布尔值的表；不是对象时返回空对象（当作「都没配」，与老宿主一致）。
+ */
+export function readBooleanRecord(raw: unknown): Record<string, boolean> {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const values: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'boolean') values[key] = value;
   }
   return values;
 }
@@ -71,17 +94,19 @@ export async function postJson(path: string, body: unknown, rejection: string): 
 }
 
 /**
- * 拉一个实现的接入配置值。
+ * 拉一个实现的接入配置（普通值 + 密钥在场情况）。
  *
  * @param providerId - 实现 id。
- * @returns 草稿表；请求失败或值不合法时 `null`。
+ * @returns 配置；请求失败或值不合法时 `null`。
  */
-export async function fetchProviderConfig(providerId: string): Promise<Record<string, string> | null> {
+export async function fetchProviderConfig(providerId: string): Promise<ProviderConfigBody | null> {
   try {
     const response = await fetch(ROUTE_PATH + '/voice/provider-config?provider=' + encodeURIComponent(providerId));
     if (!response.ok) return null;
-    const body = (await response.json()) as { values?: unknown } | null;
-    return body === null ? null : readStringRecord(body.values);
+    const body = (await response.json()) as { values?: unknown; secrets?: unknown } | null;
+    if (body === null) return null;
+    const values = readStringRecord(body.values);
+    return values === null ? null : { values, secrets: readBooleanRecord(body.secrets) };
   } catch {
     return null;
   }

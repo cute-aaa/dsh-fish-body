@@ -178,6 +178,8 @@ export function layoutDirs(input: LayoutDirInput): string[] {
     paths.runtimeDir,
     paths.electronDir,
     paths.skinsDir,
+    // 用户皮肤按渲染方式分三类目录：放进去就能在设置页选到（内置池是回落，见 poolRoots）。
+    ...poolLayers.map((layer) => join(paths.skinsDir, layer)),
     paths.assetsDir,
     paths.animationDir,
     ...animSubdirs.map((sub) => join(paths.animationDir, sub)),

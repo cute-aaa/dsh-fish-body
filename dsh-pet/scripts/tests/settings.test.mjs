@@ -189,7 +189,17 @@ const echoFish = (route) => {
 
 async function open(
   t,
-  { get = customized, put, post, fishPut, viewport = { width: 900, height: 900 }, lang = 'en', reducedMotion } = {},
+  {
+    get = customized,
+    put,
+    post,
+    fishPut,
+    viewport = { width: 900, height: 900 },
+    lang = 'en',
+    reducedMotion,
+    // 语音实现清单：给了就让「声音」分区出现对应的接入卡（默认走兜底 JSON，没有 provider）。
+    voiceProviders = null,
+  } = {},
 ) {
   const context = await browser.newContext(reducedMotion ? { reducedMotion, viewport } : { viewport });
   t.after(() => context.close());
@@ -202,6 +212,7 @@ async function open(
     restores = [],
     runtimePosts = [],
     movePosts = [],
+    models = [],
     errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   t.after(() => assert.deepEqual(errors, []));
@@ -433,10 +444,20 @@ async function open(
     if (path.startsWith('/dsh-pet-7340/skin/') && path.endsWith('/resources')) {
       return route.fulfill({ json: renderResources });
     }
+    // 候选模型清单：显式接一层，用例才能数「重新拉取」真的又请求了一次。
+    if (path === '/dsh-pet-7340/models') {
+      models.push(request.method());
+      return route.fulfill({
+        json: { providers: [{ id: 'test', name: 'Test', models: [{ id: 'model', name: 'Model' }] }] },
+      });
+    }
     if (path === '/dsh-pet-7340/plugin-restart') {
       restarts.push(request.method());
       // helper 模式：不触发页面刷新，测试才看得到后续断言。
       return route.fulfill({ json: { ok: true, mode: 'helper' } });
+    }
+    if (path === '/dsh-pet-7340/voice/voices' && voiceProviders !== null) {
+      return route.fulfill({ json: { ok: true, voices: [], providers: voiceProviders } });
     }
     return route.fulfill({
       json: { providers: [{ id: 'test', name: 'Test', models: [{ id: 'model', name: 'Model' }] }] },
@@ -453,6 +474,7 @@ async function open(
     restores,
     runtimePosts,
     movePosts,
+    models,
     setPickPath: (value) => {
       pickPath = value;
     },
@@ -1092,6 +1114,43 @@ test('T22: feel page shows render pair, three skin rows and window behaviour', a
   }
 });
 
+/** 云端 TTS 骨架（T3.5）的 provider 形状：只有声明式 fields，没有音色可切。 */
+const cloudProvider = {
+  id: 'cloud',
+  name: '云端语音（骨架）',
+  builtin: false,
+  available: false,
+  reason: '未配置云端语音：还缺 服务地址 / 模型',
+  voices: [],
+  voice: '',
+  fields: [
+    { key: 'baseURL', label: '服务地址', kind: 'text', required: true },
+    { key: 'model', label: '模型', kind: 'text', required: true },
+    { key: 'apiKey', label: 'API Key', kind: 'password', required: true, placeholder: 'sk-…' },
+  ],
+};
+
+test('audio → 每个语音实现一张接入卡：云端骨架按 fields 生成，密钥是 password 输入', async (t) => {
+  const { page } = await open(t, {
+    voiceProviders: [cloudProvider],
+    viewport: { width: 900, height: 1800 },
+  });
+  await tab(page, 'Sound').click();
+  await page.getByText('Voice connection', { exact: true }).waitFor();
+  await page.getByText('云端语音（骨架）', { exact: true }).waitFor();
+  // 密钥字段是 password，且带「清除」按钮的容器（未配置时按钮不出现）
+  assert.equal(await page.locator('.dsh-pet-cfg__card input[type="password"]').count(), 1);
+  await page.getByPlaceholder('sk-…').waitFor();
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    await page.screenshot({
+      path: join(process.env.DSH_PET_UI_ARTIFACTS, 'voice-cloud-card.png'),
+      fullPage: true,
+      animations: 'disabled',
+    });
+  }
+});
+
 test('T22: AI polish shows a preview, and cancel leaves the persona untouched', async (t) => {
   const { page, polishCalls } = await open(t, { viewport: { width: 900, height: 1000 } });
   await tab(page, 'Pet').click();
@@ -1123,4 +1182,158 @@ test('T22: AI polish shows a preview, and cancel leaves the persona untouched', 
       animations: 'disabled',
     });
   }
+});
+
+test('search: 按当前值跨分区定位，点结果切分区并高亮命中项', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 1600 } });
+  await page.locator('.dsh-pet-cfg__panel').waitFor();
+  const box = page.getByPlaceholder('Search settings, titles or current values…');
+
+  // 值搜索：1200 是重力（外观与手感分区里的字段值，见 customized 夹具），起点在「桌宠」分区，
+  // 说明索引确实把还没打开的分区也读进来了。
+  await box.fill('1200');
+  const row = page.locator('.dsh-pet-cfg__searchRow').first();
+  await row.waitFor();
+  assert.match(await row.textContent(), /Look & feel/);
+  assert.match(await row.textContent(), /1200/);
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    await page.screenshot({ path: join(process.env.DSH_PET_UI_ARTIFACTS, 'search-results.png') });
+  }
+
+  await row.click();
+  await page
+    .getByRole('tab', { name: /^Look & feel/ })
+    .and(page.locator('[aria-selected="true"]'))
+    .waitFor();
+  // 跳过去高亮：命中的字段短暂带 is-search-hit
+  await page.locator('.dsh-pet-cfg__panel .is-search-hit').first().waitFor();
+
+  // 没有匹配时给一句人话，而不是一张空列表
+  await box.fill('zzz-no-such-setting');
+  await page.getByText('No matching setting', { exact: true }).waitFor();
+  // Esc 退出搜索态，回到分区面板
+  await box.press('Escape');
+  await page.locator('.dsh-pet-cfg__panel').waitFor();
+});
+
+test('system → screen: switches and timings all reach the save body', async (t) => {
+  const { page, writes } = await open(t, { viewport: { width: 900, height: 2200 } });
+  await tab(page, 'System').click();
+
+  // 卡头：「看屏幕与避让」
+  await page.getByText('Screen & avoidance', { exact: true }).waitFor();
+
+  // 三个开关默认全关：全屏躲开、最大化、白名单。
+  const fullscreen = page.getByRole('checkbox', { name: /Hide on fullscreen/ });
+  await fullscreen.waitFor();
+  assert.equal(await fullscreen.isChecked(), false, '出厂默认关着');
+  await fullscreen.check();
+
+  // 时机项：最短间隔与躲开延迟都在界面上改。
+  await page.getByLabel('Minimum interval').fill('90');
+  await page.getByLabel('Hide delay').fill('2000');
+
+  // 白名单：开关打开后输入框才可用，逗号分隔会切成数组。
+  const appsSwitch = page.getByRole('checkbox', { name: /Hide for listed apps/ });
+  const appsInput = page.getByLabel('App list');
+  assert.equal(await appsInput.isDisabled(), true, '开关关着时白名单输入不可用');
+  await appsSwitch.check();
+  await appsInput.fill('chrome.exe, 哔哩哔哩');
+
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    await page.screenshot({ path: join(process.env.DSH_PET_UI_ARTIFACTS, 'screen-card.png') });
+  }
+
+  await apply(page);
+  const body = writes.at(-1);
+  assert.equal(body.avoidFullscreenEnabled, true, '开关随保存写进配置');
+  assert.equal(body.screenReadIntervalSec, 90, '最短间隔按秒写');
+  assert.equal(body.avoidDelayMs, 2000, '躲开延迟按毫秒写');
+  assert.equal(body.avoidAppsEnabled, true);
+  assert.deepEqual(body.avoidApps, ['chrome.exe', '哔哩哔哩'], '逗号分隔切成数组，原样保留写法');
+  assert.equal(body.screenReadEnabled, false, '没动的开关照旧带出去');
+});
+
+test('system → 维护动作：备份 / 文件与目录 / 插件维护聚在页尾一组，重启只有一个按钮', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 1800 } });
+  await tab(page, 'System').click();
+  // 分组标题：这一组是「配一次就不动」的动作，与上面的开关分开读。
+  await page.getByText('Maintenance tasks', { exact: true }).waitFor();
+
+  // 组内顺序：只读的备份 → 会搬目录的文件卡 → 破坏性的重启 / 重置。
+  const order = await page.evaluate(() => {
+    const panel = document.querySelector('.dsh-pet-cfg__panel');
+    return [...panel.querySelectorAll('.dsh-pet-cfg__cardTitle, .dsh-pet-cfg__foldToggle')].map((node) =>
+      node.textContent.trim(),
+    );
+  });
+  const backup = order.findIndex((text) => text.includes('Backup'));
+  const fs = order.findIndex((text) => text.includes('Files & folders'));
+  const maintenance = order.findIndex((text) => text.includes('Maintenance'));
+  assert.ok(backup >= 0 && fs > backup && maintenance > fs, '维护组顺序：' + order.join(' | '));
+
+  // 重启只有一个入口（备份卡与文件卡都不再有第二个「重启」按钮）。
+  assert.equal(await page.getByRole('button', { name: 'Restart', exact: true }).count(), 1);
+});
+
+test('需重启的设置在改动后给出提示，保存后底部栏可一键重启', async (t) => {
+  const { page, writes, restarts } = await open(t, { viewport: { width: 900, height: 1800 } });
+
+  // 「系统托盘」在「要重建桌面窗口」的表里：改一下，开关下方立刻出现提示。
+  await tab(page, 'System').click();
+  await page.getByRole('checkbox', { name: 'System tray' }).click();
+  const hint = page.locator('.dsh-pet-cfg__note.is-restart').first();
+  await hint.waitFor();
+  assert.equal(await hint.innerText(), 'Needs a plugin restart to take effect');
+
+  // 保存：底部栏出现「其中 n 项需重启插件后生效」+ 立即重启。
+  await apply(page);
+  const bar = page.locator('.dsh-pet-cfg__bar');
+  await bar.getByText(/1 of these changes need a plugin restart/, { exact: false }).waitFor();
+
+  // 点立即重启：先保存（这一下没有新改动，但按钮走的是同一条 saveAll），再打 /plugin-restart。
+  const before = writes.length;
+  await bar.getByRole('button', { name: 'Restart now', exact: true }).click();
+  await page.getByText(/HMR is unavailable/, { exact: false }).waitFor();
+  assert.equal(restarts.length, 1, '立即重启要真的打 /plugin-restart');
+  assert.ok(writes.length >= before, '重启前会先保存');
+});
+
+test('普通设置改动不出现重启提示（不制造噪音）', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 1800 } });
+  await tab(page, 'Sound').click();
+  // 音效总开关属于即时生效的项：改了不该出现「需重启」。
+  await page.getByRole('checkbox', { name: 'Sound', exact: true }).first().click();
+  assert.equal(await page.locator('.dsh-pet-cfg__note.is-restart').count(), 0);
+});
+
+test('声音 → 接入卡：保存与启停的结论只占一行', async (t) => {
+  const { page } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [
+      {
+        id: 'cloud',
+        name: 'Cloud voice',
+        available: true,
+        fields: [{ key: 'voice', label: 'Voice', kind: 'select', options: ['stella', 'tide'] }],
+      },
+    ],
+  });
+  await tab(page, 'Sound').click();
+  // 云端卡只有一行「就绪」，没有第二条空行（动作结论还没产生）。
+  const card = page.locator('.dsh-pet-cfg__card').filter({ hasText: 'Cloud voice' }).first();
+  await card.waitFor();
+  assert.equal(await card.locator('.dsh-pet-cfg__msg').count(), 1);
+});
+
+test('对话 → 重新拉取模型清单：不必刷整页', async (t) => {
+  const { page, models } = await open(t);
+  await tab(page, 'Chat').click();
+  const initial = models.length;
+  assert.ok(initial >= 1, '打开设置页会拉一次候选清单');
+  await page.getByRole('button', { name: 'Reload model list', exact: true }).click();
+  await page.waitForTimeout(300);
+  assert.ok(models.length > initial, '点一下要再请求一次 /models');
 });

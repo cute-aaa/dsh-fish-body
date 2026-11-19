@@ -10,8 +10,9 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { localProviderOf, providerFormOf, useVoiceSettings } from './use-voice-settings.ts';
-import { readStringRecord } from './voice-api.ts';
+import { useVoiceSettings } from './use-voice-settings.ts';
+import { localProviderOf, providerFormsOf } from './use-provider-forms.ts';
+import { readBooleanRecord, readStringRecord } from './voice-api.ts';
 import type { VoiceProviderView } from '../../shared/voice-providers.ts';
 import type { SettingsRuntime } from './runtime.ts';
 
@@ -56,16 +57,26 @@ describe('localProviderOf —— 本地音色格的数据源', () => {
   });
 });
 
-describe('providerFormOf —— 接入表单的数据源', () => {
-  test('挑第一个声明了配置项的非内置实现', () => {
-    const form = provider('gsv', {
-      fields: [{ key: 'baseUrl', label: '服务地址', kind: 'text', required: true }],
+describe('providerFormsOf —— 接入表单的数据源', () => {
+  test('挑出全部声明了配置项的非内置实现（本地 GSV 与云端骨架各一张卡）', () => {
+    const gsv = provider('gsv', { fields: [{ key: 'baseUrl', label: '服务地址', kind: 'text', required: true }] });
+    const cloud = provider('cloud', {
+      fields: [{ key: 'apiKey', label: 'API Key', kind: 'password', required: true }],
     });
-    assert.equal(providerFormOf([provider('edge', { builtin: true }), form]), form);
+    assert.deepEqual(providerFormsOf([provider('edge', { builtin: true }), gsv, cloud]), [gsv, cloud]);
   });
 
   test('只有内置实现时不出表单', () => {
-    assert.equal(providerFormOf([provider('edge', { builtin: true })]), undefined);
+    assert.deepEqual(providerFormsOf([provider('edge', { builtin: true })]), []);
+  });
+});
+
+describe('readBooleanRecord —— 密钥在场情况的解析', () => {
+  test('只留布尔值，坏响应当「都没配」', () => {
+    assert.deepEqual(readBooleanRecord({ apiKey: true, token: 'yes' }), { apiKey: true });
+    for (const raw of [null, undefined, 'x', 1, ['a']]) {
+      assert.deepEqual(readBooleanRecord(raw), {}, '不是对象时退回空表，而不是 null');
+    }
   });
 });
 

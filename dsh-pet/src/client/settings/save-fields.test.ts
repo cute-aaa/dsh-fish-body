@@ -13,6 +13,7 @@ import { buildSaveFields, type SaveFieldParts } from './save-fields.ts';
 import { DEFAULT_FONT } from '../../shared/fonts.ts';
 import { DEFAULT_HOTKEYS } from '../../shared/hotkeys.ts';
 import { DEFAULT_PHYSICS } from '../../shared/physics.ts';
+import { SCREEN_DEFAULTS } from '../../shared/screen-config.ts';
 import { DEFAULT_WEIGHTS } from '../../shared/weights.ts';
 import type { Pet } from '../../shared/types.ts';
 
@@ -40,6 +41,7 @@ const parts = (): SaveFieldParts => ({
     trayEnabled: false,
   },
   hotkeys: { ...DEFAULT_HOTKEYS, chat: 'k' },
+  screen: { ...SCREEN_DEFAULTS, readEnabled: true, intervalSec: 90 },
   sfxVolume: 0.25,
   sfx: { events: { click: { volume: 0.8 } } },
   chat: { whisperImageEnabled: true, chatImageEnabled: false, chatAnimationEnabled: false },

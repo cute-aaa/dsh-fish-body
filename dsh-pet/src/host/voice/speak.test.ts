@@ -381,6 +381,159 @@ test('第三方此刻不可用：仍命中它以前合成的缓存，不换成�
   }
 });
 
+test('付费实现可用但没开启：一次都不调（自动选中它等于替用户花钱）', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-paid-off-'));
+  let paidCalls = 0;
+  const dispose = registerVoiceProvider({
+    id: 'paid',
+    name: '付费',
+    billable: true,
+    synthesize: async () => {
+      paidCalls += 1;
+      return { data: new Uint8Array([9, 9]), mime: 'audio/wav' };
+    },
+  });
+  try {
+    const voice = createVoiceService({ userRoot: root, synthesize: async () => mp3Clip() });
+    const result = await voice.speak({ text: '不该花钱' });
+    assert.equal(result.ok, true);
+    assert.equal(paidCalls, 0, '没开付费开关就不该请求云端');
+  } finally {
+    dispose();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('显式开启付费实现：链首是它，免费链一次都不调', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-paid-on-'));
+  let paidCalls = 0;
+  let freeCalls = 0;
+  const disposePaid = registerVoiceProvider({
+    id: 'paid',
+    name: '付费',
+    billable: true,
+    synthesize: async () => {
+      paidCalls += 1;
+      return { data: new Uint8Array([9, 9]), mime: 'audio/wav' };
+    },
+  });
+  const disposeFree = registerVoiceProvider({
+    id: 'free',
+    name: '免费',
+    synthesize: async () => {
+      freeCalls += 1;
+      return { data: new Uint8Array([1]), mime: 'audio/mpeg' };
+    },
+  });
+  try {
+    const voice = createVoiceService({
+      userRoot: root,
+      synthesize: async () => mp3Clip(),
+      preferredProvider: () => 'paid',
+    });
+    const result = await voice.speak({ text: '走云端' });
+    assert.equal(result.ok ? result.mime : '', 'audio/wav');
+    assert.equal(paidCalls, 1);
+    assert.equal(freeCalls, 0, '首选成功时不该再试免费链');
+  } finally {
+    disposePaid();
+    disposeFree();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('付费实现失败：回落免费链，用户照常有声音，失败要留痕', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-paid-fail-'));
+  const dispose = registerVoiceProvider({
+    id: 'paid',
+    name: '付费',
+    billable: true,
+    synthesize: async () => {
+      throw new Error('Content Exists Risk');
+    },
+  });
+  const logs: string[] = [];
+  try {
+    const voice = createVoiceService({
+      userRoot: root,
+      log: { warn: (line) => logs.push(line) },
+      synthesize: async () => ({ data: new Uint8Array([3, 3]), mime: 'audio/wav' }),
+      preferredProvider: () => 'paid',
+    });
+    const result = await voice.speak({ text: '云端要挂' });
+    assert.equal(result.ok, true);
+    assert.equal(result.ok ? result.mime : '', 'audio/wav');
+    assert.ok(
+      logs.some((line) => line.includes('link paid failed')),
+      '失败必须留痕：' + logs.join(' | '),
+    );
+    assert.ok(logs.some((line) => line.includes('fell back to edge')));
+  } finally {
+    dispose();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('关掉付费开关：不再命中云端留下的缓存（否则像没关掉）', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-paid-cache-'));
+  let useCloud = true;
+  let edgeCalls = 0;
+  const dispose = registerVoiceProvider({
+    id: 'paid',
+    name: '付费',
+    billable: true,
+    synthesize: async () => ({ data: new Uint8Array([9, 9]), mime: 'audio/wav' }),
+  });
+  try {
+    const voice = createVoiceService({
+      userRoot: root,
+      synthesize: async () => {
+        edgeCalls += 1;
+        return mp3Clip();
+      },
+      preferredProvider: () => (useCloud ? 'paid' : undefined),
+    });
+    const first = await voice.speak({ text: '同一句话换来源' });
+    assert.equal(first.ok ? first.mime : '', 'audio/wav');
+    useCloud = false;
+    const second = await voice.speak({ text: '同一句话换来源' });
+    assert.equal(second.ok ? second.mime : '', 'audio/mpeg', '关掉后应回到免费链的嗓子');
+    assert.equal(edgeCalls, 1);
+  } finally {
+    dispose();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('开了付费却用不上（没 key / 探活失败）：留一行警示后走免费链', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-pet-voice-paid-down-'));
+  const dispose = registerVoiceProvider({
+    id: 'paid',
+    name: '付费',
+    billable: true,
+    availability: () => ({ ok: false, reason: '未配置 API Key' }),
+    synthesize: async () => ({ data: new Uint8Array([9, 9]), mime: 'audio/wav' }),
+  });
+  const logs: string[] = [];
+  try {
+    const voice = createVoiceService({
+      userRoot: root,
+      log: { warn: (line) => logs.push(line) },
+      synthesize: async () => mp3Clip(),
+      preferredProvider: () => 'paid',
+    });
+    const result = await voice.speak({ text: '用不了就说一声' });
+    assert.equal(result.ok, true);
+    assert.ok(
+      logs.some((line) => line.includes('preferred paid unavailable')),
+      '用户以为在用云端，必须留痕：' + logs.join(' | '),
+    );
+  } finally {
+    dispose();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 /** 合成实际收到的文本与调用次数（每个用例自己重置）。 */
 const seen: string[] = [];
 let calls = 0;

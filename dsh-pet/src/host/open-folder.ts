@@ -84,12 +84,14 @@ export function resolveGlobalFolder(
     case 'fish-skin':
       return paths.fishSkinDir;
     // 三个池桶：直接回 <池>/<渲染方式>，不需要宠物（三行里总有两行不匹配当前渲染方式）。
+    // 设置页「皮肤目录」三行：开的是**用户**皮肤目录（`<根>/skin/<渲染方式>`），
+    // 内置池 `assets/pet/<渲染方式>` 只是渲染回落，用户往里放东西没意义。
     case 'pool-bucket-layered':
-      return join(dirs.pool, POOL_LAYER_DIR.layered);
+      return join(paths.skinsDir, POOL_LAYER_DIR.layered);
     case 'pool-bucket-live2d':
-      return join(dirs.pool, POOL_LAYER_DIR.live2d);
+      return join(paths.skinsDir, POOL_LAYER_DIR.live2d);
     case 'pool-bucket-webm':
-      return join(dirs.pool, POOL_LAYER_DIR.webm);
+      return join(paths.skinsDir, POOL_LAYER_DIR.webm);
   }
 }
 

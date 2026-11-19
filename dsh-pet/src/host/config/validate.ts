@@ -7,9 +7,26 @@
  */
 import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../../shared/fonts.ts';
 import { isValidSize } from '../../shared/pet-size.ts';
+import {
+  AVOID_DELAY_MAX,
+  AVOID_DELAY_MIN,
+  AVOID_POLL_MAX,
+  AVOID_POLL_MIN,
+  AVOID_RESTORE_MAX,
+  AVOID_RESTORE_MIN,
+  SCREEN_IDLE_MAX,
+  SCREEN_IDLE_MIN,
+  SCREEN_INTERVAL_MAX,
+  SCREEN_INTERVAL_MIN,
+  parseClockMinutes,
+} from '../../shared/screen-config.ts';
 import { isKnownVoice } from '../voice/voices.ts';
+import { MAX_RESOURCE_DIRS } from '../../shared/pool.ts';
 import { FONT_FAMILY_SET, RENDERER_SET } from './constants.ts';
 import { sfxValid } from './sfx.ts';
+
+/** 单个素材根路径的长度上限（字符）：正常路径远短于它，超了基本是粘错内容。 */
+const MAX_RESOURCE_DIR_CHARS = 1024;
 
 /** 内置玩法动画的槽位数：`animations.baifan` 必须恰好这么多个（顺序是玩法契约，见 shared/types 的 Animations）。 */
 const ACTIVITY_SLOTS = 5;
@@ -180,16 +197,51 @@ export function petSizesValid(value: unknown): boolean {
 }
 
 /**
- * `assets` 段校验：对象；`pool` 缺省（= 默认 `<用户根>/skin`）或非空字符串。
+ * `assets` 段校验：对象；`pool` 缺省（= 默认 `<用户根>/assets/pet`）或非空字符串；
+ * `resourceDirs` 缺省或「不超过 {@link MAX_RESOURCE_DIRS} 条非空字符串」。
  *
- * 池根允许绝对路径，所以这里不限制分隔符与字符集——真正的路径守卫生成在 host/pool/resolve
- * （每个相对片段都过 insideRoot）。未知子键忽略（与 sfx 同口径：不因为多写一个键整段失效）。
+ * 池根与额外素材根都允许绝对路径，所以这里不限制分隔符与字符集——真正的路径守卫生成在
+ * host/pool/resolve（每个相对片段都过 insideRoot）。存在性也不在这里判：素材盘拔掉不该让整段配置失效。
+ * 未知子键忽略（与 sfx 同口径：不因为多写一个键整段失效）。
+ *
+ * @param value - 待判定的 `assets` 段。
+ * @returns 形状合法返回 true。
  */
 export function assetsValid(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const pool = (value as Record<string, unknown>).pool;
-  if (pool === undefined || pool === null) return true;
-  return typeof pool === 'string' && pool.trim() !== '';
+  const conf = value as Record<string, unknown>;
+  const pool = conf.pool;
+  if (pool !== undefined && pool !== null && !(typeof pool === 'string' && pool.trim() !== '')) return false;
+  const dirs = conf.resourceDirs;
+  if (dirs === undefined || dirs === null) return true;
+  if (!Array.isArray(dirs) || dirs.length > MAX_RESOURCE_DIRS) return false;
+  return dirs.every((item) => typeof item === 'string' && item.trim() !== '' && item.length <= MAX_RESOURCE_DIR_CHARS);
+}
+
+/**
+ * 数值键是否落在闭区间内（接受 `"120"` 这类字符串写法：手写配置里常见，与 chatMemoryRounds 同口径）。
+ *
+ * @param value - 待判定值。
+ * @param min - 下限（含）。
+ * @param max - 上限（含）。
+ * @returns 是否合法。
+ */
+function numberInRange(value: unknown, min: number, max: number): boolean {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= min && n <= max;
+}
+
+/**
+ * 避让白名单是否合法：字符串数组，逐项非空且不超长；条数上限交给写侧严格拒绝。
+ *
+ * 读侧只按形状判——条数超限也照读（多几条最多是多躲几次），写侧才拒绝。
+ *
+ * @param value - 待判定值。
+ * @returns 是否合法。
+ */
+function avoidAppsValid(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.every((item) => typeof item === 'string' && item.trim() !== '' && item.trim().length <= 64);
 }
 
 /** 顶层标量字段的合法性（非法与缺失同处理：取默认值 + 告警） */
@@ -279,6 +331,30 @@ export function topFieldValid(key: string, value: unknown): boolean {
     case 'assets':
       // 共享资源池的根（`assets.pool`）：字符串、非空；缺省即默认 `<用户根>/skin`。
       return assetsValid(value);
+    // 看屏幕 / 避让（十三个键，规则与 shared/screen-config 的归一化同一套区间）：
+    // 读侧非法 → 告警一次并回落默认（`screenConfigOf` 读的就是回落后的值）。
+    case 'screenReadEnabled':
+    case 'screenReadIdleOnly':
+    case 'avoidFullscreenEnabled':
+    case 'avoidMaximizeEnabled':
+    case 'avoidAppsEnabled':
+      return typeof value === 'boolean';
+    case 'screenReadIntervalSec':
+      return numberInRange(value, SCREEN_INTERVAL_MIN, SCREEN_INTERVAL_MAX);
+    case 'screenReadIdleSec':
+      return numberInRange(value, SCREEN_IDLE_MIN, SCREEN_IDLE_MAX);
+    case 'avoidDelayMs':
+      return numberInRange(value, AVOID_DELAY_MIN, AVOID_DELAY_MAX);
+    case 'avoidRestoreDelayMs':
+      return numberInRange(value, AVOID_RESTORE_MIN, AVOID_RESTORE_MAX);
+    case 'avoidPollMs':
+      return numberInRange(value, AVOID_POLL_MIN, AVOID_POLL_MAX);
+    case 'screenReadQuietFrom':
+    case 'screenReadQuietTo':
+      // 空串 = 不设静默时段（默认就是这个）。
+      return typeof value === 'string' && (value.trim() === '' || parseClockMinutes(value) !== null);
+    case 'avoidApps':
+      return avoidAppsValid(value);
     case 'sleepRefuseTexts':
     case 'sleepStartTexts':
     case 'sleepEndTexts': {

@@ -4,6 +4,8 @@
  * 与余额注册表不同，语音没有「按服务商名匹配」的键——一句话念出来就完事，谁合成的用户并不关心；
  * 所以这里按注册顺序排成一条链：前面的先试，不可用或失败就落到下一环，最后是内置 edge（不会缺席）。
  * 声明式 `fields` 只描述「这实现需要哪些配置项」，设置页据此生成控件（T3.6），本模块不读配置。
+ * 注册表**不做取舍**：`billable`（按量计费）标记的实现在这里照常登记，由 `voice/chain.ts` 决定
+ * 它能不能进链——会花钱的实现只能被用户显式选中，不能被「可用」自动选中。
  * 模块单例：注册返回 disposer；测试用 {@link resetVoiceProviders} 复位。
  * 只登记、排序与探测可用性，不合成、不缓存。
  * @module dsh-fish-body/src/host/voice/registry
@@ -32,6 +34,20 @@ export interface VoiceField {
   readonly options?: readonly string[];
   /** 一句说明，设置页显示在控件下方。 */
   readonly description?: string;
+  /**
+   * `password` 字段在 DSH 凭据库里的引用名（如 `DSH_FISH_BODY_CLOUD_TTS_KEY`）。
+   *
+   * 声明了就**不**进 `voice-providers.json`：值由凭据库持有，配置里一个字节都不留；
+   * 没声明的 `password` 字段按普通文本处理（会有明文落盘的风险，所以新实现一律声明它）。
+   */
+  readonly credentialRef?: string;
+  /**
+   * 主引用没值时按序回退的**只读**引用（如复用 DSH 自己的 `DEEPSEEK_API_KEY`）。
+   *
+   * 只影响「配没配」的判定与合成时取值：保存与清除永远只动 {@link credentialRef}，
+   * 否则用户点一次「清除」就会顺手删掉宿主自己的凭据。
+   */
+  readonly credentialFallbacks?: readonly string[];
 }
 
 /** 可用性结论：不可用时给一句人话，直接显示在设置页上。 */
@@ -55,6 +71,14 @@ export interface VoiceProvider {
   readonly name: string;
   /** 需要哪些配置项（声明式，设置页据此生成控件）。 */
   readonly fields?: readonly VoiceField[];
+  /**
+   * 是否按量计费（云端 TTS）。
+   *
+   * 这类实现**永不进自动回退链**：被「可用」自动选中等于替用户花钱。
+   * 只有用户显式开启（`voice-providers.json` 里该实现的付费开关）才作为链首来源，
+   * 失败后回落免费链（见 `voice/chain.ts` 的 `voiceChainWithPreferred`）。
+   */
+  readonly billable?: boolean;
   /**
    * 现在能不能用（服务没起、没配 key、音色没加载…）。
    *

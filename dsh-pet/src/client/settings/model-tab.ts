@@ -2,7 +2,7 @@
  * 「对话」分区：模型选择、对话历史条数与配图上限，以及三个对话开关（都在一张卡里）。
  *
  * 候选清单是页面级的一次性拉取（`RemoteData`），拉取失败只影响下拉框，不影响已有值；
- * 所以这张卡同时吃「编辑态」与「远端结果」两样东西，但都不归它拥有。
+ * 这张卡除了编辑态与远端结果，还要把「重新拉取」这个动作接到卡头上（页面级重拉，见 `use-remote-data`）。
  * owns only 这一块的装配，never 拉取与字段的编辑态。
  * @module dsh-fish-body/src/client/settings/model-tab
  */
@@ -43,6 +43,8 @@ export function makeModelTab(rt: SettingsRuntime): FunctionComponent<ModelTabPro
       busy,
       catalog: remote.catalog,
       failed: remote.catalogFailed,
+      catalogLoading: remote.catalogLoading,
+      onReloadCatalog: remote.reloadCatalog,
       whisperModel: model.whisperModel,
       chatModel: model.chatModel,
       onModelChange: model.setModel,

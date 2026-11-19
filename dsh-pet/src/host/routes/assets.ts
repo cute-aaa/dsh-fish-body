@@ -16,7 +16,7 @@ import { isModelSettingsFile, mergeModelExtras } from '../model-extras.ts';
 import { petAvatarFile } from '../pet-avatar.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { POOL_ASSET_ROOT, POOL_LAYER_DIR } from '../../shared/pool.ts';
-import { createPoolReader } from '../pool/scan.ts';
+import { createPoolReader, poolLayerDirs } from '../pool/roots.ts';
 import { listLayeredIds, listModelIds, readRenderResources } from '../pool/inventory.ts';
 import { soundCandidateDirs } from '../sfx/order.ts';
 import type { RenderAnimDir } from '../pool/inventory.ts';
@@ -62,10 +62,13 @@ function mergeEntryItems(packIds: readonly string[], poolIds: readonly string[])
 
 /** 静态素材领域：未命中返回 undefined，命中返回应答。 */
 export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
-  const { assetRootFor, memeDirsFor, petConfigDir, poolRoot, soundDirsFor, userRootFor } = deps;
+  const { assetRootFor, memeDirsFor, petConfigDir, poolRoot, poolRoots, soundDirsFor, userRootFor } = deps;
   const { rest, url } = input;
-  // 池根可能缺失（老调用方 / 精简测试桩）：空串 = 没有池，整条池分支静默跳过。
-  const poolBase = typeof poolRoot === 'function' ? poolRoot() : '';
+  // 池根可能缺失（老调用方 / 精简测试桩）：空数组 = 没有池，整条池分支静默跳过。
+  // 多根（`assets.resourceDirs`）时按根序试：清单与取文件用同一顺序，否则会出现「清单有、点下去 404」。
+  const poolBases = typeof poolRoots === 'function' ? poolRoots() : typeof poolRoot === 'function' ? [poolRoot()] : [];
+  const poolRootList = poolBases.filter((root) => root !== '');
+  const poolBase = poolRootList[0] ?? '';
 
   // 动画素材：/thumb/<素材根>/<file>，扩展名 webm（默认）/ mov（macOS 定制）。
   // 存在 `pet/<素材根>-animation/` 的宠物先查自己的目录，再查共享资源池（`<池>/webm/`），
@@ -204,18 +207,17 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     const fromPool = assetRoot === POOL_ASSET_ROOT;
     // 池视图没有池根就直接 404（虚拟根靠池存在才有意义）；精简测试桩没有 poolRoot 时同样跳过池分支。
     if (fromPool && poolBase === '') return { kind: 'text', status: 404, body: 'fish-body: skin file not found' };
-    const pool = poolBase === '' ? undefined : createPoolReader(poolBase).scan();
+    const pool = poolBase === '' ? undefined : createPoolReader(poolRootList).scan();
     const packSkinDir = fromPool ? undefined : resolveAsset(petConfigDir, assetRoot + '-skin');
     const packDir = packSkinDir !== undefined && existsSync(packSkinDir) ? packSkinDir : undefined;
 
     // 池视图的候选根：显式给了渲染方式桶就只查那一桶，否则 layered → live2d 依次试。
+    // 多根时先按桶把每个根的目录摊平：同一桶里根序即优先级；`bare` 外部根直接就是皮肤集合目录。
     const bucket = fromPool && nameParts.length > 1 ? poolLayerOf(nameParts[0]) : undefined;
-    const poolRoots =
+    const skinsCandidates =
       pool === undefined
         ? []
-        : bucket === undefined
-          ? POOL_SKIN_LAYERS.map((layer) => join(pool.root, POOL_LAYER_DIR[layer]))
-          : [join(pool.root, POOL_LAYER_DIR[bucket])];
+        : (bucket === undefined ? POOL_SKIN_LAYERS : [bucket]).flatMap((layer) => poolLayerDirs(poolRootList, layer));
     const relParts = bucket === undefined ? nameParts : nameParts.slice(1);
     const rel = relParts.join('/');
 
@@ -259,12 +261,12 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
         animDirs.push({ dir: userRootFor('.webm'), source: 'pool' });
         animDirs.push({ dir: assetRootFor('.webm'), source: 'pool' });
       }
-      const resources = readRenderResources({ poolRoot: poolBase, packSkinDir: packDir, animDirs });
+      const resources = readRenderResources({ poolRoot: poolBase, poolRoots: poolRootList, packSkinDir: packDir, animDirs });
       return { kind: 'json', status: 200, obj: { root: assetRoot, renderers: resources } };
     }
 
     let skinFile: string | undefined;
-    for (const root of [...(packDir === undefined ? [] : [packDir]), ...poolRoots]) {
+    for (const root of [...(packDir === undefined ? [] : [packDir]), ...skinsCandidates]) {
       skinFile = resolveExisting(root, rel);
       if (skinFile !== undefined) break;
     }
@@ -315,15 +317,16 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   // Windows 上 %5C 解出的反斜杠不会被 split('/') 切开，直接 join 会让 `..\..\x` 逃出用户根读盘。
   // 素材根写 `pool` 时只查池（虚拟根没有 pack）。
   const fromPool = petId === POOL_ASSET_ROOT;
-  const poolDir = poolBase === '' ? undefined : join(poolBase, POOL_LAYER_DIR.webm);
+  // 池的平铺动画目录：多根时按根序全都作为候选（先命中的赢；bare 外部根就是根本身）
+  const poolDirs = poolLayerDirs(poolRootList, 'webm');
   const extraAnimDir = fromPool ? undefined : resolveAsset(petConfigDir, petId + '-animation');
 
-  /** 按扩展名查同名素材（专属目录 → 池 → 用户根 → 包内根） */
+  /** 按扩展名查同名素材（专属目录 → 池（多根按序）→ 用户根 → 包内根） */
   const findAnim = (e: string): string | undefined => {
     const name = fileName.replace(/\.(webm|mov)$/i, '') + e;
     const candidates: string[] = [];
     if (extraAnimDir !== undefined && existsSync(extraAnimDir)) candidates.push(extraAnimDir);
-    if (poolDir !== undefined) candidates.push(poolDir);
+    candidates.push(...poolDirs);
     if (!fromPool && typeof userRootFor === 'function' && typeof assetRootFor === 'function') {
       candidates.push(userRootFor(e), assetRootFor(e));
     }

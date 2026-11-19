@@ -25,6 +25,7 @@ import type { HotkeysSettings } from './use-hotkeys-settings.ts';
 import type { RemoteData } from './use-remote-data.ts';
 import type { SessionFishState } from './use-session-fish.ts';
 import type { SettingsBackupState } from './use-settings-backup.ts';
+import type { ScreenSettings } from './use-screen-settings.ts';
 import type { SfxSettings } from './use-sfx-settings.ts';
 import type { ModelSettings } from './use-model-settings.ts';
 import type { PetList } from './use-pet-list.ts';
@@ -34,9 +35,15 @@ import type { PersonaImportState } from './use-persona-import.ts';
 import type { PersonaPolishState } from './use-persona-polish.ts';
 import type { RenderResourcesState } from './use-render-resources.ts';
 
-/** 维护动作（重启 / 重置）：只在系统分区的「插件维护」卡里出现。 */
+/**
+ * 维护动作（重启 / 重置）：只在系统分区末尾的「维护动作」一组里出现。
+ *
+ * 两个重启入口共用同一份实现（`use-plugin-restart`），差别只有「要不要先存盘」：
+ * `restart` 先保存再重启（维护卡与底部栏），`restartNow` 直接重启（搬迁完成后让新位置生效）。
+ */
 export interface MaintenanceActions {
   restart(): void;
+  restartNow(): void;
   reset(): void;
 }
 
@@ -63,6 +70,8 @@ export interface SettingsPanelDeps {
   readonly perm: { readonly msg: Feedback; test(): void };
   /** 备份与恢复。 */
   readonly backup: SettingsBackupState;
+  /** 看屏幕与避让的十三项（「系统」分区的同一张卡）。 */
+  readonly screen: ScreenSettings;
   /** 重启插件与重置设置。 */
   readonly maintenance: MaintenanceActions;
   /** 角色库（来源 / 角色 / 应用 / 删除）。 */
@@ -147,6 +156,7 @@ export function makeSettingsPanels(
         remote: deps.remote,
         dirty: deps.dirty,
         backup: deps.backup,
+        screen: deps.screen,
         maintenance: deps.maintenance,
       }),
   });

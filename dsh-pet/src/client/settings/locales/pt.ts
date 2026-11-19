@@ -5,6 +5,10 @@ import type { Key } from './zh.ts';
 
 export const pt: Record<Key, string> = {
   nav: 'Configuração do pet',
+  searchPlaceholder: 'Pesquisar ajustes, titulos ou valores atuais…',
+  searchResults: 'Resultados',
+  searchEmpty: 'Nenhum ajuste corresponde',
+  searchWholeCard: 'Cartao inteiro',
   tabLook: 'Aparência',
   petCardTitle: 'Pet',
   avatarLabel: 'Avatar',
@@ -291,6 +295,35 @@ export const pt: Record<Key, string> = {
   trayToggle: 'Bandeja do sistema',
   trayToggleHint:
     'Mostra um ícone na área de notificação (barra de menus no macOS) quando o modo desktop inicia. Ele lista todos os pets da configuração e alterna a exibição de cada um — inclusive os que estão fora do desktop agora e não têm janela para clicar com o botão direito. Sem ele, para trazer um pet de volta ao desktop é preciso abrir o navegador (a página de configuração, ou clicar com o botão direito no pet na web). O Windows já esconde ícones de terceiros na gaveta "ícones ocultos". Só afeta o modo desktop.',
+  screenTitle: 'Tela e desvio',
+  screenHint:
+    'Leitura de tela: captura a tela de tempos em tempos, deixa o modelo atual dar uma olhada e diz uma frase num balão (só balão, nunca falado). Desvio: esconde o pet do desktop enquanto um app em tela cheia ou um app da lista estiver na frente, e devolve ao trocar. Os dois vêm desligados; interruptores e tempos ficam aqui.',
+  screenDesktopOnly:
+    'Só no modo desktop: o pet no navegador não consegue capturar a tela e não tem janela para esconder.',
+  screenSectionRead: 'Leitura de tela',
+  screenReadToggle: 'Dizer uma frase sobre a tela',
+  screenIdleOnlyLabel: 'Só com o DSH ocioso',
+  screenIntervalLabel: 'Intervalo mínimo',
+  screenIdleSecLabel: 'Limite de ociosidade',
+  screenQuietLabel: 'Horas de silêncio',
+  screenQuietFromLabel: 'De',
+  screenQuietToLabel: 'Até',
+  screenQuietHint:
+    'Preencha os dois como HH:MM; nada é capturado nesse intervalo (ex.: 23:00 até 08:00, atravessar a meia-noite é permitido). Vazio = desligado.',
+  screenUnitSec: 's',
+  screenUnitMs: 'ms',
+  screenSectionAvoid: 'Desvio',
+  screenAvoidFullscreenLabel: 'Esconder em tela cheia',
+  screenAvoidMaximizeLabel: 'Maximizado conta',
+  screenAvoidDelayLabel: 'Atraso para esconder',
+  screenAvoidRestoreLabel: 'Atraso para voltar',
+  screenAvoidPollLabel: 'Intervalo de sondagem',
+  screenAvoidAppsLabel: 'Esconder para apps listados',
+  screenAppsLabel: 'Lista de apps',
+  screenAppsHint:
+    'Separados por vírgula, até 50. O que termina em .exe compara o nome do processo exato; o resto procura no título da janela.',
+  screenNote:
+    'Cada leitura é uma requisição de imagem e custa dinheiro, por isso o intervalo mínimo limita o gasto. Usa o modelo de sussurros ou, se estiver vazio, o modelo de conversa atual — ele precisa aceitar imagens. O desvio só existe no Windows, esconde apenas as janelas do pet e nunca revela pets que você mesmo escondeu.',
   voiceTitle: 'Voz',
   voiceHint:
     'Quatro interruptores e uma voz: cada tipo de fala tem o próprio interruptor e nenhum depende de outro. Tudo desligado por padrão; gravado na configuração do usuário ao "Salvar" (nunca na hora).',
@@ -318,8 +351,11 @@ export const pt: Record<Key, string> = {
   voiceLocalLabel: 'Voz (local)',
   voiceLocalHint: 'Timbre do servico de voz local; vale a partir da proxima frase',
   voiceNameFallbackHint: 'Ignorado enquanto a voz local estiver disponivel: so escolhe a voz edge se o GSV cair',
-  voiceProviderTitle: 'Voz local (GSV)',
-  voiceProviderHint: 'URL do GPT-SoVITS e pastas de material; as vozes sao reescaneadas ao salvar',
+  voiceProviderTitle: 'Conexao de voz',
+  voiceProviderHint:
+    'Ajustes de conexao de cada provedor de voz; aplicados na hora e as chaves ficam no armazenamento de credenciais do host',
+  voiceProviderSecretSaved: 'Salvo; deixe vazio para manter',
+  voiceProviderSecretClear: 'Limpar',
   voiceProviderSave: 'Salvar conexao',
   voiceProviderSaved: 'Salvo; lista de vozes atualizada',
   voiceProviderReady: 'Servico online',
@@ -392,6 +428,7 @@ export const pt: Record<Key, string> = {
   modelEmpty: 'Nenhum modelo corresponde.',
   modelNoModels: 'Nenhum modelo disponível.',
   modelLoading: 'Atualizando a lista de modelos…',
+  modelReload: 'Recarregar a lista de modelos',
   modelTriggerAria: 'Escolher modelo, atual {model}',
   modelUnknown: ' (configuração atual, fora da lista)',
   modelNone: 'Este provedor não tem modelos disponíveis',
@@ -502,6 +539,7 @@ export const pt: Record<Key, string> = {
   restartHelper:
     'HMR indisponível: a janela da área de trabalho foi reconstruída, mas alterações no host ainda exigem reiniciar o perfil.',
   restartFailed: 'Falha ao reiniciar o plugin; veja o log do plugin.',
+  restartNeededHint: 'Aplica-se após reiniciar o plugin',
   resetSettings: 'Redefinir configurações',
   resetHint:
     'Restaura todas as configurações para os padrões do projeto (pets, personas, física, fonte, som, voz, modelos e peixes de sessão). Ao confirmar, grava imediatamente.',
@@ -538,6 +576,7 @@ export const pt: Record<Key, string> = {
   restoreConfirm: 'Restaurar',
   tabFeel: 'Aspeto e sensação',
   barDirty: '{n} alterações não guardadas',
+  restartPending: '{n} alterações aplicam-se após reiniciar o plugin',
   barRevert: 'Descartar alterações',
   barRevertHint: 'Descarta as alterações não guardadas e volta aos valores do ficheiro de configuração.',
   revertDone: 'As alterações não guardadas foram descartadas.',
@@ -546,9 +585,10 @@ export const pt: Record<Key, string> = {
   secDisplay: 'Apresentação e posição',
   secFeatures: 'Funcionalidades',
   secAdvanced: 'Avançado',
+  maintenanceSection: 'Ações de manutenção',
   maintenanceTitle: 'Manutenção',
   maintenanceHint:
-    'Reiniciar o plugin, restaurar os valores predefinidos e como esta página está organizada. São ações que se ajustam uma vez, por isso não ocupam a barra inferior.',
+    'Cópia de segurança e restauro, mover a raiz de dados ou a pasta de skins, reiniciar o plugin, restaurar os valores predefinidos. São ações que se ajustam uma vez, por isso ficam agrupadas no fim da página e não ocupam a barra inferior.',
   chatCostTitle: 'Quanto custam estes interruptores',
   chatCostHint:
     'Cada nota corresponde a um interruptor acima. Um interruptor desligado não envia um único caractere ao modelo.',

@@ -6,6 +6,7 @@
  * @module dsh-fish-body/src/host/routes/interaction
  */
 import { readAllConfig } from '../config.ts';
+import { sendSay } from '../broadcast-send.ts';
 import { normalizeSurface, voiceTargetOfSurface } from '../surface.ts';
 import {
   decideBroadcast,
@@ -143,16 +144,16 @@ export async function handleInteractionRoutes(deps: PetRouteDeps, input: RouteIn
       if (blocked) return blocked;
       // duration / anim 写解析后的生效值（缺省也已填成显式值）：/state 里因此能看到
       // 实际生效的时长与联动开关，调用方不用自己猜缺省是多少。
-      // 配图两种形态二选一（判定层保证）：url 形态写 url，名称形态写池内规范名，都没有则纯文本。
-      const pic = d.url !== undefined ? { url: d.url } : d.image !== undefined ? { image: d.image } : {};
+      // 落笔走 broadcast-send：与识屏说一句共用同一份 say 叶子写入（两条链路不再各写一遍）。
       // 与手动碎碎念同一口径：调用方用 ?surface= 明说了「我希望这句显示在哪一端」，就由那一端念；
       // both / any 不足以指定一端，留空不写（消费端据此不念）。
       // speak 是第二道门：投喂默认只弹气泡，调用方显式要了才出声（见 normalizeBroadcastVoice）。
       const want = normalizeSurface(url.searchParams.get('surface'));
       const voiceTo = want === null ? undefined : voiceTargetOfSurface(want);
-      state.writePet(d.petId, 'say', {
+      sendSay(deps, d.petId, {
         text: d.text,
-        ...pic,
+        ...(d.url !== undefined ? { url: d.url } : {}),
+        ...(d.image !== undefined ? { image: d.image } : {}),
         duration: d.duration,
         anim: d.anim,
         ...(speak && voiceTo ? { voiceTo } : {}),

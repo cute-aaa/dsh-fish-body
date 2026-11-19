@@ -12,7 +12,6 @@ import { avatarUrl } from '../shared/avatar.ts';
 import type { SessionFishSettings } from '../shared/session-fish.ts';
 import type { FunctionComponent } from 'react';
 import type { ShortcutHost } from './app-shortcut.ts';
-import { requestPluginRestart, schedulePageReload } from './plugin-restart.ts';
 import { makeBar } from './settings/bar.ts';
 import { petBridge } from './settings/bridge.ts';
 import {
@@ -35,12 +34,22 @@ import {
 import { NO_FEEDBACK, type Feedback } from './settings/feedback.ts';
 import { makeLoadStatus } from './settings/load-status.ts';
 import { makeSettingsPanels, type SettingsPanelDeps } from './settings/panels.ts';
+import { restartHintCount } from './settings/restart-hint.ts';
 import { buildSaveFields } from './settings/save-fields.ts';
 import { useSaveHotkey } from './settings/save-hotkey.ts';
 import { makeSnapshot, withoutFish } from './settings/snapshot.ts';
 import { readSavedTab, saveTab, settingsTabStorage } from './settings/tab-memory.ts';
 import type { SettingsRuntime } from './settings/runtime.ts';
-import { DEFAULT_SETTINGS_TAB, makeTabBar, tabButtonId, tabPanelId, type SettingsTabId } from './settings/tabs.ts';
+import { highlightMatches } from './settings/search.ts';
+import { useSettingsSearch } from './settings/use-settings-search.ts';
+import {
+  DEFAULT_SETTINGS_TAB,
+  SETTINGS_TABS,
+  makeTabBar,
+  tabButtonId,
+  tabPanelId,
+  type SettingsTabId,
+} from './settings/tabs.ts';
 import { attachTipLayer } from './settings/tip-layer.ts';
 import { useAppearanceSettings } from './settings/use-appearance-settings.ts';
 import { useAvatarUpload } from './settings/use-avatar-upload.ts';
@@ -53,8 +62,10 @@ import { usePersonaPolish } from './settings/use-persona-polish.ts';
 import { useRenderResources } from './settings/use-render-resources.ts';
 import { usePermissionTest } from './settings/use-permission-test.ts';
 import { usePetList } from './settings/use-pet-list.ts';
+import { usePluginRestart } from './settings/use-plugin-restart.ts';
 import { useRemoteData } from './settings/use-remote-data.ts';
 import { useRevert } from './settings/use-revert.ts';
+import { useScreenSettings } from './settings/use-screen-settings.ts';
 import { useSessionFish } from './settings/use-session-fish.ts';
 import { useSettingsBackup } from './settings/use-settings-backup.ts';
 import { useSfxSettings } from './settings/use-sfx-settings.ts';
@@ -108,12 +119,16 @@ export function makePetConfigSection(
     const rootRef = useRef<HTMLElement | null>(null);
     // 确认 / 提示弹窗：remove 删除宠物、lastOne 只剩一只删不了、reset 重置设置、corrupt 用户配置已损坏。
     const [dialog, setDialog] = useState<DialogState>(null);
-    // 基线：最近一次服务端权威值；null = 还没加载好，此时一个圆点都不画。
+    // 基线（最近一次服务端权威值）：null = 还没加载好，此时一个圆点都不画。
     const [baseline, setBaseline] = useState<FormSnapshot | null>(null);
+    // 已保存、但还要重建桌面窗口 / 重启插件才生效的改动条数：底部栏据此给出提示与「立即重启」。
+    const [restartPending, setRestartPending] = useState(0);
     // 会话鱼不在成品配置里，它的基线单独记；成品配置后到时再一起塞进 baseline。
     const fishBaselineRef = useRef<SessionFishSettings | null>(null);
     // 当前快照的最新值：保存成功后用它推进基线（回调里读不到渲染期的局部变量）。
     const snapshotRef = useRef<FormSnapshot | null>(null);
+    // 基线的镜像：保存成功时要在「推进基线之前」算一次 diff（哪几条改动需要重启才生效）。
+    const baselineRef = useRef<FormSnapshot | null>(null);
 
     /** 会话鱼权威值到达（加载 / 保存 / 重置成功）：记下来并补进基线。 */
     const markFish = useCallback((settings: SessionFishSettings): void => {
@@ -130,6 +145,8 @@ export function makePetConfigSection(
     const voice = useVoiceSettings(rt);
     const model = useModelSettings(rt);
     const look = useAppearanceSettings(rt);
+    // 看屏幕与避让：十三项时机（间隔 / 空闲 / 静默时段 / 延迟 / 节拍 / 白名单），随保存整包写入。
+    const screen = useScreenSettings(rt);
     // 一次性拉取的宿主数据：落盘位置（系统分区的两张卡）与候选模型清单（对话分区的下拉框）。
     const remote = useRemoteData(rt);
     // 头像上传不走「保存」；测试通知的反馈与保存反馈分开放。
@@ -173,6 +190,7 @@ export function makePetConfigSection(
     const applyVoice = voice.apply;
     const applyModel = model.apply;
     const applyLook = look.apply;
+    const applyScreen = screen.apply;
     const applyConfig = useCallback(
       (merged: MergedConfig): void => {
         // 条目列表与全局字段各取一份：前者给标签条与保存时的写回计划，后者给各分区卡片。
@@ -186,10 +204,11 @@ export function makePetConfigSection(
         applyVoice(patch);
         applyModel(patch);
         applyLook(patch);
+        applyScreen(patch);
         // 刚读到 / 刚重置：表单即将等于这份权威值，基线跟着走（会话鱼那半截由 markFish 补）。
         setBaseline({ ...baselineFromConfig(entries, patch), fish: fishBaselineRef.current });
       },
-      [replace, applyGlobal, applyHotkeys, applySfx, applyVoice, applyModel, applyLook],
+      [replace, applyGlobal, applyHotkeys, applySfx, applyVoice, applyModel, applyLook, applyScreen],
     );
 
     // 备份与恢复：导出只读不写；恢复要先过确认弹窗，写成功后用它回填表单并推进基线。
@@ -216,8 +235,9 @@ export function makePetConfigSection(
     useEffect(() => attachTipLayer(), []);
 
     // 此刻的表单快照：形状与基线一致，diff 之后才知道哪些字段还没保存。
-    const snapshot = makeSnapshot({ list, global, hotkeys, sfx, voice, model, look, fish });
+    const snapshot = makeSnapshot({ list, global, hotkeys, sfx, voice, model, look, fish, screen });
     snapshotRef.current = snapshot;
+    baselineRef.current = baseline;
 
     const paths = baseline === null ? NO_PATHS : diffSnapshot(baseline, snapshot);
     const dirty = makeDirtyQuery(paths);
@@ -227,6 +247,13 @@ export function makePetConfigSection(
     const markSaved = useCallback((scope: 'main' | 'all'): void => {
       const now = snapshotRef.current;
       if (now === null) return;
+      // 「需重启才生效」的条数只在 main 那一步算：`saveAll` 先写主配置、再写会话鱼，两次都会回来
+      // 调这里；第二次回来时基线可能已经推进过一次（React 在这两个 await 之间可能重渲染），
+      // 那时 diff 已经是空的——照算就会把刚置上的计数又抹回 0。
+      if (scope === 'main') {
+        const before = baselineRef.current;
+        if (before !== null) setRestartPending(restartHintCount(diffSnapshot(before, now)));
+      }
       // 主配置那一半取「此刻的表单」；会话鱼那一半永远取它的权威值——`fish.save` 已经用宿主回包
       // 更新过基线，这里再拿保存前的快照盖回去，会让刚保存完的那一页又亮起点。
       setBaseline((current) => ({
@@ -251,6 +278,7 @@ export function makePetConfigSection(
           voice,
           model,
           look,
+          screen: screen.values,
         }),
       busy: () => busy,
       setBusy,
@@ -300,23 +328,24 @@ export function makePetConfigSection(
       });
     };
 
-    /** 重启：先保存（失败就不重启），再让宿主重新组合本插件。 */
+    // 重启只有一份实现（settings/use-plugin-restart）：这里只决定「要不要先存盘」。
+    const pluginRestart = usePluginRestart(rt, setMsg);
+    /**
+     * 维护卡与底部栏的「立即重启」：先保存，再把插件重新组合。
+     *
+     * 保存失败就不重启（`saveAll` 返回 false 时 hook 自己中止），免得把没落盘的改动当成已保存。
+     * 重启真的生效后清掉「需重启」计数——提示的语义就是「重启后消失」。
+     */
     const restart = (): void => {
-      void write.saveAll().then(async (ok) => {
-        if (!ok) return;
-        setMsg({ kind: '', text: t('restarting') });
-        const mode = await requestPluginRestart();
-        if (mode === null) {
-          setMsg({ kind: 'err', text: t('restartFailed') });
-          return;
-        }
-        if (mode === 'hmr') {
-          setMsg({ kind: 'ok', text: t('restartHmr') });
-          schedulePageReload();
-          return;
-        }
-        setMsg({ kind: 'ok', text: t('restartHelper') });
-      });
+      pluginRestart.restart({ save: () => write.saveAll(), onDone: () => setRestartPending(0) });
+    };
+    /**
+     * 搬迁完成后的重启：**不保存**。
+     *
+     * 那条路只负责让新位置生效，表单里若有校验错误也不该把这件事一起挡掉（数据已经搬完了）。
+     */
+    const restartNow = (): void => {
+      pluginRestart.restart({ onDone: () => setRestartPending(0) });
     };
 
     const deps: SettingsPanelDeps = {
@@ -334,7 +363,8 @@ export function makePetConfigSection(
       fish,
       perm: { msg: permission.message, test: permission.test },
       backup,
-      maintenance: { restart, reset: write.requestReset },
+      screen,
+      maintenance: { restart, restartNow, reset: write.requestReset },
       characters,
       personaImport,
       polish,
@@ -345,6 +375,31 @@ export function makePetConfigSection(
     };
     const panels = panelsOf(deps);
 
+    // 搜索要能命中还没打开的分区，所以它的索引层会用同一个 `panels` 把六个分区各渲染一次
+    // （`display:none`，读完成条目立刻卸掉）。选中结果后由 `pickResult` 切分区并高亮。
+    const panelRef = useRef<HTMLDivElement | null>(null);
+    const [flash, setFlash] = useState<{ query: string; seq: number } | null>(null);
+    const pickResult = useCallback((id: SettingsTabId, query: string): void => {
+      selectTab(id);
+      // 同一个词连点两次也要重新闪一下：靠 seq 让 effect 每次都跑
+      setFlash((current) => ({ query, seq: (current?.seq ?? 0) + 1 }));
+    }, []);
+    const search = useSettingsSearch(rt, {
+      tabs: SETTINGS_TABS.map((def) => ({ id: def.id, label: t(def.titleKey) })),
+      renderPanel: (id) => panels[id](),
+      onPick: pickResult,
+    });
+
+    // 切完分区再高亮：面板在这一次提交里已经是新分区，滚到第一处命中
+    useEffect(() => {
+      const run = (): void => {
+        const root = panelRef.current;
+        if (root === null || flash === null) return;
+        highlightMatches(root, flash.query);
+      };
+      run();
+    }, [flash]);
+
     return h('section', {
       ref: rootRef,
       className: 'dsh-pet-cfg',
@@ -352,21 +407,29 @@ export function makePetConfigSection(
       'aria-label': t('nav'),
       style: { maxWidth: '720px' },
       children: [
+        // 搜索框固定在分区标签条上方：搜的是「六个分区里的所有项」，所以不属于任何一页。
+        search.box,
+
         // 页头只剩分区标签条：分区名已经在设置页的左侧导航里，再写一遍标题只是重复。
         h(TabBar, { active: tab, onSelect: selectTab, dirty: tabsDirty }),
 
         h(LoadStatus, { loadState, onRetry: retry }),
 
-        // 只渲染当前分区：其余分区的卡片不构造节点（字段状态仍在各 hook 里，切回来不丢）。
-        // key 跟随分区 id：切页时重新挂载，入场动画才会重播（CSS 只动透明度与位移）。
-        h('div', {
-          key: tab,
-          role: 'tabpanel',
-          id: tabPanelId(tab),
-          'aria-labelledby': tabButtonId(tab),
-          className: 'dsh-pet-cfg__panel',
-          children: panels[tab](),
-        }),
+        // 搜索态用结果列表替掉面板（面板仍保留在页面上会跟结果抢滚动位置）。
+        search.active
+          ? search.results
+          : h('div', {
+              key: tab,
+              ref: panelRef,
+              role: 'tabpanel',
+              id: tabPanelId(tab),
+              'aria-labelledby': tabButtonId(tab),
+              className: 'dsh-pet-cfg__panel',
+              children: panels[tab](),
+            }),
+
+        // 建索引那一帧才存在的隐藏容器；读完成条目立刻卸掉。
+        search.indexLayer,
 
         // 底部栏：不属于任何分区，任何一页都在同一位置。
         h(Bar, {
@@ -377,6 +440,16 @@ export function makePetConfigSection(
           onCancel: () => close?.(),
           onApply: () => void write.saveAll(),
           onConfirm: confirm,
+          // 有「已保存但需重启才生效」的改动时才给这条：没有就完全不渲染，不占位也不留空按钮。
+          ...(restartPending > 0
+            ? {
+                restart: {
+                  count: restartPending,
+                  onRestart: restart,
+                  busy: pluginRestart.busy,
+                },
+              }
+            : {}),
         }),
 
         dialog

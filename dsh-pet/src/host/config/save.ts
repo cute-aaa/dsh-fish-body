@@ -22,6 +22,7 @@ import {
   physicsValid,
   topFieldValid,
 } from './validate.ts';
+import { screenPatchOf } from './screen-keys.ts';
 import { cleanSfxConfig, sfxValid } from './sfx.ts';
 
 /**
@@ -228,6 +229,11 @@ export function saveUserConfig(
   // 非法键、未知动作、重复键一律整包拒绝——静默改掉用户按了几周的键位比报错更糟。
   const hk = o.hotkeys;
   if (hk !== undefined && !hotkeysValid(hk)) return null;
+  // 看屏幕与避让的十三个键（见 ./screen-keys.ts）：与 physics 同一套语义——传了就逐键校验后进
+  // 白名单，没传则走下面的透传保留。越界一律整包拒绝：夹取只发生在运行期（读侧），
+  // 写盘前替用户把 5000 改成 3600 会让他下次看到自己没填过的值。
+  const screenPatch = screenPatchOf(o);
+  if (!screenPatch.ok) return null;
   const cleanModel = (v: Record<string, unknown>): { provider: string; model: string } => ({
     provider: String(v.provider).trim(),
     model: String(v.model).trim(),
@@ -265,6 +271,9 @@ export function saveUserConfig(
   if (cmr !== undefined) outConfig.chatMemoryRounds = Number(cmr);
   if (cil !== undefined) outConfig.chatImageLimit = Number(cil);
   if (hk !== undefined) outConfig.hotkeys = normalizeHotkeys(hk);
+  // 看屏幕 / 避让：screenPatchOf 已经归一化过（数字落成数字、时段落成 HH:MM、白名单去重），
+  // 这里原样合并即可；只有请求体真的传了的键才进 outConfig。
+  Object.assign(outConfig, screenPatch.value);
   // 透传保留：请求体未携带的顶层字段，从 existing（磁盘现有用户文件）原样带回——
   // 设置页只提交 pets(+全局开关+physics+模型+对话历史条数)，手改的 whisperPrompt/memes/... 借此保住。
   // 白名单字段只在「请求体传了」时才算白名单（已由上方写入）；未传时走这里透传磁盘旧值——
@@ -294,6 +303,8 @@ export function saveUserConfig(
   if (cmr !== undefined) bodyOwned.add('chatMemoryRounds');
   if (cil !== undefined) bodyOwned.add('chatImageLimit');
   if (hk !== undefined) bodyOwned.add('hotkeys');
+  // 看屏幕 / 避让：本批传了哪几个键就归请求体所有，其余仍从磁盘透传。
+  for (const key of screenPatch.owned) bodyOwned.add(key);
   // 旧点击音效三键永不透传：新键已经接管语义，留着只会让人以为「关掉那个旧键就能静音」。
   bodyOwned.add('clickSoundEnabled');
   bodyOwned.add('clickSoundKeepAlive');

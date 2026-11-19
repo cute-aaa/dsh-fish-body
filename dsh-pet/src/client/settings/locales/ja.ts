@@ -5,6 +5,10 @@ import type { Key } from './zh.ts';
 
 export const ja: Record<Key, string> = {
   nav: 'デスクトップペット設定',
+  searchPlaceholder: '設定項目・タイトル・現在の値を検索…',
+  searchResults: '検索結果',
+  searchEmpty: '一致する設定がありません',
+  searchWholeCard: 'カード全体',
   tabLook: '外観',
   petCardTitle: 'ペットの設定',
   avatarLabel: 'アバター',
@@ -289,6 +293,34 @@ export const ja: Record<Key, string> = {
   trayToggle: 'システムトレイ',
   trayToggleHint:
     'デスクトップモード起動後、通知領域（macOS ではメニューバー）にアイコンを常駐させ、設定に含まれるすべてのペットを一覧表示します。チェックを入れると、そのペットの表示位置を切り替えられます——現在デスクトップに表示されておらず、右クリックできるウィンドウがないペットも含みます。オフにすると、ペットをデスクトップに戻すにはブラウザで設定ページを開くか、Web 側のペットを右クリックするしかありません。Windows では元々「隠れたアイコン」に折りたたまれます。デスクトップモードのみに影響します。',
+  screenTitle: '画面の読み取りと回避',
+  screenHint:
+    '読み取り：ときどき画面を撮って今のモデルに見せ、ひとこと吹き出しで言います（音声なし）。回避：全画面のアプリや指定したアプリが前面にある間はデスクトップのペットを隠し、切り替えると戻します。どちらも既定はオフで、スイッチとタイミングはここで設定します。',
+  screenDesktopOnly: 'デスクトップ版のみ有効：ブラウザ側のペットは画面を撮れず、隠す窓もありません。',
+  screenSectionRead: '画面の読み取り',
+  screenReadToggle: '画面を見てひとこと言う',
+  screenIdleOnlyLabel: 'DSH が空いている時だけ',
+  screenIntervalLabel: '最短間隔',
+  screenIdleSecLabel: 'アイドル判定',
+  screenQuietLabel: '静かな時間帯',
+  screenQuietFromLabel: '開始',
+  screenQuietToLabel: '終了',
+  screenQuietHint:
+    'どちらも HH:MM で入力。その時間帯は一枚も撮りません（例 23:00 → 08:00、日をまたげます）。空欄なら無効。',
+  screenUnitSec: '秒',
+  screenUnitMs: 'ミリ秒',
+  screenSectionAvoid: '回避',
+  screenAvoidFullscreenLabel: '全画面のとき隠す',
+  screenAvoidMaximizeLabel: '最大化も含める',
+  screenAvoidDelayLabel: '隠すまでの遅延',
+  screenAvoidRestoreLabel: '戻すまでの遅延',
+  screenAvoidPollLabel: 'ポーリング間隔',
+  screenAvoidAppsLabel: '指定アプリが前面なら隠す',
+  screenAppsLabel: 'アプリ一覧',
+  screenAppsHint:
+    'カンマ区切り・最大 50 件。.exe で終わる項目はプロセス名の完全一致、それ以外はウィンドウタイトルの部分一致。',
+  screenNote:
+    '画面の読み取りは 1 回ごとに画像リクエスト（課金）です。最短間隔が費用の上限になります。使うのは「つぶやきモデル」で、空なら現在の対話モデル——そのモデルが画像に対応している必要があります。回避は Windows のみ、ペットの窓だけを隠し、手動で隠したペットは戻しません。',
   voiceTitle: '音声読み上げ',
   voiceHint:
     'ペットが音を出すための4つのスイッチと声質：音声の種類ごとに独立したスイッチがあり、どれも他のスイッチには従いません。デフォルトはすべてオフで、「保存」時にユーザー設定へ書き込まれます（即時書き込みはしません）。',
@@ -316,8 +348,11 @@ export const ja: Record<Key, string> = {
   voiceLocalLabel: '声質（ローカル）',
   voiceLocalHint: 'ローカル音声サービスの声質。次の文から反映されます',
   voiceNameFallbackHint: 'ローカル音色が使える間は効きません（GSV 停止時の edge の声だけを決めます）',
-  voiceProviderTitle: 'ローカル音声（GSV）',
-  voiceProviderHint: 'GPT-SoVITS の接続先と素材フォルダ。保存すると音色を再スキャンします',
+  voiceProviderTitle: '音声の接続',
+  voiceProviderHint:
+    '音声プロバイダーごとの接続設定。保存するとすぐ反映され、キーはホストの資格情報ストアに保存されます',
+  voiceProviderSecretSaved: '保存済み（空欄なら変更しません）',
+  voiceProviderSecretClear: '削除',
   voiceProviderSave: '接続設定を保存',
   voiceProviderSaved: '保存しました（音色を再読み込み）',
   voiceProviderReady: 'サービスはオンラインです',
@@ -385,6 +420,7 @@ export const ja: Record<Key, string> = {
   modelEmpty: '一致するモデルがありません。',
   modelNoModels: '利用できるモデルがありません。',
   modelLoading: 'モデル一覧を更新中…',
+  modelReload: 'モデル一覧を再取得',
   modelTriggerAria: 'モデルを選択（現在 {model}）',
   modelUnknown: ' （現在の設定、一覧にありません）',
   modelNone: 'このプロバイダーに利用できるモデルはありません',
@@ -493,6 +529,7 @@ export const ja: Record<Key, string> = {
   restartHelper:
     'HMR が無効です：デスクトップウィンドウは再構築しましたが、ホスト側コードの変更は profile の再起動が必要です。',
   restartFailed: 'プラグインの再起動に失敗しました。プラグインのログを確認してください。',
+  restartNeededHint: 'プラグインの再起動後に反映されます',
   resetSettings: '設定をリセット',
   resetHint:
     'すべての設定をプロジェクト既定値に戻します（ペット一覧・人設・物理・フォント・効果音・音声・モデル・セッション魚を含む）。確認するとすぐに書き込みます。',
@@ -528,6 +565,7 @@ export const ja: Record<Key, string> = {
   restoreConfirm: '復元',
   tabFeel: '見た目と操作感',
   barDirty: '未保存 {n} 件',
+  restartPending: 'うち {n} 件はプラグインの再起動後に反映されます',
   barRevert: '変更を破棄',
   barRevertHint: '保存していない変更を破棄し、設定ファイルの値に戻します。',
   revertDone: '未保存の変更を破棄しました。',
@@ -536,9 +574,10 @@ export const ja: Record<Key, string> = {
   secDisplay: '表示と位置',
   secFeatures: '機能',
   secAdvanced: '詳細',
+  maintenanceSection: 'メンテナンス操作',
   maintenanceTitle: 'プラグインの保守',
   maintenanceHint:
-    'プラグインの再起動、組み込み既定値への復元、このページの構成について。一度設定すれば触らない操作なので、下部バーには置きません。',
+    'バックアップと復元、データルートやスキンフォルダの移動、プラグインの再起動、組み込み既定値への復元。一度設定すれば触らない操作なので、ページ末尾にまとめ、下部バーには置きません。',
   chatCostTitle: 'トークン消費の説明',
   chatCostHint: '以下の3つは上の3つのスイッチにそれぞれ対応します。オフのスイッチはリクエストに1文字も含めません。',
   sfxSourcesTitle: 'ソース・パス・命名規則',

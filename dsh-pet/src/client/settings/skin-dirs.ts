@@ -59,7 +59,8 @@ export function makeSkinDirs(rt: SettingsRuntime): FunctionComponent<SkinDirsPro
           const missingFiles = bucket?.missingFiles ?? [];
           // 缺失行把「缺什么」与 expect 清单都写进行内正文（不只塞 title）：窄屏与触摸设备看不到悬浮提示。
           const expected = missingFiles.length > 0 ? missingFiles : (bucket?.expect ?? []);
-          const label = t('renderDir.' + renderer);
+          // 行名写成 skin/<渲染方式>：路径由宿主给（用户皮肤目录），但用户第一眼要看出这是 skin/ 下的哪一类。
+      const label = 'skin/' + renderer;
           const count = label + ' · ' + t('skinDirsCount').replace('{n}', String(bucket?.count ?? 0));
           const expectText =
             expected.length === 0 ? '' : ' · ' + t('skinDirsExpect').replace('{list}', expected.join('、'));

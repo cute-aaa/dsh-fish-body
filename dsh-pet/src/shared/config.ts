@@ -17,6 +17,7 @@ import type {
   Weights,
 } from './types.ts';
 import { normalizeHotkeys } from './hotkeys.ts';
+import { screenConfigOf } from './screen-config.ts';
 
 /** 显示位置白名单。 */
 export const PET_DISPLAYS: PetDisplay[] = ['web', 'desktop', 'both', 'none'];
@@ -92,6 +93,9 @@ export function flattenConfigPets(merged: Record<string, Record<string, unknown>
         chatImageEnabled: conf.chatImageEnabled as boolean | undefined,
         chatAnimationEnabled: conf.chatAnimationEnabled as boolean | undefined,
         chatImageLimit: conf.chatImageLimit as number | undefined,
+        // 看屏幕与避让：十三个平键在拍平时收成一个嵌套对象——桌面 Helper 只读它，
+        // 不必知道十三个键名，也不会出现「网页端按夹取后的值、桌面端按原始值」的分叉。
+        screen: screenConfigOf(conf),
         assetRoot: entry,
         extra: entry !== 'main',
       });

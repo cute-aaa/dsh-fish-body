@@ -5,6 +5,10 @@ import type { Key } from './zh.ts';
 
 export const fr: Record<Key, string> = {
   nav: 'Configuration des compagnons',
+  searchPlaceholder: 'Rechercher un réglage, un titre ou une valeur actuelle…',
+  searchResults: 'Résultats',
+  searchEmpty: 'Aucun réglage ne correspond',
+  searchWholeCard: 'Carte entière',
   tabLook: 'Apparence',
   petCardTitle: 'Compagnon',
   avatarLabel: 'Avatar',
@@ -292,6 +296,35 @@ export const fr: Record<Key, string> = {
   trayToggle: 'Zone de notification',
   trayToggleHint:
     "Affiche une icône dans la zone de notification (barre de menus sur macOS) dès que le mode bureau démarre. Elle liste tous les compagnons de la configuration et permet de basculer chacun entre bureau et web / aucun — y compris ceux qui ne sont pas sur le bureau et n'ont donc aucune fenêtre à cliquer droit. Une fois désactivée, ramener un compagnon sur le bureau exige d'ouvrir le navigateur (la page de configuration, ou un clic droit sur le compagnon web). Windows range déjà ces icônes dans le panneau « icônes masquées ». Mode bureau uniquement.",
+  screenTitle: 'Écran et esquive',
+  screenHint:
+    "Lecture d'écran : capture l'écran de temps en temps, laisse le modèle courant y jeter un œil et dis une phrase dans une bulle (bulle seule, jamais lue). Esquive : masque la mascotte de bureau tant qu'une application plein écran ou une application listée est au premier plan, puis la remet quand tu changes. Les deux sont désactivées par défaut ; les interrupteurs et les minutages se règlent ici.",
+  screenDesktopOnly:
+    "Mode bureau uniquement : la mascotte du navigateur ne peut pas capturer l'écran et n'a pas de fenêtre à masquer.",
+  screenSectionRead: "Lecture d'écran",
+  screenReadToggle: "Dire une phrase sur l'écran",
+  screenIdleOnlyLabel: 'Seulement quand DSH est inactif',
+  screenIntervalLabel: 'Intervalle minimal',
+  screenIdleSecLabel: "Seuil d'inactivité",
+  screenQuietLabel: 'Heures calmes',
+  screenQuietFromLabel: 'De',
+  screenQuietToLabel: 'À',
+  screenQuietHint:
+    "Remplis les deux en HH:MM ; rien n'est capturé dans cette plage (ex. 23:00 à 08:00, le passage de minuit est accepté). Vide = désactivé.",
+  screenUnitSec: 's',
+  screenUnitMs: 'ms',
+  screenSectionAvoid: 'Esquive',
+  screenAvoidFullscreenLabel: 'Masquer en plein écran',
+  screenAvoidMaximizeLabel: 'Compter le maximisé',
+  screenAvoidDelayLabel: 'Délai avant de masquer',
+  screenAvoidRestoreLabel: 'Délai avant de revenir',
+  screenAvoidPollLabel: 'Intervalle de sondage',
+  screenAvoidAppsLabel: 'Masquer pour les applis listées',
+  screenAppsLabel: "Liste d'applis",
+  screenAppsHint:
+    'Séparées par des virgules, 50 maximum. Ce qui finit par .exe compare le nom du processus ; le reste cherche dans le titre de la fenêtre.',
+  screenNote:
+    "Chaque lecture est une requête d'image et coûte de l'argent : l'intervalle minimal plafonne la dépense. Elle utilise le modèle de murmures, ou le modèle de conversation actuel si vide — il doit accepter les images. L'esquive n'existe que sous Windows, ne masque que les fenêtres de la mascotte et ne rallume jamais celles que tu as masquées toi-même.",
   voiceTitle: 'Synthèse vocale',
   voiceHint:
     "Quatre interrupteurs et une voix : chaque type de parole a son propre interrupteur, aucun ne dépend d'un autre. Tout est désactivé par défaut et écrit dans la configuration utilisateur lors de l'enregistrement (jamais immédiatement).",
@@ -319,9 +352,11 @@ export const fr: Record<Key, string> = {
   voiceLocalLabel: 'Voix (locale)',
   voiceLocalHint: 'Timbre du service vocal local ; s’applique dès la phrase suivante',
   voiceNameFallbackHint: 'Ignore tant que la voix locale est disponible : ne choisit que la voix edge si GSV tombe',
-  voiceProviderTitle: 'Voix locale (GSV)',
+  voiceProviderTitle: 'Connexion vocale',
   voiceProviderHint:
-    'URL du service GPT-SoVITS et dossiers de ressources ; les voix sont rescannées après enregistrement',
+    'Réglages de connexion de chaque fournisseur de voix ; appliqués aussitôt, les clés vont dans le stockage des identifiants du host',
+  voiceProviderSecretSaved: 'Enregistré ; laissez vide pour conserver',
+  voiceProviderSecretClear: 'Effacer',
   voiceProviderSave: 'Enregistrer la connexion',
   voiceProviderSaved: 'Enregistré ; liste des voix actualisée',
   voiceProviderReady: 'Service en ligne',
@@ -395,6 +430,7 @@ export const fr: Record<Key, string> = {
   modelEmpty: 'Aucun modèle correspondant.',
   modelNoModels: 'Aucun modèle disponible.',
   modelLoading: 'Actualisation de la liste des modèles…',
+  modelReload: 'Recharger la liste des modèles',
   modelTriggerAria: 'Choisir un modèle, actuellement {model}',
   modelUnknown: ' (configuration actuelle, absent de la liste)',
   modelNone: 'Aucun modèle disponible pour ce fournisseur',
@@ -509,6 +545,7 @@ export const fr: Record<Key, string> = {
   restartHelper:
     'HMR indisponible : la fenêtre de bureau a été reconstruite, mais les modifications côté hôte nécessitent un redémarrage du profil.',
   restartFailed: 'Échec du redémarrage du plugin ; consultez le journal du plugin.',
+  restartNeededHint: 'Prend effet après un redémarrage du plugin',
   resetSettings: 'Réinitialiser les réglages',
   resetHint:
     'Restaure tous les réglages aux valeurs par défaut du projet (compagnons, personas, physique, police, son, voix, modèles et poissons de session). La confirmation écrit immédiatement.',
@@ -546,6 +583,7 @@ export const fr: Record<Key, string> = {
   restoreConfirm: 'Restaurer',
   tabFeel: 'Aspect et ressenti',
   barDirty: '{n} modifications non enregistrées',
+  restartPending: '{n} modifications prennent effet après un redémarrage du plugin',
   barRevert: 'Annuler les modifications',
   barRevertHint: 'Abandonne les modifications non enregistrées et revient aux valeurs du fichier de configuration.',
   revertDone: 'Les modifications non enregistrées ont été abandonnées.',
@@ -554,9 +592,10 @@ export const fr: Record<Key, string> = {
   secDisplay: 'Affichage et position',
   secFeatures: 'Fonctions',
   secAdvanced: 'Avancé',
+  maintenanceSection: 'Actions de maintenance',
   maintenanceTitle: 'Maintenance',
   maintenanceHint:
-    "Redémarrer le plugin, restaurer les valeurs par défaut et la façon dont cette page est organisée. Ces actions ne servent qu'une fois : elles restent hors de la barre du bas.",
+    'Sauvegarde et restauration, déplacement de la racine des données ou du dossier des skins, redémarrage du plugin, retour aux valeurs par défaut. Ces actions ne servent qu’une fois : elles sont regroupées en bas de page et restent hors de la barre du bas.',
   chatCostTitle: 'Ce que ces options coûtent en tokens',
   chatCostHint:
     "Chaque note correspond à une option ci-dessus. Une option désactivée n'envoie pas le moindre caractère au modèle.",

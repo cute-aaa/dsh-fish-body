@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { createPoolReader, poolStructureBaseOf, readPool, structureBaseOf } from './scan.ts';
+import { poolStructureBaseOf, readPool, structureBaseOf } from './scan.ts';
 
 let root = '';
 
@@ -134,16 +134,5 @@ describe('readPool —— live2d 与 webm', () => {
     const scan = readPool(root);
     assert.deepEqual(scan.webm, []);
     assert.deepEqual(scan.layered, []);
-  });
-});
-
-describe('createPoolReader —— 一次请求内复用', () => {
-  test('同一实例只扫一次（后续新增文件不改变结果）', () => {
-    put(join('webm', 'a.webm'), 'x');
-    const reader = createPoolReader(root);
-    assert.equal(reader.scan().webm.length, 1);
-    put(join('webm', 'b.webm'), 'x');
-    assert.equal(reader.scan().webm.length, 1, '同实例复用扫描结果');
-    assert.equal(readPool(root).webm.length, 2, '新的一次扫描能看到新文件');
   });
 });

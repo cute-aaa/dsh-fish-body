@@ -3,15 +3,51 @@
  *
  * 只读目录、不判定音效优先级（归 host/sfx/index-build），不碰 HTTP。任何一层读不了都退化成空，
  * 所以「池还没建」与「池是空的」走同一条路径，调用方不必分支。
- * 扫描不做文件监听：{@link createPoolReader} 给一次请求内的复用，改盘后下一次请求自然读到新内容。
+ * 本模块只扫**一个**根；`assets.resourceDirs` 的多根合并、一次请求内的复用与「某资源在哪个根」
+ * 都在 `./roots.ts`（那边才需要知道根的顺序，这里只认目录）。
+ * 扫描不做文件监听：改盘后下一次请求自然读到新内容。
  * @module dsh-fish-body/src/host/pool/scan
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { warnOnce } from '../config/constants.ts';
 import { POOL_SOUND_DIR } from '../../shared/pool.ts';
+import { entriesOf, kindOf, pickStructure } from './probe.ts';
 import { poolGlobalSoundDir, poolLayerDir, poolRendererSoundDir } from './resolve.ts';
 import type { RendererKind } from '../../shared/types.ts';
+
+/**
+ * 一个根的布局形态。
+ *
+ * `pool` = 标准池布局（`<根>/layered|live2d|webm|sound`）；`bare` = 资源集合目录
+ * （一级子目录本身就是一套皮肤/模型，`feiyu-01/manifest.json` 这种）。
+ * 主池根只认 `pool`（缺目录就是空池）；`assets.resourceDirs` 的外部根两种都认——
+ * 用户手里的皮肤库几乎都是 `bare` 形态，硬要求 `layered/` 一层等于让人先搬一遍文件。
+ */
+export type PoolLayout = 'pool' | 'bare';
+
+/** 按布局算出三类目录（bare 时三个渲染方式都指向根本身）。 */
+function dirsOf(
+  root: string,
+  layout: PoolLayout,
+): Pick<PoolScan, 'rendererDirs' | 'rendererSoundDirs' | 'globalSoundDir'> {
+  if (layout === 'bare') {
+    const same: Record<RendererKind, string> = { layered: root, live2d: root, webm: root };
+    return { globalSoundDir: join(root, POOL_SOUND_DIR), rendererDirs: same, rendererSoundDirs: same };
+  }
+  return {
+    globalSoundDir: poolGlobalSoundDir(root),
+    rendererDirs: {
+      layered: poolLayerDir(root, 'layered'),
+      live2d: poolLayerDir(root, 'live2d'),
+      webm: poolLayerDir(root, 'webm'),
+    },
+    rendererSoundDirs: {
+      layered: poolRendererSoundDir(root, 'layered'),
+      live2d: poolRendererSoundDir(root, 'live2d'),
+      webm: poolRendererSoundDir(root, 'webm'),
+    },
+  };
+}
 
 /** 池里的一个 layered 资源（一级子目录）。 */
 export interface PoolLayeredEntry {
@@ -19,6 +55,8 @@ export interface PoolLayeredEntry {
   id: string;
   /** 资源目录的绝对路径。 */
   dir: string;
+  /** 这个资源来自哪个素材根（主池根或 `assets.resourceDirs` 里的一项）。 */
+  root: string;
   /** 结构文件（`manifest.json` / 含 rig|schema 的 json / 唯一 json）的绝对路径；都没有时不出现该键。 */
   structureFile?: string;
   /** 结构文件基名（`xxx.json` → `xxx`），音效第 1 级的前缀。 */
@@ -31,6 +69,8 @@ export interface PoolLive2dEntry {
   id: string;
   /** 模型所在目录的绝对路径。 */
   dir: string;
+  /** 这个资源来自哪个素材根。 */
+  root: string;
   /** `.model3.json` 的绝对路径。 */
   modelFile: string;
   /** 模型文件基名（`xx.model3.json` → `xx`），音效第 1 级的前缀。 */
@@ -43,13 +83,17 @@ export interface PoolWebmEntry {
   id: string;
   /** 文件绝对路径。 */
   file: string;
+  /** 这个文件来自哪个素材根。 */
+  root: string;
 }
 
 /** 一次扫描的结果。 */
 export interface PoolScan {
-  /** 池根绝对路径。 */
+  /** 主池根绝对路径（多根时是第一个）。 */
   root: string;
-  /** 池根是否存在（不存在 = 空池，不算错误）。 */
+  /** 本次参与扫描的全部素材根（主根在前）。 */
+  roots: readonly string[];
+  /** 主池根是否存在（不存在 = 空池，不算错误）。 */
   exists: boolean;
   layered: readonly PoolLayeredEntry[];
   live2d: readonly PoolLive2dEntry[];
@@ -62,86 +106,10 @@ export interface PoolScan {
   rendererSoundDirs: Readonly<Record<RendererKind, string>>;
 }
 
-/** 目录项是目录还是文件：符号链接按真实类型判定（Windows junction 的 isDirectory() 为假）。 */
-function kindOf(path: string): 'dir' | 'file' | undefined {
-  try {
-    const stat = statSync(path);
-    return stat.isDirectory() ? 'dir' : stat.isFile() ? 'file' : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** 列目录里的条目（读不了返回空）。 */
-function entriesOf(dir: string): Array<{ name: string; kind: 'dir' | 'file' }> {
-  let names: string[];
-  try {
-    names = readdirSync(dir);
-  } catch {
-    return [];
-  }
-  const out: Array<{ name: string; kind: 'dir' | 'file' }> = [];
-  for (const name of names) {
-    const kind = kindOf(join(dir, name));
-    if (kind !== undefined) out.push({ name, kind });
-  }
-  return out;
-}
-
 /** 文件名基名去掉 `.json`（`xx.model3.json` 再去掉 `.model3`）：音效第 1 级的前缀。 */
 export function structureBaseOf(file: string): string {
   const name = basename(file).replace(/\.json$/i, '');
   return name.replace(/\.model3$/i, '');
-}
-
-/**
- * 读一份 json 并返回顶层对象；解析失败 / 不是对象时告警一次并返回 `undefined`。
- *
- * 坏 json 不该让整个目录从清单里消失，但也不该被当成结构文件（那会让第 1 级前缀取错）。
- *
- * @param file - json 文件绝对路径。
- * @returns 顶层对象；不是合法对象时返回 undefined。
- */
-function readJsonObject(file: string): Record<string, unknown> | undefined {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(readFileSync(file, 'utf8')) as unknown;
-  } catch {
-    warnOnce('pool:json:' + file, '池里的 json 解析失败，已跳过：' + file);
-    return undefined;
-  }
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
-  return raw as Record<string, unknown>;
-}
-
-/**
- * 挑出 layered 资源的结构文件：`manifest.json` > 含 `rig|schema` 的 json > 唯一的**可解析** json。
- *
- * manifest 存在但坏了会告警并继续往后找：一个坏文件不该让整套皮肤从清单里消失。
- *
- * @param dir - 资源目录。
- * @returns 结构文件绝对路径；都没有时返回 `undefined`（调用方跳过该资源并告警）。
- */
-function pickStructure(dir: string): string | undefined {
-  const files = entriesOf(dir)
-    .filter((entry) => entry.kind === 'file' && entry.name.toLowerCase().endsWith('.json'))
-    .map((entry) => entry.name)
-    .filter((name) => !name.startsWith('.'))
-    .sort();
-  const cache = new Map<string, Record<string, unknown> | undefined>();
-  const objOf = (name: string): Record<string, unknown> | undefined => {
-    if (!cache.has(name)) cache.set(name, readJsonObject(join(dir, name)));
-    return cache.get(name);
-  };
-  if (files.includes('manifest.json') && objOf('manifest.json') !== undefined) return join(dir, 'manifest.json');
-  const structured = files.filter((name) => {
-    const root = objOf(name);
-    return root !== undefined && (root.rig !== undefined || root.schema !== undefined);
-  });
-  if (structured.length > 0) return join(dir, structured[0]);
-  const usable = files.filter((name) => objOf(name) !== undefined);
-  if (usable.length === 1) return join(dir, usable[0]);
-  return undefined;
 }
 
 /**
@@ -179,30 +147,23 @@ export function poolStructureBaseOf(dir: string): string | undefined {
 }
 
 /**
- * 扫一遍池。
+ * 扫一遍**一个**根。
  *
- * @param poolRoot - 池根（绝对路径，来自 `resolvePoolRoot`）。
- * @returns 资源清单与三个目录；池根不存在时只有目录字段，三份列表为空。
+ * @param poolRoot - 根（绝对路径，来自 `resolvePoolRoot` / `resolvePoolRoots` 的某一项）。
+ * @param layout - 布局形态（主池 `pool`；外部素材根可为 `bare`，见 {@link PoolLayout}）。
+ * @returns 资源清单与三个目录；根不存在时只有目录字段，三份列表为空。
  */
-export function readPool(poolRoot: string): PoolScan {
-  const rendererDirs: Record<RendererKind, string> = {
-    layered: poolLayerDir(poolRoot, 'layered'),
-    live2d: poolLayerDir(poolRoot, 'live2d'),
-    webm: poolLayerDir(poolRoot, 'webm'),
-  };
-  const rendererSoundDirs: Record<RendererKind, string> = {
-    layered: poolRendererSoundDir(poolRoot, 'layered'),
-    live2d: poolRendererSoundDir(poolRoot, 'live2d'),
-    webm: poolRendererSoundDir(poolRoot, 'webm'),
-  };
+export function readPool(poolRoot: string, layout: PoolLayout = 'pool'): PoolScan {
+  const { rendererDirs, rendererSoundDirs, globalSoundDir } = dirsOf(poolRoot, layout);
   const base: PoolScan = {
     exists: kindOf(poolRoot) === 'dir',
-    globalSoundDir: poolGlobalSoundDir(poolRoot),
+    globalSoundDir,
     layered: [],
     live2d: [],
     rendererDirs,
     rendererSoundDirs,
     root: poolRoot,
+    roots: [poolRoot],
     webm: [],
   };
   if (!base.exists) return base;
@@ -224,7 +185,7 @@ export function readPool(poolRoot: string): PoolScan {
       );
       continue;
     }
-    layered.push({ dir, id: entry.name, structureBase: structureBaseOf(structureFile), structureFile });
+    layered.push({ dir, id: entry.name, root: poolRoot, structureBase: structureBaseOf(structureFile), structureFile });
   }
 
   for (const entry of entriesOf(rendererDirs.live2d)) {
@@ -241,6 +202,7 @@ export function readPool(poolRoot: string): PoolScan {
       dir: dirname(join(dir, models[0])),
       id,
       modelFile: join(dir, models[0]),
+      root: poolRoot,
       structureBase: structureBaseOf(models[0]),
     });
   }
@@ -248,7 +210,7 @@ export function readPool(poolRoot: string): PoolScan {
   for (const entry of entriesOf(rendererDirs.webm)) {
     if (entry.kind !== 'file' || entry.name.startsWith('.')) continue;
     if (!entry.name.toLowerCase().endsWith('.webm')) continue;
-    webm.push({ file: join(rendererDirs.webm, entry.name), id: entry.name.replace(/\.webm$/i, '') });
+    webm.push({ file: join(rendererDirs.webm, entry.name), id: entry.name.replace(/\.webm$/i, ''), root: poolRoot });
   }
 
   return { ...base, layered, live2d, webm };
@@ -258,22 +220,6 @@ export function readPool(poolRoot: string): PoolScan {
 export interface PoolReader {
   /** 读一次并缓存；同实例后续调用返回同一份结果。 */
   scan(): PoolScan;
-}
-
-/**
- * 造一个惰性池读取器。
- *
- * 为什么不做时间缓存：池是用户随时会改的目录，跨请求缓存等于让「放完文件刷新就好了」失效；
- * 而同一请求里音效索引、取文件、清单三处都要扫，重复扫盘纯属浪费。一请求一实例正好。
- *
- * @param poolRoot - 池根。
- * @returns 带 `scan()` 的读取器。
- */
-export function createPoolReader(poolRoot: string): PoolReader {
-  let cached: PoolScan | undefined;
-  return {
-    scan: () => (cached ??= readPool(poolRoot)),
-  };
 }
 
 /**

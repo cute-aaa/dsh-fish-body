@@ -1,6 +1,7 @@
 'use strict';
 const { BrowserWindow, desktopCapturer, screen } = require('electron');
 const { decideWindowIgnore } = require('../pointer-target.js');
+const { SCREEN_JPEG_QUALITY, SCREEN_MAX_EDGE, grabScreen } = require('./capture.js');
 /**
  * 渲染端到主进程的 ipc：窗口跟随、飞行状态、碰撞转发、穿透翻转、输入租约与菜单首项（打开软件 / 打开 AI 设置）。
  *
@@ -213,23 +214,43 @@ function registerIpc({ ipcMain, petWindows, shell, openTarget, petRoute }) {
   /**
    * 截一帧桌面：只取宠物所在那块屏，按物理像素请求缩略图，回一次 JPEG base64。
    * 不做流、不落盘；渲染端拿到后与上传图片走同一条预算编码。
+   *
+   * 与 `pet:screen-frame` 共用 capture.js 的同一条链路，区别只有三个参数：这里不判黑图
+   * （对话截图有人眼复核）、不缩放（用户可能想看清小字）、质量 85。
    */
   ipcMain.handle('pet:capture-screen', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    const display = win ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay();
-    const scale = display.scaleFactor || 1;
-    const size = {
-      width: Math.max(1, Math.min(4096, Math.round(display.size.width * scale))),
-      height: Math.max(1, Math.min(4096, Math.round(display.size.height * scale))),
+    const shot = await grabScreen({ screen, desktopCapturer, win, quality: 85, checkBlack: false });
+    if (!shot) return null;
+    return { mediaType: shot.mediaType, data: shot.data, width: shot.width, height: shot.height, bytes: shot.bytes };
+  });
+
+  /**
+   * 识屏取帧：长边缩到 1280、质量 80、先判黑图。
+   *
+   * 判黑的结论必须显式回给渲染端：黑图**不上传**（一张纯黑 JPEG 只会白花一次读图钱），
+   * 渲染端据此打一行日志就收工。`reason` 是 wire 词汇：`black-frame` / `no-source`。
+   */
+  ipcMain.handle('pet:screen-frame', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const shot = await grabScreen({
+      screen,
+      desktopCapturer,
+      win,
+      maxEdge: SCREEN_MAX_EDGE,
+      quality: SCREEN_JPEG_QUALITY,
+      checkBlack: true,
+    });
+    if (!shot) return { ok: false, reason: 'no-source' };
+    if (shot.black) return { ok: false, reason: 'black-frame', scaleFactor: shot.scaleFactor };
+    return {
+      ok: true,
+      attachment: { mediaType: shot.mediaType, data: shot.data },
+      width: shot.width,
+      height: shot.height,
+      bytes: shot.bytes,
+      scaleFactor: shot.scaleFactor,
     };
-    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size });
-    // display_id 是字符串；取不到对应屏时退回第一块，总比"点了没反应"好
-    const source = sources.find((item) => String(item.display_id) === String(display.id)) ?? sources[0];
-    if (!source || source.thumbnail.isEmpty()) return null;
-    const thumbnail = source.thumbnail;
-    const { width, height } = thumbnail.getSize();
-    const data = thumbnail.toJPEG(85).toString('base64');
-    return { mediaType: 'image/jpeg', data, width, height, bytes: Math.floor((data.length * 3) / 4) };
   });
 }
 

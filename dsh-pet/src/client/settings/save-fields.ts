@@ -9,6 +9,7 @@
  */
 import type { HotkeyMap } from '../../shared/hotkeys.ts';
 import type { Pet, SfxConfig } from '../../shared/types.ts';
+import type { ScreenConfig } from '../../shared/screen-config.ts';
 import type { SaveFields } from './config/index.ts';
 import type { GlobalFlags } from './global-flags.ts';
 import type { ChatFlagValues } from './model-card.ts';
@@ -36,6 +37,8 @@ export interface SaveFieldParts {
   readonly model: Pick<ModelSettings, 'whisperModel' | 'chatModel' | 'chatMemory' | 'chatImageLimit'>;
   /** 外观与手感：物理参数、字体与动作权重。 */
   readonly look: Pick<AppearanceSettings, 'physics' | 'font' | 'weights'>;
+  /** 看屏幕与避让的十三项（嵌套形状，写盘时摊成十三个平键）。 */
+  readonly screen: ScreenConfig;
 }
 
 /**
@@ -67,5 +70,6 @@ export function buildSaveFields(parts: SaveFieldParts): SaveFields {
     chatImageLimit: parts.model.chatImageLimit,
     font: parts.look.font,
     animationWeights: parts.look.weights,
+    screen: parts.screen,
   };
 }

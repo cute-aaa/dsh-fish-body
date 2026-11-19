@@ -7,6 +7,7 @@
  */
 import { FONT_PRESETS } from '../../shared/fonts.ts';
 import { PET_DISPLAYS, RENDERERS } from '../../shared/config.ts';
+import { SCREEN_CONFIG_KEYS } from '../../shared/screen-config.ts';
 import { defaultLog } from '../log-file.ts';
 
 /** 位置角落白名单 */
@@ -72,6 +73,9 @@ export const GLOBAL_DEFAULT_KEYS = [
   'whisperModel',
   'chatModel',
   'eventsRefreshSec',
+  // 看屏幕与避让（十三项，见 shared/screen-config）：同样是「用户级偏好」——
+  // 在用户层写一次对所有条目生效，种类文件顶层仍可覆盖。
+  ...SCREEN_CONFIG_KEYS,
 ] as const;
 
 /** 已告警过的 文件:字段（进程内去重：同一问题只告警一次，避免每请求刷屏；重启重置） */

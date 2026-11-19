@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import type { jsx } from 'react/jsx-runtime';
 
 import type { ConfigMeta, MetaNode } from './config/index.ts';
-import { makeFsCard } from './fs-card.ts';
+import { makeFsCard, type FsCardProps } from './fs-card.ts';
 
 interface Node {
   tag: string;
@@ -115,9 +115,20 @@ const byClass = (tree: unknown, cls: string): Node | undefined =>
 const allByClass = (tree: unknown, cls: string): Node[] =>
   flatten(tree).filter((item) => String(item.props?.className ?? '').includes(cls));
 
+/**
+ * 卡片输入：绝大多数用例只关心 `paths`。
+ *
+ * 重启入口由「搬迁完成后点立即重启」那一例单独断言——它现在由系统分区传进来（与维护卡同一实现），
+ * 卡片自己不再持有它。
+ */
+const props = (paths: ConfigMeta = meta, onRestart: () => void = () => {}): FsCardProps => ({
+  paths,
+  onRestart,
+});
+
 describe('fs-card —— 一张卡讲完文件在哪', () => {
   test('默认收起：aria-expanded 为 false，正文在树上但 aria-hidden', () => {
-    const tree = make(false)({ paths: meta });
+    const tree = make(false)(props());
     const toggle = byClass(tree, 'dsh-pet-cfg__foldToggle');
     assert.ok(toggle);
     assert.equal(toggle.props['aria-expanded'], false);
@@ -129,13 +140,13 @@ describe('fs-card —— 一张卡讲完文件在哪', () => {
 
   test('点标题行是取反开合', () => {
     const seen: boolean[] = [];
-    const tree = make(false, seen)({ paths: meta });
+    const tree = make(false, seen)(props());
     (byClass(tree, 'dsh-pet-cfg__foldToggle')?.props.onClick as () => void)();
     assert.deepEqual(seen, [true]);
   });
 
   test('树：每个节点只出现一次，前缀与名字都在', () => {
-    const tree = make(true)({ paths: meta });
+    const tree = make(true)(props());
     const rows = allByClass(tree, 'dsh-pet-cfg__treeRow');
     // 布局 10 行 + 1 个包内只读行。
     assert.equal(rows.length, meta.layout.length + meta.readonly.length);
@@ -152,7 +163,7 @@ describe('fs-card —— 一张卡讲完文件在哪', () => {
   });
 
   test('可打开的行带 which，文件与包内只读没有', () => {
-    const tree = make(true)({ paths: meta });
+    const tree = make(true)(props());
     const rows = allByClass(tree, 'dsh-pet-cfg__treeRow');
     const openOf = (key: string): unknown => {
       const row = rows.find((item) => item.props.key === key);
@@ -166,7 +177,7 @@ describe('fs-card —— 一张卡讲完文件在哪', () => {
   });
 
   test('树里没有「可删 / 需下载」徽标，改成每行后面的一句说明', () => {
-    const tree = make(true)({ paths: meta });
+    const tree = make(true)(props());
     const rows = allByClass(tree, 'dsh-pet-cfg__treeRow');
     // 徽标只剩只读参考那一组（那一组本来是「不能改」的信息，不是「能不能删」）。
     const badges = allByClass(tree, 'dsh-pet-cfg__treeBadge').map((item) => String(item.props.children));
@@ -186,7 +197,7 @@ describe('fs-card —— 一张卡讲完文件在哪', () => {
   });
 
   test('数据根与皮肤目录各有一行位置，且都能改', () => {
-    const tree = make(true)({ paths: meta });
+    const tree = make(true)(props());
     const texts = flatten(tree)
       .map((item) => item.props?.children)
       .filter((value): value is string => typeof value === 'string');
@@ -197,7 +208,7 @@ describe('fs-card —— 一张卡讲完文件在哪', () => {
   });
 
   test('运行时行显示版本、来源与状态', () => {
-    const tree = make(true)({ paths: meta });
+    const tree = make(true)(props());
     const texts = flatten(tree)
       .map((item) => item.props?.children)
       .filter((value): value is string => typeof value === 'string');
@@ -221,30 +232,30 @@ describe('fs-card —— 一张卡讲完文件在哪', () => {
       ...meta,
       runtime: { ...meta.runtime!, source: 'custom', dir: 'E:/electron' },
     };
-    const tree = make(true)({ paths: custom });
+    const tree = make(true)(props(custom));
     const buttons = allByClass(tree, 'dsh-pet-cfg__btn');
     assert.ok(buttons.some((button) => button.props.children === 'fsRuntimeReset'));
   });
 
   test('卸载命令用 meta 的 profile；没有 profile 时用占位符', () => {
-    const withProfile = make(true)({ paths: meta });
+    const withProfile = make(true)(props());
     const cmd = byClass(withProfile, 'dsh-pet-cfg__cmd');
     assert.match(String(cmd?.props.children), /--profile fish remove dsh-fish-body/);
 
-    const noProfile = make(true)({ paths: { ...meta, profile: undefined } });
+    const noProfile = make(true)(props({ ...meta, profile: undefined }));
     const fallback = byClass(noProfile, 'dsh-pet-cfg__cmd');
     assert.match(String(fallback?.props.children), /--profile <profile>/);
   });
 
   test('卸载步骤里带出数据根绝对路径', () => {
-    const tree = make(true)({ paths: meta });
+    const tree = make(true)(props());
     const notes = allByClass(tree, 'dsh-pet-cfg__note').map((item) => String(item.props.children));
     assert.ok(notes.some((text) => text.includes('D:/u/fish-body')));
   });
 
   test('老宿主给的 meta 缺字段时按空树渲染，不把设置页带崩', () => {
     const legacy = { root: 'D:/u', layout: undefined, readonly: undefined } as unknown as ConfigMeta;
-    const tree = make(true)({ paths: legacy });
+    const tree = make(true)(props(legacy));
     assert.equal(allByClass(tree, 'dsh-pet-cfg__treeRow').length, 0);
     assert.ok(byClass(tree, 'dsh-pet-cfg__foldToggle'), '标题行仍在');
   });

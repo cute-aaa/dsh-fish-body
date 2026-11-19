@@ -5,6 +5,10 @@ import type { Key } from './zh.ts';
 
 export const de: Record<Key, string> = {
   nav: 'Desktop-Pet-Konfiguration',
+  searchPlaceholder: 'Einstellungen, Titel oder aktuelle Werte suchen…',
+  searchResults: 'Suchergebnisse',
+  searchEmpty: 'Keine passende Einstellung',
+  searchWholeCard: 'Ganze Karte',
   tabLook: 'Aussehen',
   petCardTitle: 'Pet-Konfiguration',
   avatarLabel: 'Avatar',
@@ -291,6 +295,35 @@ export const de: Record<Key, string> = {
   trayToggle: 'System-Tray',
   trayToggleHint:
     'Zeigt im Desktop-Modus ein Tray-Symbol (Windows: Infobereich, macOS: Menüleiste). Es listet alle Pets der Konfiguration und schaltet die Anzeige um – auch für Pets, die gerade nicht auf dem Desktop sind und kein Fenster zum Rechtsklicken haben. Ohne Tray lässt sich ein Pet nur über den Browser (Einstellungsseite oder Rechtsklick auf das Web-Pet) zurück auf den Desktop holen. Windows blendet das Symbol ohnehin in die „ausgeblendeten Symbole" aus. Nur Desktop-Modus.',
+  screenTitle: 'Bildschirm & Ausweichen',
+  screenHint:
+    'Bildschirmlesen: nimmt alle paar Minuten ein Bild auf, lässt das aktuelle Modell einen Blick darauf werfen und sagt einen Satz in einer Blase (nur Blase, nie gesprochen). Ausweichen: versteckt das Desktop-Haustier, solange eine Vollbild-App oder eine gelistete App im Vordergrund ist, und holt es beim Wechsel zurück. Beides ist standardmäßig aus; Schalter und Zeitpunkte stehen hier.',
+  screenDesktopOnly:
+    'Nur im Desktop-Modus: das Haustier im Browser kann den Bildschirm nicht aufnehmen und hat kein Fenster zum Verstecken.',
+  screenSectionRead: 'Bildschirmlesen',
+  screenReadToggle: 'Einen Satz zum Bildschirm sagen',
+  screenIdleOnlyLabel: 'Nur wenn DSH untätig ist',
+  screenIntervalLabel: 'Kürzester Abstand',
+  screenIdleSecLabel: 'Ruheschwelle',
+  screenQuietLabel: 'Ruhezeiten',
+  screenQuietFromLabel: 'Von',
+  screenQuietToLabel: 'Bis',
+  screenQuietHint:
+    'Beide als HH:MM ausfüllen; in diesem Zeitraum wird nichts aufgenommen (z. B. 23:00 bis 08:00, über Mitternacht erlaubt). Leer = aus.',
+  screenUnitSec: 's',
+  screenUnitMs: 'ms',
+  screenSectionAvoid: 'Ausweichen',
+  screenAvoidFullscreenLabel: 'Bei Vollbild verstecken',
+  screenAvoidMaximizeLabel: 'Maximiert zählt mit',
+  screenAvoidDelayLabel: 'Verzögerung bis zum Verstecken',
+  screenAvoidRestoreLabel: 'Verzögerung bis zum Zurückkommen',
+  screenAvoidPollLabel: 'Abfrageintervall',
+  screenAvoidAppsLabel: 'Bei gelisteten Apps verstecken',
+  screenAppsLabel: 'App-Liste',
+  screenAppsHint:
+    'Kommagetrennt, höchstens 50. Einträge mit .exe vergleichen den Prozessnamen exakt; alles andere sucht im Fenstertitel.',
+  screenNote:
+    'Jedes Lesen ist eine Bildanfrage und kostet Geld, deshalb begrenzt der kürzeste Abstand die Kosten. Genutzt wird das Flüstermodell, bei leerem Feld das aktuelle Chat-Modell — es muss Bilder akzeptieren. Ausweichen gibt es nur unter Windows, versteckt nur die Fenster des Haustiers und zeigt nie eines, das du selbst versteckt hast.',
   voiceTitle: 'Sprachausgabe',
   voiceHint:
     'Vier Schalter und eine Stimme: Jede Art von Sprachausgabe hat ihren eigenen Schalter, keiner hängt von einem anderen ab. Standardmäßig alle aus; wird beim „Speichern" in die Benutzerkonfiguration geschrieben (kein sofortiges Schreiben).',
@@ -317,8 +350,11 @@ export const de: Record<Key, string> = {
   voiceNameLabel: 'Stimme',
   voiceLocalLabel: 'Stimme (lokal)',
   voiceLocalHint: 'Klang der lokalen Sprachausgabe; gilt ab dem naechsten Satz',
-  voiceProviderTitle: 'Lokale Stimme (GSV)',
-  voiceProviderHint: 'GPT-SoVITS-Adresse und Materialordner; Stimmen werden nach dem Speichern neu gescannt',
+  voiceProviderTitle: 'Sprachverbindung',
+  voiceProviderHint:
+    'Verbindungseinstellungen je Stimmanbieter; gelten sofort, Schluessel liegen im Credential-Store des Hosts',
+  voiceProviderSecretSaved: 'Gespeichert; leer lassen zum Behalten',
+  voiceProviderSecretClear: 'Entfernen',
   voiceProviderSave: 'Verbindung speichern',
   voiceProviderSaved: 'Gespeichert; Stimmliste aktualisiert',
   voiceProviderReady: 'Dienst ist online',
@@ -391,6 +427,7 @@ export const de: Record<Key, string> = {
   modelEmpty: 'Keine passenden Modelle.',
   modelNoModels: 'Keine Modelle verfügbar.',
   modelLoading: 'Modellliste wird aktualisiert…',
+  modelReload: 'Modellliste neu laden',
   modelTriggerAria: 'Modell wählen, aktuell {model}',
   modelUnknown: ' (aktuelle Konfiguration, nicht in der Liste)',
   modelNone: 'Für diesen Anbieter sind keine Modelle verfügbar',
@@ -504,6 +541,7 @@ export const de: Record<Key, string> = {
   restartHelper:
     'HMR ist nicht aktiv: Das Desktop-Fenster wurde neu aufgebaut, Host-Änderungen brauchen aber weiterhin einen Profil-Neustart.',
   restartFailed: 'Plugin-Neustart fehlgeschlagen; siehe Plugin-Log.',
+  restartNeededHint: 'Wird nach einem Plugin-Neustart wirksam',
   resetSettings: 'Einstellungen zurücksetzen',
   resetHint:
     'Setzt alle Einstellungen auf die Projektstandardwerte zurück (Begleiter, Personas, Physik, Schrift, Ton, Stimme, Modelle und Sitzungsfische). Nach der Bestätigung wird sofort geschrieben.',
@@ -540,6 +578,7 @@ export const de: Record<Key, string> = {
   restoreConfirm: 'Wiederherstellen',
   tabFeel: 'Aussehen & Verhalten',
   barDirty: '{n} ungespeicherte Änderungen',
+  restartPending: '{n} Änderungen werden erst nach einem Plugin-Neustart wirksam',
   barRevert: 'Änderungen verwerfen',
   barRevertHint: 'Die ungespeicherten Änderungen verwerfen und zu den Werten der Konfigurationsdatei zurückkehren.',
   revertDone: 'Die ungespeicherten Änderungen wurden verworfen.',
@@ -548,9 +587,10 @@ export const de: Record<Key, string> = {
   secDisplay: 'Anzeige & Position',
   secFeatures: 'Funktionen',
   secAdvanced: 'Erweitert',
+  maintenanceSection: 'Wartungsaufgaben',
   maintenanceTitle: 'Wartung',
   maintenanceHint:
-    'Plugin neu starten, die eingebauten Standardwerte wiederherstellen und wie diese Seite aufgebaut ist. Diese Aktionen stellt man einmal ein, deshalb stehen sie nicht in der unteren Leiste.',
+    'Sichern und Wiederherstellen, Datenstamm oder Skin-Ordner verschieben, Plugin neu starten, auf die eingebauten Standardwerte zurücksetzen. Diese Aktionen stellt man einmal ein, deshalb stehen sie gesammelt am Seitenende und nicht in der unteren Leiste.',
   chatCostTitle: 'Was diese Schalter an Tokens kosten',
   chatCostHint:
     'Jeder Hinweis gehört zu einem Schalter oben. Ein ausgeschalteter Schalter sendet kein einziges Zeichen mit.',

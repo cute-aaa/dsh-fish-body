@@ -5,6 +5,10 @@ import type { Key } from './zh.ts';
 
 export const es: Record<Key, string> = {
   nav: 'Configuración de mascotas',
+  searchPlaceholder: 'Buscar ajustes, titulos o valores actuales…',
+  searchResults: 'Resultados',
+  searchEmpty: 'Ningun ajuste coincide',
+  searchWholeCard: 'Tarjeta completa',
   tabLook: 'Apariencia',
   petCardTitle: 'Mascota',
   avatarLabel: 'Avatar',
@@ -293,6 +297,35 @@ export const es: Record<Key, string> = {
   trayToggle: 'Bandeja del sistema',
   trayToggleHint:
     'Muestra un icono en la bandeja (área de notificaciones en Windows, barra de menús en macOS) cuando el modo escritorio está activo. Lista todas las mascotas de la configuración y alterna cada una entre escritorio y web/ninguno, incluidas las que ahora no están en el escritorio y no tienen ventana donde hacer clic derecho. Con esto desactivado, para devolver una mascota al escritorio hay que abrir el navegador (la página de configuración o el clic derecho sobre la mascota web). Windows ya oculta los iconos de terceros en «iconos ocultos». Solo afecta al modo escritorio.',
+  screenTitle: 'Pantalla y evitación',
+  screenHint:
+    'Lectura de pantalla: captura la pantalla cada cierto tiempo, deja que el modelo actual la mire y di una frase en un globo (solo globo, sin voz). Evitación: oculta la mascota de escritorio mientras una app a pantalla completa o una app de la lista esté delante, y vuelve a mostrarla al cambiar. Ambas están desactivadas por defecto; los interruptores y los tiempos se configuran aquí.',
+  screenDesktopOnly:
+    'Solo en modo escritorio: la mascota del navegador no puede capturar la pantalla ni tiene ventana que ocultar.',
+  screenSectionRead: 'Lectura de pantalla',
+  screenReadToggle: 'Decir una frase sobre la pantalla',
+  screenIdleOnlyLabel: 'Solo con DSH inactivo',
+  screenIntervalLabel: 'Intervalo mínimo',
+  screenIdleSecLabel: 'Umbral de inactividad',
+  screenQuietLabel: 'Horas silenciosas',
+  screenQuietFromLabel: 'Desde',
+  screenQuietToLabel: 'Hasta',
+  screenQuietHint:
+    'Rellena ambos como HH:MM; no se captura nada en esa franja (p. ej. 23:00 a 08:00, se permite cruzar medianoche). Vacío = desactivado.',
+  screenUnitSec: 's',
+  screenUnitMs: 'ms',
+  screenSectionAvoid: 'Evitación',
+  screenAvoidFullscreenLabel: 'Ocultar en pantalla completa',
+  screenAvoidMaximizeLabel: 'Contar maximizado',
+  screenAvoidDelayLabel: 'Retardo al ocultar',
+  screenAvoidRestoreLabel: 'Retardo al volver',
+  screenAvoidPollLabel: 'Intervalo de sondeo',
+  screenAvoidAppsLabel: 'Ocultar con las apps listadas',
+  screenAppsLabel: 'Lista de apps',
+  screenAppsHint:
+    'Separadas por comas, hasta 50. Lo que acaba en .exe compara el nombre del proceso exacto; lo demás busca en el título de la ventana.',
+  screenNote:
+    'Cada lectura es una petición de imagen y cuesta dinero, por eso el intervalo mínimo limita el gasto. Usa el modelo de susurros o, si está vacío, el modelo de chat actual: debe aceptar imágenes. La evitación solo existe en Windows, oculta únicamente las ventanas de la mascota y nunca muestra mascotas que ocultaste tú.',
   voiceTitle: 'Voz',
   voiceHint:
     'Cuatro interruptores y una voz: cada tipo de locución tiene su propio interruptor y ninguno depende de otro. Todo desactivado por defecto; se escribe en la configuración del usuario al "Guardar" (nunca al instante).',
@@ -320,8 +353,11 @@ export const es: Record<Key, string> = {
   voiceLocalLabel: 'Voz (local)',
   voiceLocalHint: 'Timbre del servicio de voz local; se aplica desde la frase siguiente',
   voiceNameFallbackHint: 'No se usa mientras la voz local este disponible: solo elige la voz de edge si GSV falla',
-  voiceProviderTitle: 'Voz local (GSV)',
-  voiceProviderHint: 'URL del servicio GPT-SoVITS y carpetas de material; se reescanean las voces al guardar',
+  voiceProviderTitle: 'Conexion de voz',
+  voiceProviderHint:
+    'Ajustes de conexion de cada proveedor de voz; se aplican al guardar y las claves quedan en el almacen de credenciales del host',
+  voiceProviderSecretSaved: 'Guardado; dejalo vacio para no cambiarlo',
+  voiceProviderSecretClear: 'Borrar',
   voiceProviderSave: 'Guardar conexion',
   voiceProviderSaved: 'Guardado; lista de voces actualizada',
   voiceProviderReady: 'Servicio en linea',
@@ -394,6 +430,7 @@ export const es: Record<Key, string> = {
   modelEmpty: 'No hay modelos que coincidan.',
   modelNoModels: 'No hay modelos disponibles.',
   modelLoading: 'Actualizando la lista de modelos…',
+  modelReload: 'Recargar la lista de modelos',
   modelTriggerAria: 'Seleccionar modelo, actual {model}',
   modelUnknown: ' (configuración actual, no está en la lista)',
   modelNone: 'Este proveedor no tiene modelos disponibles',
@@ -505,6 +542,7 @@ export const es: Record<Key, string> = {
   restartHelper:
     'HMR no disponible: se reconstruyó la ventana de escritorio, pero los cambios en el host aún requieren reiniciar el perfil.',
   restartFailed: 'No se pudo reiniciar el plugin; revisa el registro del plugin.',
+  restartNeededHint: 'Se aplica tras reiniciar el complemento',
   resetSettings: 'Restablecer ajustes',
   resetHint:
     'Restaura todos los ajustes a los valores predeterminados del proyecto (mascotas, personas, física, fuente, sonido, voz, modelos y peces de sesión). Al confirmar se escribe de inmediato.',
@@ -541,6 +579,7 @@ export const es: Record<Key, string> = {
   restoreConfirm: 'Restaurar',
   tabFeel: 'Aspecto y sensación',
   barDirty: '{n} cambios sin guardar',
+  restartPending: '{n} cambios se aplican tras reiniciar el complemento',
   barRevert: 'Descartar cambios',
   barRevertHint: 'Descarta los cambios sin guardar y vuelve a los valores del archivo de configuración.',
   revertDone: 'Se descartaron los cambios sin guardar.',
@@ -549,9 +588,10 @@ export const es: Record<Key, string> = {
   secDisplay: 'Visualización y posición',
   secFeatures: 'Funciones',
   secAdvanced: 'Avanzado',
+  maintenanceSection: 'Acciones de mantenimiento',
   maintenanceTitle: 'Mantenimiento',
   maintenanceHint:
-    'Reiniciar el complemento, restaurar los valores predeterminados y cómo se organiza esta página. Son acciones que se ajustan una vez, así que no ocupan la barra inferior.',
+    'Copia de seguridad y restauración, mover la raíz de datos o la carpeta de skins, reiniciar el complemento, restaurar los valores predeterminados. Son acciones que se ajustan una vez, así que se agrupan al final de la página y no ocupan la barra inferior.',
   chatCostTitle: 'Cuánto cuestan estos interruptores',
   chatCostHint:
     'Cada nota corresponde a un interruptor de arriba. Un interruptor apagado no envía ni un carácter al modelo.',

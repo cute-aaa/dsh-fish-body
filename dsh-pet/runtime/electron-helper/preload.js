@@ -75,6 +75,11 @@ contextBridge.exposeInMainWorld('petBridge', {
   captureScreen() {
     return ipcRenderer.invoke('pet:capture-screen');
   },
+  // 识屏取帧：主进程缩到长边 1280 并先判黑图。
+  // 返回 { ok:true, attachment:{mediaType,data}, width, height, bytes } 或 { ok:false, reason }。
+  captureScreenFrame() {
+    return ipcRenderer.invoke('pet:screen-frame');
+  },
   // 宠物间碰撞（跨窗 broker）：位置与速度随 setBounds 捎带，主进程汇聚后广播；被撞方收 pet:hit 后按新初速抛出。
   onFlightStates(cb) {
     ipcRenderer.on('pet:flight-states', (e, states) => cb(states));
@@ -94,5 +99,18 @@ contextBridge.exposeInMainWorld('petBridge', {
   // 渲染端就地重挂视口与边界。
   onDisplays(cb) {
     ipcRenderer.on('pet:displays', (e, geo) => cb(geo));
+  },
+  // 避让：把「开关 + 轮询节拍」推给主进程（判定与状态机在渲染端的 shared/avoid）。
+  setAvoidConfig(cfg) {
+    ipcRenderer.send('pet:avoid-config', cfg);
+  },
+  // 避让的落点：主进程据此 hide/showInactive，并与托盘的「隐藏宠物」相乘。
+  setAvoidHidden(hidden) {
+    ipcRenderer.send('pet:avoid-hidden', !!hidden);
+  },
+  // 前台窗口快照：主进程每拍推一行原始数据 + 本窗口所在显示器的矩形。
+  // 解析与判定都在渲染端（shared/foreground + shared/avoid，与浏览器端同一份代码）。
+  onForeground(cb) {
+    ipcRenderer.on('pet:foreground', (e, payload) => cb(payload));
   },
 });

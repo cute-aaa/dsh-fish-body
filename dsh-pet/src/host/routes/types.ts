@@ -132,11 +132,11 @@ export interface PetRouteDeps {
   readonly sleepBlocked: (petId: string, params: URLSearchParams) => RouteResult | null;
   /** 插件日志出口（文件 + 终端）。 */
   readonly log: FileLogger;
-  /** 宿主上下文的最小结构：路由只用到 logger 与 llm 服务。 */
+  /** 宿主上下文的最小结构：路由只用到 logger、llm 服务与当前对话的模型。 */
   readonly ctx: {
     logger?: { warn?(message: string): void };
     llm?: unknown;
-    /** 当前对话的模型（人设润色沿用同一份候选链；缺失时润色回 `no-llm`）。 */
+    /** 当前对话的模型：人设润色与识屏都靠它选模型并走同一条候选回落链；独立模式没有这个服务。 */
     agentDefaultModel?: { currentSelection(): { provider: string; model: string } };
     /** Cordis 服务查找：取 `hmr` 等可选服务（缺失时返回 undefined）。 */
     get?: (name: string) => unknown;
@@ -155,8 +155,14 @@ export interface PetRouteDeps {
     ext: string,
     opts?: { renderer?: RendererKind; model?: string },
   ) => SfxDirs;
-  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/skin`）。 */
+  /** 共享资源池的根（`assets.pool`，默认 `<用户根>/assets/pet`）。 */
   readonly poolRoot: () => string;
+  /**
+   * 池根的有序表：主根在前，其后是 `assets.resourceDirs` 里的外部素材根。
+   *
+   * 可选：精简测试桩只给 `poolRoot`，此时按单根处理（与多根加入之前的行为一致）。
+   */
+  readonly poolRoots?: () => string[];
   /** 会话鱼的皮肤池目录（用户目录 + 包内动画）；缺省按 `userRoot` 现算。 */
   readonly fishSkinDirs?: () => FishSkinDirs;
   /** 用平台文件管理器打开一个目录（设置页的「打开素材文件夹」）。 */

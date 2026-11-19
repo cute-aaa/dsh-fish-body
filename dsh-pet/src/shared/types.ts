@@ -5,6 +5,7 @@
  * @module dsh-fish-body/src/shared/types
  */
 import type { HotkeyMap } from './hotkeys.ts';
+import type { ScreenConfig } from './screen-config.ts';
 
 /** 支持的角落。 */
 export type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
@@ -153,6 +154,9 @@ export interface Pet {
   physics?: PhysicsParams;
   /** 全局默认：是否锁定在当前屏幕——抛掷与自主漫游都只在当前所在那块屏内活动 */
   confineToScreen?: boolean;
+  /** 全局默认：看屏幕与避让（十三个平键在拍平时收成这个嵌套对象，见 shared/screen-config）。
+   *  网页端不用它；桌面 Helper 读它决定「这一拍拍不拍屏幕」与「现在该不该躲」。 */
+  screen?: ScreenConfig;
   /** 全局：九个悬停键的键位（由 main 条目顶层那一段吹入，改动见 shared/hotkeys）。
    *  缺省 = 出厂键位；两端（网页 / 桌面）都用这一份，因此菜单键帽与实际判定永远一致。 */
   hotkeys?: HotkeyMap;
@@ -371,6 +375,14 @@ export interface ResolvedSfxCue {
 export interface AssetsConfig {
   /** 池根：相对用户根（默认 `skin`）或绝对路径；空串/非法即回落默认。 */
   pool?: string;
+  /**
+   * 额外的素材根（绝对路径或相对用户根）：**按顺序并入池视图**。
+   *
+   * 与 `pool` 同一语义层级——都是「这台机器上的共享素材库」，主根写在 `pool`、其余排在这里。
+   * 用途是直接接外部皮肤工程（`D:\AI\FishChi\body\skins` 这类），不必把文件搬进数据根。
+   * 同 id 资源先到先得：主根优先，然后按本数组顺序。
+   */
+  resourceDirs?: string[];
 }
 
 /**

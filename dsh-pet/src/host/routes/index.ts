@@ -23,6 +23,7 @@ import { handleOpenFolderRoutes } from './open-folder.ts';
 import { handlePersonaRoutes } from './persona.ts';
 import { handlePlaybackRoutes } from './playback.ts';
 import { handlePluginRestart } from './plugin-restart.ts';
+import { handleScreenRoutes } from './screen.ts';
 import { handleSessionRoutes } from './session.ts';
 import { handleSessionFishRoutes } from './session-fish.ts';
 import { handleSettingsBackupRoutes } from './settings-backup.ts';
@@ -42,6 +43,7 @@ const HANDLERS: readonly RouteHandler[] = [
   handleMenuRoutes,
   handleStateRoutes,
   handleSessionRoutes,
+  handleScreenRoutes,
   handleSessionFishRoutes,
   handleSettingsBackupRoutes,
   handleBalanceRoutes,
@@ -82,6 +84,10 @@ function sleepGated(rest: string, method: string): boolean {
     rest === 'menu/click' ||
     rest === 'sfx' ||
     rest.startsWith('sfx/') ||
+    // 识屏的两条会产生气泡 / 立刻拍一次：睡着时不打扰。`screen/tick` 与 `screen/state` 不拦——
+    // 那是 Helper 每拍一次的查询与设置页读状态，拦住只会刷出一串错误。
+    rest === 'screen/frame' ||
+    rest === 'screen/request' ||
     rest === 'voice'
   );
 }

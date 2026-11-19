@@ -46,6 +46,11 @@ export const CARDS_CSS = [
   // 卡片正文里的说明：11–12px 三级色，最多三行，用来替掉过去每个字段挂一个问号的做法。
   '.dsh-pet-cfg__note{margin:0;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-label-tertiary)}',
   '.dsh-pet-cfg__note.is-tight{font-size:var(--pcg-fs-meta);line-height:16px}',
+  // 「需重启插件后生效」：与普通说明同尺寸，但换成主色——
+  // 它说的是「你现在看到的还不是最终效果」，压成三级灰会被当成又一条可以忽略的提示。
+  '.dsh-pet-cfg__note.is-restart{color:var(--dsw-alias-state-business-primary)}',
+  // 有重启提示的开关格改成竖排：平时 `.dsh-pet-cfg__switch` 是一行 flex，第二行文本会挤在开关右侧。
+  '.dsh-pet-cfg__switch.is-stacked{flex-direction:column;align-items:flex-start;gap:2px}',
   // 父开关关掉时整组降透明（会话鱼「关掉播报后，三类子播报一起失效」）。
   '.dsh-pet-cfg__switchGrid.is-muted .dsh-pet-cfg__switch>label{opacity:.45}',
 
@@ -156,6 +161,8 @@ export const CARDS_CSS = [
   // 滚动时卡片会从那条 24px 的缝里露出来。用一块同色的阴影把缝补上（被子面板裁掉也不留痕迹）。
   '.dsh-pet-cfg__bar{position:sticky;bottom:0;z-index:2;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0 4px;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);box-shadow:0 24px 0 0 var(--dsw-alias-bg-layer-2)}',
   '.dsh-pet-cfg__barState{display:inline-flex;align-items:center;gap:6px;min-width:0;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-label-secondary)}',
+  // 「其中 n 项需重启」用主色：它是这次保存的收尾结论，跟「还剩几项没存」不是同一件事。
+  '.dsh-pet-cfg__barState.is-restart{color:var(--dsw-alias-state-business-primary)}',
   '.dsh-pet-cfg__barSpacer{flex:1 1 auto;min-width:8px}',
   '.dsh-pet-cfg__msg{margin-left:4px;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-state-success-primary)}',
   '.dsh-pet-cfg__msg.is-err{color:var(--dsw-alias-state-error-primary)}',

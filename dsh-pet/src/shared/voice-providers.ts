@@ -22,6 +22,8 @@ export interface VoiceFieldView {
   readonly required: boolean;
   readonly placeholder?: string;
   readonly description?: string;
+  /** `kind: select` 的候选值；其它类型或缺省时为空（渲染成输入框）。 */
+  readonly options?: readonly string[];
 }
 
 /** 一个语音实现的状态视图。 */
@@ -74,6 +76,7 @@ function parseChoice(raw: unknown): VoiceChoice | undefined {
 
 /**
  * 解析一个接入配置项。
+ *
  * @param raw - 网络来的任意值。
  * @returns 合法项；缺 key/label 或 kind 不认识时 undefined（不认识的控件渲染不出来，宁可不显示）。
  */
@@ -86,6 +89,10 @@ function parseField(raw: unknown): VoiceFieldView | undefined {
   if (kind !== 'text' && kind !== 'password' && kind !== 'number' && kind !== 'select') return undefined;
   const placeholder = str(entry.placeholder).trim();
   const description = str(entry.description).trim();
+  // 候选值只留非空字符串：下拉里混进一个空项会让用户「选了个空」，看起来像没生效
+  const options = Array.isArray(entry.options)
+    ? entry.options.map((item) => str(item).trim()).filter((item) => item !== '')
+    : [];
   return {
     key,
     label: str(entry.label).trim() || key,
@@ -93,6 +100,7 @@ function parseField(raw: unknown): VoiceFieldView | undefined {
     required: entry.required === true,
     ...(placeholder ? { placeholder } : {}),
     ...(description ? { description } : {}),
+    ...(options.length > 0 ? { options } : {}),
   };
 }
 

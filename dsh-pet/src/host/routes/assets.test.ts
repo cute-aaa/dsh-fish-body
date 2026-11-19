@@ -267,3 +267,60 @@ describe('资源清单 —— /skin/<root>/resources', () => {
     assert.deepEqual(body.items, [{ id: 'character1', source: 'pool' }]);
   });
 });
+
+describe('多素材根（assets.resourceDirs）—— 取文件按根序回退', () => {
+  /** 造一个「主根 + 外部根」的 deps：外部根目录在临时目录里另起。 */
+  const multiDeps = (extra: string): PetRouteDeps =>
+    ({
+      petConfigDir: dir,
+      poolRoot: () => join(dir, 'skin'),
+      poolRoots: () => [join(dir, 'skin'), extra],
+    }) as unknown as PetRouteDeps;
+
+  const readWith = (who: PetRouteDeps, rest: string) =>
+    handleAssetsRoutes(who, { url: new URL('http://localhost/' + rest), rest, method: 'GET' });
+
+  const putExternal = (root: string, rel: string, body = '{}'): string => {
+    const path = join(root, rel);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, body);
+    return path;
+  };
+
+  test('/skin/pool/...：主根没有的文件去外部根取', async () => {
+    const extra = join(dir, 'external-skins');
+    const file = putExternal(extra, join('layered', 'external1', 'manifest.json'), '{"canvas":{"w":2,"h":2}}');
+    const result = await readWith(multiDeps(extra), 'skin/pool/layered/external1/manifest.json');
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, file);
+  });
+
+  test('同名资源：主根优先，外部根不顶掉它', async () => {
+    const extra = join(dir, 'external-skins');
+    const primary = join(dir, 'skin', 'layered', 'same', 'manifest.json');
+    mkdirSync(dirname(primary), { recursive: true });
+    writeFileSync(primary, '{"canvas":{"w":1,"h":1}}');
+    putExternal(extra, join('layered', 'same', 'manifest.json'), '{"canvas":{"w":9,"h":9}}');
+    const result = await readWith(multiDeps(extra), 'skin/pool/layered/same/manifest.json');
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, primary);
+  });
+
+  test('/skin/pool/skins：两个根的资源都进清单', async () => {
+    const extra = join(dir, 'external-skins');
+    putExternal(join(dir, 'skin'), join('layered', 'primary1', 'manifest.json'));
+    putExternal(extra, join('layered', 'external1', 'manifest.json'));
+    const result = await readWith(multiDeps(extra), 'skin/pool/skins');
+    assert.ok(result !== undefined && result.kind === 'json');
+    const skins = (result.obj as { skins: string[] }).skins;
+    assert.deepEqual([...skins].sort(), ['external1', 'primary1']);
+  });
+
+  test('/thumb/pool/<动画>.webm：外部根里的平铺动画也能播', async () => {
+    const extra = join(dir, 'external-skins');
+    const file = putExternal(extra, join('webm', 'extra-movie.webm'), 'x');
+    const result = await readWith(multiDeps(extra), 'thumb/pool/extra-movie.webm');
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, file);
+  });
+});

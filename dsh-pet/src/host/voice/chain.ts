@@ -1,8 +1,10 @@
 /**
- * 语音合成的回退链：可用的第三方实现按注册顺序在前，内置 edge 永远收尾。
+ * 语音合成的回退链：可用的**免费**第三方实现按注册顺序在前，内置 edge 永远收尾。
  *
  * 为什么要有链：一句话念不出来比念得难听更糟。第三方（GSV 这类本地服务）没起、没配 key 或者临时报错时，
  * 直接落到下一环，用户只会听到「换了个嗓子」，而不是弹一句失败。
+ * 为什么把按量计费的实现排除在外：链是「自动选一个能出声的」，让付费实现混进来等于
+ * 在本地服务没起时静默花用户的钱。付费实现只能经 {@link voiceChainWithPreferred} 显式排到链首。
  * 每一环自带超时与错误归一：超时按失败处理，失败的原样抛 VoiceSynthError 给 speak 决定是否继续。
  * 内置 edge 额外重试一次：它偶发「第一次调用失败」（见 docs 交接-P3 踩坑 23）。
  * 不查缓存、不落盘：那些在 speak.ts。
@@ -108,16 +110,41 @@ function builtinLink(impl: (input: SynthInput) => Promise<AudioClip>): VoiceChai
 }
 
 /**
- * 造当前的合成链。
+ * 造当前的**免费**合成链（付费实现不参与，见模块头）。
  *
  * @param builtin - 内置实现的替身（测试注入）；缺省是真实的 edge。
- * @returns 可用第三方（注册顺序）→ 内置实现；至少总有一环。
+ * @returns 可用免费第三方（注册顺序）→ 内置实现；至少总有一环。
  */
 export function voiceChain(builtin: (input: SynthInput) => Promise<AudioClip> = synthesize): VoiceChainLink[] {
   const external = voiceProviderEntries()
-    .filter((entry) => entry.available)
+    // 按量计费的实现只能被显式选中：自动选中它就是在替用户决定花钱
+    .filter((entry) => entry.available && entry.provider.billable !== true)
     .map((entry) => providerLink(entry.provider));
   return [...external, builtinLink(builtin)];
+}
+
+/**
+ * 造本次合成用的链：显式选中的付费实现排在最前，其余照旧是免费链。
+ *
+ * 为什么首选失败还要留免费链：没声音比换个嗓子更糟，而失败的那次请求不计费
+ * （DeepSeek TTS 只在合成成功时按字符收费），所以回落不增加成本。
+ * 首选指向未注册 / 非付费 / 此刻不可用的实现时**静默当没选**：配置失效不该让整句话合成失败，
+ * 设置页那边有它自己的可用性提示。
+ *
+ * @param preferredId - 用户显式开启的付费实现 id；空/未注册时等价于 {@link voiceChain}。
+ * @param builtin - 内置实现的替身（测试注入）。
+ * @returns 链（至少一环）。
+ */
+export function voiceChainWithPreferred(
+  preferredId: string | undefined,
+  builtin: (input: SynthInput) => Promise<AudioClip> = synthesize,
+): VoiceChainLink[] {
+  const chain = voiceChain(builtin);
+  const id = (preferredId ?? '').trim();
+  if (id === '') return chain;
+  const entry = voiceProviderEntries().find((item) => item.provider.id === id);
+  if (!entry || entry.provider.billable !== true || !entry.available) return chain;
+  return [providerLink(entry.provider), ...chain];
 }
 
 /**

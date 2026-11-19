@@ -114,4 +114,40 @@ describe('Bar —— 底部操作栏', () => {
     const [bad] = flatten(err).filter((node) => node.props.children === 'saveError');
     assert.match(String(bad.props.className), /is-err/);
   });
+
+  test('有「已保存但需重启」的改动：多一条状态与一个立即重启按钮，点击回传', () => {
+    const calls: string[] = [];
+    const tree = Bar(
+      props({
+        msg: { kind: 'ok', text: 'saved' },
+        restart: { count: 2, onRestart: () => calls.push('restart'), busy: false },
+      }) as never,
+    );
+    const states = flatten(tree).filter((node) => String(node.props.className ?? '').includes('__barState'));
+    assert.equal(states.length, 1, '需重启提示自己就是一条状态');
+    assert.match(String(states[0].props.className), /is-restart/);
+    assert.ok(
+      flatten(states[0]).some((node) => String(node.props.children ?? '').includes('restartPending')),
+      '文案走 restartPending',
+    );
+    // 保存结论仍然在：两者说的不是同一件事（一个「存了」，一个「还得重启」）。
+    assert.ok(flatten(tree).some((node) => node.props.children === 'saved'));
+
+    const restartBtn = buttons(tree).find((node) => node.props.children === 'fsLocationRestart');
+    assert.ok(restartBtn, '要有一个立即重启按钮');
+    (restartBtn?.props.onClick as () => void)();
+    assert.deepEqual(calls, ['restart']);
+  });
+
+  test('没有这类改动：不渲染提示与重启按钮，按钮仍是四个', () => {
+    const tree = Bar(props() as never);
+    assert.equal(flatten(tree).filter((node) => String(node.props.className ?? '').includes('is-restart')).length, 0);
+    assert.equal(buttons(tree).length, 4);
+  });
+
+  test('重启进行中：立即重启按钮置灰', () => {
+    const tree = Bar(props({ restart: { count: 1, onRestart: () => {}, busy: true } }) as never);
+    const restartBtn = buttons(tree).find((node) => node.props.children === 'fsLocationRestart');
+    assert.equal(restartBtn?.props.disabled, true);
+  });
 });

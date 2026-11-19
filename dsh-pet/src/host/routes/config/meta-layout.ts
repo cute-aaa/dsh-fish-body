@@ -107,6 +107,10 @@ export function layoutNodes(input: MetaLayoutInput): MetaNode[] {
     dir('runtime.electron', paths.electronDir, 2, 'runtime'),
     // 用户皮肤（`skin/`）排在素材前面：它是用户自己的东西，素材是随包 / 共享的。
     dir('skin', paths.skinsDir, 1, 'skin-root'),
+    // 用户皮肤按渲染方式分三类：树里列出来，用户才知道该往哪放（内置池在 assets/pet，属回落）。
+    ...(['layered', 'live2d', 'webm'] as const).map((layer) =>
+      dir('skin.' + layer, join(paths.skinsDir, layer), 2, 'skin-root'),
+    ),
     dir('assets', paths.assetsDir, 1, 'assets'),
     dir('assets.animation', paths.animationDir, 2),
     dir('assets.sound', paths.soundDir, 2),

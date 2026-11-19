@@ -4,6 +4,7 @@
  * 不决定通知文案与档位（归 notify-events 与 shared/work-status），只做事件到判定的转接。
  * @module dsh-fish-body/src/host/plugin/session-watch
  */
+import { markAgentActivity } from '../agent-activity.ts';
 import { GOAL_UPDATE_TOOL, currentTaskFromTodo, goalUpdateAction, reduceWorkStatus } from '../work-status.ts';
 import { toolDetailFromEvent } from '../tool-detail.ts';
 import {
@@ -155,6 +156,9 @@ export function registerSessionWatch(deps: SessionWatchInput): void {
     const dispose = ctx.on('session/event', (session: unknown, event: unknown) => {
       const type = (event as { type?: string } | null)?.type;
       if (!type) return;
+      // 识屏的忙闲判定只认这一个时刻（见 host/agent-activity）：每个会话事件都算一次活动，
+      // 于是「刚干完还没冷」与「一直在跑」都能被 `idleForMs < idleSec` 表达出来。
+      markAgentActivity();
       const sessionId = String(
         (session as { id?: unknown; header?: { id?: unknown } } | null)?.header?.id ??
           (session as { id?: unknown } | null)?.id ??
