@@ -24,7 +24,14 @@ import {
 } from './settings/config/index.ts';
 import { injectSettingsCss } from './settings/css.ts';
 import { makeDialog, type DialogState } from './settings/dialog.ts';
-import { baselineFromConfig, diffSnapshot, dirtyTabs, makeDirtyQuery, type FormSnapshot } from './settings/dirty.ts';
+import {
+  advancePetBaseline,
+  baselineFromConfig,
+  diffSnapshot,
+  dirtyTabs,
+  makeDirtyQuery,
+  type FormSnapshot,
+} from './settings/dirty.ts';
 import { NO_FEEDBACK, type Feedback } from './settings/feedback.ts';
 import { makeLoadStatus } from './settings/load-status.ts';
 import { makeSettingsPanels, type SettingsPanelDeps } from './settings/panels.ts';
@@ -40,6 +47,10 @@ import { useAvatarUpload } from './settings/use-avatar-upload.ts';
 import { useGlobalSettings } from './settings/use-global-settings.ts';
 import { useHotkeysSettings } from './settings/use-hotkeys-settings.ts';
 import { useModelSettings } from './settings/use-model-settings.ts';
+import { usePersonaCharacters } from './settings/use-persona-characters.ts';
+import { usePersonaImport } from './settings/use-persona-import.ts';
+import { usePersonaPolish } from './settings/use-persona-polish.ts';
+import { useRenderResources } from './settings/use-render-resources.ts';
 import { usePermissionTest } from './settings/use-permission-test.ts';
 import { usePetList } from './settings/use-pet-list.ts';
 import { useRemoteData } from './settings/use-remote-data.ts';
@@ -91,6 +102,8 @@ export function makePetConfigSection(
     const [msg, setMsg] = useState<Feedback>(NO_FEEDBACK);
     // 当前分区只是本地视图状态：不写配置，只在 localStorage 里记一笔「上次看到哪」。
     const [tab, setTab] = useState<SettingsTabId>(firstTab);
+    // 从「声音」跳过来时的一次性锚点（fish.speak）；用完即清，避免每次切回都滚一次。
+    const [focusAnchor, setFocusAnchor] = useState<string | null>(null);
     // 设置页根节点：Ctrl+S 只在它可见时接管。
     const rootRef = useRef<HTMLElement | null>(null);
     // 确认 / 提示弹窗：remove 删除宠物、lastOne 只剩一只删不了、reset 重置设置、corrupt 用户配置已损坏。
@@ -125,6 +138,31 @@ export function makePetConfigSection(
     const permission = usePermissionTest(rt);
     // 会话鱼：草稿、皮肤清单与两个写入口；保存 / 重置由底部栏触发。
     const fish = useSessionFish(rt, { report: setMsg, onAuthoritative: markFish });
+    // 人设角色库：作用域 = 当前实例；应用成功后只回填这一只的草稿并推进它的基线
+    // （宿主已经改过盘，不回填的话下一次保存会把角色正文盖回旧值）。
+    const characters = usePersonaCharacters(rt, {
+      petId: list.selId,
+      report: setMsg,
+      onApplied: (petId, fields) => {
+        list.update(fields);
+        setBaseline((current) => (current === null ? current : advancePetBaseline(current, petId, fields)));
+      },
+    });
+    const personaImport = usePersonaImport(rt, {
+      petId: list.selId,
+      report: setMsg,
+      onImported: () => characters.reload(),
+    });
+    const polish = usePersonaPolish(rt, {
+      petId: list.selId,
+      report: setMsg,
+      onChange: (patch) => list.update(patch),
+    });
+    // 渲染资源：按当前选中宠物的素材根拉三桶清单（池读取器一请求一实例，「重新扫描」= 再发一次）。
+    const resources = useRenderResources(rt, {
+      assetRoot: current?.assetRoot ?? 'main',
+      report: setMsg,
+    });
 
     // 首次读取与恢复默认必须更新同一组控件，避免下一次保存回写过期值。
     // 每个分区只认自己那几项，这里按分区派发，不逐字段 setState；同时推进基线。
@@ -243,6 +281,18 @@ export function makePetConfigSection(
       saveTab(tabStorage, id);
     };
 
+    /**
+     * 从「声音」跳到「会话鱼」的播报小节。
+     *
+     * 锚点只活一段时间：滚过一次就清掉，否则每次切回会话鱼都会再滚一次，像页面上有个甩不掉的勾。
+     */
+    const jumpToTab = (id: SettingsTabId): void => {
+      selectTab(id);
+      if (id !== 'fish') return;
+      setFocusAnchor('fish.speak');
+      setTimeout(() => setFocusAnchor(null), 1500);
+    };
+
     /** 确定：保存成功才关闭；失败时留在原地看红字。 */
     const confirm = (): void => {
       void write.saveAll().then((ok) => {
@@ -285,6 +335,12 @@ export function makePetConfigSection(
       perm: { msg: permission.message, test: permission.test },
       backup,
       maintenance: { restart, reset: write.requestReset },
+      characters,
+      personaImport,
+      polish,
+      resources,
+      onSelectTab: jumpToTab,
+      focusAnchor,
       dirty,
     };
     const panels = panelsOf(deps);

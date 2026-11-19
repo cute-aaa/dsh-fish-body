@@ -69,15 +69,15 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 ## 五、改配置与重载
 
-| 接口                                 | 功能                                                                                                                   |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `PUT /dsh-pet-7340/config`           | 保存用户层配置（白名单重建，用户手写的精调字段会保留）                                                                 |
-| `POST /dsh-pet-7340/config`          | 用内置默认整份覆盖用户配置，即「恢复默认」                                                                             |
-| `POST /dsh-pet-7340/pet-display`     | **改单只宠物的显示位置**（`web` / `desktop` / `both` / `none`），只传 `{ id, display }`                                |
-| `POST /dsh-pet-7340/pet-config`      | **按种类写回全部实例**（`{ entry, pets }`，`entry` = `skin/<名>-config.json` 的前缀）；白名单重建，顶层动画池与人设保留|
-| `POST /dsh-pet-7340/reload`          | 重载桌面端（重启桌面宠物进程，按最新配置重建窗口）                                                                     |
-| `GET /dsh-pet-7340/settings-backup`  | **导出设置备份**：主配置、每个种类配置与会话鱼设置的**原文**（JSONC 注释与字段顺序都保留）                             |
-| `POST /dsh-pet-7340/settings-backup` | **用备份恢复**：先整体预检再原子写回，覆盖前把现有文件留成 `<文件>.bak-<时间戳>`；空串表示删掉那一层                   |
+| 接口                                 | 功能                                                                                                                    |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `PUT /dsh-pet-7340/config`           | 保存用户层配置（白名单重建，用户手写的精调字段会保留）                                                                  |
+| `POST /dsh-pet-7340/config`          | 用内置默认整份覆盖用户配置，即「恢复默认」                                                                              |
+| `POST /dsh-pet-7340/pet-display`     | **改单只宠物的显示位置**（`web` / `desktop` / `both` / `none`），只传 `{ id, display }`                                 |
+| `POST /dsh-pet-7340/pet-config`      | **按种类写回全部实例**（`{ entry, pets }`，`entry` = `skin/<名>-config.json` 的前缀）；白名单重建，顶层动画池与人设保留 |
+| `POST /dsh-pet-7340/reload`          | 重载桌面端（重启桌面宠物进程，按最新配置重建窗口）                                                                      |
+| `GET /dsh-pet-7340/settings-backup`  | **导出设置备份**：主配置、每个种类配置与会话鱼设置的**原文**（JSONC 注释与字段顺序都保留）                              |
+| `POST /dsh-pet-7340/settings-backup` | **用备份恢复**：先整体预检再原子写回，覆盖前把现有文件留成 `<文件>.bak-<时间戳>`；空串表示删掉那一层                    |
 
 ## 六、第三方菜单项
 
@@ -102,13 +102,14 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `GET /dsh-pet-7340/skin/{root}/{file}`       | 皮肤 / 模型素材（缺失回落池；`root=pool` 只查池）                                                                                                                                                                                |
 | `GET /dsh-pet-7340/skin/{root}/skins`        | 可切换的分层皮肤清单（旧皮肤 ∪ 池，`items` 带 `pack` / `pool` 来源）                                                                                                                                                             |
 | `GET /dsh-pet-7340/skin/{root}/models`       | live2d 模型清单（同上，带来源）                                                                                                                                                                                                  |
+| `GET /dsh-pet-7340/skin/{root}/resources`    | **渲染资源三桶清单**（设置页用）：`layered` / `live2d` / `webm` 各自的 `status`（`ok` / `empty` / `missing`）、`dir`、`count`、`items`、`expect`、`missingFiles`；与 `skins` / `models` 同一套扫描判定                           |
 | `POST /dsh-pet-7340/open-folder?pet=&which=` | 打开素材目录（`pool-layered / pool-live2d / pool-webm / pool-sound / pool-global-sound` 等）；**不带 pet** 可打开全局目录：`pool-root / animations / memes / user-root`                                                          |
 | `GET /dsh-pet-7340/font/{file}`              | 字体文件                                                                                                                                                                                                                         |
 | `GET /dsh-pet-7340/pic/{file}`               | 通知图标（`pic/`）与表情包（`pic/memes/{素材根}/`，按宠物归属）                                                                                                                                                                  |
 | `GET /dsh-pet-7340/attachment?id=`           | **取图**：把对话记忆里 `image.attachmentId`（`sha256:…`）换回图片                                                                                                                                                                |
 | `GET /dsh-pet-7340/logo?root=`               | 宠物头像：缺省回插件 logo（`assets/logo.png`）；带 `root=<素材根>` 时回该 pet pack 上传的头像，没有就回默认                                                                                                                      |
 | `GET /dsh-pet-7340/character?root=`          | **角色参考图**：按素材根回一张官方设定图（png / jpg / webp / gif），第三方自建生图时对齐角色用；**不代调生图模型**，出图与计费都在调用方                                                                                         |
-| `POST /dsh-pet-7340/pet-avatar?root=`        | **上传头像**：`{ base64 }`，覆盖写 `skin/<素材根>-avatar.<ext>`；`root=main`（内置）被拒                                                                                                                                        |
+| `POST /dsh-pet-7340/pet-avatar?root=`        | **上传头像**：`{ base64 }`，覆盖写 `skin/<素材根>-avatar.<ext>`；`root=main`（内置）被拒                                                                                                                                         |
 
 ## 八、工作状态（外部写入）
 
@@ -150,10 +151,10 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 | 接口                                        | 功能                                                                                                                      |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `GET /dsh-pet-7340/session-fish`            | 读会话鱼设置（独立文件 `<数据根>/config/session-fish.json`；文件缺失/损坏时回默认值）                                      |
+| `GET /dsh-pet-7340/session-fish`            | 读会话鱼设置（独立文件 `<数据根>/config/session-fish.json`；文件缺失/损坏时回默认值）                                     |
 | `PUT /dsh-pet-7340/session-fish`            | 保存设置：只传要改的字段；未知键/类型错/越界 → `bad-request`，写盘失败 → `settings-write-failed`（旧值保留）              |
 | `POST /dsh-pet-7340/session-fish`           | 用户动作：`{ action: "focus" \| "close", sessionId, blank?, running? }`；`focus` 在已完成时让鱼消失，`close` 隐藏到下一轮 |
-| `GET /dsh-pet-7340/session-fish/skins`      | 列可选皮肤：用户目录 `<数据根>/assets/session-fish/` 在前、包内 `assets/webm/` 在后（同名以用户为准），附 `defaultSkin`  |
+| `GET /dsh-pet-7340/session-fish/skins`      | 列可选皮肤：用户目录 `<数据根>/assets/session-fish/` 在前、包内 `assets/webm/` 在后（同名以用户为准），附 `defaultSkin`   |
 | `GET /dsh-pet-7340/session-fish/skin?name=` | 取一份皮肤文件（图片 / 动图 / webm）；名字非法或扩展名不支持 → `400`，不存在 → `404` 文本                                 |
 | `POST /dsh-pet-7340/session-fish/claim`     | 认领一条播报的出声权：`{ sessionId, lineSeq }` → `{ granted }`；每个 `(会话, 序号)` 全机器只授予一次                      |
 
@@ -185,6 +186,38 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
   不按 profile 划分；只有在本进程里真正跑的会话才会发 `session/event`，因此鱼天然只对应本 profile 正在做的事。
 
 完整字段与状态机见 [`openapi.yaml`](openapi.yaml)。
+
+## 十二、人设来源与角色库
+
+人设的模型是「**角色库 + 勾选应用**」：来源只负责产出角色，角色进全局角色库
+（`<数据根>/data/persona-characters/*.json`，一角色一个文件，可直接拷走）；宠物**引用**角色
+（`pets[].personaCharacter` 存角色 id），点「应用到此宠物」才把正文写进那一只的 `whisperPrompt`。
+不同宠物可引用不同角色，互不覆盖。接入细节见 [`docs/自定义人设接入.md`](docs/自定义人设接入.md)。
+
+| 接口                                           | 功能                                                                                                                                                                                                                        |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /dsh-pet-7340/persona/sources?pet=`       | **来源列表**：每个来源的 `kind` / `installed` / `expectedPath` / `path` / `scannable` 与上次扫描回执 `lastScan`。`?pet=` 可选（给了附 `pet.entry/writable/character`，给了不存在的 id 回 `unknown-pet`）                    |
+| `POST /dsh-pet-7340/persona/scan`              | **扫描并导入**：`{ source, path? }`；账本回 `{scanned, imported[], skipped[]}`。`path` 必须是绝对路径且落在数据根或 `DSH_HOME` 内，否则 `bad-request`。第二次运行同一来源全部 `reused:true`（同正文按指纹去重，不重复入库） |
+| `GET /dsh-pet-7340/persona/characters`         | **角色列表**：`{id, name, source, importedAt, chars, appliedTo[]}`；坏文件只进 `skipped`                                                                                                                                    |
+| `POST /dsh-pet-7340/persona/characters/import` | **落库**：`{ character: 8 字段, source? }`；同正文回 `reused:true` 且不写盘，同名不同正文 id 加 `-2…-99`                                                                                                                    |
+| `POST /dsh-pet-7340/persona/characters/apply`  | **应用到此宠物**：`{ pet, characterId, writeName? }`；一次读盘一次写盘，**只改这只**。三键已是目标值回 `unchanged:true` 且不写盘；非 main 实例回 `persona-readonly-entry`                                                   |
+| `DELETE /dsh-pet-7340/persona/characters/{id}` | **删角色**：被任何实例引用时拒绝（`character-in-use`，附 `extra.referrers`），无人引用才删文件                                                                                                                              |
+| `POST /dsh-pet-7340/persona/import`            | **文档 → 预览（零写盘）**：`{ files: [{name, base64}], pet }`；单文件解码后 ≤ 768 KiB、合计 ≤ 768 KiB − 4 KiB（base64 与 JSON 包装预留）、最多 5 个；体超 1 MiB 回 `413`，解码后超上限回 `200 + payload-too-large`          |
+| `POST /dsh-pet-7340/persona/polish`            | **AI 润色 → 预览（零写盘）**：`{ pet, text }`；只改措辞、不改名字、不新增设定，`text` 上限 8000 字符                                                                                                                        |
+
+三条边界：
+
+- **预览不写盘**：`/persona/import` 与 `/persona/polish` 只回结果，落库/写宠物一律要显式再调
+  `/persona/characters/import` 或 `/persona/characters/apply`。文档里两个 AI 动作失败都归 `generate-error`。
+- **文档格式**：`md` / `txt` / `json`（`chara_card_v2` 直接取 8 字段、**跳过模型调用**）/
+  `png`（只认 SillyTavern 的 `chara` tEXt 块，**不做 OCR**）/ `docx`（纯文本抽取）。
+  **`.doc` 不支持**，回 `unsupported` 并提示「另存为 .docx 或直接粘贴文本」；读不出内容回 `extract-failed`。
+- **只读实例**：文件宠物（pet pack）的实例属于别的条目（`entry !== 'main'`），
+  `writable:false`，设置页只禁用「应用 / 删除」，扫描/导入/浏览角色库仍可用。
+
+新增的失败 `reason`：`unknown-character`、`character-in-use`（`extra.referrers`）、`extract-failed`、
+`persona-readonly-entry`、`persona-source-unavailable`（`extra.expectedPath`）、`unknown-persona-source`。
+全部是 200 + 失败实体，与其余业务端点同口径。
 
 ---
 

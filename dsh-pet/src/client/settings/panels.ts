@@ -29,6 +29,10 @@ import type { SfxSettings } from './use-sfx-settings.ts';
 import type { ModelSettings } from './use-model-settings.ts';
 import type { PetList } from './use-pet-list.ts';
 import type { VoiceSettings } from './use-voice-settings.ts';
+import type { PersonaCharactersState } from './use-persona-characters.ts';
+import type { PersonaImportState } from './use-persona-import.ts';
+import type { PersonaPolishState } from './use-persona-polish.ts';
+import type { RenderResourcesState } from './use-render-resources.ts';
 
 /** 维护动作（重启 / 重置）：只在系统分区的「插件维护」卡里出现。 */
 export interface MaintenanceActions {
@@ -61,6 +65,18 @@ export interface SettingsPanelDeps {
   readonly backup: SettingsBackupState;
   /** 重启插件与重置设置。 */
   readonly maintenance: MaintenanceActions;
+  /** 角色库（来源 / 角色 / 应用 / 删除）。 */
+  readonly characters: PersonaCharactersState;
+  /** 文档导入草稿。 */
+  readonly personaImport: PersonaImportState;
+  /** AI 润色预览。 */
+  readonly polish: PersonaPolishState;
+  /** 渲染资源三桶清单。 */
+  readonly resources: RenderResourcesState;
+  /** 跳到另一个分区（声音页的「会话鱼播报」引用行）。 */
+  readonly onSelectTab: (tab: SettingsTabId) => void;
+  /** 从声音页跳过来时要聚焦的锚点（fish.speak）。 */
+  readonly focusAnchor: string | null;
   /** 未保存改动查询口：各卡片据此在卡头上画圆点。 */
   readonly dirty: DirtyQuery;
 }
@@ -91,12 +107,37 @@ export function makeSettingsPanels(
   const SystemTab = makeSystemTab(rt, ctx);
 
   return (deps: SettingsPanelDeps): SettingsPanels => ({
-    pet: () => h(PetTab, { list: deps.list, avatar: deps.avatar, busy: deps.busy, dirty: deps.dirty }),
-    feel: () => h(FeelTab, { busy: deps.busy, look: deps.look, dirty: deps.dirty }),
+    pet: () =>
+      h(PetTab, {
+        list: deps.list,
+        avatar: deps.avatar,
+        busy: deps.busy,
+        dirty: deps.dirty,
+        character: { persona: deps.characters, importer: deps.personaImport, polish: deps.polish },
+        onChange: deps.list.update,
+      }),
+    feel: () =>
+      h(FeelTab, {
+        busy: deps.busy,
+        look: deps.look,
+        dirty: deps.dirty,
+        pet: deps.list.pets.find((pet) => pet.id === deps.list.selId) ?? null,
+        petIndex: deps.list.pets.findIndex((pet) => pet.id === deps.list.selId),
+        resources: deps.resources,
+        global: deps.global,
+        onChange: deps.list.update,
+      }),
     audio: () =>
-      h(AudioTab, { busy: deps.busy, global: deps.global, sfx: deps.sfx, voice: deps.voice, dirty: deps.dirty }),
+      h(AudioTab, {
+        busy: deps.busy,
+        global: deps.global,
+        sfx: deps.sfx,
+        voice: deps.voice,
+        dirty: deps.dirty,
+        onSelectTab: deps.onSelectTab,
+      }),
     chat: () => h(ModelTab, { busy: deps.busy, model: deps.model, remote: deps.remote, dirty: deps.dirty }),
-    fish: () => h(FishTab, { busy: deps.busy, fish: deps.fish, dirty: deps.dirty }),
+    fish: () => h(FishTab, { busy: deps.busy, fish: deps.fish, dirty: deps.dirty, focusAnchor: deps.focusAnchor }),
     system: () =>
       h(SystemTab, {
         busy: deps.busy,

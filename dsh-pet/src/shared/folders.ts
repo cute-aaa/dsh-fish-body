@@ -45,6 +45,11 @@ export const GLOBAL_FOLDER_TARGETS = [
   'memes',
   'fish-skin',
   'pool-root',
+  // 三个池桶（渲染卡下方三行的「打开」）：不复用 `pool-layered|live2d|webm` 那三个素材级类别——
+  // 那三个按当前宠物的渲染方式门控，三行里总有两行会被拒。
+  'pool-bucket-layered',
+  'pool-bucket-live2d',
+  'pool-bucket-webm',
 ] as const;
 
 /** 全局目录类别。 */

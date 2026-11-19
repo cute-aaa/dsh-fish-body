@@ -21,6 +21,7 @@ import { createDownloadReport } from './plugin/download-report.ts';
 import { createWorkStatusBridge } from './plugin/work-status-bridge.ts';
 import { createSessionFishBridge, registerSessionFish } from './plugin/session-fish.ts';
 import { registerTodoReminders } from './plugin/todo-reminders.ts';
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { registerPersonaSync } from './plugin/persona-sync.ts';
 import { createVoiceService } from './voice/speak.ts';
 import { createHearService } from './voice/hear.ts';
@@ -46,7 +47,6 @@ export function apply(ctx: any): void {
     paths,
     log,
     configPaths,
-    userConfigPath,
     thumbUserRoot,
     memeDirsFor,
     standaloneAiPolicy,
@@ -216,7 +216,7 @@ export function apply(ctx: any): void {
   });
 
   // 人设同步：注册内置 fish-soul 来源并启动 watcher（改卡不重启即生效），卸载时随 effect 收尾。
-  registerPersonaSync(ctx, { configPaths, userConfigPath });
+  registerPersonaSync(ctx, [userRoot, resolveDshHome()]);
 
   // 路由就绪后拉起桌面 Helper（Electron 缺失时仅告警，不影响 DSH 与浏览器 overlay）
   startHelper();

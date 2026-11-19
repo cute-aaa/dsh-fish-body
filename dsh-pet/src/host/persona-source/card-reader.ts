@@ -146,6 +146,20 @@ function decodeCardText(bytes: Uint8Array): string {
 }
 
 /**
+ * 从文件字节解出卡片字段（JSON 卡与 PNG 卡同一入口）。
+ *
+ * 批量扫描（`./card-file`）需要「字段 + 投影后正文」两样东西才能落库，而
+ * {@link readCardFile} 只回正文与名字；把解码这一步单独开出来，两条路径共用同一份 PNG 判定，
+ * 不在扫描侧再写一遍 tEXt 解析。
+ *
+ * @param bytes - 卡片文件原始字节。
+ * @returns 已收敛的 8 字段；不是合法 v2 卡时返回 `undefined`。
+ */
+export function parseCardBytes(bytes: Uint8Array): CharaCardData | undefined {
+  return parseCard(decodeCardText(bytes));
+}
+
+/**
  * 读一个卡片文件并投影。
  *
  * @param path - 卡片文件路径。

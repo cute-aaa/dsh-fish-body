@@ -172,3 +172,28 @@ describe('readConfigEntries —— 成品聚合 → 条目实例列表', () => {
     assert.equal(entries?.[1].entryPrompt, 'GLM 人设');
   });
 });
+
+describe('readMainConfig / readConfigEntries —— 人设角色是实例字段', () => {
+  test('pets[i] 的 personaCharacter 随 {...pet} 自然带出（不做过滤）', () => {
+    const patch = readMainConfig({
+      main: {
+        pets: [{ id: 'm1', personaCharacter: '鱼生', position: { corner: 'top-left', marginX: 0, marginY: 0 } }],
+      },
+    });
+    assert.equal(patch?.pets?.[0].personaCharacter, '鱼生');
+
+    const entries = readConfigEntries({
+      main: {
+        pets: [{ id: 'm1', personaCharacter: '鱼生', position: { corner: 'top-left', marginX: 0, marginY: 0 } }],
+      },
+    });
+    assert.equal(entries?.[0].pets[0].personaCharacter, '鱼生');
+  });
+
+  test('缺键的实例读出来仍然没有该键（不凭空补一个默认角色）', () => {
+    const patch = readMainConfig({
+      main: { pets: [{ id: 'm1', position: { corner: 'top-left', marginX: 0, marginY: 0 } }] },
+    });
+    assert.equal('personaCharacter' in (patch?.pets?.[0] ?? {}), false);
+  });
+});

@@ -15,6 +15,10 @@ import { makePetCard } from './pet-card.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit } from './ui.ts';
 import type { PetList } from './use-pet-list.ts';
+import type { PersonaCharactersState } from './use-persona-characters.ts';
+import type { PersonaImportState } from './use-persona-import.ts';
+import type { PersonaPolishState } from './use-persona-polish.ts';
+import type { PetPatch } from './pet-card-parts.ts';
 
 /** 头像预览的一格。 */
 export interface PetAvatarView {
@@ -36,6 +40,14 @@ export interface PetTabProps {
   readonly busy: boolean;
   /** 未保存改动查询口。 */
   readonly dirty: DirtyQuery;
+  /** 角色 / 导入 / 润色三个数据源（缺省时不渲染角色卡）。 */
+  readonly character?: {
+    readonly persona: PersonaCharactersState;
+    readonly importer: PersonaImportState;
+    readonly polish: PersonaPolishState;
+  };
+  /** 实例字段补丁（角色应用 / 导入后回填草稿）。 */
+  readonly onChange: (patch: PetPatch) => void;
 }
 
 /**
@@ -88,6 +100,8 @@ export function makePetTab(rt: SettingsRuntime): FunctionComponent<PetTabProps> 
                   h('button', {
                     key: pet.id,
                     type: 'button',
+                    // 实例 id 挂到 DOM 上：用例与将来的分组排序都靠它定位，不靠 chip 的出现顺序。
+                    'data-pet-id': pet.id,
                     className: 'dsh-pet-cfg__chip' + (pet.id === list.selId ? ' is-active' : ''),
                     title: pet.name + ' · ' + pet.size + 'px',
                     onClick: () => list.select(pet.id),
@@ -130,6 +144,7 @@ export function makePetTab(rt: SettingsRuntime): FunctionComponent<PetTabProps> 
           onChange: list.update,
           onRemove: list.requestRemove,
           dirty,
+          ...(props.character === undefined ? {} : { character: { ...props.character, onChange: props.onChange } }),
         }),
       ],
     });

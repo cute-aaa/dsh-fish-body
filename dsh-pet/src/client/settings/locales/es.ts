@@ -560,4 +560,110 @@ export const es: Record<Key, string> = {
   secTiming: 'Ritmo',
   sizesTitle: 'Tamaño por renderizador',
   extraPetsShort: 'Hay {n} tipos más en la carpeta skin/',
+
+  // —— secciones de sonido / referencia al pez de sesión (T9) ——
+  secSfx: 'Efectos de sonido',
+  secVoice: 'Voz',
+  fishSpeakElsewhere: 'Los interruptores de voz del pez de sesión están en la pestaña «Pez de sesión».',
+  fishSpeakJump: 'Abrir «Pez de sesión»',
+  audioScopeHint:
+    'Los efectos y la voz se guardan con «Guardar»; el endpoint de voz local y el cambio de timbre se aplican al instante.',
+  renderRescanFailed:
+    'Error al reexplorar: no se pudo leer la carpeta de recursos. Comprueba que el host esté en marcha.',
+  // —— biblioteca de personajes y las dos acciones de IA (T6, revisado en T11) ——
+  personaEditorSource: 'Editor de personaje integrado',
+  personaLoadFailed:
+    'No se pudo leer la biblioteca de personajes: se usa solo el editor integrado; tu personaje escrito a mano no se toca.',
+  personaScanFailed: 'Error al escanear: no se pudo leer el origen.',
+  personaScanNothing: 'No se encontraron personajes (se revisaron {n} archivos).',
+  personaScanDone: 'Escaneo terminado: {n} personajes.',
+  personaApplyFailed: 'Error al aplicar: el personaje no se escribió en esta mascota.',
+  personaApplyDone: 'Aplicado: esta instancia tiene {n} caracteres.',
+  personaApplyUnchanged: 'Sin cambios: esta mascota ya usa ese personaje ({n} caracteres).',
+  personaRemoveFailed: 'Error al borrar: el personaje no existe o aún lo usa otra mascota.',
+  personaRemoveDone: 'Personaje eliminado de la biblioteca.',
+  personaImportTooMany: 'Como máximo {n} archivos a la vez.',
+  personaImportTooLarge: 'Archivo demasiado grande: hasta 768 KiB cada uno y 1 MiB en total.',
+  personaImportFailed: 'Error al importar: no se extrajo contenido utilizable.',
+  personaImportDone: 'Personaje «{name}» importado.',
+  personaPolishEmpty: 'Escribe algo de texto antes de pulir.',
+  personaPolishFailed: 'Error al pulir: el modelo no devolvió texto utilizable.',
+  personaPolishApplied: 'Pulido aplicado (sin guardar todavía).',
+
+  // —— tarjeta de personaje / render / filas de piel (T7 / T8 / T21) ——
+  secPosition: 'Posición',
+  secFeel: 'Tacto',
+  petCardNote:
+    'El render, la posición y el tamaño se cambian en «Aspecto y tacto»; aquí solo se decide quién es, qué personaje usa y qué puede hacer.',
+  characterTitle: 'Personaje',
+  characterHint:
+    'Escanear una fuente e importar personajes; solo «Aplicar a esta mascota» escribe el texto en su persona.',
+  characterScopeLabel: 'Se aplica a {pet}',
+  characterSourceLabel: 'Fuente',
+  characterSourceHint:
+    'Solo se pueden escanear fuentes con archivos utilizables; las grises muestran la ruta esperada.',
+  characterSourceMissing: 'no instalada',
+  characterSourceNoScan: 'no escaneable',
+  characterScan: 'Escanear e importar',
+  characterReload: 'Actualizar',
+  characterExpectedPath: 'Ruta esperada: {path}',
+  characterPickLabel: 'Personaje',
+  characterPickHint: 'Elige uno de la biblioteca; «Aplicar» sobrescribe la persona de esta mascota.',
+  characterNone: '(sin personaje)',
+  characterApply: 'Aplicar a esta mascota',
+  characterRemove: 'Eliminar',
+  characterWriteName: 'Cambiar también el nombre',
+  characterReadonly:
+    'La persona de una mascota de archivo la gestiona su propia entrada: aquí solo puedes explorar e importar.',
+  characterImport: 'Importar documentos…',
+  characterImportPick: 'Elegir documentos',
+  characterImportHint: 'md / txt / json / tarjeta png / docx; hasta 768 KiB cada uno, 1 MiB en total y 5 archivos.',
+  characterImportedName: 'Nombre',
+  characterImportedDescription: 'Descripción',
+  characterImportedPersonality: 'Personalidad',
+  characterImportCommit: 'Importar a la biblioteca',
+  personaPolish: 'Pulir con IA',
+  personaPolishHint: 'Llama al modelo una vez; el resultado es solo una vista previa.',
+  personaPolishPreview:
+    'Vista previa ({n} caracteres): «Aplicar» lo lleva al borrador; cancelar deja el texto intacto.',
+  renderCardTitle: 'Render',
+  renderCardHint: 'El render y el modelo/piel deciden cómo se ve; la posición y el tamaño, dónde y cuánto ocupa.',
+  renderModelLabel: 'Modelo / piel',
+  renderModelHint: 'Las opciones vienen de la lista del render actual; los archivos que faltan se listan abajo.',
+  renderModelWebmHint: 'webm se reproduce desde el pool de animaciones: no hay modelo aparte.',
+  renderModelStale: 'obsoleto',
+  renderMissingFiles: 'Falta {files}: pon los recursos en {path} y pulsa «Reexplorar».',
+  renderRescan: 'Reexplorar',
+  skinDirsTitle: 'Carpetas de piel',
+  skinDirsHint: 'Las tres filas son las carpetas layered / live2d / webm; la ruta la da el host y «Abrir» va directo.',
+  skinDirsCount: '{n} recursos',
+  skinDirsMissing: 'falta {file}',
+  'renderDir.layered': 'Pieles por capas',
+  'renderDir.live2d': 'Modelos Live2D',
+  'renderDir.webm': 'Animaciones planas',
+
+  // —— tarjeta de comportamiento de ventana + nota del árbol (T20 / T11) ——
+  windowBehaviorTitle: 'Comportamiento de la ventana',
+  windowBehaviorHint:
+    'Las dos filas responden lo mismo: ¿se puede tocar esta ventana y hasta dónde puede ir? El clic a través afecta solo a esta mascota (por instancia); fijar a la pantalla es global.',
+  windowBehaviorNote:
+    'Ambas se guardan con «Guardar». Con el clic a través activo, el menú contextual de la ventana no es accesible: esta tarjeta es la salida.',
+  scopeThis: 'esta mascota',
+  scopeAll: 'todas',
+  'fsDesc.data.personaCharacters':
+    'Biblioteca de personajes: un json por personaje; cópiala o borra la carpeta entera.',
+
+  // —— comparación de la vista previa (T22) ——
+  personaPolishBefore: 'Original',
+  personaPolishAfter: 'Pulido',
+
+  // —— aviso de sobrescritura al aplicar (revisión) ——
+  personaApplyOverwrote:
+    'Se aplicó el texto del personaje y se reemplazó la persona sin guardar de esta mascota ({n} caracteres).',
+
+  // —— filas de piel: vacío vs faltante (retrabajo 2) ——
+  skinDirsEmpty: 'la carpeta existe pero no hay recursos',
+  skinDirsExpect: 'espera {list}',
+  skinDirsBadgeEmpty: 'vacía',
+  skinDirsBadgeMissing: 'falta',
 };

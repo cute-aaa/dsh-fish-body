@@ -12,6 +12,7 @@ import { existsSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 import type { GlobalFolderTarget } from '../../../shared/folders.ts';
 import type { UserPaths } from '../../user-layout.ts';
+import { PERSONA_CHARACTERS_DIR } from '../../user-layout.ts';
 import { PACKAGE_MEMES_DIR, PACKAGE_ROOT, PACKAGE_SOUND_DIR } from '../../paths.ts';
 
 /** 树里的一个节点。 */
@@ -95,6 +96,9 @@ export function layoutNodes(input: MetaLayoutInput): MetaNode[] {
     dir('data', paths.dataDir, 1, 'data'),
     file('data.memory', paths.memory, 2),
     file('data.todos', paths.todos, 2),
+    // 角色库：`data/persona-characters/`（一角色一个 json）；说明文案走 tree-notes 的
+    // `fsDesc.data.personaCharacters`。
+    dir('data.personaCharacters', join(paths.dataDir, PERSONA_CHARACTERS_DIR), 2),
     dir('cache', paths.cacheDir, 1, 'cache'),
     dir('cache.voice', paths.voiceCacheDir, 2),
     dir('cache.download', paths.downloadCacheDir, 2),

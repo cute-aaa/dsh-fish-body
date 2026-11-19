@@ -84,3 +84,26 @@ describe('diffPackWrites —— 编辑列表 → 要写回的种类层', () => {
     assert.equal(diffPackWrites(before, current).length, 1);
   });
 });
+
+describe('diffPackWrites —— 人设角色引用', () => {
+  test('只改 personaCharacter 也算改动（指纹必须覆盖它，否则换角色会静默不落盘）', () => {
+    const current = [pet('m1', { assetRoot: 'main' }), pet('g1', { assetRoot: 'glm', personaCharacter: '鱼生' })];
+    const plan = diffPackWrites(loaded(), current);
+    assert.equal(plan.length, 1);
+    assert.equal(plan[0].entry, 'glm');
+    assert.equal(plan[0].pets[0].personaCharacter, '鱼生');
+  });
+
+  test('两只实例各引各的角色：只有被改的那只所在条目进计划', () => {
+    const before = loaded();
+    before[1].pets.push(pet('g2', { assetRoot: 'glm', personaCharacter: 'X' }));
+    const current = [
+      pet('m1', { assetRoot: 'main' }),
+      pet('g1', { assetRoot: 'glm' }),
+      pet('g2', { assetRoot: 'glm', personaCharacter: 'Y' }),
+    ];
+    const plan = diffPackWrites(before, current);
+    assert.equal(plan.length, 1);
+    assert.equal(plan[0].pets.find((item) => item.id === 'g2')?.personaCharacter, 'Y');
+  });
+});

@@ -19,6 +19,7 @@ import type { SleepStore } from '../sleep.ts';
 import type { SessionFishStore } from '../session-fish/store.ts';
 import type { SessionFishSettingsStore } from '../session-fish/settings.ts';
 import type { FishSkinDirs } from '../session-fish/skins.ts';
+import type { PersonaCharacterService, PersonaSourceService } from '../persona/service.ts';
 import type { SfxDirs } from '../sfx/scan.ts';
 import type { PollStateStore } from '../state.ts';
 import type { VoiceTarget } from '../surface.ts';
@@ -135,6 +136,8 @@ export interface PetRouteDeps {
   readonly ctx: {
     logger?: { warn?(message: string): void };
     llm?: unknown;
+    /** 当前对话的模型（人设润色沿用同一份候选链；缺失时润色回 `no-llm`）。 */
+    agentDefaultModel?: { currentSelection(): { provider: string; model: string } };
     /** Cordis 服务查找：取 `hmr` 等可选服务（缺失时返回 undefined）。 */
     get?: (name: string) => unknown;
   };
@@ -201,4 +204,8 @@ export interface PetRouteDeps {
   readonly voice: VoiceService;
   /** 语音识别服务（音频转文字；宿主没启用语音输入时由它自己回 unsupported）。 */
   readonly speech: HearService;
+  /** 人设来源面：来源描述 + 扫描（`/persona/sources`、`/persona/scan`）。装配期注入，路由只读。 */
+  readonly persona: PersonaSourceService;
+  /** 角色库面：列表 / 写入 / 应用 / 删除（`/persona/characters*`）。与 `persona` 共享同一份 store。 */
+  readonly characters: PersonaCharacterService;
 }

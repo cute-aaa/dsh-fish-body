@@ -210,3 +210,60 @@ describe('资源池 —— /skin 与 /thumb 的池分支', () => {
     assert.equal(result.status, 400);
   });
 });
+
+describe('资源清单 —— /skin/<root>/resources', () => {
+  /** 写一个池文件（自动建目录）。 */
+  const putPool = (rel: string, body = '{}'): string => {
+    const path = join(dir, 'skin', rel);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, body);
+    return path;
+  };
+
+  /** 读一份清单。 */
+  const read = (rest: string) =>
+    handleAssetsRoutes(deps(), { url: new URL('http://localhost/' + rest), rest, method: 'GET' });
+
+  test('池虚拟根：三桶形状 + 目录 + 缺文件', async () => {
+    putPool(join('layered', 'character1', 'manifest.json'));
+    putPool(join('webm', 'wave.webm'), 'x');
+    const result = await read('skin/pool/resources');
+    if (result?.kind !== 'json') return assert.fail('应为 json');
+    const body = result.obj as {
+      root: string;
+      renderers: Record<string, { status: string; dir: string; count: number; missingFiles: string[] }>;
+    };
+    assert.equal(body.root, 'pool');
+    assert.equal(body.renderers.layered.status, 'ok');
+    assert.equal(body.renderers.layered.count, 1);
+    assert.equal(body.renderers.layered.dir, join(dir, 'skin', 'layered'));
+    assert.equal(body.renderers.live2d.status, 'missing');
+    assert.deepEqual(body.renderers.live2d.missingFiles, ['*.model3.json']);
+    assert.equal(body.renderers.webm.status, 'ok');
+  });
+
+  test('普通素材根：没有皮肤目录时三桶都回池桶，路径仍是绝对路径', async () => {
+    putPool(join('live2d', 'model1', 'xx.model3.json'), '{"Version":3}');
+    const result = await read('skin/fish/resources');
+    if (result?.kind !== 'json') return assert.fail('应为 json');
+    const body = result.obj as {
+      root: string;
+      renderers: Record<string, { status: string; dir: string; items: Array<{ id: string; source: string }> }>;
+    };
+    assert.equal(body.root, 'fish');
+    assert.equal(body.renderers.live2d.status, 'ok');
+    assert.deepEqual(body.renderers.live2d.items, [
+      { id: 'model1/xx.model3.json', label: 'model1/xx.model3.json', source: 'pool' },
+    ]);
+    assert.equal(body.renderers.layered.dir, join(dir, 'skin', 'layered'));
+  });
+
+  test('/skin/<root>/resources 之后的段仍在：/skins 的既有形状不变', async () => {
+    putPool(join('layered', 'character1', 'manifest.json'));
+    const result = await read('skin/pool/skins');
+    if (result?.kind !== 'json') return assert.fail('应为 json');
+    const body = result.obj as { skins: string[]; items: Array<{ id: string; source: string }> };
+    assert.deepEqual(body.skins, ['character1']);
+    assert.deepEqual(body.items, [{ id: 'character1', source: 'pool' }]);
+  });
+});

@@ -15,7 +15,9 @@ import type { RouteResult } from '../http.ts';
 export type ResultReason =
   | 'bad-request'
   | 'busy'
+  | 'character-in-use'
   | 'generate-error'
+  | 'extract-failed'
   | 'internal-error'
   | 'invalid-json'
   | 'invalid-label'
@@ -30,6 +32,8 @@ export type ResultReason =
   | 'no-sleep-animations'
   | 'not-found'
   | 'payload-too-large'
+  | 'persona-readonly-entry'
+  | 'persona-source-unavailable'
   | 'pet-not-displayed'
   | 'pet-required'
   | 'pose-unavailable'
@@ -43,7 +47,9 @@ export type ResultReason =
   | 'unknown-entry'
   | 'unknown-hook'
   | 'unknown-image'
+  | 'unknown-character'
   | 'unknown-owner'
+  | 'unknown-persona-source'
   | 'unknown-pet'
   | 'unknown-playback'
   | 'unsupported'
@@ -55,6 +61,8 @@ export interface FailureEntity {
   readonly ok: false;
   readonly reason: ResultReason;
   readonly message: string;
+  /** 按 reason 不同而不同的附加字段（`cause` / `needConfirm` / `referrers` / `expectedPath` …）。 */
+  readonly extra?: Record<string, unknown>;
 }
 
 /**

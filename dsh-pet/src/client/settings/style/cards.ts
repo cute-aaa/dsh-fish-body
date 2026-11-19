@@ -28,6 +28,18 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;align-items:end}',
   '.dsh-pet-cfg__grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 16px;align-items:end}',
   '.dsh-pet-cfg__grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px;align-items:end}',
+  // 两列同行（渲染方式 + 模型/皮肤）：宽容器并排、窄容器堆叠。阈值走容器查询而不是窗口宽度——
+  // 设置页可能被放在任意宽的面板里（360 下必须堆叠，否则下拉会挤出横向滚动）。
+  '.dsh-pet-cfg__pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;align-items:end}',
+  '.dsh-pet-cfg__columns{display:flex;flex-direction:column;gap:8px;min-width:0}',
+  // 朴素勾选行（角色卡的「同时改名字」）：不是开关视觉，别占用 .dsh-pet-cfg__switch 的 track/knob 契约。
+  '.dsh-pet-cfg__importBox{display:flex;flex-direction:column;gap:10px;min-width:0}',
+  '.dsh-pet-cfg__importPick{position:relative;display:flex;align-items:center;justify-content:center;height:36px;border:1px dashed var(--dsw-alias-border-l1);border-radius:8px;font-size:var(--pcg-fs-label);color:var(--dsw-alias-label-secondary);cursor:pointer}',
+  '.dsh-pet-cfg__previewBlock{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2)}',
+  '.dsh-pet-cfg__previewGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}',
+  '@container (max-width:520px){.dsh-pet-cfg__previewGrid{grid-template-columns:minmax(0,1fr)}}',
+  '.dsh-pet-cfg__previewCell{display:flex;flex-direction:column;gap:4px;min-width:0;overflow-wrap:anywhere}',
+  '.dsh-pet-cfg__checkRow{display:flex;align-items:center;gap:8px;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-label-secondary)}',
   // 开关组：两列等宽，每个开关自己一行高度，长标签折行而不是被挤窄。
   '.dsh-pet-cfg__switchGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;align-items:center}',
 
@@ -161,11 +173,12 @@ export const CARDS_CSS = [
 
   // 容器查询按内容压力点分档，不跟窗口宽度硬绑定（设置页可能被放在任意宽的面板里）。
   '@container (max-width:600px){.dsh-pet-cfg__grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}',
+  '@container (max-width:520px){.dsh-pet-cfg__pair{grid-template-columns:minmax(0,1fr)}}',
   '@container (max-width:400px){',
   // 极窄时分段标签折成两行而不是横向滚动：藏起来的两个分区没人会去滑。
   '.dsh-pet-cfg__seg{flex-wrap:wrap;overflow:visible}',
   '.dsh-pet-cfg__segItem{flex:1 1 30%}',
-  '.dsh-pet-cfg__grid2,.dsh-pet-cfg__grid3,.dsh-pet-cfg__grid4,.dsh-pet-cfg__switchGrid,.dsh-pet-cfg__rows,.dsh-pet-cfg__identityFields{grid-template-columns:minmax(0,1fr)}',
+  '.dsh-pet-cfg__grid2,.dsh-pet-cfg__grid3,.dsh-pet-cfg__grid4,.dsh-pet-cfg__pair,.dsh-pet-cfg__switchGrid,.dsh-pet-cfg__rows,.dsh-pet-cfg__identityFields{grid-template-columns:minmax(0,1fr)}',
   '.dsh-pet-cfg__identity{flex-direction:column;align-items:stretch}',
   '.dsh-pet-cfg__picker{flex-direction:column;align-items:stretch}',
   '.dsh-pet-cfg__kindPicker{width:100%}',

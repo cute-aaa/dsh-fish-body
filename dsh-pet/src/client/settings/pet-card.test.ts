@@ -1,12 +1,14 @@
 /**
  * 宠物配置卡（src/client/settings/pet-card.ts）的契约测试。
  *
- * 三条契约：
- *   1. 选中宠物为空时只显示「暂无宠物」提示，不渲染半张表单；
- *   2. 每个控件都改自己那个字段：名字 / 大小走顶层，角落 / 偏移走 position 子补丁（错位会静默写坏配置）；
- *   3. 表单忙时全部控件禁用，保存结果就近显示在卡片右上角。
+ * 口径（T7 收窄后）：
+ *   1. 选中宠物为空时只显示「暂无宠物」提示；
+ *   2. 名字 / 大小走顶层字段；四个能力开关各回传自己的键；
+ *   3. 渲染方式 / 显示位置 / 角落三个下拉与人设尺寸折叠**不再出现**在这张卡；鼠标穿透也不再在这里；
+ *   4. 有角色数据时角色卡常显，人设正文默认折叠（`aria-expanded=false`）；
+ *   5. 忙时全部控件禁用，卡片上没有第二个保存入口。
  *
- * 用假的 `h` 记录节点树（不引 jsdom）；两个下拉是自绘组件，节点上直接存 `value` 与 `onChange(id)`。
+ * 用假的 `h` 记录节点树（不引 jsdom）；函数组件在摊平时被调用一次，等价于 React 渲染那一层。
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +16,6 @@ import type { jsx } from 'react/jsx-runtime';
 
 import { makePetCard } from './pet-card.ts';
 import type { PetPatch } from './pet-card-parts.ts';
-import { PET_DISPLAYS } from '../../shared/config.ts';
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import { NO_DIRTY } from './dirty.ts';
 import type { Pet } from '../../shared/types.ts';
@@ -35,13 +36,12 @@ const rt = {
 };
 const PetCard = makePetCard(rt as never);
 
-/** 摊平整棵树；函数组件（头像格 / 字段组）在这里被调用一次，等价于 React 渲染那一层。 */
+/** 摊平整棵树；函数组件（头像格 / 字段组 / 角色卡）在这里被调用一次。 */
 function flatten(node: unknown): Node[] {
   if (node === null || node === undefined || typeof node === 'string') return [];
   if (Array.isArray(node)) return node.flatMap(flatten);
   const element = node as Node;
   if (typeof element.tag === 'function') {
-    // 既保留组件节点本身（自绘下拉的 options 就挂在它 props 上），也展开它渲染出来的内容。
     return [element, ...flatten((element.tag as (props: Record<string, unknown>) => unknown)(element.props))];
   }
   return [element, ...flatten(element.props?.children)];
@@ -60,27 +60,57 @@ const pet = {
   whisperPrompt: '你是一只猫',
 } as unknown as Pet;
 
-/** 按标签 + 值找控件，避免依赖节点顺序。 */
+/** 按标签 + 值找控件。 */
 function control(tree: unknown, tag: string, match: (props: Record<string, unknown>) => boolean): Node {
   const found = flatten(tree).find((node) => node.tag === tag && match(node.props));
   assert.ok(found, `没找到满足条件的 ${tag}`);
   return found;
 }
 
-/** 按当前值找下拉：下拉节点带 `options` 数组，值直接挂在 props 上。 */
-function picker(tree: unknown, value: string): Node {
-  const found = flatten(tree).find((node) => node.props.value === value && Array.isArray(node.props.options));
-  assert.ok(found, `没找到当前值为 ${value} 的下拉`);
-  return found;
-}
+/** 空的角色数据：卡片仍渲染，但来源/角色列表为空。 */
+const characterStub = {
+  persona: {
+    sources: [],
+    characters: [],
+    scope: { id: 'pet-1', entry: 'main', writable: true, character: null },
+    ready: true,
+    busy: false,
+    degraded: false,
+    scan: async () => null,
+    apply: async () => null,
+    remove: async () => false,
+    reload: () => undefined,
+  },
+  importer: {
+    preview: null,
+    files: [],
+    busy: false,
+    pick: async () => undefined,
+    update: () => undefined,
+    commit: async () => false,
+    cancel: () => undefined,
+  },
+  polish: {
+    preview: null,
+    busy: false,
+    polish: async () => undefined,
+    apply: () => undefined,
+    cancel: () => undefined,
+  },
+  onChange: () => undefined,
+};
 
 const render = (onChange: (patch: PetPatch) => void, extra: Record<string, unknown> = {}) =>
-  PetCard({ pet, busy: false, entryPrompt: '条目人设', onChange, dirty: NO_DIRTY, ...extra } as never);
+  PetCard({ pet, petIndex: 0, busy: false, entryPrompt: '条目人设', onChange, dirty: NO_DIRTY, ...extra } as never);
 
-describe('PetCard —— 宠物配置卡', () => {
+/** 全部下拉（自绘组件：节点上带 options 数组）。 */
+const pickers = (tree: unknown): Node[] => flatten(tree).filter((node) => Array.isArray(node.props.options));
+
+describe('PetCard —— 宠物配置卡（T7 收窄后）', () => {
   test('没有选中宠物：只给「暂无宠物」提示', () => {
     const tree = PetCard({
       pet: null,
+      petIndex: 0,
       busy: false,
       entryPrompt: '',
       onChange: () => {},
@@ -96,58 +126,16 @@ describe('PetCard —— 宠物配置卡', () => {
     const tree = render((patch) => patches.push(patch));
     const name = control(tree, 'input', (props) => props.value === '小桌宠');
     (name.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '新名字' } });
-    // 数字框非受控：失焦才提交，删空时不会被写回。
     const size = control(tree, 'input', (props) => props.defaultValue === '260');
     (size.props.onBlur as (e: { target: { value: string } }) => void)({ target: { value: '300' } });
     assert.deepEqual(patches, [{ name: '新名字' }, { size: 300 }]);
   });
 
-  test('百分比输入：空框失焦不回写，有新值才提交', () => {
-    const patches: PetPatch[] = [];
-    const tree = render((patch) => patches.push(patch));
-    const percent = control(tree, 'input', (props) => props.min === '1' && props.step === '1');
-    assert.equal(percent.props.defaultValue, '20', '没配时按默认 20 显示');
-    const fire = percent.props.onBlur as (e: { target: { value: string } }) => void;
-    fire({ target: { value: '  ' } });
-    assert.deepEqual(patches, [], '空框失焦 = 放弃这次编辑');
-    fire({ target: { value: '30' } });
-    assert.deepEqual(patches, [{ sizePercent: 30 }]);
-  });
-
-  test('显示位置下拉：改的是顶层 display', () => {
-    const patches: PetPatch[] = [];
-    const tree = render((patch) => patches.push(patch));
-    const display = picker(tree, 'both');
-    assert.deepEqual(
-      (display.props.options as { id: string }[]).map((option) => option.id),
-      [...PET_DISPLAYS],
-      '选项来自 PET_DISPLAYS，文案由 t 提供',
-    );
-    (display.props.onChange as (id: string) => void)('desktop');
-    assert.deepEqual(patches, [{ display: 'desktop' }]);
-  });
-
-  test('角落与两个偏移走 position 子补丁', () => {
-    const patches: PetPatch[] = [];
-    const tree = render((patch) => patches.push(patch));
-    const corner = picker(tree, 'bottom-left');
-    (corner.props.onChange as (id: string) => void)('top-right');
-    const marginX = control(tree, 'input', (props) => props.defaultValue === '40');
-    (marginX.props.onBlur as (e: { target: { value: string } }) => void)({ target: { value: '12' } });
-    const marginY = control(tree, 'input', (props) => props.defaultValue === '60');
-    (marginY.props.onBlur as (e: { target: { value: string } }) => void)({ target: { value: '34' } });
-    assert.deepEqual(patches, [
-      { position: { corner: 'top-right' } },
-      { position: { marginX: 12 } },
-      { position: { marginY: 34 } },
-    ]);
-  });
-
-  test('五个功能开关各自回传自己的键', () => {
+  test('四个能力开关各自回传自己的键（鼠标穿透已搬到窗口行为卡）', () => {
     const patches: PetPatch[] = [];
     const tree = render((patch) => patches.push(patch));
     const checkboxes = flatten(tree).filter((node) => node.tag === 'input' && node.props.type === 'checkbox');
-    assert.equal(checkboxes.length, 5);
+    assert.equal(checkboxes.length, 4, '只剩四个能力开关');
     for (const box of checkboxes) {
       (box.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } });
     }
@@ -156,9 +144,34 @@ describe('PetCard —— 宠物配置卡', () => {
       { whisperEnabled: true },
       { workStatusEnabled: true },
       { fixedEnabled: true },
-      // 鼠标穿透：桌面端整窗忽略鼠标；出口在本卡（开起来后窗内右键菜单点不到）。
-      { clickThrough: true },
     ]);
+  });
+
+  test('不再出现显示位置 / 渲染方式 / 角落三个下拉，也没有尺寸折叠', () => {
+    const tree = render(() => {});
+    assert.equal(pickers(tree).length, 0, '卡片里不该再有下拉（渲染/位置/尺寸都搬走了）');
+    const titles = flatten(tree)
+      .filter((node) => typeof node.props.children === 'string')
+      .map((node) => node.props.children);
+    assert.equal(titles.includes('sizesTitle'), false, '每渲染尺寸不在宠物卡');
+  });
+
+  test('有角色数据时角色卡常显；人设正文默认折叠', () => {
+    const tree = render(() => {}, { character: characterStub });
+    const texts = flatten(tree)
+      .filter((node) => typeof node.props.children === 'string')
+      .map((node) => node.props.children as string);
+    assert.ok(
+      texts.some((text) => text.startsWith('characterTitle')),
+      '角色卡标题要出现',
+    );
+    const fold = flatten(tree).find(
+      (node) => node.tag === 'button' && node.props['aria-controls'] === 'pet-cfg-persona',
+    );
+    assert.ok(fold, '人设折叠卡必须存在');
+    assert.equal(fold.props['aria-expanded'], false, '人设正文默认折叠');
+    const scopeTitle = texts.find((text) => text.startsWith('characterTitle')) ?? '';
+    assert.match(scopeTitle, /作用于|characterScopeLabel/, '标题行要写明作用域');
   });
 
   test('人设：回显当前值、占位符用条目人设、右下角显示字数', () => {
@@ -172,6 +185,7 @@ describe('PetCard —— 宠物配置卡', () => {
   test('忙时全部控件禁用；卡片上不再有第二个保存入口', () => {
     const tree = PetCard({
       pet,
+      petIndex: 0,
       busy: true,
       entryPrompt: '',
       onChange: () => {},
@@ -181,9 +195,6 @@ describe('PetCard —— 宠物配置卡', () => {
     const controls = flatten(tree).filter((node) => node.tag === 'input' || node.tag === 'textarea');
     assert.ok(controls.length > 0);
     for (const node of controls) assert.equal(node.props.disabled, true, `${node.tag} 应被禁用`);
-    const pickers = flatten(tree).filter((node) => Array.isArray(node.props.options));
-    assert.equal(pickers.length, 3, '显示位置 / 渲染方式 / 角落三个下拉都要渲染');
-    for (const node of pickers) assert.equal(node.props.disabled, true, '下拉应被禁用');
     assert.equal(
       flatten(tree).filter((node) => node.tag === 'button' && node.props.children === 'save').length,
       0,
@@ -212,8 +223,10 @@ describe('PetCard —— 头像上传', () => {
 
   test('不传 onAvatar（内置条目）→ 只有预览，没有上传入口', () => {
     const tree = render(() => {}, { avatarSrc: ROUTE_PATH + '/logo?root=main&v=1' });
-    const img = flatten(tree).find((node) => node.tag === 'img' && String(node.props.className).includes('avatarImg'));
-    assert.ok(img, '预览仍然要显示');
+    assert.ok(
+      flatten(tree).some((node) => node.tag === 'img' && String(node.props.className).includes('avatarImg')),
+      '预览仍然要显示',
+    );
     assert.equal(
       flatten(tree).some((node) => node.tag === 'input' && node.props.type === 'file'),
       false,
@@ -232,34 +245,13 @@ describe('PetCard —— 头像上传', () => {
     assert.equal(target.value, '', '清空后同一个文件才能再次触发 change');
   });
 
-  test('可换时：悬浮遮罩文案是「更换」，点击区域就是头像本身', () => {
+  test('可换时：悬浮遮罩文案是「更换」，说明走 data-tip', () => {
     const tree = render(() => {}, { onAvatar: () => {} });
     const mask = flatten(tree).find((node) => String(node.props.className).includes('avatarMask'));
     assert.ok(mask, '应当渲染悬浮遮罩');
     assert.equal(mask.props.children, 'avatarChange');
-    // 遮罩与文件框都在同一个可点容器里：没有独立的上传按钮
     const pick = flatten(tree).find((node) => String(node.props.className).includes('avatarPick'));
     assert.ok(pick, '头像本身应当是可点区域');
-    assert.equal(
-      flatten(tree).some((node) => node.tag === 'button' && String(node.props.children).includes('avatarUpload')),
-      false,
-      '不该再有独立的上传按钮',
-    );
-  });
-
-  test('上传中：遮罩换文案且选择框禁用', () => {
-    const tree = render(() => {}, { avatarBusy: true, onAvatar: () => {} });
-    const mask = flatten(tree).find((node) => String(node.props.className).includes('avatarMask'));
-    assert.ok(mask, '应当渲染悬浮遮罩');
-    assert.equal(mask.props.children, 'avatarUploading');
-    assert.equal(fileInput(tree).props.disabled, true);
-  });
-
-  test('悬浮说明走 data-tip，不用原生 title', () => {
-    const tree = render(() => {}, { onAvatar: () => {} });
-    const pick = flatten(tree).find((node) => String(node.props.className).includes('avatarPick'));
-    assert.ok(pick, '头像应当是可点区域');
-    // 页面统一用 data-tip + ./tip-layer 摆位；title 会另起一个不可控的浏览器浮框。
     assert.equal(pick.props['data-tip'], 'avatarHint');
     assert.equal(pick.props.title, undefined);
   });

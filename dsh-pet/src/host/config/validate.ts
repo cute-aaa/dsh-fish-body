@@ -303,3 +303,21 @@ function eventsRefreshSecValid(value: unknown): boolean {
   }
   return true;
 }
+
+/** 角色 id 的最大长度（含首字符，落成 `data/persona-characters/<id>.json` 的文件名）。 */
+const MAX_CHARACTER_ID_LENGTH = 64;
+
+/**
+ * 人设角色 id 的合法性（读写共用一份规则：`save.ts` 写、`merge.ts` 读、前端 `validate-form` 同规则）。
+ *
+ * 允许 Unicode 字母/数字开头（中文角色名归一化后往往仍是中文，`鱼生` 就是合法 id），
+ * 其余位置允许 `._-`；**排除** `/ \ : * ? " < > |` 与控制字符——id 会直接当文件名用。
+ *
+ * @param value - 待判定的值（可能来自用户手改的配置）。
+ * @returns 合法返回 true。
+ */
+export function characterIdValid(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  if (value.length === 0 || value.length > MAX_CHARACTER_ID_LENGTH) return false;
+  return /^[\p{L}\p{N}][\p{L}\p{N}._-]*$/u.test(value);
+}

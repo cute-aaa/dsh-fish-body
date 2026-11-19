@@ -559,4 +559,111 @@ export const de: Record<Key, string> = {
   secTiming: 'Taktung',
   sizesTitle: 'Größe je Renderer',
   extraPetsShort: '{n} weitere Arten liegen im skin/-Ordner',
+
+  // —— Klang-Abschnitte / Verweis auf den Sitzungsfisch (T9) ——
+  secSfx: 'Soundeffekte',
+  secVoice: 'Stimme',
+  fishSpeakElsewhere: 'Die Sprachschalter des Sitzungsfischs stehen im Tab „Sitzungsfisch“.',
+  fishSpeakJump: '„Sitzungsfisch“ öffnen',
+  audioScopeHint:
+    'Soundeffekte und Sprache werden mit „Speichern“ geschrieben; lokaler Sprach-Endpunkt und Stimmwechsel gelten sofort.',
+  renderRescanFailed: 'Erneut scannen fehlgeschlagen: Der Ressourcenordner ist nicht lesbar. Läuft der Host?',
+  // —— Charakterbibliothek und die zwei KI-Aktionen (T6, in T11 geprüft) ——
+  personaEditorSource: 'Integrierter Persona-Editor',
+  personaLoadFailed:
+    'Charakterbibliothek nicht lesbar: nur der integrierte Editor; deine handgeschriebene Persona bleibt unverändert.',
+  personaScanFailed: 'Scan fehlgeschlagen: Die Quelle ist nicht lesbar.',
+  personaScanNothing: 'Keine Charaktere gefunden ({n} Dateien geprüft).',
+  personaScanDone: 'Scan fertig: {n} Charaktere.',
+  personaApplyFailed: 'Anwenden fehlgeschlagen: Der Charakter wurde nicht in dieses Tier geschrieben.',
+  personaApplyDone: 'Angewendet: Diese Instanz hat {n} Zeichen.',
+  personaApplyUnchanged: 'Keine Änderung: Dieses Tier nutzt den Charakter bereits ({n} Zeichen).',
+  personaRemoveFailed: 'Löschen fehlgeschlagen: Der Charakter fehlt oder wird noch referenziert.',
+  personaRemoveDone: 'Charakter aus der Bibliothek entfernt.',
+  personaImportTooMany: 'Höchstens {n} Dateien auf einmal.',
+  personaImportTooLarge: 'Datei zu groß: je 768 KiB, insgesamt 1 MiB.',
+  personaImportFailed: 'Import fehlgeschlagen: kein nutzbarer Inhalt extrahiert.',
+  personaImportDone: 'Charakter „{name}“ importiert.',
+  personaPolishEmpty: 'Erst Text schreiben, dann polieren.',
+  personaPolishFailed: 'Polieren fehlgeschlagen: Das Modell lieferte keinen nutzbaren Text.',
+  personaPolishApplied: 'Politur angewendet (noch nicht gespeichert).',
+
+  // —— Charakter- / Render-Karte / Skin-Zeilen (T7 / T8 / T21) ——
+  secPosition: 'Position',
+  secFeel: 'Haptik',
+  petCardNote:
+    'Renderer, Position und Größe stehen unter „Aussehen & Haptik“; hier geht es nur darum, wer es ist, welche Persona es nutzt und was es kann.',
+  characterTitle: 'Charakter',
+  characterHint:
+    'Quelle scannen und Charaktere importieren; erst „Auf dieses Tier anwenden“ schreibt den Text in seine Persona.',
+  characterScopeLabel: 'Gilt für {pet}',
+  characterSourceLabel: 'Quelle',
+  characterSourceHint:
+    'Nur Quellen mit nutzbaren Dateien sind scanbar; ausgegraute Einträge zeigen den erwarteten Pfad.',
+  characterSourceMissing: 'nicht installiert',
+  characterSourceNoScan: 'nicht scanbar',
+  characterScan: 'Scannen & importieren',
+  characterReload: 'Aktualisieren',
+  characterExpectedPath: 'Erwarteter Pfad: {path}',
+  characterPickLabel: 'Charakter',
+  characterPickHint: 'Einen aus der Bibliothek wählen; „Anwenden“ überschreibt die Persona dieses Tiers.',
+  characterNone: '(kein Charakter)',
+  characterApply: 'Auf dieses Tier anwenden',
+  characterRemove: 'Löschen',
+  characterWriteName: 'Namen mitändern',
+  characterReadonly:
+    'Die Persona eines Datei-Tiers gehört zu seinem Eintrag: hier nur ansehen und importieren, nicht anwenden oder löschen.',
+  characterImport: 'Dokumente importieren…',
+  characterImportPick: 'Dokumente wählen',
+  characterImportHint: 'md / txt / json / png-Karte / docx; je 768 KiB, insgesamt 1 MiB, höchstens 5 Dateien.',
+  characterImportedName: 'Name',
+  characterImportedDescription: 'Beschreibung',
+  characterImportedPersonality: 'Persönlichkeit',
+  characterImportCommit: 'In Bibliothek importieren',
+  personaPolish: 'Mit KI polieren',
+  personaPolishHint: 'Ruft das Modell einmal auf; das Ergebnis ist nur eine Vorschau.',
+  personaPolishPreview:
+    'Vorschau ({n} Zeichen): „Anwenden“ schreibt sie in den Entwurf; Abbrechen lässt den Text unverändert.',
+  renderCardTitle: 'Renderer',
+  renderCardHint: 'Renderer und Modell/Skin bestimmen das Aussehen; Position und Größe den Platz und die Größe.',
+  renderModelLabel: 'Modell / Skin',
+  renderModelHint:
+    'Die Optionen stammen aus der Ressourcenliste des aktuellen Renderers; fehlende Dateien stehen unten.',
+  renderModelWebmHint: 'webm läuft aus dem Animationspool: kein eigenes Modell.',
+  renderModelStale: 'veraltet',
+  renderMissingFiles: 'Es fehlt {files} — Assets unter {path} ablegen und „Neu scannen“ drücken.',
+  renderRescan: 'Neu scannen',
+  skinDirsTitle: 'Skin-Ordner',
+  skinDirsHint:
+    'Die drei Zeilen sind die Ordner layered / live2d / webm; Pfade kommen vom Host, „Öffnen“ geht direkt dorthin.',
+  skinDirsCount: '{n} Einträge',
+  skinDirsMissing: 'fehlt {file}',
+  'renderDir.layered': 'Layered-Skins',
+  'renderDir.live2d': 'Live2D-Modelle',
+  'renderDir.webm': 'Flache Animationen',
+
+  // —— Fensterverhalten-Karte + Baumhinweis (T20 / T11) ——
+  windowBehaviorTitle: 'Fensterverhalten',
+  windowBehaviorHint:
+    'Beide Zeilen beantworten dieselbe Frage: Lässt sich dieses Fenster anfassen und wie weit darf es wandern? Klick-Durchlass gilt nur für dieses Tier (pro Instanz); Bildschirm-Sperre ist global.',
+  windowBehaviorNote:
+    'Beides wird mit „Speichern“ geschrieben. Mit Klick-Durchlass ist das Kontextmenü des Fensters nicht erreichbar — diese Karte ist der Ausweg.',
+  scopeThis: 'dieses Tier',
+  scopeAll: 'alle',
+  'fsDesc.data.personaCharacters':
+    'Charakterbibliothek: eine json pro Charakter; kopieren oder den ganzen Ordner löschen.',
+
+  // —— Vergleich der Vorschau (T22) ——
+  personaPolishBefore: 'Vorher',
+  personaPolishAfter: 'Nachher',
+
+  // —— Überschreibhinweis beim Anwenden (Review) ——
+  personaApplyOverwrote:
+    'Charaktertext angewendet — die ungespeicherte Persona dieses Tiers wurde ersetzt ({n} Zeichen).',
+
+  // —— Skin-Zeilen: leer vs fehlend (Nacharbeit 2) ——
+  skinDirsEmpty: 'Ordner da, noch keine Assets',
+  skinDirsExpect: 'erwartet {list}',
+  skinDirsBadgeEmpty: 'leer',
+  skinDirsBadgeMissing: 'fehlt',
 };

@@ -135,6 +135,11 @@ export interface Pet {
    *  写了就取代所属条目顶层那一份（替换而非拼接），没写或空串则回落条目——回落发生在宿主半侧，不是错误。
    *  只写正文：名字与时间背景由宿主无条件追加，不要在这里重复写。 */
   whisperPrompt?: string;
+  /** 人设角色引用（pets[].personaCharacter，可选）：缺键 = 不引用任何角色（正文由用户手写）；
+   *  值 = 角色库（`<数据根>/data/persona-characters/`）里的 id。**只在「应用角色到此宠物」那一刻写**，
+   *  之后用户仍可手改 whisperPrompt（此时这个键保留，表示「源自该角色、已被改过」）。
+   *  与 whisperPrompt 同级：它是实例字段，没有顶层键，保存走 saveUserConfig 的实例白名单重建。 */
+  personaCharacter?: string;
   animations?: Animations;
   /** 音效段（条目级，可被实例覆盖的那一份由合并器吹入）：事件槽/动作音/hook 的显式覆盖。 */
   sfx?: SfxConfig;

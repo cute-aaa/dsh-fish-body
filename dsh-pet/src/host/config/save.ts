@@ -14,7 +14,14 @@ import { RENDERERS } from '../../shared/config.ts';
 import { hotkeysValid, normalizeHotkeys } from '../../shared/hotkeys.ts';
 import type { RenderSizes } from '../../shared/types.ts';
 import type { ConfigPaths } from './constants.ts';
-import { fontValid, modelSelectionValid, petSizesValid, physicsValid, topFieldValid } from './validate.ts';
+import {
+  characterIdValid,
+  fontValid,
+  modelSelectionValid,
+  petSizesValid,
+  physicsValid,
+  topFieldValid,
+} from './validate.ts';
 import { cleanSfxConfig, sfxValid } from './sfx.ts';
 
 /**
@@ -103,6 +110,13 @@ export function saveUserConfig(
     const rawPersona = pp.whisperPrompt;
     if (rawPersona !== undefined && rawPersona !== null && typeof rawPersona !== 'string') return null;
     const persona = typeof rawPersona === 'string' ? rawPersona.trim() : '';
+    // 人设角色引用（可选）：非空且是合法 id 才落盘；空串/缺省 = 不引用（删键语义）。
+    // 非法 id（含 `/`、空格、超长）整包 400——`personaCharacter` 会直接当文件名用，
+    // 放行等于把配置值变成路径。读侧（merge.ts）宽松告警忽略，写侧这里严格。
+    const rawCharacter = pp.personaCharacter;
+    const pc = typeof rawCharacter === 'string' ? rawCharacter.trim() : '';
+    if (rawCharacter !== undefined && rawCharacter !== null && typeof rawCharacter !== 'string') return null;
+    if (pc !== '' && !characterIdValid(pc)) return null;
     // 皮肤/模型选择（可选）：非空字符串才落盘（trim 后写）；空串 = 不写该键（回落第一个）。
     // 非字符串（且非 undefined/null）与其它字段同口径：整包 400。
     const rawModel = pp.model;
@@ -126,6 +140,9 @@ export function saveUserConfig(
       position: { corner, marginX, marginY },
     };
     if (persona) pet.whisperPrompt = persona;
+    // 角色引用必须出现在这里：`pets` 是整包白名单重建（见本函数头部注释），
+    // 不在重建里写出的实例字段会在下一次保存时被静默丢掉（顶层 bodyOwned 透传救不了实例字段）。
+    if (pc !== '') pet.personaCharacter = pc;
     if (model) pet.model = model;
     if (clickThrough === true) pet.clickThrough = true;
     if (sizes) pet.sizes = sizes;

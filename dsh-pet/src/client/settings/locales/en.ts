@@ -552,4 +552,106 @@ export const en: Record<Key, string> = {
   secTiming: 'Timing',
   sizesTitle: 'Size per renderer',
   extraPetsShort: '{n} more kinds come from the skin/ folder',
+
+  // —— sound sections / session-fish reference (T9) ——
+  secSfx: 'Sound effects',
+  secVoice: 'Voice',
+  fishSpeakElsewhere: 'The session fish speech switches live in the “Session fish” tab.',
+  fishSpeakJump: 'Open “Session fish”',
+  audioScopeHint:
+    'Sound effects and speech are saved with “Save”; the local voice endpoint and voice switch apply immediately.',
+  renderRescanFailed: 'Rescan failed: the resource folder could not be read. Check that the host is running.',
+  // —— character library and the two AI actions (T6, reviewed in T11) ——
+  personaEditorSource: 'Built-in persona editor',
+  personaLoadFailed:
+    'Could not read the character library: falling back to the built-in editor; your hand-written persona is untouched.',
+  personaScanFailed: 'Scan failed: the source could not be read.',
+  personaScanNothing: 'No characters found (checked {n} files).',
+  personaScanDone: 'Scan finished: {n} characters.',
+  personaApplyFailed: 'Apply failed: the character was not written to this pet.',
+  personaApplyDone: 'Applied: this instance now has {n} characters.',
+  personaApplyUnchanged: 'No change: this pet already uses that character ({n} characters).',
+  personaRemoveFailed: 'Delete failed: the character is missing or still referenced by another pet.',
+  personaRemoveDone: 'Character removed from the library.',
+  personaImportTooMany: 'At most {n} files at a time.',
+  personaImportTooLarge: 'File too large: up to 768 KiB each and 1 MiB in total.',
+  personaImportFailed: 'Import failed: no usable content was extracted.',
+  personaImportDone: 'Imported character “{name}”.',
+  personaPolishEmpty: 'Write some text before polishing.',
+  personaPolishFailed: 'Polish failed: the model returned no usable text.',
+  personaPolishApplied: 'Polish applied (not saved yet).',
+
+  // —— character / render cards / skin rows (T7 / T8 / T21) ——
+  secPosition: 'Position',
+  secFeel: 'Feel',
+  petCardNote:
+    'Renderer, position and size now live in “Look & feel”; this card only covers who it is, which persona it uses and what it can do.',
+  characterTitle: 'Character',
+  characterHint:
+    'Scan a source and import characters; only “Apply to this pet” writes the text into this pet’s persona.',
+  characterScopeLabel: 'Applies to {pet}',
+  characterSourceLabel: 'Source',
+  characterSourceHint: 'Only sources with usable files can be scanned; greyed entries show the expected path.',
+  characterSourceMissing: 'not installed',
+  characterSourceNoScan: 'not scannable',
+  characterScan: 'Scan & import',
+  characterReload: 'Refresh',
+  characterExpectedPath: 'Expected path: {path}',
+  characterPickLabel: 'Character',
+  characterPickHint: 'Pick one from the library; “Apply” overwrites this pet’s persona text.',
+  characterNone: '(no character)',
+  characterApply: 'Apply to this pet',
+  characterRemove: 'Delete',
+  characterWriteName: 'Rename too',
+  characterReadonly:
+    'A file pet’s persona is managed by its own entry: you can browse and import here, but not apply or delete.',
+  characterImport: 'Import documents…',
+  characterImportPick: 'Choose documents',
+  characterImportHint: 'md / txt / json / png card / docx; up to 768 KiB each, 1 MiB total, 5 files.',
+  characterImportedName: 'Name',
+  characterImportedDescription: 'Description',
+  characterImportedPersonality: 'Personality',
+  characterImportCommit: 'Import to library',
+  personaPolish: 'Polish with AI',
+  personaPolishHint: 'Calls the model once; the result is only a preview.',
+  personaPolishPreview: 'Preview ({n} chars): “Apply” writes it into the draft; cancel leaves the text untouched.',
+  renderCardTitle: 'Renderer',
+  renderCardHint: 'Renderer and model/skin decide how it looks; position and size decide where and how big.',
+  renderModelLabel: 'Model / skin',
+  renderModelHint: 'Options come from the current renderer’s resource list; missing files are listed below.',
+  renderModelWebmHint: 'webm plays from the animation pool, so there is no separate model.',
+  renderModelStale: 'missing',
+  renderMissingFiles: 'Missing {files} — put the assets under {path}, then hit “Rescan”.',
+  renderRescan: 'Rescan',
+  skinDirsTitle: 'Skin folders',
+  skinDirsHint:
+    'The three rows are the layered / live2d / webm folders; paths come from the host, “Open” goes straight there.',
+  skinDirsCount: '{n} items',
+  skinDirsMissing: 'missing {file}',
+  'renderDir.layered': 'Layered skins',
+  'renderDir.live2d': 'Live2D models',
+  'renderDir.webm': 'Flat animations',
+
+  // —— window behaviour card + character-library tree note (T20 / T11) ——
+  windowBehaviorTitle: 'Window behaviour',
+  windowBehaviorHint:
+    'Both rows answer the same question: can this window be touched, and where can it go? Click-through applies to this pet only (per instance); lock-to-screen is global.',
+  windowBehaviorNote:
+    'Both are saved with “Save”. With click-through on, the window’s context menu is unreachable — this card is the way back.',
+  scopeThis: 'this pet',
+  scopeAll: 'all pets',
+  'fsDesc.data.personaCharacters': 'Character library: one json per character; copy it out or delete the whole folder.',
+
+  // —— polish preview diff (T22) ——
+  personaPolishBefore: 'Before',
+  personaPolishAfter: 'After',
+
+  // —— overwrite notice on apply (review rework) ——
+  personaApplyOverwrote: 'Applied the character text — this pet’s unsaved persona was replaced ({n} chars).',
+
+  // —— skin rows: empty vs missing (rework 2) ——
+  skinDirsEmpty: 'folder exists, no assets yet',
+  skinDirsExpect: 'expects {list}',
+  skinDirsBadgeEmpty: 'empty',
+  skinDirsBadgeMissing: 'missing',
 };

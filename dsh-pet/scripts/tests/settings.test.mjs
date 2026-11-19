@@ -66,6 +66,77 @@ const fishSettings = {
   speakWaiting: true,
   progressGapMs: 15000,
 };
+/** persona 端点夹具：来源 / 角色库 / 三个渲染桶（T13 起显式拦截，不再靠 fallback 回 providers）。 */
+const personaSources = {
+  ok: true,
+  sources: [
+    {
+      id: 'fish-soul',
+      name: 'dsh-fish-soul',
+      kind: 'soul-card',
+      installed: true,
+      expectedPath: '/test/fish-soul/persona.json',
+      path: '/test/fish-soul/persona.json',
+      scannable: true,
+      lastScan: null,
+    },
+    {
+      id: 'editor',
+      name: 'Built-in editor',
+      kind: 'editor',
+      installed: true,
+      expectedPath: null,
+      path: null,
+      scannable: false,
+      lastScan: null,
+    },
+  ],
+  characters: { total: 1, skipped: [] },
+  pet: { id: 'pet-1', entry: 'main', writable: true, character: null },
+};
+const personaCharacters = {
+  ok: true,
+  characters: [
+    {
+      id: '鱼生',
+      name: '鱼生',
+      source: { kind: 'soul-card', id: 'fish-soul', path: 'a.json' },
+      importedAt: '2026-11-19T00:00:00.000Z',
+      chars: 12,
+      appliedTo: [],
+    },
+  ],
+  skipped: [],
+};
+const renderResources = {
+  root: 'main',
+  renderers: {
+    layered: {
+      status: 'ok',
+      dir: '/test/fish-body/assets/pet/layered',
+      count: 1,
+      items: [{ id: 'pa15', label: 'pa15', source: 'pool' }],
+      expect: ['manifest.json'],
+      missingFiles: [],
+    },
+    live2d: {
+      status: 'missing',
+      dir: '/test/fish-body/assets/pet/live2d',
+      count: 0,
+      items: [],
+      expect: ['*.model3.json'],
+      missingFiles: ['*.model3.json'],
+    },
+    webm: {
+      status: 'ok',
+      dir: '/test/fish-body/assets/pet/webm',
+      count: 3,
+      items: [],
+      expect: ['*.webm'],
+      missingFiles: [],
+    },
+  },
+};
 const SAVED = 'Saved — the pets updated instantly.';
 /** 提交体会带上内部标记 ssetRoot（条目归属），比对用户字段时要先摘掉。 */
 const userPets = (pets) => pets.map(({ assetRoot, ...rest }) => rest);
@@ -125,6 +196,7 @@ async function open(
   const page = await context.newPage();
   page.setDefaultTimeout(5000);
   const writes = [],
+    polishCalls = [],
     fishWrites = [],
     restarts = [],
     restores = [],
@@ -326,6 +398,41 @@ async function open(
         },
       });
     }
+    if (path === '/dsh-pet-7340/persona/sources') return route.fulfill({ json: personaSources });
+    if (path === '/dsh-pet-7340/persona/characters') return route.fulfill({ json: personaCharacters });
+    if (path === '/dsh-pet-7340/persona/scan') {
+      return route.fulfill({
+        json: {
+          ok: true,
+          source: 'fish-soul',
+          installed: true,
+          scanned: 1,
+          imported: [{ id: '鱼生', name: '鱼生', reused: false }],
+          skipped: [],
+        },
+      });
+    }
+    if (path === '/dsh-pet-7340/persona/polish') {
+      polishCalls.push(request.postDataJSON() ?? {});
+      return route.fulfill({
+        json: { ok: true, pet: 'pet-1', text: '润色后的正文（已顺句）', usedLlm: true, retried: false },
+      });
+    }
+    if (path === '/dsh-pet-7340/persona/characters/apply') {
+      const body = request.postDataJSON() ?? {};
+      return route.fulfill({
+        json: {
+          ok: true,
+          pet: body.pet,
+          characterId: body.characterId,
+          chars: 12,
+          wroteName: body.writeName !== false,
+        },
+      });
+    }
+    if (path.startsWith('/dsh-pet-7340/skin/') && path.endsWith('/resources')) {
+      return route.fulfill({ json: renderResources });
+    }
     if (path === '/dsh-pet-7340/plugin-restart') {
       restarts.push(request.method());
       // helper 模式：不触发页面刷新，测试才看得到后续断言。
@@ -340,6 +447,7 @@ async function open(
   return {
     page,
     writes,
+    polishCalls,
     fishWrites,
     restarts,
     restores,
@@ -908,4 +1016,111 @@ test('system → shortcuts: Escape cancels the capture without changing anything
   await page.getByText('Press a key…', { exact: true }).waitFor();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: /^Todo list：D 键$/ }).waitFor();
+});
+
+test('new sections: render pair, character card, skin rows and window behaviour', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 900 } });
+  // ② 桌宠页：角色卡常显（标题写明作用域）+ 人设正文默认折叠
+  await tab(page, 'Pet').click();
+  const petPanel = page.locator('.dsh-pet-cfg__panel');
+  await petPanel.getByText(/Character · Applies to/).waitFor();
+  const fold = petPanel.locator('.dsh-pet-cfg__foldToggle[aria-controls="pet-cfg-persona"]');
+  assert.equal(await fold.getAttribute('aria-expanded'), 'false', '人设正文默认折叠');
+
+  // ①③④ 外观与手感：渲染方式/模型同排 + 皮肤三行 + 窗口行为卡
+  await tab(page, 'Look & feel').click();
+  const feel = page.locator('.dsh-pet-cfg__panel');
+  const pair = feel.locator('.dsh-pet-cfg__pair').first();
+  await pair.waitFor();
+  assert.equal(await pair.locator('> *').count(), 2, '渲染方式与模型/皮肤同处一个 pair');
+  const wide = [await pair.locator('> *').nth(0).boundingBox(), await pair.locator('> *').nth(1).boundingBox()];
+  assert.ok(Math.abs(wide[0].y - wide[1].y) < 4, '900px 下两个下拉同行');
+
+  const rows = feel.locator('.dsh-pet-cfg__treeRow');
+  assert.equal(await rows.count(), 3, '皮肤目录三行');
+  const missing = feel.locator('.dsh-pet-cfg__treeRow.is-missing');
+  assert.equal(await missing.count(), 1, 'live2d 行缺失');
+  const missingText = await missing.first().innerText();
+  assert.match(missingText, /⚠️/, '缺失行带 ⚠️');
+  assert.match(missingText, /\*\.model3\.json/, '缺失行写清缺哪个文件');
+
+  assert.ok((await feel.getByText('Window behaviour', { exact: true }).count()) >= 1, '窗口行为卡在 feel 页');
+
+  // 360：两个下拉堆叠，且不出现横向滚动
+  const narrow = await open(t, { viewport: { width: 360, height: 900 } });
+  await tab(narrow.page, 'Look & feel').click();
+  const narrowFeel = narrow.page.locator('.dsh-pet-cfg__panel');
+  const narrowPair = narrowFeel.locator('.dsh-pet-cfg__pair').first();
+  await narrowPair.waitFor();
+  const stacked = [
+    await narrowPair.locator('> *').nth(0).boundingBox(),
+    await narrowPair.locator('> *').nth(1).boundingBox(),
+  ];
+  assert.ok(stacked[1].y > stacked[0].y + 8, '360px 下两个下拉堆叠');
+  const overflow = await narrow.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert.ok(overflow <= 1, '360px 不该横向滚动');
+});
+
+test('T22: feel page shows render pair, three skin rows and window behaviour', async (t) => {
+  const { page } = await open(t, { viewport: { width: 900, height: 1000 } });
+  await tab(page, 'Look & feel').click();
+  const feel = page.locator('.dsh-pet-cfg__panel');
+  const pair = feel.locator('.dsh-pet-cfg__pair').first();
+  await pair.waitFor();
+  assert.equal(await pair.locator('> *').count(), 2, '渲染方式与模型/皮肤同一行');
+
+  const rows = feel.locator('.dsh-pet-cfg__treeRow');
+  assert.equal(await rows.count(), 3, '三层皮肤目录');
+  const live2d = feel.locator('.dsh-pet-cfg__treeRow', { hasText: 'live2d/' });
+  assert.match(String(await live2d.getAttribute('class')), /is-missing/, '缺文件的行要标出来');
+  assert.match(await live2d.innerText(), /⚠️/);
+  assert.equal((await feel.locator('.dsh-pet-cfg__folderBtn button').count()) >= 3, true, '每行都有打开入口');
+
+  const win = feel.locator('.dsh-pet-cfg__card', { hasText: 'Window behaviour' });
+  assert.equal(await win.count(), 1, '窗口行为卡在 feel 页');
+  assert.equal(await win.locator('.dsh-pet-cfg__switch input[type=checkbox]').count(), 2, '两行开关');
+  const scopes = await win.locator('.dsh-pet-cfg__treeBadge').allInnerTexts();
+  assert.deepEqual(scopes, ['this pet', 'all pets'], '两枚作用域标注');
+
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    await page.screenshot({
+      path: join(process.env.DSH_PET_UI_ARTIFACTS, 't22-feel.png'),
+      fullPage: true,
+      animations: 'disabled',
+    });
+  }
+});
+
+test('T22: AI polish shows a preview, and cancel leaves the persona untouched', async (t) => {
+  const { page, polishCalls } = await open(t, { viewport: { width: 900, height: 1000 } });
+  await tab(page, 'Pet').click();
+  await page.locator('.dsh-pet-cfg__foldToggle[aria-controls="pet-cfg-persona"]').click();
+  const area = page.locator('textarea.dsh-pet-cfg__area');
+  await area.fill('原始正文：今天也要好好工作');
+
+  await page.getByRole('button', { name: 'Polish with AI', exact: true }).click();
+  const preview = page.locator('.dsh-pet-cfg__previewBlock');
+  await preview.waitFor();
+  assert.equal(polishCalls.length, 1, '只调用一次模型');
+  assert.equal(polishCalls[0].text, '原始正文：今天也要好好工作');
+  assert.ok((await preview.innerText()).includes('润色后的正文'), '预览里能看到润色结果');
+  assert.equal(await area.inputValue(), '原始正文：今天也要好好工作', '预览阶段正文不该被改');
+
+  await preview.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('.dsh-pet-cfg__previewBlock') === null);
+  assert.equal(await area.inputValue(), '原始正文：今天也要好好工作', '取消后正文一字不变');
+  assert.equal(polishCalls.length, 1, '取消不该再发请求');
+
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    await area.fill('原始正文：今天也要好好工作');
+    await page.getByRole('button', { name: 'Polish with AI', exact: true }).click();
+    await preview.waitFor();
+    await page.screenshot({
+      path: join(process.env.DSH_PET_UI_ARTIFACTS, 't22-polish.png'),
+      fullPage: true,
+      animations: 'disabled',
+    });
+  }
 });

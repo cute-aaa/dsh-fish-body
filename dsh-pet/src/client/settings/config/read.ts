@@ -13,7 +13,11 @@ import { parseWeights } from '../../../shared/weights.ts';
 /** 宿主返回的成品聚合：`main` 是大配置条目，其余键是文件定义的其他宠物条目。 */
 export type MergedConfig = Record<string, Record<string, unknown>>;
 
-/** 表单要吃的补丁；字段缺省表示「这次响应里没有可信值」。 */
+/** 表单要吃的补丁；字段缺省表示「这次响应里没有可信值」。
+ *
+ *  注意 `pets[]` 里还有**实例字段**（`whisperPrompt` / `personaCharacter` / `clickThrough` / `sizes` 等）：
+ *  它们没有顶层键，靠下面的 `{...pet}` 展开自然带出，这里**不加过滤代码**——过滤一处就等于
+ *  「设置页能改、保存后消失」。人设角色（`personaCharacter`）尤其如此：缺键表示不引用角色。 */
 export interface MainConfigPatch {
   /** main 条目的宠物列表（已深拷贝位置，可直接进编辑列表）。 */
   pets?: Pet[];

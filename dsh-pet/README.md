@@ -20,48 +20,57 @@
 
 ### 文件
 
-| 文件                                         | 职责                                                                      |
-| -------------------------------------------- | ------------------------------------------------------------------------- |
-| `src/client/settings.ts`                     | 装配根：加载、写盘编排、未保存基线、快捷键与外壳（页头只剩分区标签条）    |
-| `src/client/settings/tabs.ts`                | 分区表与分段标签条（加一个分区 = 表里加一行）                             |
-| `src/client/settings/panels.ts`              | 分区标识符 → 卡片装配                                                     |
-| `src/client/settings/snapshot.ts`            | 表单快照：各分区状态摊成与基线同形的对象                                  |
-| `src/client/settings/use-revert.ts`          | 「撤销改动」：重读配置与会话鱼，结论由加载状态落地                        |
-| `src/client/settings/pet-tab.ts`             | 桌宠分区：种类下拉 + 实例 chip + 选中实例的配置卡                         |
-| `src/client/settings/pet-card.ts`            | 宠物卡：身份 / 显示与位置 / 功能 / 人设（折叠）                           |
-| `src/client/settings/pet-card-parts.ts`      | 宠物卡的字段组（身份 / 显示 / 位置 / 尺寸覆盖）与头像格                   |
-| `src/client/settings/feel-tab.ts`            | 外观与手感分区：物理 / 动作频率 / 字体                                    |
-| `src/client/settings/physics-card.ts`        | 物理卡 + 「移动端效果」折叠（震动 / 倾斜 / 摇一摇）                       |
-| `src/client/settings/motion-card.ts`         | 动作频率卡（随机动作是纯读数，不给假输入框）                              |
-| `src/client/settings/font-card.ts`           | 字体卡：字体 / 字号 / 跟随缩放                                            |
-| `src/client/settings/fish-tab.ts`            | 会话鱼分区：启用与预览 / 播报 / 节奏                                      |
-| `src/client/settings/fish-fields.ts`         | 会话鱼的皮肤、大小与数量三格                                              |
-| `src/client/settings/fish-skins.ts`          | 皮肤清单分组、当前项与失效判定（纯函数）                                  |
-| `src/client/settings/audio-tab.ts`           | 声音分区装配（总闸 → 事件 → 语音）                                        |
-| `src/client/settings/sfx-master-card.ts`     | 音效总闸卡：总开关 / 常驻预热 / 总音量                                    |
-| `src/client/settings/sfx-card.ts`            | 音效卡：槽位开关常显、明细收进折叠、hook 卡紧随                           |
-| `src/client/settings/sfx-slot-row.ts`        | 槽位两张脸：紧凑列表（开关 + 试听 + 来源徽标）与明细行（路径 + 命名规则） |
-| `src/client/settings/sfx-hooks.ts`           | 自定义 hook 卡：登记表单与名单                                            |
-| `src/client/settings/voice-tab.ts`           | 语音分区：播报卡 + 本地语音接入卡                                         |
-| `src/client/settings/voice-card.ts`          | 语音卡：四类播报 / 去表情 / 音色 / 音量 / 试听                            |
-| `src/client/settings/voice-provider-card.ts` | 本地语音（GSV）接入配置与启停                                             |
-| `src/client/settings/model-tab.ts`           | 对话分区装配                                                              |
-| `src/client/settings/model-card.ts`          | 模型卡 + 「这些开关要花多少 token」折叠                                   |
-| `src/client/settings/system-tab.ts`          | 系统分区装配（提醒 → 备份 → 快捷键 → 文件与目录 → 维护）                  |
-| `src/client/settings/system-card.ts`         | 提醒与桌面卡（含「测试弹窗」）                                            |
-| `src/client/settings/maintenance-card.ts`    | 插件维护卡：重启 / 重置设置 / 页面说明                                    |
-| `src/client/settings/backup-card.ts`         | 备份与恢复卡                                                              |
-| `src/client/settings/shortcuts-card.ts`      | 快捷键参考卡（折叠）                                                      |
-| `src/client/settings/fs-card.ts`             | 「文件与目录」卡：路径树（每行一个「打开文件夹」）+ 运行时 + 卸载         |
-| `src/client/settings/bar.ts`                 | 底部常驻栏：状态（未保存条数 / 保存结论）+ 撤销 / 取消 / 应用 / 确定      |
-| `src/client/settings/dialog.ts`              | 确认 / 提示弹窗（删除、只剩一只、重置、恢复、配置损坏）                   |
-| `src/client/settings/ui.ts`                  | 共用小件：字段、卡头、小节、说明行、开关格、折叠卡、尺寸控件              |
-| `src/client/settings/css.ts`                 | 样式注入入口：拼 `style/` 三段，按 `data-plugin-css` 去重                 |
-| `src/client/settings/style/tokens.ts`        | `--pcg-*` 尺度变量、入场关键帧与 `prefers-reduced-motion` 降级            |
-| `src/client/settings/style/controls.ts`      | 控件层样式：输入、按钮、开关、分段标签、chip、滑块与两类自绘下拉          |
-| `src/client/settings/style/cards.ts`         | 容器层样式：卡片、小节、列表行、折叠、底部栏、弹窗与容器查询              |
-| `src/client/settings/use-*.ts`               | 各分区的字段状态（宠物列表、全局、音效、语音、模型、外观、会话鱼、备份…） |
-| `src/client/settings/config/`                | 成品读取、HTTP 契约、保存与同步编排、表单校验                             |
-| `src/client/settings/locales/`               | 九种语言字典；`zh` 是键集真源                                             |
+| 文件                                            | 职责                                                                              |
+| ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| `src/client/settings.ts`                        | 装配根：加载、写盘编排、未保存基线、快捷键与外壳（页头只剩分区标签条）            |
+| `src/client/settings/tabs.ts`                   | 分区表与分段标签条（加一个分区 = 表里加一行）                                     |
+| `src/client/settings/panels.ts`                 | 分区标识符 → 卡片装配                                                             |
+| `src/client/settings/snapshot.ts`               | 表单快照：各分区状态摊成与基线同形的对象                                          |
+| `src/client/settings/use-revert.ts`             | 「撤销改动」：重读配置与会话鱼，结论由加载状态落地                                |
+| `src/client/settings/pet-tab.ts`                | 桌宠分区：种类下拉 + 实例 chip + 选中实例的配置卡                                 |
+| `src/client/settings/pet-card.ts`               | 宠物卡：身份 / 角色卡 / 人设正文（折叠）/ 能力开关                                |
+| `src/client/settings/character-card.ts`         | 角色卡：来源扫描 / 角色列表 + 应用 / 删除 / 导入文档预览                          |
+| `src/client/settings/render-card.ts`            | 渲染卡：渲染方式 + 模型/皮肤同排 / 缺文件提示 / 重新扫描 / 位置与尺寸             |
+| `src/client/settings/skin-dirs.ts`              | 渲染卡下方三行目录（layered / live2d / webm 的存在性、资源数、打开）              |
+| `src/client/settings/window-behavior.ts`        | 窗口行为卡：鼠标穿透（这只）与锁定在当前屏幕（全部）                              |
+| `src/client/settings/tree-row.ts`               | 树行绘制（从 `fs-card.ts` 抽出，皮肤三行与文件树共用）                            |
+| `src/client/settings/use-persona-characters.ts` | 角色作用域：来源描述 / 角色列表 / 扫描 / 应用 / 删除（按 `pet.id` 换作用域）      |
+| `src/client/settings/use-persona-import.ts`     | 文档导入：选文件 → base64 → 预览 → 落库（取消不发请求）                           |
+| `src/client/settings/use-persona-polish.ts`     | AI 润色：请求 / 预览 / 应用 / 取消（取消不写草稿）                                |
+| `src/client/settings/use-render-resources.ts`   | `/skin/{root}/resources` 拉取与「重新扫描」                                       |
+| `src/client/settings/pet-card-parts.ts`         | 宠物卡的字段组（身份 / 显示 / 位置 / 尺寸覆盖）与头像格                           |
+| `src/client/settings/feel-tab.ts`               | 外观与手感分区：渲染卡 → 皮肤三行 → 窗口行为 → 位置/尺寸 → 物理 / 动作频率 / 字体 |
+| `src/client/settings/physics-card.ts`           | 物理卡 + 「移动端效果」折叠（震动 / 倾斜 / 摇一摇）                               |
+| `src/client/settings/motion-card.ts`            | 动作频率卡（随机动作是纯读数，不给假输入框）                                      |
+| `src/client/settings/font-card.ts`              | 字体卡：字体 / 字号 / 跟随缩放                                                    |
+| `src/client/settings/fish-tab.ts`               | 会话鱼分区：启用与预览 / 播报 / 节奏                                              |
+| `src/client/settings/fish-fields.ts`            | 会话鱼的皮肤、大小与数量三格                                                      |
+| `src/client/settings/fish-skins.ts`             | 皮肤清单分组、当前项与失效判定（纯函数）                                          |
+| `src/client/settings/audio-tab.ts`              | 声音分区装配（总闸 → 事件 → 语音）                                                |
+| `src/client/settings/sfx-master-card.ts`        | 音效总闸卡：总开关 / 常驻预热 / 总音量                                            |
+| `src/client/settings/sfx-card.ts`               | 音效卡：槽位开关常显、明细收进折叠、hook 卡紧随                                   |
+| `src/client/settings/sfx-slot-row.ts`           | 槽位两张脸：紧凑列表（开关 + 试听 + 来源徽标）与明细行（路径 + 命名规则）         |
+| `src/client/settings/sfx-hooks.ts`              | 自定义 hook 卡：登记表单与名单                                                    |
+| `src/client/settings/voice-tab.ts`              | 语音分区：播报卡 + 本地语音接入卡                                                 |
+| `src/client/settings/voice-card.ts`             | 语音卡：四类播报 / 去表情 / 音色 / 音量 / 试听                                    |
+| `src/client/settings/voice-provider-card.ts`    | 本地语音（GSV）接入配置与启停                                                     |
+| `src/client/settings/model-tab.ts`              | 对话分区装配                                                                      |
+| `src/client/settings/model-card.ts`             | 模型卡 + 「这些开关要花多少 token」折叠                                           |
+| `src/client/settings/system-tab.ts`             | 系统分区装配（提醒 → 备份 → 快捷键 → 文件与目录 → 维护）                          |
+| `src/client/settings/system-card.ts`            | 提醒与桌面卡（含「测试弹窗」）                                                    |
+| `src/client/settings/maintenance-card.ts`       | 插件维护卡：重启 / 重置设置 / 页面说明                                            |
+| `src/client/settings/backup-card.ts`            | 备份与恢复卡                                                                      |
+| `src/client/settings/shortcuts-card.ts`         | 快捷键参考卡（折叠）                                                              |
+| `src/client/settings/fs-card.ts`                | 「文件与目录」卡：路径树（每行一个「打开文件夹」）+ 运行时 + 卸载                 |
+| `src/client/settings/bar.ts`                    | 底部常驻栏：状态（未保存条数 / 保存结论）+ 撤销 / 取消 / 应用 / 确定              |
+| `src/client/settings/dialog.ts`                 | 确认 / 提示弹窗（删除、只剩一只、重置、恢复、配置损坏）                           |
+| `src/client/settings/ui.ts`                     | 共用小件：字段、卡头、小节、说明行、开关格、折叠卡、尺寸控件                      |
+| `src/client/settings/css.ts`                    | 样式注入入口：拼 `style/` 三段，按 `data-plugin-css` 去重                         |
+| `src/client/settings/style/tokens.ts`           | `--pcg-*` 尺度变量、入场关键帧与 `prefers-reduced-motion` 降级                    |
+| `src/client/settings/style/controls.ts`         | 控件层样式：输入、按钮、开关、分段标签、chip、滑块与两类自绘下拉                  |
+| `src/client/settings/style/cards.ts`            | 容器层样式：卡片、小节、列表行、折叠、底部栏、弹窗与容器查询                      |
+| `src/client/settings/use-*.ts`                  | 各分区的字段状态（宠物列表、全局、音效、语音、模型、外观、会话鱼、备份…）         |
+| `src/client/settings/config/`                   | 成品读取、HTTP 契约、保存与同步编排、表单校验                                     |
+| `src/client/settings/locales/`                  | 九种语言字典；`zh` 是键集真源                                                     |
 
 许可：代码 MIT；素材禁止商用；二创在公开渠道须署名（同上链接）。

@@ -312,3 +312,12 @@ describe('全局目录（which=pool-root / animations / memes / user-root）', (
     assert.equal((wrongMethod.obj as { reason: string }).reason, 'method-not-allowed');
   });
 });
+
+test('三个池桶类别：直接回 <池>/<渲染方式>，池根是绝对路径也正确', () => {
+  const paths = userPaths(join('C:', 'u', 'fish-body'));
+  const pool = join('D:', 'skin', 'shared');
+  const dirs = { paths, pool };
+  assert.equal(resolveGlobalFolder('pool-bucket-layered', dirs), join(pool, 'layered'));
+  assert.equal(resolveGlobalFolder('pool-bucket-live2d', dirs), join(pool, 'live2d'));
+  assert.equal(resolveGlobalFolder('pool-bucket-webm', dirs), join(pool, 'webm'));
+});

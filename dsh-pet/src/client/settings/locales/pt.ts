@@ -557,4 +557,106 @@ export const pt: Record<Key, string> = {
   secTiming: 'Ritmo',
   sizesTitle: 'Tamanho por renderizador',
   extraPetsShort: 'Há mais {n} tipos na pasta skin/',
+
+  // —— seções de som / referência ao peixe de sessão (T9) ——
+  secSfx: 'Efeitos sonoros',
+  secVoice: 'Voz',
+  fishSpeakElsewhere: 'Os interruptores de voz do peixe de sessão ficam na aba «Peixe de sessão».',
+  fishSpeakJump: 'Abrir «Peixe de sessão»',
+  audioScopeHint: 'Efeitos e voz são gravados com «Salvar»; o endpoint de voz local e a troca de timbre valem na hora.',
+  renderRescanFailed:
+    'Falha ao reexaminar: não foi possível ler a pasta de recursos. Verifique se o host está rodando.',
+  // —— biblioteca de personagens e as duas ações de IA (T6, revisado em T11) ——
+  personaEditorSource: 'Editor de personagem embutido',
+  personaLoadFailed:
+    'Não foi possível ler a biblioteca de personagens: usando só o editor embutido; sua persona escrita à mão não foi tocada.',
+  personaScanFailed: 'Falha ao examinar: a origem não pôde ser lida.',
+  personaScanNothing: 'Nenhum personagem encontrado ({n} arquivos verificados).',
+  personaScanDone: 'Varredura concluída: {n} personagens.',
+  personaApplyFailed: 'Falha ao aplicar: o personagem não foi gravado neste pet.',
+  personaApplyDone: 'Aplicado: esta instância tem {n} caracteres.',
+  personaApplyUnchanged: 'Sem mudanças: este pet já usa esse personagem ({n} caracteres).',
+  personaRemoveFailed: 'Falha ao excluir: o personagem não existe ou ainda é referenciado.',
+  personaRemoveDone: 'Personagem removido da biblioteca.',
+  personaImportTooMany: 'No máximo {n} arquivos por vez.',
+  personaImportTooLarge: 'Arquivo grande demais: até 768 KiB cada e 1 MiB no total.',
+  personaImportFailed: 'Falha na importação: nenhum conteúdo utilizável extraído.',
+  personaImportDone: 'Personagem «{name}» importado.',
+  personaPolishEmpty: 'Escreva algum texto antes de polir.',
+  personaPolishFailed: 'Falha ao polir: o modelo não retornou texto utilizável.',
+  personaPolishApplied: 'Polimento aplicado (ainda não salvo).',
+
+  // —— cartão de personagem / render / três linhas de pele (T7 / T8 / T21) ——
+  secPosition: 'Posição',
+  secFeel: 'Toque',
+  petCardNote:
+    'Render, posição e tamanho mudam em «Aparência e toque»; aqui só se decide quem é, qual personagem usa e o que sabe fazer.',
+  characterTitle: 'Personagem',
+  characterHint: 'Examine uma fonte e importe personagens; só «Aplicar a este pet» escreve o texto na persona dele.',
+  characterScopeLabel: 'Aplica-se a {pet}',
+  characterSourceLabel: 'Fonte',
+  characterSourceHint:
+    'Só fontes com arquivos utilizáveis podem ser examinadas; itens cinza mostram o caminho esperado.',
+  characterSourceMissing: 'não instalada',
+  characterSourceNoScan: 'não examinável',
+  characterScan: 'Examinar e importar',
+  characterReload: 'Atualizar',
+  characterExpectedPath: 'Caminho esperado: {path}',
+  characterPickLabel: 'Personagem',
+  characterPickHint: 'Escolha um da biblioteca; «Aplicar» sobrescreve a persona deste pet.',
+  characterNone: '(sem personagem)',
+  characterApply: 'Aplicar a este pet',
+  characterRemove: 'Excluir',
+  characterWriteName: 'Trocar o nome também',
+  characterReadonly: 'A persona de um pet de arquivo é gerida pela entrada dele: aqui só se navega e importa.',
+  characterImport: 'Importar documentos…',
+  characterImportPick: 'Escolher documentos',
+  characterImportHint: 'md / txt / json / cartão png / docx; até 768 KiB cada, 1 MiB no total, 5 arquivos.',
+  characterImportedName: 'Nome',
+  characterImportedDescription: 'Descrição',
+  characterImportedPersonality: 'Personalidade',
+  characterImportCommit: 'Importar para a biblioteca',
+  personaPolish: 'Polir com IA',
+  personaPolishHint: 'Chama o modelo uma vez; o resultado é só uma prévia.',
+  personaPolishPreview: 'Prévia ({n} caracteres): «Aplicar» grava no rascunho; cancelar deixa o texto intacto.',
+  renderCardTitle: 'Render',
+  renderCardHint: 'O render e o modelo/pele definem a aparência; posição e tamanho definem onde e quanto ocupa.',
+  renderModelLabel: 'Modelo / pele',
+  renderModelHint: 'As opções vêm da lista do render atual; arquivos ausentes aparecem abaixo.',
+  renderModelWebmHint: 'webm toca do pool de animações: não há modelo separado.',
+  renderModelStale: 'obsoleto',
+  renderMissingFiles: 'Falta {files} — coloque os recursos em {path} e clique em «Reexaminar».',
+  renderRescan: 'Reexaminar',
+  skinDirsTitle: 'Pastas de pele',
+  skinDirsHint: 'As três linhas são as pastas layered / live2d / webm; o caminho vem do host e «Abrir» vai direto.',
+  skinDirsCount: '{n} itens',
+  skinDirsMissing: 'falta {file}',
+  'renderDir.layered': 'Peles em camadas',
+  'renderDir.live2d': 'Modelos Live2D',
+  'renderDir.webm': 'Animações planas',
+
+  // —— cartão de comportamento da janela + nota da árvore (T20 / T11) ——
+  windowBehaviorTitle: 'Comportamento da janela',
+  windowBehaviorHint:
+    'As duas linhas respondem à mesma pergunta: dá para tocar nesta janela e até onde ela pode ir? O clique através vale só para este pet (por instância); travar na tela é global.',
+  windowBehaviorNote:
+    'Ambos são gravados com «Salvar». Com o clique através ligado, o menu de contexto da janela fica inacessível — este cartão é a saída.',
+  scopeThis: 'este pet',
+  scopeAll: 'todos',
+  'fsDesc.data.personaCharacters':
+    'Biblioteca de personagens: um json por personagem; copie ou apague a pasta inteira.',
+
+  // —— comparação da prévia (T22) ——
+  personaPolishBefore: 'Original',
+  personaPolishAfter: 'Polido',
+
+  // —— aviso de substituição ao aplicar (revisão) ——
+  personaApplyOverwrote:
+    'Texto do personagem aplicado: a persona não salva deste pet foi substituída ({n} caracteres).',
+
+  // —— linhas de pele: vazio vs ausente (retrabalho 2) ——
+  skinDirsEmpty: 'pasta existe, ainda sem recursos',
+  skinDirsExpect: 'espera {list}',
+  skinDirsBadgeEmpty: 'vazia',
+  skinDirsBadgeMissing: 'ausente',
 };

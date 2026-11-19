@@ -880,6 +880,82 @@ describe('saveUserConfig —— 实例级人设 whisperPrompt（白名单 + 清�
   });
 });
 
+describe('配置合并与保存 —— 人设角色 personaCharacter（实例字段 / 缺键语义 / 中文 id）', () => {
+  const petAt = (merged: Record<string, Record<string, unknown>>): Record<string, unknown> =>
+    (merged.main.pets as Record<string, unknown>[])[0];
+  const savedPetAt = (out: Record<string, unknown> | null): Record<string, unknown> =>
+    (out?.pets as Record<string, unknown>[])[0];
+
+  test('读：写了合法 id → 原样带出；缺键 → 结果里没有该键', () => {
+    const withId = petAt(readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], personaCharacter: '鱼生' }] })));
+    assert.equal(withId.personaCharacter, '鱼生');
+    assert.equal('personaCharacter' in petAt(readAllConfig(withBase({}))), false);
+  });
+
+  test('读：空串 / 纯空白 / 非法 id / 非字符串 → 都当没写，且不抛错（读侧宽松）', () => {
+    for (const value of ['', '   ', 'a/b', 'has space', 'x'.repeat(65), 42, { a: 1 }, true]) {
+      const pet = petAt(
+        readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], personaCharacter: value as unknown }] })),
+      );
+      assert.equal('personaCharacter' in pet, false, `${JSON.stringify(value)} 应被忽略`);
+    }
+  });
+
+  test('写：合法 id 落盘；未传 / 空串 → 不凭空造字段（缺键 = 不引用角色）', () => {
+    assert.equal(savedPetAt(saveOnce({ pets: [{ ...PETS[0], personaCharacter: '鱼生' }] })).personaCharacter, '鱼生');
+    assert.equal('personaCharacter' in savedPetAt(saveOnce({ pets: [{ ...PETS[0] }] })), false);
+    for (const value of ['', '   ']) {
+      assert.equal(
+        'personaCharacter' in savedPetAt(saveOnce({ pets: [{ ...PETS[0], personaCharacter: value }] })),
+        false,
+      );
+    }
+  });
+
+  test('写：非法 id（含 /、空格、超 64 字符）整包拒绝（宿主回 400，不静默丢）', () => {
+    for (const value of ['a/b', 'has space', 'x'.repeat(65), 'a:b', 'a\\b', 42]) {
+      assert.equal(
+        saveOnce({ pets: [{ ...PETS[0], personaCharacter: value as unknown }] }),
+        null,
+        `${String(value)} 应被拒`,
+      );
+    }
+  });
+
+  test('中文 id 被接受，且写盘再读回原样（id 直接当文件名用）', () => {
+    const out = saveOnce({ pets: [{ ...PETS[0], personaCharacter: '鱼生' }] });
+    assert.equal(savedPetAt(out).personaCharacter, '鱼生');
+    const paths = withBase({}, out as Record<string, unknown>);
+    try {
+      const merged = readAllConfig(paths);
+      assert.equal(
+        (merged.main.pets as Record<string, unknown>[])[0].personaCharacter,
+        '鱼生',
+        '保存再读回必须原样（整包白名单重建最容易把它丢掉）',
+      );
+    } finally {
+      rmSync(dirname(paths.defaultFile), { recursive: true, force: true });
+    }
+  });
+
+  test('老配置形状（不含该键）保存往返后磁盘上仍然没有该键', () => {
+    const out = saveOnce({ pets: [{ ...PETS[0] }] });
+    const paths = withBase({}, out as Record<string, unknown>);
+    try {
+      const merged = readAllConfig(paths);
+      assert.equal('personaCharacter' in (merged.main.pets as Record<string, unknown>[])[0], false);
+    } finally {
+      rmSync(dirname(paths.defaultFile), { recursive: true, force: true });
+    }
+  });
+
+  test('/pet-display 式往返：合并结果直接喂回 save，角色引用不丢（也不会被写成空串）', () => {
+    const merged = readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], personaCharacter: '鱼生' }] }));
+    const layerPets = merged.main.pets as Record<string, unknown>[];
+    assert.equal(savedPetAt(saveOnce({ pets: layerPets })).personaCharacter, '鱼生');
+  });
+});
+
 describe('配置合并与保存 —— sizePercent（合法才落键，缺省按默认 20 消费）', () => {
   const petAt = (merged: Record<string, Record<string, unknown>>): Record<string, unknown> =>
     (merged.main.pets as Record<string, unknown>[])[0];
@@ -1822,5 +1898,40 @@ describe('saveUserConfig —— hotkeys 段（九个悬停键）', () => {
     const clean = saveOnce({ pets: BASE.pets, hotkeys: { chat: 'k' } }, { hotkeys: { chat: 'j' } });
     assert.ok(clean !== null);
     assert.equal((clean.hotkeys as Record<string, string>).chat, 'k');
+  });
+});
+
+describe('personaCharacter —— 多实例往返与失效引用', () => {
+  const petAt = (out: Record<string, unknown> | null, id: string): Record<string, unknown> =>
+    (out?.pets as Record<string, unknown>[]).find((item) => item.id === id) as Record<string, unknown>;
+
+  test('两只各引各的：保存 → 读回，引用与正文都不串', () => {
+    const out = saveOnce({
+      pets: [
+        { ...PETS[0], id: 'a', whisperPrompt: 'A 正文', personaCharacter: 'X' },
+        { ...PETS[0], id: 'b', whisperPrompt: 'B 正文', personaCharacter: 'Y' },
+      ],
+    });
+    assert.equal(petAt(out, 'a').personaCharacter, 'X');
+    assert.equal(petAt(out, 'b').personaCharacter, 'Y');
+    const paths = withBase({}, out as Record<string, unknown>);
+    try {
+      const pets = readAllConfig(paths).main.pets as Record<string, unknown>[];
+      assert.equal(pets.find((item) => item.id === 'a')?.personaCharacter, 'X');
+      assert.equal(pets.find((item) => item.id === 'b')?.personaCharacter, 'Y');
+      assert.equal(pets.find((item) => item.id === 'a')?.whisperPrompt, 'A 正文');
+      assert.equal(pets.find((item) => item.id === 'b')?.whisperPrompt, 'B 正文');
+    } finally {
+      rmSync(dirname(paths.defaultFile), { recursive: true, force: true });
+    }
+  });
+
+  test('失效引用：角色库里已经没有这个 id，读侧仍如实回显（不改写成「没引用」）', () => {
+    const merged = readAllConfig(withBase({}, { pets: [{ ...BASE.pets[0], personaCharacter: '已删除的角色' }] }));
+    assert.equal(
+      (merged.main.pets as Record<string, unknown>[])[0].personaCharacter,
+      '已删除的角色',
+      '读侧保留失效引用，设置页才能显示「引用的角色已不存在」',
+    );
   });
 });

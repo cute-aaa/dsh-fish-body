@@ -10,6 +10,7 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { isGlobalFolderTarget, PET_FOLDER_TARGETS, type GlobalFolderTarget } from '../shared/folders.ts';
+import { POOL_LAYER_DIR } from '../shared/pool.ts';
 import type { SfxDirs } from './sfx/scan.ts';
 import type { UserPaths } from './user-layout.ts';
 import type { RendererKind, SfxFolderTarget } from '../shared/types.ts';
@@ -82,6 +83,13 @@ export function resolveGlobalFolder(
       return paths.memesDir;
     case 'fish-skin':
       return paths.fishSkinDir;
+    // 三个池桶：直接回 <池>/<渲染方式>，不需要宠物（三行里总有两行不匹配当前渲染方式）。
+    case 'pool-bucket-layered':
+      return join(dirs.pool, POOL_LAYER_DIR.layered);
+    case 'pool-bucket-live2d':
+      return join(dirs.pool, POOL_LAYER_DIR.live2d);
+    case 'pool-bucket-webm':
+      return join(dirs.pool, POOL_LAYER_DIR.webm);
   }
 }
 

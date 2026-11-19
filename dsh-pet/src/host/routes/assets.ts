@@ -12,13 +12,14 @@ import { MIME, resolveAsset, resolveExisting } from '../http.ts';
 import { isValidPetId, RENDERER_SET } from '../config.ts';
 import { SFX_AUDIO_EXTS } from '../../shared/sfx/types.ts';
 import { isValidModelPath, skinIdOfModel } from '../sfx/scan.ts';
-import { LAYERED_MANIFEST_PATHS, layeredBaseOf } from '../../shared/layered-paths.ts';
 import { isModelSettingsFile, mergeModelExtras } from '../model-extras.ts';
 import { petAvatarFile } from '../pet-avatar.ts';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { POOL_ASSET_ROOT, POOL_LAYER_DIR } from '../../shared/pool.ts';
 import { createPoolReader } from '../pool/scan.ts';
+import { listLayeredIds, listModelIds, readRenderResources } from '../pool/inventory.ts';
 import { soundCandidateDirs } from '../sfx/order.ts';
+import type { RenderAnimDir } from '../pool/inventory.ts';
 import type { PoolEntryItem, RendererKind } from '../../shared/types.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import type { RouteResult } from '../http.ts';
@@ -31,54 +32,13 @@ function poolLayerOf(segment: string): 'layered' | 'live2d' | undefined {
   return (POOL_SKIN_LAYERS as readonly string[]).includes(segment) ? (segment as 'layered' | 'live2d') : undefined;
 }
 
-/** 递归列出皮肤目录下全部 `.model3.json`（相对路径，posix 分隔符，排序稳定）。 */
-function listModel3(dir: string): string[] {
-  const out: string[] = [];
-  try {
-    for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
-      if (entry.isFile() && entry.name.endsWith('.model3.json')) {
-        const rel = entry.parentPath ? entry.parentPath.slice(dir.length).replace(/\\/g, '/') : '';
-        out.push((rel ? rel.replace(/^\//, '') + '/' : '') + entry.name);
-      }
-    }
-  } catch {
-    return []; // 目录不存在 / 读失败：当作无模型。
-  }
-  return out.sort();
-}
-
-/**
- * 列出可切换的分层皮肤：根布局记作空串，子目录布局记子目录名（`layered` → `"layered"`）。
- *
- * 只扫两层（根 + 一级子目录）：「一个素材根里几套皮肤」够用，再深就没人看得出哪套是哪套了。
- *
- * @param dir - 皮肤目录（`pet/<素材根>-skin/`）。
- * @returns 皮肤 id 列表；根布局在前，其后按名字排序。
- */
-function listSkinDirs(dir: string): string[] {
-  const out: string[] = [];
-  for (const path of LAYERED_MANIFEST_PATHS) {
-    if (existsSync(join(dir, path))) out.push(layeredBaseOf(path).replace(/\/$/, ''));
-  }
-  // 一级子目录里的清单（`<id>/manifest.json`）：多套皮肤并排时用。
-  // 目录链接（Windows junction）也算：皮肤目录常常是软链过来的，Dirent.isDirectory() 对它为假。
-  try {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
-      if (!existsSync(join(dir, entry.name, 'manifest.json'))) continue;
-      if (!out.includes(entry.name)) out.push(entry.name);
-    }
-  } catch {
-    /* 目录都读不了：上面的候选结果就是全部 */
-  }
-  return out;
-}
-
 /**
  * 把「旧布局的 id」与「池里的 id」合成一份带来源的清单。
  *
  * 旧布局在前、池在后（与 `pets[].model` 的「先 pack 后池」一致），同名只留旧布局那一份——
  * 否则设置页会列出两个一模一样的名字，选哪个都说不清。
+ *
+ * 响应形状保持 `{id, source}`：桌面 helper（`init.js`）按这个形状读，行内不新增字段。
  *
  * @param packIds - 旧布局的皮肤 id / 模型相对路径。
  * @param poolIds - 池里的资源 id。
@@ -262,7 +222,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     // /skin/<root>/models：列出全部 .model3.json（相对路径，供 live2d 右键「模型」切换）。
     // 普通素材根 = 旧皮肤目录 ∪ 池；池视图只有池。`items` 带来源，老调用方仍读 `models`。
     if (relParts.length === 1 && relParts[0] === 'models') {
-      const packIds = packDir === undefined ? [] : listModel3(packDir);
+      const packIds = packDir === undefined ? [] : listModelIds(packDir);
       const poolIds = pool === undefined ? [] : pool.live2d.map((entry) => entry.id);
       return {
         kind: 'json',
@@ -274,13 +234,33 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     // 供 layered 右键「皮肤」切换（pets[].model 写这里的值）。根布局与子目录布局都认，
     // 见 shared/layered-paths——一处布局变了，这条列表跟着变，别在两端各写一套扫描。
     if (relParts.length === 1 && relParts[0] === 'skins') {
-      const packIds = packDir === undefined ? [] : listSkinDirs(packDir);
+      const packIds = packDir === undefined ? [] : listLayeredIds(packDir);
       const poolIds = pool === undefined ? [] : pool.layered.map((entry) => entry.id);
       return {
         kind: 'json',
         status: 200,
         obj: { items: mergeEntryItems(packIds, poolIds), skins: [...packIds, ...poolIds] },
       };
+    }
+
+    // /skin/<root>/resources：设置页用的三桶清单（layered / live2d / webm）。
+    // 与 /skins、/models 共用 `pool/inventory` 的扫描判定：同一目录在两处不会给出两种答案。
+    // 只增不改——`/skins`、`/models` 的响应形状原样保留（桌面 helper 仍在消费）。
+    if (relParts.length === 1 && relParts[0] === 'resources') {
+      // 平铺动画的候选链与 /thumb 的 findAnim 同序：专属目录 → 池 → 用户共享 → 包内。
+      const animDirs: RenderAnimDir[] = [];
+      if (!fromPool) {
+        const extraAnimDir = resolveAsset(petConfigDir, assetRoot + '-animation');
+        if (extraAnimDir !== undefined) animDirs.push({ dir: extraAnimDir, source: 'pack' });
+      }
+      if (poolBase !== '') animDirs.push({ dir: join(poolBase, POOL_LAYER_DIR.webm), source: 'pool' });
+      if (!fromPool && typeof userRootFor === 'function' && typeof assetRootFor === 'function') {
+        // 两条共享素材链不算「这只宠物的专属目录」，按池同一来源标注。
+        animDirs.push({ dir: userRootFor('.webm'), source: 'pool' });
+        animDirs.push({ dir: assetRootFor('.webm'), source: 'pool' });
+      }
+      const resources = readRenderResources({ poolRoot: poolBase, packSkinDir: packDir, animDirs });
+      return { kind: 'json', status: 200, obj: { root: assetRoot, renderers: resources } };
     }
 
     let skinFile: string | undefined;

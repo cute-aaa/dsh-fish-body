@@ -19,7 +19,7 @@ import { failResult, methodNotAllowed, okResult } from './result.ts';
 
 /** 类别白名单的一句话说明：报错时原样告诉调用方有哪些可选值。 */
 const WHICH_HINT =
-  'which 只能是 sound / skin / animation / user / package / pool-layered / pool-live2d / pool-webm / pool-sound / pool-global-sound / root / config / data / cache / runtime / skin-root / pets / assets / pool-root / animations / memes / fish-skin / user-root';
+  'which 只能是 sound / skin / animation / user / package / pool-layered / pool-live2d / pool-webm / pool-sound / pool-global-sound / root / config / data / cache / runtime / skin-root / pets / assets / pool-root / animations / memes / fish-skin / user-root / pool-bucket-layered / pool-bucket-live2d / pool-bucket-webm';
 
 /**
  * 打开文件夹领域：未命中返回 undefined，命中返回应答。

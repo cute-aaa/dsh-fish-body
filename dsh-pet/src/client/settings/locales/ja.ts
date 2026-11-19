@@ -546,4 +546,103 @@ export const ja: Record<Key, string> = {
   secTiming: 'テンポ',
   sizesTitle: 'レンダラーごとのサイズ',
   extraPetsShort: '他に {n} 種類は skin/ ディレクトリにあります',
+
+  // —— サウンドの 2 節 / セッション魚への参照（T9）——
+  secSfx: '効果音',
+  secVoice: '音声',
+  fishSpeakElsewhere: 'セッション魚の読み上げスイッチは「セッション魚」タブにあります。',
+  fishSpeakJump: '「セッション魚」を開く',
+  audioScopeHint: '効果音と読み上げは「保存」で書き込まれます。ローカル音声の接続先と音色の切り替えは即時反映です。',
+  renderRescanFailed: '再スキャンに失敗しました：リソースフォルダを読めません。ホストが動いているか確認してください。',
+  // —— キャラクターライブラリと 2 つの AI 操作（T6、T11 で再確認）——
+  personaEditorSource: '内蔵の人物設定エディタ',
+  personaLoadFailed:
+    'キャラクターライブラリを読めませんでした：「内蔵エディタのみ」に切り替えました。手書きの人物設定はそのままです。',
+  personaScanFailed: 'スキャンに失敗しました：ソースを読めません。',
+  personaScanNothing: 'キャラクターが見つかりません（{n} ファイルを確認）。',
+  personaScanDone: 'スキャン完了：{n} 件。',
+  personaApplyFailed: '適用に失敗しました：このペットに書き込まれていません。',
+  personaApplyDone: '適用しました：この個体の人物設定は {n} 文字です。',
+  personaApplyUnchanged: '変更なし：このペットはすでにこのキャラクターを使っています（{n} 文字）。',
+  personaRemoveFailed: '削除に失敗しました：キャラクターが無いか、他のペットが参照しています。',
+  personaRemoveDone: 'キャラクターをライブラリから削除しました。',
+  personaImportTooMany: '一度に最大 {n} ファイルまでです。',
+  personaImportTooLarge: 'ファイルが大きすぎます：1 件 768 KiB、合計 1 MiB までです。',
+  personaImportFailed: 'インポートに失敗しました：使える内容を抽出できませんでした。',
+  personaImportDone: 'キャラクター「{name}」をインポートしました。',
+  personaPolishEmpty: '本文を書いてから磨いてください。',
+  personaPolishFailed: '推敲に失敗しました：モデルが使えるテキストを返しませんでした。',
+  personaPolishApplied: '推敲結果を適用しました（未保存）。',
+
+  // —— キャラクター / 描画カード / スキン 3 行（T7 / T8 / T21）——
+  secPosition: '位置',
+  secFeel: '手触り',
+  petCardNote:
+    '描画方式・位置・サイズは「見た目と手触り」で変更します。ここは「誰か・どの人物設定か・何ができるか」だけです。',
+  characterTitle: 'キャラクター',
+  characterHint:
+    '出所をスキャンしてキャラクターを取り込みます。「このペットに適用」で初めて人物設定本文が書き込まれます。',
+  characterScopeLabel: '{pet} に適用',
+  characterSourceLabel: '出所',
+  characterSourceHint: '取り込み可能なファイルがある出所だけスキャンできます。灰色の項目は期待パスを表示します。',
+  characterSourceMissing: '未インストール',
+  characterSourceNoScan: 'スキャン不可',
+  characterScan: 'スキャンして取り込む',
+  characterReload: '更新',
+  characterExpectedPath: '期待パス：{path}',
+  characterPickLabel: 'キャラクター',
+  characterPickHint: 'ライブラリから選択。「適用」はこのペットの人物設定本文を上書きします。',
+  characterNone: '（キャラクターなし）',
+  characterApply: 'このペットに適用',
+  characterRemove: '削除',
+  characterWriteName: '名前も変更',
+  characterReadonly: 'ファイルペットの人物設定は所属エントリが管理します：閲覧と取り込みのみ可能です。',
+  characterImport: 'ドキュメントを取り込む…',
+  characterImportPick: 'ドキュメントを選択',
+  characterImportHint: 'md / txt / json / png カード / docx。1 件 768 KiB、合計 1 MiB、最大 5 件。',
+  characterImportedName: '名前',
+  characterImportedDescription: '説明',
+  characterImportedPersonality: '性格',
+  characterImportCommit: 'ライブラリへ取り込む',
+  personaPolish: 'AI 推敲',
+  personaPolishHint: 'モデルを 1 回呼びます。結果はまずプレビューです。',
+  personaPolishPreview: '推敲プレビュー（{n} 文字）：「適用」で下書きに入り、キャンセルなら本文は変わりません。',
+  renderCardTitle: '描画',
+  renderCardHint: '描画方式とモデル/スキンで見た目が、位置とサイズで置き場所と大きさが決まります。',
+  renderModelLabel: 'モデル / スキン',
+  renderModelHint: '選択肢は現在の描画方式のリソース一覧から。欠けているファイルは下に表示されます。',
+  renderModelWebmHint: 'webm はアニメーションプールを並べて再生するため、個別モデルはありません。',
+  renderModelStale: '無効',
+  renderMissingFiles: '{files} がありません。{path} に素材を置いて「再スキャン」を押してください。',
+  renderRescan: '再スキャン',
+  skinDirsTitle: 'スキンフォルダー',
+  skinDirsHint: '3 行は layered / live2d / webm の約束フォルダーです。パスはホストが返し、「開く」で直接開きます。',
+  skinDirsCount: '{n} 件',
+  skinDirsMissing: '{file} がありません',
+  'renderDir.layered': 'レイヤースキン',
+  'renderDir.live2d': 'Live2D モデル',
+  'renderDir.webm': 'フラットアニメ',
+
+  // —— ウィンドウ動作カード + キャラクターライブラリのツリー説明（T20 / T11）——
+  windowBehaviorTitle: 'ウィンドウの動作',
+  windowBehaviorHint:
+    '2 行は同じ問いに答えます：このウィンドウは触れるか、どこまで動けるか。クリック透過はこのペットだけ（個体単位）、画面固定は全体スイッチです。',
+  windowBehaviorNote:
+    'どちらも「保存」で書き込まれます。透過をオンにするとウィンドウ内の右クリックメニューは届きません。戻すのはこのカードです。',
+  scopeThis: 'このペット',
+  scopeAll: 'すべて',
+  'fsDesc.data.personaCharacters': '人物設定ライブラリ：1 キャラ 1 json。コピーして持ち出せます。',
+
+  // —— 推敲プレビューの対比（T22）——
+  personaPolishBefore: '元の文',
+  personaPolishAfter: '推敲後',
+
+  // —— 適用時の上書き通知（レビュー対応）——
+  personaApplyOverwrote: 'キャラクター本文を適用し、このペットの未保存の人物設定を上書きしました（{n} 文字）。',
+
+  // —— スキン行：empty と missing を分ける（再作業 2）——
+  skinDirsEmpty: 'フォルダーはあるが素材が未配置',
+  skinDirsExpect: '期待：{list}',
+  skinDirsBadgeEmpty: '空',
+  skinDirsBadgeMissing: '欠け',
 };

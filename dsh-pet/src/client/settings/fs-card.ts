@@ -30,6 +30,7 @@ import { fetchRuntime, resetRuntimeDir, saveRuntimeDir, startRuntimeDownload } f
 import type { SettingsRuntime } from './runtime.ts';
 import { treePrefixes } from './tree.ts';
 import { treeNote } from './tree-notes.ts';
+import { makeTreeRow } from './tree-row.ts';
 import { MONO_STACK, makeUiKit } from './ui.ts';
 
 /** 卡片的输入：宿主给的那一份元信息。 */
@@ -107,32 +108,23 @@ export function makeFsCard(rt: SettingsRuntime): FunctionComponent<FsCardProps> 
   const { h, t, useEffect, useState } = rt;
   const { foldCard, note, section } = makeUiKit({ h, t });
   const FolderButton = makeFolderButton(rt);
+  const TreeRow = makeTreeRow(rt);
 
   /** 一行树节点：前缀 + 名字 + 说明（+ 只读参考组的徽标 + 「打开」）。 */
-  const row = (node: MetaNode, prefix: string, badgeText?: string) => {
-    const desc = treeNote(t, node.key);
-    // 根行没有前缀：整行顶格，网格也少一列（见 style/cards.ts 的 .is-root）。
-    const isRoot = prefix === '';
-    return h('div', {
+  const row = (node: MetaNode, prefix: string, badgeText?: string) =>
+    TreeRow({
       key: node.key,
-      className: 'dsh-pet-cfg__treeRow' + (isRoot ? ' is-root' : '') + (node.exists ? '' : ' is-missing'),
-      children: [
-        isRoot ? null : h('span', { key: 'p', className: 'dsh-pet-cfg__treePrefix', children: prefix }),
-        h('span', {
-          key: 'n',
-          className: 'dsh-pet-cfg__treeName',
-          children: node.kind === 'dir' ? node.name + '/' : node.name,
-          title: node.path,
-        }),
-        desc === undefined ? null : h('span', { key: 'd', className: 'dsh-pet-cfg__treeDesc', children: desc }),
-        badgeText === undefined
-          ? null
-          : h('span', { key: 'b', className: 'dsh-pet-cfg__treeBadge', children: badgeText }),
-        // 徽标与「打开」都要落在第 4 列：给了徽标就不再给按钮（只读参考本来也打不开）。
-        node.open === undefined || badgeText !== undefined ? null : h(FolderButton, { key: 'o', which: node.open }),
-      ],
+      prefix,
+      // 根行没有前缀：整行顶格，网格也少一列（见 style/cards.ts 的 .is-root）。
+      isRoot: prefix === '',
+      name: node.kind === 'dir' ? node.name + '/' : node.name,
+      path: node.path,
+      ...(treeNote(t, node.key) === undefined ? {} : { desc: treeNote(t, node.key) }),
+      ...(badgeText === undefined ? {} : { badgeText }),
+      exists: node.exists,
+      // 徽标与「打开」都要落在第 4 列：给了徽标就不再给按钮（只读参考本来也打不开）。
+      open: node.open === undefined || badgeText !== undefined ? null : h(FolderButton, { key: 'o', which: node.open }),
     });
-  };
 
   /** 一格「位置」行：路径 + 来源说明 + 打开 / 更改位置。 */
   const locationRow = (

@@ -112,6 +112,27 @@ export function baselineFromConfig(entries: readonly ConfigEntry[], patch: MainC
   };
 }
 
+/**
+ * 实例字段 → 分区：`pets.<下标>.<字段>` 命中这张表就用它，未命中回落到 {@link TAB_PREFIXES}。
+ *
+ * 为什么需要它：渲染方式 / 位置 / 尺寸 / 鼠标穿透已经搬到「外观与手感」，但路径仍在 `pets.*` 下，
+ * 只按前缀归会让圆点**亮在「桌宠」而控件在「外观」**。这张表是字段归属的唯一真相：
+ * 新增实例字段要么进这里，要么落到 `pet` 前缀（设计页里显式登记 `personaCharacter` 就是为此）。
+ */
+const PET_FIELD_TABS: Readonly<Record<string, SettingsTabId>> = {
+  display: 'feel',
+  renderer: 'feel',
+  model: 'feel',
+  size: 'feel',
+  sizePercent: 'feel',
+  sizes: 'feel',
+  position: 'feel',
+  clickThrough: 'feel',
+  personaCharacter: 'pet',
+  name: 'pet',
+  whisperPrompt: 'pet',
+};
+
 /** 一个路径前缀属于哪个分区；最长前缀优先。 */
 const TAB_PREFIXES: ReadonlyArray<readonly [string, SettingsTabId]> = [
   ['pets', 'pet'],
@@ -128,7 +149,8 @@ const TAB_PREFIXES: ReadonlyArray<readonly [string, SettingsTabId]> = [
   ['model', 'chat'],
   ['global.notificationsEnabled', 'system'],
   ['global.trayEnabled', 'system'],
-  ['global.confineToScreen', 'system'],
+  // 「锁定在当前屏幕」已搬进「外观与手感」的窗口行为卡：圆点跟着控件走。
+  ['global.confineToScreen', 'feel'],
   // 九个悬停键在「系统」分区的快捷键卡里改。
   ['hotkeys', 'system'],
 ];
@@ -193,6 +215,26 @@ export function diffSnapshot(baseline: FormSnapshot, current: FormSnapshot): Rea
   return out;
 }
 
+/**
+ * 把一只实例的若干字段推进到基线（应用角色之后的回填用）。
+ *
+ * 为什么需要它：`POST /persona/characters/apply` 成功后**宿主已经改过盘**，客户端若只更新草稿，
+ * 下一次保存会把角色正文盖回旧值；而整页 `applyConfig` 全量重读会丢掉用户别处未保存的改动。
+ * 折中办法就是只推这一只的指定字段——其余路径原样返回，`diffSnapshot` 对它们的判断不受影响。
+ *
+ * @param baseline - 当前基线快照。
+ * @param petId - 被写入的实例 id。
+ * @param fields - 宿主实际写进配置的字段（`whisperPrompt` / `name` / `personaCharacter` …）。
+ * @returns 新基线；基线里没有宠物列表时原样返回。
+ */
+export function advancePetBaseline(baseline: FormSnapshot, petId: string, fields: Partial<Pet>): FormSnapshot {
+  if (baseline.pets === undefined) return baseline;
+  return {
+    ...baseline,
+    pets: baseline.pets.map((pet) => (pet.id === petId ? { ...pet, ...fields } : pet)),
+  };
+}
+
 /** 圆点查询口：卡片只问「我这一条/这一块有没有改动」。 */
 export interface DirtyQuery {
   /** 改动路径条数。 */
@@ -224,6 +266,13 @@ export function makeDirtyQuery(paths: ReadonlySet<string>): DirtyQuery {
 
 /** 一条路径归属的分区；没有匹配（例如未来新增的路径忘了登记）返回 undefined。 */
 function tabOfPath(path: string): SettingsTabId | undefined {
+  // 先按实例字段判：`pets.<下标>.<字段>` 的归属由 PET_FIELD_TABS 说了算（见那张表的注释）。
+  // 取第一段字段名即可——`pets.0.position.marginX` / `pets.0.sizes.live2d` 都要落到 `position` / `sizes`。
+  const petField = /^pets\.\d+\.([^.]+)(?:\.|$)/.exec(path);
+  if (petField !== null) {
+    const tab = PET_FIELD_TABS[petField[1]];
+    if (tab !== undefined) return tab;
+  }
   let best: SettingsTabId | undefined;
   let bestLength = -1;
   for (const [prefix, tab] of TAB_PREFIXES) {

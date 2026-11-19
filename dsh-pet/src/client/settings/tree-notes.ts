@@ -19,6 +19,7 @@ const TREE_NOTES: Readonly<Record<string, Key>> = {
   data: 'fsDesc.data',
   'data.memory': 'fsDesc.data.memory',
   'data.todos': 'fsDesc.data.todos',
+  'data.personaCharacters': 'fsDesc.data.personaCharacters',
   cache: 'fsDesc.cache',
   'cache.voice': 'fsDesc.cache.voice',
   'cache.download': 'fsDesc.cache.download',

@@ -41,8 +41,14 @@ const CORNERS: Corner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right
 export interface PetFieldGroups {
   /** 名字与画框大小：这一页最常改的两项。 */
   identity(props: PetFieldsProps): ReturnType<typeof jsx>[];
-  /** 显示位置、渲染方式与屏宽上限。 */
+  /** 渲染方式（「外观与手感」的渲染卡第一行左半）。 */
+  renderer(props: PetFieldsProps): ReturnType<typeof jsx>[];
+  /** 显示位置（web / desktop / both / none）。 */
   display(props: PetFieldsProps): ReturnType<typeof jsx>[];
+  /** 人物占屏宽上限（百分比）。 */
+  sizePercent(props: PetFieldsProps): ReturnType<typeof jsx>[];
+  /** 画框宽度（渲染卡的尺寸折叠里作「基准」）。 */
+  size(props: PetFieldsProps): ReturnType<typeof jsx>[];
   /** 角落、水平偏移与垂直偏移。 */
   positions(props: PetFieldsProps): ReturnType<typeof jsx>[];
   /** 每种渲染方式各自的画框宽度（留空 = 跟随 `size`）。 */
@@ -103,6 +109,24 @@ export function makePetFieldGroups(rt: SettingsRuntime): PetFieldGroups {
       ];
     },
 
+    renderer: ({ pet, busy, onChange, path, dirty }) => {
+      const { field } = kitOf(dirty);
+      return [
+        field(
+          t('rendererLabel'),
+          h(Select, {
+            label: t('rendererLabel'),
+            value: pet.renderer ?? 'webm',
+            options: RENDERERS.map((r) => ({ id: r, label: t('renderer.' + r) })),
+            disabled: busy,
+            onChange: (id: string) => onChange({ renderer: id as RendererKind }),
+          }),
+          t('rendererHint'),
+          path + '.renderer',
+        ),
+      ];
+    },
+
     display: ({ pet, busy, onChange, path, dirty }) => {
       const { field } = kitOf(dirty);
       return [
@@ -118,23 +142,29 @@ export function makePetFieldGroups(rt: SettingsRuntime): PetFieldGroups {
           t('displayHint'),
           path + '.display',
         ),
-        field(
-          t('rendererLabel'),
-          h(Select, {
-            label: t('rendererLabel'),
-            value: pet.renderer ?? 'webm',
-            options: RENDERERS.map((r) => ({ id: r, label: t('renderer.' + r) })),
-            disabled: busy,
-            onChange: (id: string) => onChange({ renderer: id as RendererKind }),
-          }),
-          t('rendererHint'),
-          path + '.renderer',
-        ),
+      ];
+    },
+
+    sizePercent: ({ pet, busy, onChange, path, dirty }) => {
+      const { field } = kitOf(dirty);
+      return [
         field(
           t('sizePercentLabel'),
           percentInput(pet.sizePercent ?? SIZE_PERCENT_DEFAULT, busy, (v) => onChange({ sizePercent: v })),
           t('sizePercentHint'),
           path + '.sizePercent',
+        ),
+      ];
+    },
+
+    size: ({ pet, busy, onChange, path, dirty }) => {
+      const { field, sizeControl } = kitOf(dirty);
+      return [
+        field(
+          t('sizeLabel'),
+          sizeControl(pet.size, busy, (v) => onChange({ size: v }), { 'aria-label': t('sizeLabel') }),
+          t('sizeHint'),
+          path + '.size',
         ),
       ];
     },

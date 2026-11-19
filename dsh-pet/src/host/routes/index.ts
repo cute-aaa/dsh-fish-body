@@ -20,6 +20,7 @@ import { handleLayoutRoutes } from './layout.ts';
 import { handleMenuRoutes } from './menu.ts';
 import { handleMotionRoutes } from './motion.ts';
 import { handleOpenFolderRoutes } from './open-folder.ts';
+import { handlePersonaRoutes } from './persona.ts';
 import { handlePlaybackRoutes } from './playback.ts';
 import { handlePluginRestart } from './plugin-restart.ts';
 import { handleSessionRoutes } from './session.ts';
@@ -54,6 +55,7 @@ const HANDLERS: readonly RouteHandler[] = [
   handleVoiceRoutes,
   handleAvatarRoutes,
   handleCharacterRoutes,
+  handlePersonaRoutes,
   handlePluginRestart,
   handleSfxRoutes,
   handleOpenFolderRoutes,

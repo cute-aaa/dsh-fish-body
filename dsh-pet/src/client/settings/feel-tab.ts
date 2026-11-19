@@ -1,19 +1,27 @@
 /**
- * 「外观与手感」分区：物理（拖拽抛掷手感，含移动端折叠）、动作频率与字体三张卡。
+ * 「外观与手感」分区：渲染卡（渲染方式 + 模型/皮肤 → 缺文件 → 位置 → 尺寸）→ 皮肤目录三行 → 手感三张卡。
  *
- * 原先分成「行为」与「外观」两个分区，而「外观」只有一张字体卡——一个分区换一次点击，
- * 只值一张卡就不值得占一个分区位。合并后这一页回答同一个问题：这只宠物看起来、动手起来是什么样。
- * 三张卡都只改本地状态，随「保存」整包写；卡之间互不认识，也不读对方的字段。
+ * 渲染方式与模型/皮肤是「看起来是什么」，位置与尺寸是「摆在哪、多大」；两者同属外观，所以同处页首。
+ * 物理 / 动作频率 / 字体回答「动手起来什么感觉」，放在最后的「手感」小节。
+ * 三组都只改本地状态，随「保存」整包写；卡之间互不认识，也不读对方的字段。
  * owns only 这一块的装配，never 字段的编辑态。
  * @module dsh-fish-body/src/client/settings/feel-tab
  */
 import type { FunctionComponent } from 'react';
+import type { Pet } from '../../shared/types.ts';
 import type { DirtyQuery } from './dirty.ts';
 import { makeFontCard } from './font-card.ts';
 import { makeMotionCard } from './motion-card.ts';
 import { makePhysicsCard } from './physics-card.ts';
+import type { PetPatch } from './pet-card-parts.ts';
+import { makeRenderCard } from './render-card.ts';
 import type { SettingsRuntime } from './runtime.ts';
+import { makeSkinDirs } from './skin-dirs.ts';
+import { makeUiKit } from './ui.ts';
 import type { AppearanceSettings } from './use-appearance-settings.ts';
+import type { GlobalSettings } from './use-global-settings.ts';
+import type { RenderResourcesState } from './use-render-resources.ts';
+import { makeWindowBehavior } from './window-behavior.ts';
 
 /** 外观与手感分区的输入。 */
 export interface FeelTabProps {
@@ -23,6 +31,15 @@ export interface FeelTabProps {
   readonly look: AppearanceSettings;
   /** 未保存改动查询口。 */
   readonly dirty: DirtyQuery;
+  /** 当前选中的实例（渲染 / 位置 / 尺寸都写它）。 */
+  readonly pet: Pet | null;
+  readonly petIndex: number;
+  /** 三桶渲染资源清单。 */
+  readonly resources: RenderResourcesState;
+  /** 全局开关（窗口行为卡的「锁定在当前屏幕」）。 */
+  readonly global: GlobalSettings;
+  /** 实例字段补丁（渲染方式 / 模型 / 位置 / 尺寸）。 */
+  readonly onChange: (patch: PetPatch) => void;
 }
 
 /**
@@ -32,20 +49,47 @@ export interface FeelTabProps {
  * @returns 分区组件。
  */
 export function makeFeelTab(rt: SettingsRuntime): FunctionComponent<FeelTabProps> {
-  const { h } = rt;
+  const { h, t } = rt;
   const PhysicsCard = makePhysicsCard(rt);
   const MotionCard = makeMotionCard(rt);
   const FontCard = makeFontCard(rt);
+  const RenderCard = makeRenderCard(rt);
+  const SkinDirs = makeSkinDirs(rt);
+  const WindowBehavior = makeWindowBehavior(rt);
 
   return function FeelTab(props: FeelTabProps) {
-    const { busy, look, dirty } = props;
+    const { busy, look, dirty, pet, resources } = props;
+    const { section } = makeUiKit({ h, t });
     return h('div', {
       className: 'dsh-pet-cfg__group',
       children: [
-        // 顺序按「改完能立刻感知」排：拖一下就能试的物理在最前，字号最后。
-        h(PhysicsCard, { key: 'physics', busy, physics: look.physics, onChange: look.patchPhysics, dirty }),
-        h(MotionCard, { key: 'motion', busy, weights: look.weights, onChange: look.setWeights, dirty }),
-        h(FontCard, { key: 'font', busy, font: look.font, onChange: look.patchFont, dirty }),
+        pet === null
+          ? null
+          : h(RenderCard, {
+              key: 'render',
+              pet,
+              petIndex: props.petIndex,
+              busy,
+              dirty,
+              resources,
+              onChange: props.onChange,
+            }),
+        h(SkinDirs, { key: 'skinDirs', resources, busy }),
+        h(WindowBehavior, {
+          key: 'window',
+          pet,
+          petIndex: props.petIndex,
+          busy,
+          dirty,
+          global: props.global,
+          onChange: props.onChange,
+        }),
+        section(t('secFeel'), [
+          // 顺序按「改完能立刻感知」排：拖一下就能试的物理在最前，字号最后。
+          h(PhysicsCard, { key: 'physics', busy, physics: look.physics, onChange: look.patchPhysics, dirty }),
+          h(MotionCard, { key: 'motion', busy, weights: look.weights, onChange: look.setWeights, dirty }),
+          h(FontCard, { key: 'font', busy, font: look.font, onChange: look.patchFont, dirty }),
+        ]),
       ],
     });
   };

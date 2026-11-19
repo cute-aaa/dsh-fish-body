@@ -565,4 +565,111 @@ export const fr: Record<Key, string> = {
   secTiming: 'Rythme',
   sizesTitle: 'Taille par moteur de rendu',
   extraPetsShort: '{n} autres types viennent du dossier skin/',
+
+  // —— sections son / renvoi vers le poisson de session (T9) ——
+  secSfx: 'Effets sonores',
+  secVoice: 'Voix',
+  fishSpeakElsewhere: 'Les interrupteurs de voix du poisson de session sont dans l’onglet « Poisson de session ».',
+  fishSpeakJump: 'Ouvrir « Poisson de session »',
+  audioScopeHint:
+    'Les effets et la voix sont enregistrés avec « Enregistrer » ; le point d’accès vocal local et le changement de timbre s’appliquent immédiatement.',
+  renderRescanFailed: 'Échec de l’analyse : le dossier de ressources est illisible. Vérifiez que l’hôte tourne.',
+  // —— bibliothèque de personnages et les deux actions IA (T6, revu en T11) ——
+  personaEditorSource: 'Éditeur de personnage intégré',
+  personaLoadFailed:
+    'Bibliothèque de personnages illisible : repli sur l’éditeur intégré ; votre personnage écrit à la main reste intact.',
+  personaScanFailed: 'Échec de l’analyse : la source est illisible.',
+  personaScanNothing: 'Aucun personnage trouvé ({n} fichiers examinés).',
+  personaScanDone: 'Analyse terminée : {n} personnages.',
+  personaApplyFailed: 'Échec de l’application : le personnage n’a pas été écrit pour cet animal.',
+  personaApplyDone: 'Appliqué : cette instance compte {n} caractères.',
+  personaApplyUnchanged: 'Aucun changement : cet animal utilise déjà ce personnage ({n} caractères).',
+  personaRemoveFailed: 'Échec de la suppression : le personnage est absent ou encore référencé.',
+  personaRemoveDone: 'Personnage supprimé de la bibliothèque.',
+  personaImportTooMany: '{n} fichiers au maximum à la fois.',
+  personaImportTooLarge: 'Fichier trop volumineux : 768 Kio chacun et 1 Mio au total.',
+  personaImportFailed: 'Échec de l’import : aucun contenu exploitable extrait.',
+  personaImportDone: 'Personnage « {name} » importé.',
+  personaPolishEmpty: 'Écrivez du texte avant de polir.',
+  personaPolishFailed: 'Échec du polissage : le modèle n’a renvoyé aucun texte exploitable.',
+  personaPolishApplied: 'Polissage appliqué (pas encore enregistré).',
+
+  // —— fiche personnage / rendu / lignes de peau (T7 / T8 / T21) ——
+  secPosition: 'Position',
+  secFeel: 'Toucher',
+  petCardNote:
+    'Le rendu, la position et la taille se règlent dans « Apparence et toucher » ; ici on décide qui c’est, quel personnage il utilise et ce qu’il sait faire.',
+  characterTitle: 'Personnage',
+  characterHint:
+    'Scanner une source et importer des personnages ; seul « Appliquer à cet animal » écrit le texte dans sa persona.',
+  characterScopeLabel: 'S’applique à {pet}',
+  characterSourceLabel: 'Source',
+  characterSourceHint:
+    'Seules les sources avec des fichiers exploitables sont scannables ; les entrées grisées affichent le chemin attendu.',
+  characterSourceMissing: 'non installée',
+  characterSourceNoScan: 'non scannable',
+  characterScan: 'Scanner et importer',
+  characterReload: 'Actualiser',
+  characterExpectedPath: 'Chemin attendu : {path}',
+  characterPickLabel: 'Personnage',
+  characterPickHint: 'Choisissez-en un dans la bibliothèque ; « Appliquer » écrase la persona de cet animal.',
+  characterNone: '(aucun personnage)',
+  characterApply: 'Appliquer à cet animal',
+  characterRemove: 'Supprimer',
+  characterWriteName: 'Renommer aussi',
+  characterReadonly:
+    'La persona d’un animal fichier est gérée par son entrée : ici on peut parcourir et importer, pas appliquer ni supprimer.',
+  characterImport: 'Importer des documents…',
+  characterImportPick: 'Choisir des documents',
+  characterImportHint: 'md / txt / json / carte png / docx ; 768 Kio chacun, 1 Mio au total, 5 fichiers.',
+  characterImportedName: 'Nom',
+  characterImportedDescription: 'Description',
+  characterImportedPersonality: 'Personnalité',
+  characterImportCommit: 'Importer dans la bibliothèque',
+  personaPolish: 'Polir avec l’IA',
+  personaPolishHint: 'Appelle le modèle une fois ; le résultat n’est qu’un aperçu.',
+  personaPolishPreview:
+    'Aperçu ({n} caractères) : « Appliquer » l’écrit dans le brouillon ; annuler laisse le texte intact.',
+  renderCardTitle: 'Rendu',
+  renderCardHint:
+    'Le rendu et le modèle/peau décident de l’allure ; la position et la taille, de l’endroit et de l’encombrement.',
+  renderModelLabel: 'Modèle / peau',
+  renderModelHint: 'Les options viennent de la liste du rendu courant ; les fichiers manquants sont listés plus bas.',
+  renderModelWebmHint: 'webm se joue depuis le pool d’animations : pas de modèle séparé.',
+  renderModelStale: 'obsolète',
+  renderMissingFiles: 'Il manque {files} — placez les ressources dans {path}, puis cliquez sur « Réanalyser ».',
+  renderRescan: 'Réanalyser',
+  skinDirsTitle: 'Dossiers de peau',
+  skinDirsHint:
+    'Les trois lignes sont les dossiers layered / live2d / webm ; le chemin vient de l’hôte, « Ouvrir » y va directement.',
+  skinDirsCount: '{n} éléments',
+  skinDirsMissing: 'manque {file}',
+  'renderDir.layered': 'Peaux en calques',
+  'renderDir.live2d': 'Modèles Live2D',
+  'renderDir.webm': 'Animations à plat',
+
+  // —— carte comportement de fenêtre + note de l’arbre (T20 / T11) ——
+  windowBehaviorTitle: 'Comportement de la fenêtre',
+  windowBehaviorHint:
+    'Les deux lignes répondent à la même question : peut-on toucher cette fenêtre, et jusqu’où peut-elle aller ? Le clic à travers ne concerne que cet animal (par instance) ; le verrouillage à l’écran est global.',
+  windowBehaviorNote:
+    'Les deux sont enregistrés avec « Enregistrer ». Avec le clic à travers, le menu contextuel de la fenêtre devient inaccessible : cette carte est la sortie.',
+  scopeThis: 'cet animal',
+  scopeAll: 'tous',
+  'fsDesc.data.personaCharacters':
+    'Bibliothèque de personnages : un json par personnage ; copiez-la ou supprimez le dossier entier.',
+
+  // —— comparaison de l’aperçu (T22) ——
+  personaPolishBefore: 'Avant',
+  personaPolishAfter: 'Après',
+
+  // —— avis d’écrasement à l’application (revue) ——
+  personaApplyOverwrote:
+    'Texte du personnage appliqué : la persona non enregistrée de cet animal a été remplacée ({n} caractères).',
+
+  // —— lignes de peau : vide vs manquant (reprise 2) ——
+  skinDirsEmpty: 'dossier présent, aucun élément',
+  skinDirsExpect: 'attend {list}',
+  skinDirsBadgeEmpty: 'vide',
+  skinDirsBadgeMissing: 'manquant',
 };

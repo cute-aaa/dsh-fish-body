@@ -10,7 +10,14 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { baselineFromConfig, diffSnapshot, dirtyTabs, makeDirtyQuery, type FormSnapshot } from './dirty.ts';
+import {
+  advancePetBaseline,
+  baselineFromConfig,
+  diffSnapshot,
+  dirtyTabs,
+  makeDirtyQuery,
+  type FormSnapshot,
+} from './dirty.ts';
 import { DEFAULT_PHYSICS } from '../../shared/physics.ts';
 import type { Pet } from '../../shared/types.ts';
 
@@ -122,5 +129,58 @@ describe('baselineFromConfig —— 权威值 → 基线', () => {
     assert.equal(baseline.model?.chatMemory, 3);
     assert.equal(baseline.model?.chatImageLimit, undefined, '没给的字段不该编出默认值');
     assert.equal(baseline.fish, undefined);
+  });
+});
+
+describe('dirtyTabs —— 实例字段级归属（控件搬了家，圆点跟着走）', () => {
+  /** 只有目标分区被点亮。 */
+  const only = (path: string, tab: 'pet' | 'feel'): void => {
+    const tabs = dirtyTabs(new Set([path]));
+    const lit = Object.entries(tabs)
+      .filter(([, on]) => on)
+      .map(([id]) => id);
+    assert.deepEqual(lit, [tab], `${path} 应只点亮 ${tab}`);
+  };
+
+  test('渲染 / 位置 / 尺寸 / 鼠标穿透 → 外观与手感', () => {
+    only('pets.0.renderer', 'feel');
+    only('pets.0.model', 'feel');
+    only('pets.0.sizes.live2d', 'feel');
+    only('pets.0.position.marginX', 'feel');
+    only('pets.0.clickThrough', 'feel');
+  });
+
+  test('名字 / 人设正文 / 角色引用 → 桌宠', () => {
+    only('pets.0.name', 'pet');
+    only('pets.0.whisperPrompt', 'pet');
+    only('pets.1.personaCharacter', 'pet');
+  });
+
+  test('global.confineToScreen → 外观与手感（它已搬进窗口行为卡）', () => {
+    only('global.confineToScreen', 'feel');
+  });
+});
+
+describe('advancePetBaseline —— 只推一只的指定字段', () => {
+  test('推进 A 的 whisperPrompt 后，A 该字段无改动、B 的改动仍在', () => {
+    const baseline: FormSnapshot = {
+      pets: [
+        { ...pet('a', 240), whisperPrompt: '旧正文' },
+        { ...pet('b', 240), whisperPrompt: 'B 旧' },
+      ] as Pet[],
+    };
+    const current: FormSnapshot = {
+      pets: [
+        { ...pet('a', 240), whisperPrompt: '角色正文' },
+        { ...pet('b', 240), whisperPrompt: 'B 新' },
+      ] as Pet[],
+    };
+    const advanced = advancePetBaseline(baseline, 'a', { whisperPrompt: '角色正文' });
+    assert.deepEqual([...diffSnapshot(advanced, current)], ['pets.1.whisperPrompt']);
+  });
+
+  test('基线没有宠物列表时原样返回（不凭空造一个）', () => {
+    const bare: FormSnapshot = { global: { trayEnabled: true } };
+    assert.equal(advancePetBaseline(bare, 'a', { whisperPrompt: 'x' }), bare);
   });
 });

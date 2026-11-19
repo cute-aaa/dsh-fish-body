@@ -9,7 +9,7 @@ import { CORNER_SET, GLOBAL_DEFAULT_KEYS, isValidPetId, PET_DISPLAY_SET, RENDERE
 import { isValidSize, isValidSizePercent, SIZE_PERCENT_DEFAULT, SIZE_PERCENT_MIN } from '../../shared/pet-size.ts';
 import { RENDERERS } from '../../shared/config.ts';
 import type { RenderSizes } from '../../shared/types.ts';
-import { topFieldValid } from './validate.ts';
+import { characterIdValid, topFieldValid } from './validate.ts';
 
 /**
  * 文件宠物条目的合并基座：内置默认 + 白名单字段改用用户层的值。这些字段是用户级成本/偏好/
@@ -184,6 +184,10 @@ function mergePet(
     // 这里刻意不填生效值：人设的默认值是所属条目那一份，一旦填进每只实例，/pet-display 写回就会把
     // 「跟随条目」固化成显式覆盖——之后用户改条目人设，这些实例不再跟着变。
     ...petPersonaField(p.whisperPrompt, label, id),
+    // 角色引用（可选）：只放行合法 id；没写 / 空串 / 非法 → 该键不出现（回落 = 不引用角色）。
+    // 刻意不校验「角色是否还在库里」：库被手工删过时，读侧仍要如实回显这条失效引用，
+    // 让设置页能显示「引用的角色已不存在」，而不是悄悄改写成「没引用」。
+    ...petCharacterField(p.personaCharacter, label, id),
     // 皮肤/模型选择（可选）：layered 选皮肤 id、live2d 选 .model3.json 相对路径；缺省/空串 = 取第一个。
     ...petModelField(p.model, label, id),
     // 按渲染方式覆盖的画框宽度（可选）：缺键/非法都不落键，渲染侧回落 pets[].size。
@@ -231,6 +235,32 @@ function petSizesField(own: unknown, label: string, id: string): { sizes?: Rende
     else warnOnce(`${label}:sizes.${renderer}:${id}`, `宠物「${id}」的 sizes.${renderer} 非法，已忽略`);
   }
   return Object.keys(out).length > 0 ? { sizes: out } : {};
+}
+
+/**
+ * 实例级角色引用的合并：写了合法 id → 原样带出；空串/纯空白/缺失 → 该键不出现。
+ *
+ * 显式写了非法 id（含 `/`、空格、超长、非字符串）才算配置错误 → 告警一次并忽略该字段，
+ * **不整包失败**：读侧宽松（页面还能打开、能看到别的字段），写侧才是严格的那一端
+ * （`save.ts` 对非法 id 整包 400）。缺键不填任何默认值——没有「默认角色」这回事。
+ *
+ * @param own - 磁盘上的原始值（可能未定义）。
+ * @param label - 告警里的条目名。
+ * @param id - 告警里的宠物 id。
+ * @returns 该键的片段（`{}` = 不落键）。
+ */
+function petCharacterField(own: unknown, label: string, id: string): { personaCharacter?: string } {
+  if (typeof own === 'string') {
+    const value = own.trim();
+    if (value === '') return {};
+    if (characterIdValid(value)) return { personaCharacter: value };
+    warnOnce(`${label}:personaCharacter:${id}`, `宠物「${id}」的 personaCharacter 非法，已忽略（按不引用角色处理）`);
+    return {};
+  }
+  if (own !== undefined && own !== null) {
+    warnOnce(`${label}:personaCharacter:${id}`, `宠物「${id}」的 personaCharacter 非法（应为字符串 id），已忽略`);
+  }
+  return {};
 }
 
 /**

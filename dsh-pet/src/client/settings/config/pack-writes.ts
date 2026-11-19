@@ -35,6 +35,8 @@ function fingerprint(pet: Pet): string {
     pet.position.marginX,
     pet.position.marginY,
     pet.whisperPrompt ?? '',
+    // 角色引用也是会被宿主持久化的实例字段：只换角色（正文没动）同样是一次改动。
+    pet.personaCharacter ?? '',
   ]);
 }
 

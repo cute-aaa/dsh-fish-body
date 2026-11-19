@@ -1,10 +1,10 @@
 /**
- * 「声音」分区：音效总闸、事件音效、语音播报与本地语音接入四张卡。
+ * 「声音」分区：页内两节——**音效**（总闸 + 八个事件槽 + 自定义 hook）与**语音**（播报 + 本地接入）。
  *
- * 音效与语音原先各占一个分区，但它们回答的是同一个问题（这只宠物出什么声），
- * 分开后「音效总音量」和「播报音量」永远看不到对方；合成一个分区，两套开关的从属关系才读得出来。
- * 两种写入语义仍分开：音效与语音播报随「保存」写，接入配置与音色切换立即落盘（卡片自己说明）。
- * owns only 这一块的装配，never 字段状态与写盘。
+ * 音效与语音回答的是同一个问题（这只宠物出什么声），所以同处一页；但两者的写入语义不同：
+ * 音效与播报随「保存」写，接入配置与音色切换立即落盘（卡片自己说明）。
+ * 末尾只有一行**只读引用**指向「会话鱼」分区——播报开关不在本页复制第二份可写控件。
+ * owns only 这一块的装配与一次跳转，never 字段状态与写盘。
  * @module dsh-fish-body/src/client/settings/audio-tab
  */
 import type { FunctionComponent } from 'react';
@@ -12,6 +12,8 @@ import type { DirtyQuery } from './dirty.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeSfxCard } from './sfx-card.ts';
 import { makeSfxMasterCard } from './sfx-master-card.ts';
+import type { SettingsTabId } from './tabs.ts';
+import { makeUiKit } from './ui.ts';
 import type { GlobalSettings } from './use-global-settings.ts';
 import type { SfxSettings } from './use-sfx-settings.ts';
 import type { VoiceSettings } from './use-voice-settings.ts';
@@ -29,6 +31,8 @@ export interface AudioTabProps {
   readonly voice: VoiceSettings;
   /** 未保存改动查询口。 */
   readonly dirty: DirtyQuery;
+  /** 跳到另一个分区（「会话鱼播报」那一行用）；缺省 = 不渲染跳转按钮。 */
+  readonly onSelectTab?: (tab: SettingsTabId) => void;
 }
 
 /**
@@ -38,27 +42,48 @@ export interface AudioTabProps {
  * @returns 分区组件。
  */
 export function makeAudioTab(rt: SettingsRuntime): FunctionComponent<AudioTabProps> {
-  const { h } = rt;
+  const { h, t } = rt;
   const SfxMasterCard = makeSfxMasterCard(rt);
   const SfxCard = makeSfxCard(rt);
   const VoiceTab = makeVoiceTab(rt);
 
   return function AudioTab(props: AudioTabProps) {
-    const { busy, global, sfx, voice, dirty } = props;
+    const { busy, global, sfx, voice, dirty, onSelectTab } = props;
+    const { section, note } = makeUiKit({ h, t }, dirty);
     return h('div', {
       className: 'dsh-pet-cfg__group',
       children: [
-        h(SfxMasterCard, {
-          key: 'master',
-          busy,
-          flags: global.values,
-          onFlag: global.setFlag,
-          volume: global.sfxVolume,
-          onVolume: global.setSfxVolume,
-          dirty,
+        section(t('secSfx'), [
+          h(SfxMasterCard, {
+            key: 'master',
+            busy,
+            flags: global.values,
+            onFlag: global.setFlag,
+            volume: global.sfxVolume,
+            onVolume: global.setSfxVolume,
+            dirty,
+          }),
+          h(SfxCard, { key: 'sfx', busy, sfx, dirty }),
+        ]),
+        section(t('secVoice'), [h(VoiceTab, { key: 'voice', busy, voice, dirty })]),
+        // 会话鱼的播报开关只住在「会话鱼」分区：这里给一行只读引用 + 跳转，不复制第二个开关。
+        h('div', {
+          key: 'fishRef',
+          className: 'dsh-pet-cfg__refRow',
+          children: [
+            h('span', { key: 'text', className: 'dsh-pet-cfg__note is-tight', children: t('fishSpeakElsewhere') }),
+            onSelectTab === undefined
+              ? null
+              : h('button', {
+                  key: 'jump',
+                  type: 'button',
+                  className: 'dsh-pet-cfg__btn is-sm',
+                  onClick: () => onSelectTab('fish'),
+                  children: t('fishSpeakJump'),
+                }),
+          ],
         }),
-        h(SfxCard, { key: 'sfx', busy, sfx, dirty }),
-        h(VoiceTab, { key: 'voice', busy, voice, dirty }),
+        note(t('audioScopeHint'), true),
       ],
     });
   };

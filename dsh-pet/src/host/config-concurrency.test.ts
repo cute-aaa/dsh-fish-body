@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -37,6 +37,11 @@ before(async () => {
   dir = mkdtempSync(join(tmpdir(), 'dsh-pet-config-concurrency-'));
   const pkg = join(dir, 'package');
   mkdirSync(join(pkg, 'assets'), { recursive: true });
+  // 打包产物把运行期依赖留成外部 import（zod 从 T18 起进入宿主运行期图）：临时包得能解析到它们，
+  // 否则 `import('lib/host.mjs')` 会在 ERR_MODULE_NOT_FOUND 上失败。指回仓库的 node_modules 即可。
+  // 已存在就跳过：before 重跑（同一进程里重复注册）不该因为 EEXIST 直接炸。
+  const modules = join(pkg, 'node_modules');
+  if (!existsSync(modules)) symlinkSync(join(source, '..', 'node_modules'), modules, 'junction');
   copyFileSync(new URL('../../assets/config.jsonc', import.meta.url), join(pkg, 'assets/config.jsonc'));
   const aliases = Object.fromEntries(
     ['dsh-home-paths', 'dsh-credentials', 'dsh-llm'].map((name) => [

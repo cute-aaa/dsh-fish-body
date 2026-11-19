@@ -10,7 +10,13 @@ import type { FontConfig, ModelSelection, Pet, PhysicsParams } from '../../../sh
 
 /** 校验失败时返回的文案键。 */
 export type InvalidKey =
-  'invalid' | 'invalidPhysics' | 'invalidModel' | 'invalidChatMemory' | 'invalidChatImageLimit' | 'invalidFont';
+  | 'invalid'
+  | 'invalidPhysics'
+  | 'invalidModel'
+  | 'invalidChatMemory'
+  | 'invalidChatImageLimit'
+  | 'invalidFont'
+  | 'invalidPersonaCharacter';
 
 /** 保存前要校验的全部表单值。 */
 export interface FormValues {
@@ -31,12 +37,21 @@ export const modelPairValid = (model: ModelSelection): boolean =>
 const sizesValid = (sizes: Pet['sizes']): boolean =>
   sizes === undefined || Object.values(sizes).every((size) => size === undefined || isValidSize(size));
 
+/** 角色 id 规则（与宿主 `host/config/validate.ts` 的 `characterIdValid` 同一份正则）：
+ *  Unicode 字母/数字开头，其后允许 `._-`，最长 64 字符——id 会直接当文件名用。 */
+const CHARACTER_ID = /^[\p{L}\p{N}][\p{L}\p{N}._-]{0,63}$/u;
+
+/** 角色引用：缺键 / 空串 = 不引用（合法）；写了就必须是合法 id。 */
+const petCharacterValid = (pet: Pet): boolean =>
+  pet.personaCharacter === undefined || pet.personaCharacter === '' || CHARACTER_ID.test(pet.personaCharacter);
+
 /** 宠物：宽度必须为正数、百分比缺省或是不小于 1 的数字、两个偏移必须是有限数（负数合法，宠物可以压出屏外）。 */
 const petValid = (pet: Pet): boolean =>
   Number.isFinite(pet.size) &&
   pet.size > 0 &&
   (pet.sizePercent === undefined || isValidSizePercent(pet.sizePercent)) &&
   sizesValid(pet.sizes) &&
+  petCharacterValid(pet) &&
   Number.isFinite(pet.position.marginX) &&
   Number.isFinite(pet.position.marginY);
 
@@ -66,6 +81,8 @@ const fontValid = (font: FontConfig): boolean =>
  * @returns 第一个不合格项的文案键；全部合格返回 `null`。
  */
 export function validateForm(values: FormValues): InvalidKey | null {
+  // 角色引用单独判一次：宿主对非法 id 是整包 400，这里要先给出「是哪一类」而不是笼统的 invalid。
+  if (!values.pets.every(petCharacterValid)) return 'invalidPersonaCharacter';
   if (!values.pets.every(petValid)) return 'invalid';
   if (!physicsValid(values.physics)) return 'invalidPhysics';
   // 只填一半（选了服务商没选模型，或反之）非法。

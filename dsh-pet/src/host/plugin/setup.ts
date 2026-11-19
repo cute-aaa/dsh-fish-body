@@ -22,7 +22,7 @@ import { animSubdirFor, PACKAGE_MEMES_DIR, PACKAGE_ROOT, PACKAGE_SOUND_DIR } fro
 import { migrateElectronRuntime, migrateLayout } from '../migrate-layout.ts';
 import { setRuntimeDir, setUserRoot } from '../helper-process.ts';
 import { readLocations, resolveSkinDir } from '../locations.ts';
-import { userPaths, type UserPaths } from '../user-layout.ts';
+import { PERSONA_CHARACTERS_DIR, userPaths, type UserPaths } from '../user-layout.ts';
 import { resolveUserRoot, type RootLog } from '../user-root.ts';
 import { POOL_LAYER_DIR, POOL_SOUND_DIR, isReservedAssetRoot } from '../../shared/pool.ts';
 import {
@@ -42,6 +42,7 @@ import { WorkStatusStore } from '../work-status.ts';
 import { SessionFishStore } from '../session-fish/store.ts';
 import { fishSkinDirs, type FishSkinDirs } from '../session-fish/skins.ts';
 import { SessionFishSettingsStore, sessionFishSettingsPath } from '../session-fish/settings.ts';
+import { createPersonaServices, type PersonaCharacterService, type PersonaSourceService } from '../persona/service.ts';
 import type { StandaloneWhisperPolicy } from '../whisper-policy.ts';
 
 /** 装配期需要的宿主上下文：只有 logger / effect / provide 三处能力。 */
@@ -120,6 +121,10 @@ export interface HostSetup {
   readonly EXTERNAL_WORK_SESSION: string;
   /** 推进外部写入序号 */
   readonly nextExternalWorkSeq: () => number;
+  /** 人设来源面（来源描述 + 扫描账本） */
+  readonly persona: PersonaSourceService;
+  /** 角色库面（列表 / 写入 / 应用 / 删除） */
+  readonly characters: PersonaCharacterService;
 }
 
 /**
@@ -275,6 +280,16 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
 
   // 最终路径表：池根要按配置解析，所以这里是 userPaths 的第二次调用（第一次只给 logger 用）。
   const paths = userPaths(userRoot, { pool: poolRootOf(), skin: resolveSkinDir(userRoot, locations) });
+
+  // 人设角色库的服务面：来源描述 + 扫描（persona）与角色库 + 应用（characters）共享同一份实例，
+  // 既注入路由又交给来源注册——两侧各建一个会让扫描账本与写盘串行化各说各话。
+  const personaServices = createPersonaServices({
+    characterDir: join(paths.dataDir, PERSONA_CHARACTERS_DIR),
+    configPaths,
+    userConfigPath,
+    // 自定义来源的允许根：数据根与 DSH_HOME（其它位置一律拒，见 persona-source/path-guard）。
+    allowedRoots: [userRoot, dshHome],
+  });
 
   // 初始化的目录结构：布局约定的那些目录 + 池的约定目录，启动时就建出来，并给每个目录写一句备注。
   // 这样「打开文件夹」永远不用先问「要不要创建」，用户也不必先去文档里抄目录名；
@@ -438,5 +453,6 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     sessionFishSettings,
     EXTERNAL_WORK_SESSION,
     nextExternalWorkSeq,
+    ...personaServices,
   };
 }

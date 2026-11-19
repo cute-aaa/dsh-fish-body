@@ -36,6 +36,8 @@ export interface FishTabProps {
   readonly fish: SessionFishState;
   /** 未保存改动查询口。 */
   readonly dirty: DirtyQuery;
+  /** 从「声音」分区跳过来时要聚焦的锚点（目前只有 'fish.speak'）。 */
+  readonly focusAnchor?: string | null;
 }
 
 /** 数字夹取（UI 侧先夹一次，宿主仍会严格校验）。 */
@@ -45,13 +47,41 @@ function clampInt(value: number, min: number, max: number, fallback: number): nu
 }
 
 /**
+ * 把「播报」小节滚进视野并短暂描边。
+ *
+ * 只在这一页被从「声音」跳进来时调用；`prefers-reduced-motion: reduce` 时不做平滑滚动、
+ * 描边保留时间也短一些。没有 `document` 的环境（单测）直接跳过。
+ */
+function flashSpeakAnchor(): void {
+  if (typeof document === 'undefined') return;
+  const target = document.querySelector('[data-anchor="fish.speak"]') as HTMLElement | null;
+  if (target === null) return;
+  const reduce =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : true;
+  target.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+  const previousOutline = target.style.outline;
+  const previousOffset = target.style.outlineOffset;
+  target.style.outline = '2px solid var(--dsw-alert, #f0a020)';
+  target.style.outlineOffset = '4px';
+  setTimeout(
+    () => {
+      target.style.outline = previousOutline;
+      target.style.outlineOffset = previousOffset;
+    },
+    reduce ? 900 : 1200,
+  );
+}
+
+/**
  * 造会话鱼分区。
  *
  * @param rt - 注入的 react 能力与翻译函数。
  * @returns 分区组件。
  */
 export function makeFishTab(rt: SettingsRuntime): FunctionComponent<FishTabProps> {
-  const { h, t, useState } = rt;
+  const { h, t, useState, useEffect } = rt;
   injectSettingsCss();
   injectSessionFishCss();
   // 媒体组件自带一套更宽松的运行时类型（浮层与设置页共用）；运行时是同一个 jsx，这里只做类型桥接。
@@ -63,6 +93,10 @@ export function makeFishTab(rt: SettingsRuntime): FunctionComponent<FishTabProps
     const { cardHead, field, toggleCell, switchGrid, section, note } = makeUiKit({ h, t }, dirty);
     // 皮肤量到真实尺寸后重排一次预览（第一帧按 16:9 排）。
     const [, setAspectTick] = useState(0);
+    // 从「声音」跳过来时把「播报」小节滚进视野并短暂描边（尊重 prefers-reduced-motion）。
+    useEffect(() => {
+      if (props.focusAnchor === 'fish.speak') flashSpeakAnchor();
+    }, [props.focusAnchor]);
     const draft = fish.draft;
 
     if (draft === null) {
@@ -177,43 +211,47 @@ export function makeFishTab(rt: SettingsRuntime): FunctionComponent<FishTabProps
               }),
             ]),
             // 播报：总开关与三类子播报的从属关系靠整块降透明表达，不再逐个解释「为什么点不动」。
-            section(t('secSpeak'), [
-              switchGrid([
-                toggleCell(
-                  'fish.speakEnabled',
-                  draft.speakEnabled,
-                  busy,
-                  (value) => update('speakEnabled', value),
-                  'fish.speakEnabled',
+            h('div', {
+              key: 'speak',
+              'data-anchor': 'fish.speak',
+              children: section(t('secSpeak'), [
+                switchGrid([
+                  toggleCell(
+                    'fish.speakEnabled',
+                    draft.speakEnabled,
+                    busy,
+                    (value) => update('speakEnabled', value),
+                    'fish.speakEnabled',
+                  ),
+                ]),
+                switchGrid(
+                  [
+                    toggleCell(
+                      'fish.speakProgress',
+                      draft.speakProgress,
+                      busy || !draft.speakEnabled,
+                      (value) => update('speakProgress', value),
+                      'fish.speakProgress',
+                    ),
+                    toggleCell(
+                      'fish.speakTurnEnd',
+                      draft.speakTurnEnd,
+                      busy || !draft.speakEnabled,
+                      (value) => update('speakTurnEnd', value),
+                      'fish.speakTurnEnd',
+                    ),
+                    toggleCell(
+                      'fish.speakWaiting',
+                      draft.speakWaiting,
+                      busy || !draft.speakEnabled,
+                      (value) => update('speakWaiting', value),
+                      'fish.speakWaiting',
+                    ),
+                  ],
+                  !draft.speakEnabled,
                 ),
               ]),
-              switchGrid(
-                [
-                  toggleCell(
-                    'fish.speakProgress',
-                    draft.speakProgress,
-                    busy || !draft.speakEnabled,
-                    (value) => update('speakProgress', value),
-                    'fish.speakProgress',
-                  ),
-                  toggleCell(
-                    'fish.speakTurnEnd',
-                    draft.speakTurnEnd,
-                    busy || !draft.speakEnabled,
-                    (value) => update('speakTurnEnd', value),
-                    'fish.speakTurnEnd',
-                  ),
-                  toggleCell(
-                    'fish.speakWaiting',
-                    draft.speakWaiting,
-                    busy || !draft.speakEnabled,
-                    (value) => update('speakWaiting', value),
-                    'fish.speakWaiting',
-                  ),
-                ],
-                !draft.speakEnabled,
-              ),
-            ]),
+            }),
             section(t('secTiming'), [
               h('div', {
                 key: 'gap',

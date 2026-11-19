@@ -168,6 +168,8 @@ export interface SettingsUiKit {
   section: (title: string, children: ReadonlyArray<ReturnType<typeof jsx> | null>) => ReturnType<typeof jsx>;
   /** 常显说明行（替代过去挂在每个字段上的问号）。 */
   note: (text: string, tight?: boolean) => ReturnType<typeof jsx>;
+  /** 两列同行容器：宽容器并排、窄容器堆叠（容器查询见 `style/cards.ts` 的 `.dsh-pet-cfg__pair`）。 */
+  pair: (left: ReturnType<typeof jsx> | null, right: ReturnType<typeof jsx> | null) => ReturnType<typeof jsx>;
   /** 开关组：两列等宽；`muted` 表示整组从属于一个已关闭的父开关。 */
   switchGrid: (cells: ReadonlyArray<ReturnType<typeof jsx> | null>, muted?: boolean) => ReturnType<typeof jsx>;
   /**
@@ -290,6 +292,11 @@ export function makeUiKit(rt: Pick<SettingsRuntime, 'h' | 't'>, dirty: DirtyQuer
       }),
     note: (text, tight) =>
       h('p', { className: 'dsh-pet-cfg__note' + (tight === true ? ' is-tight' : ''), children: text }),
+    pair: (left, right) =>
+      h('div', {
+        className: 'dsh-pet-cfg__pair',
+        children: [left, right],
+      }),
     switchGrid: (cells, muted) =>
       h('div', { className: 'dsh-pet-cfg__switchGrid' + (muted === true ? ' is-muted' : ''), children: cells }),
     foldCard: (options) =>

@@ -109,6 +109,7 @@
     "@anthropic-ai/sdk": "0.135.0",
     "@electron-internal/extract-zip": "^1.0.5",
     "@electron/get": "^5.1.0",
+    "mammoth": "^1.13.0",
     "openai": "7.39.0",
     "pixi-live2d-display": "0.4.0",
     "pixi.js": "6.5.10",

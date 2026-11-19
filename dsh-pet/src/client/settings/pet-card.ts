@@ -1,22 +1,33 @@
 /**
- * 选中宠物的配置卡：头像与名字、大小、显示与位置、五个功能开关、实例级人设（折叠）。
+ * 选中宠物的配置卡：身份（头像 / 名字 / 大小）→ 角色卡（常显）→ 人设正文（折叠，含 AI 润色）→ 能力开关。
  *
  * 只编辑 main 条目的实例字段：条目级字段由成品配置回落，卡里不出现也不回写；文件宠物永不进这张卡。
  * 纯展示 + 回调，状态全在设置页外壳；`onChange` 的补丁形状即提交形状的预览。
- * 版式分三段而不是「一排排同权字段」：身份（头像 + 名字 + 大小）最常用，显示与位置次之，
- * 功能开关再次之，人设默认收起——一屏之内先看到的是最常改的东西。
+ * 渲染方式 / 位置 / 尺寸已经搬到「外观与手感」的渲染卡——这张卡只回答「它是谁、用什么人设、开什么能力」。
  * @module dsh-fish-body/src/client/settings/pet-card
  */
 import type { ChangeEvent, FunctionComponent } from 'react';
 import type { Pet } from '../../shared/types.ts';
 import type { DirtyQuery } from './dirty.ts';
+import { makeCharacterCard } from './character-card.ts';
 import { makePetAvatarCell, makePetFieldGroups, type PetPatch } from './pet-card-parts.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit } from './ui.ts';
+import type { PersonaImportState } from './use-persona-import.ts';
+import type { PersonaPolishState } from './use-persona-polish.ts';
+import type { PersonaCharactersState } from './use-persona-characters.ts';
 
 /** 折叠正文的 id：与标题按钮的 `aria-controls` 成对。 */
 const PERSONA_BODY_ID = 'pet-cfg-persona';
-const SIZE_BODY_ID = 'pet-cfg-sizes';
+
+/** 角色卡需要的三个外部状态（卡片本身不持有它们）。 */
+export interface PetCharacterDeps {
+  readonly persona: PersonaCharactersState;
+  readonly importer: PersonaImportState;
+  readonly polish: PersonaPolishState;
+  /** 应用 / 导入成功后回填草稿（装配根接到 `list.update` + 基线推进）。 */
+  readonly onChange: (patch: PetPatch) => void;
+}
 
 /** 宠物卡的全部输入。 */
 export interface PetCardProps {
@@ -40,6 +51,8 @@ export interface PetCardProps {
   onRemove: () => void;
   /** 未保存改动查询口（整只宠物算一条路径）。 */
   dirty: DirtyQuery;
+  /** 角色 / 导入 / 润色三个数据源；缺省时不渲染角色卡（单测与精简渲染零负担）。 */
+  character?: PetCharacterDeps;
 }
 
 /**
@@ -53,16 +66,18 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
   // 部件工厂在装配时各调一次：组件类型跨渲染稳定，卡片重渲染不会重建它们。
   const AvatarCell = makePetAvatarCell(rt);
   const groups = makePetFieldGroups(rt);
+  const CharacterCard = makeCharacterCard(rt);
 
   return function PetCard(props: PetCardProps) {
-    const { pet, busy, dirty } = props;
+    const { pet, busy, dirty, character } = props;
     const at = 'pets.' + props.petIndex;
-    const { cardHead, section, toggleCell, switchGrid, foldCard } = makeUiKit({ h, t }, dirty);
+    const { cardHead, section, toggleCell, switchGrid, foldCard, note } = makeUiKit({ h, t }, dirty);
     const [personaOpen, setPersonaOpen] = useState(false);
-    const [sizesOpen, setSizesOpen] = useState(false);
     if (pet === null) return h('p', { className: 'dsh-pet-cfg__note', children: t('emptyPets') });
 
     const fields = { pet, busy, dirty, onChange: props.onChange, path: at };
+    const personaText = String(pet.whisperPrompt ?? '');
+    const polish = character?.polish;
 
     return h('div', {
       className: 'dsh-pet-cfg__card',
@@ -97,20 +112,131 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
           ],
         }),
 
-        section(t('secDisplay'), [
-          h('div', { key: 'display', className: 'dsh-pet-cfg__grid3', children: groups.display(fields) }),
-          h('div', { key: 'pos', className: 'dsh-pet-cfg__grid3', children: groups.positions(fields) }),
-          // 三种素材各一套尺寸，但只有正在用的那种才需要调：收进折叠，展开就是同一个滑块。
-          h(foldCard, {
-            key: 'sizes',
-            id: SIZE_BODY_ID,
-            title: t('sizesTitle'),
-            hint: t('sizeHint'),
-            open: sizesOpen,
-            onToggle: () => setSizesOpen(!sizesOpen),
-            body: groups.sizeOverrides(fields),
-          }),
-        ]),
+        // 角色卡：常显（它是这一页的主语义），作用域 = 当前实例。
+        character === undefined
+          ? null
+          : h(CharacterCard, {
+              key: 'character',
+              pet,
+              petIndex: props.petIndex,
+              busy,
+              dirty,
+              persona: character.persona,
+              importer: character.importer,
+              onChange: character.onChange,
+            }),
+
+        // 人设（可选，实例级）：写在这只宠物上的 whisperPrompt，空 = 跟随所属条目的人设。
+        // 占位符直接用条目人设正文，让「跟随的是什么」可见；人设没有长度上限，右下角只显示字数。
+        foldCard({
+          id: PERSONA_BODY_ID,
+          title: t('personaLabel'),
+          hint: t('personaHint'),
+          open: personaOpen,
+          onToggle: () => setPersonaOpen(!personaOpen),
+          body: [
+            h('div', {
+              key: 'area',
+              className: 'dsh-pet-cfg__persona',
+              children: [
+                h('textarea', {
+                  className: INPUT_CLASS + ' dsh-pet-cfg__area',
+                  rows: 3,
+                  value: personaText,
+                  disabled: busy,
+                  placeholder: props.entryPrompt,
+                  onChange: (e: ChangeEvent<HTMLTextAreaElement>) => props.onChange({ whisperPrompt: e.target.value }),
+                }),
+                h('span', {
+                  className: 'dsh-pet-cfg__count',
+                  children: t('personaCount').replace('{n}', String(personaText.length)),
+                }),
+              ],
+            }),
+            // AI 润色：只出预览，点「应用」才进草稿；取消则正文一字不变。
+            h('div', {
+              key: 'toolbar',
+              className: 'dsh-pet-cfg__actions',
+              children: [
+                h('button', {
+                  key: 'polish',
+                  type: 'button',
+                  className: 'dsh-pet-cfg__btn is-sm',
+                  disabled: busy || polish === undefined || polish.busy || personaText.trim() === '',
+                  onClick: () => void polish?.polish(personaText),
+                  children: t('personaPolish'),
+                }),
+                h('span', { key: 'note', className: 'dsh-pet-cfg__note is-tight', children: t('personaPolishHint') }),
+              ],
+            }),
+            polish === undefined || polish.preview === null
+              ? null
+              : h('div', {
+                  key: 'preview',
+                  className: 'dsh-pet-cfg__previewBlock',
+                  children: [
+                    // 原文 / 润色后对照：两列只读，点「应用」才写进草稿。
+                    h('div', {
+                      key: 'diff',
+                      className: 'dsh-pet-cfg__previewGrid',
+                      children: [
+                        h('div', {
+                          key: 'before',
+                          className: 'dsh-pet-cfg__previewCell',
+                          children: [
+                            h('span', {
+                              key: 'l',
+                              className: 'dsh-pet-cfg__flabel',
+                              children: t('personaPolishBefore'),
+                            }),
+                            h('p', { key: 't', className: 'dsh-pet-cfg__note', children: personaText }),
+                          ],
+                        }),
+                        h('div', {
+                          key: 'after',
+                          className: 'dsh-pet-cfg__previewCell',
+                          children: [
+                            h('span', {
+                              key: 'l',
+                              className: 'dsh-pet-cfg__flabel',
+                              children: t('personaPolishAfter'),
+                            }),
+                            h('p', { key: 't', className: 'dsh-pet-cfg__note', children: polish.preview }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    h('p', {
+                      key: 'text',
+                      className: 'dsh-pet-cfg__note',
+                      children: t('personaPolishPreview').replace('{n}', String(polish.preview.length)),
+                    }),
+                    h('div', {
+                      key: 'acts',
+                      className: 'dsh-pet-cfg__actions',
+                      children: [
+                        h('button', {
+                          key: 'apply',
+                          type: 'button',
+                          className: 'dsh-pet-cfg__btn is-primary is-sm',
+                          disabled: busy,
+                          onClick: polish.apply,
+                          children: t('apply'),
+                        }),
+                        h('button', {
+                          key: 'cancel',
+                          type: 'button',
+                          className: 'dsh-pet-cfg__btn is-sm',
+                          disabled: busy,
+                          onClick: polish.cancel,
+                          children: t('cancel'),
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+          ],
+        }),
 
         section(t('secFeatures'), [
           switchGrid([
@@ -142,47 +268,9 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
               (v) => props.onChange({ fixedEnabled: v }),
               at + '.fixedEnabled',
             ),
-            // 鼠标穿透（桌面端）：开了以后该宠物的透明窗整窗忽略鼠标、点击落到下层应用。
-            // 出口就在这里——窗内的右键菜单在开启后点不到，这是有意的（与配置字段同一份语义）。
-            toggleCell(
-              'clickThrough',
-              pet.clickThrough === true,
-              busy,
-              (v) => props.onChange({ clickThrough: v }),
-              at + '.clickThrough',
-            ),
           ]),
         ]),
-
-        // 人设（可选，实例级）：写在这只宠物上的 whisperPrompt，空 = 跟随所属条目的人设。
-        // 占位符直接用条目人设正文，让「跟随的是什么」可见；人设没有长度上限，右下角只显示字数。
-        foldCard({
-          id: PERSONA_BODY_ID,
-          title: t('personaLabel'),
-          hint: t('personaHint'),
-          open: personaOpen,
-          onToggle: () => setPersonaOpen(!personaOpen),
-          body: [
-            h('div', {
-              key: 'area',
-              className: 'dsh-pet-cfg__persona',
-              children: [
-                h('textarea', {
-                  className: INPUT_CLASS + ' dsh-pet-cfg__area',
-                  rows: 3,
-                  value: String(pet.whisperPrompt ?? ''),
-                  disabled: busy,
-                  placeholder: props.entryPrompt,
-                  onChange: (e: ChangeEvent<HTMLTextAreaElement>) => props.onChange({ whisperPrompt: e.target.value }),
-                }),
-                h('span', {
-                  className: 'dsh-pet-cfg__count',
-                  children: t('personaCount').replace('{n}', String(String(pet.whisperPrompt ?? '').length)),
-                }),
-              ],
-            }),
-          ],
-        }),
+        note(t('petCardNote'), true),
       ],
     });
   };

@@ -1417,7 +1417,10 @@ paths:
             池的素材类别只在宠物自己的渲染方式下有效，否则回 `not-found`。
 
             全局类（**不需要** `?pet=`，设置页「落盘位置」卡的按钮用）：`pool-root`（池根）、
-            `animations`（用户动画目录）、`memes`（用户表情包目录）、`user-root`（插件数据根）。
+            `animations`（用户动画目录）、`memes`（用户表情包目录）、`user-root`（插件数据根）；
+            另有 `skin-root`（用户皮肤根）、`root` / `config` / `data` / `cache` / `runtime` / `assets`
+            （数据根下的分组）与三个池桶 `pool-bucket-layered` / `pool-bucket-live2d` / `pool-bucket-webm`
+            （渲染卡下方三行用：直接回 `<池>/<渲染方式>`，不按当前宠物门控）。
           schema:
             type: string
             enum:
@@ -1435,6 +1438,9 @@ paths:
               - animations
               - memes
               - user-root
+              - pool-bucket-layered
+              - pool-bucket-live2d
+              - pool-bucket-webm
             example: sound
         - name: create
           in: query
@@ -4524,6 +4530,598 @@ paths:
         "400":
           description: 素材根缺失或不合法（`text/plain`）。
 
+  /dsh-pet-7340/skin/{root}/resources:
+    get:
+      tags: [Assets]
+      operationId: listRenderResources
+      summary: 渲染资源三桶清单（设置页用）
+      description: |
+        按渲染方式给出 `layered` / `live2d` / `webm` 三个桶：`status`（`ok` 有资源 / `empty` 目录在但
+        没有结构文件 / `missing` 目录不在）、`dir`（该桶主目录的绝对路径；皮肤目录存在时给皮肤目录，
+        否则给池桶目录）、`count`（`= items.length`）、`items`（`{id,label,source}`）、`expect`
+        （这个桶认什么结构文件）与 `missingFiles`（空桶时缺的具体文件名，非空桶为空数组）。
+
+        与 `/skin/{root}/skins`、`/skin/{root}/models` 共用同一套扫描判定；后两者的响应形状不变。
+        设置页只展示宿主给的 `dir`（不自己拼路径），池根改成绝对路径后三行仍然说真话。
+      parameters:
+        - name: root
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 素材根；`pool` 表示只看池
+      responses:
+        "200":
+          description: 三桶清单
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [root, renderers]
+                properties:
+                  root:
+                    type: string
+                  renderers:
+                    type: object
+                    required: [layered, live2d, webm]
+                    properties:
+                      layered:
+                        $ref: "#/components/schemas/RenderResourceBucket"
+                      live2d:
+                        $ref: "#/components/schemas/RenderResourceBucket"
+                      webm:
+                        $ref: "#/components/schemas/RenderResourceBucket"
+        "400":
+          description: 素材根缺失或不合法（`text/plain`）。
+        "404":
+          description: 池视图（`root=pool`）在池根不存在时回 404（`text/plain`）。
+
+  /dsh-pet-7340/persona/sources:
+    get:
+      tags: [Config]
+      operationId: listPersonaSources
+      summary: 列出人设来源与角色库概况
+      description: |
+        逐个来源给可用性（`installed` / `expectedPath` / `path` / `scannable`）与上次扫描回执 `lastScan`
+        （进程内内存态，重启清空）。`?pet=<id>` 可选：给了就附带该实例的作用域信息
+        （`entry` / `writable` / `character`），不给也成功——下拉要先能渲染，不能因为没选宠物就 500。
+      parameters:
+        - name: pet
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 桌宠实例 id；给了不存在的 id 回 `unknown-pet`
+      responses:
+        "200":
+          description: 来源列表 + 角色库总数 +（可选）宠物作用域
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, sources, characters]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  sources:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        [
+                          id,
+                          name,
+                          kind,
+                          installed,
+                          expectedPath,
+                          path,
+                          scannable,
+                          lastScan,
+                        ]
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        kind:
+                          type: string
+                          enum: [soul-card, custom, editor]
+                        installed:
+                          type: boolean
+                        expectedPath:
+                          type: [string, "null"]
+                        path:
+                          type: [string, "null"]
+                        scannable:
+                          type: boolean
+                          description: 有没有 `scan`（内置编辑为 false，不进扫描下拉）
+                        lastScan:
+                          type: [object, "null"]
+                          properties:
+                            at:
+                              type: string
+                            scanned:
+                              type: integer
+                            imported:
+                              type: integer
+                            reused:
+                              type: integer
+                  characters:
+                    type: object
+                    required: [total, skipped]
+                    properties:
+                      total:
+                        type: integer
+                      skipped:
+                        type: array
+                        items:
+                          type: object
+                  pet:
+                    type: object
+                    description: 只在请求带了 `?pet=` 时出现
+                    required: [id, entry, writable, character]
+                    properties:
+                      id:
+                        type: string
+                      entry:
+                        type: string
+                      writable:
+                        type: boolean
+                        description: |
+                          `= entry === 'main'`；false 时设置页只禁用「应用 / 删除」
+                      character:
+                        type: [string, "null"]
+                        description: 该实例的 `personaCharacter`；缺键为 null
+
+  /dsh-pet-7340/persona/scan:
+    post:
+      tags: [Config]
+      operationId: scanPersonaSource
+      summary: 扫描一个人设来源并导入角色库
+      description: |
+        取来源 → `scan(options)` → 逐个写入角色库（同正文按指纹去重，回 `reused`）。
+        来源没装、没有 `scan`、`custom` 未给 `path`、显式路径不存在，各自给可读原因。
+        重放只增加 `reused` 计数，不重复入库；**不写宠物配置**。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source]
+              properties:
+                source:
+                  type: string
+                  description: 来源 id（`fish-soul` / `dsh-soul` / `dsh-rofm` / `dsh-suzu-memory` / `custom`）
+                path:
+                  type: string
+                  description: 显式路径（文件或目录）；`custom` 必填，其余可选
+      responses:
+        "200":
+          description: 扫描回执，或 200 + 失败实体（`bad-request` / `unknown-persona-source` / `persona-source-unavailable` / `not-found` / `settings-write-failed`）
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required:
+                      [ok, source, installed, scanned, imported, skipped]
+                    properties:
+                      ok:
+                        type: boolean
+                        const: true
+                      source:
+                        type: string
+                      installed:
+                        type: boolean
+                      scanned:
+                        type: integer
+                      imported:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, name, reused]
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            reused:
+                              type: boolean
+                      skipped:
+                        type: array
+                        items:
+                          type: object
+                          required: [path, reason]
+                          properties:
+                            path:
+                              type: string
+                            reason:
+                              type: string
+                              enum: [invalid-card, empty, too-large]
+                  - $ref: "#/components/schemas/FailureResponse"
+
+  /dsh-pet-7340/persona/characters:
+    get:
+      tags: [Config]
+      operationId: listCharacters
+      summary: 列出角色库
+      description: |
+        一角色一条（`chars` = 投影正文长度，`appliedTo` = 引用它的实例 id 列表）。
+        坏文件只进 `skipped`，不让整页空掉；目录不存在视为空库。
+      responses:
+        "200":
+          description: 角色列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, characters, skipped]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  characters:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, source, importedAt, chars, appliedTo]
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        source:
+                          type: object
+                          required: [kind, id, path]
+                          properties:
+                            kind:
+                              type: string
+                              enum:
+                                [
+                                  soul-card,
+                                  custom,
+                                  editor,
+                                  document,
+                                  custom-text,
+                                ]
+                            id:
+                              type: string
+                            path:
+                              type: string
+                        importedAt:
+                          type: string
+                        chars:
+                          type: integer
+                        appliedTo:
+                          type: array
+                          items:
+                            type: string
+                  skipped:
+                    type: array
+                    items:
+                      type: object
+                      required: [file, reason]
+                      properties:
+                        file:
+                          type: string
+                        reason:
+                          type: string
+                          enum: [invalid-json, invalid-record]
+
+  /dsh-pet-7340/persona/characters/import:
+    post:
+      tags: [Config]
+      operationId: importCharacter
+      summary: 把一份角色（8 字段）写进角色库
+      description: |
+        文档导入预览确认后调它落库。同正文（指纹）已在库里 → `reused:true` 且**不写盘**；
+        同名不同正文 → id 加 `-2`…`-99` 后缀。**只写角色库，不写宠物配置**。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [character]
+              properties:
+                character:
+                  type: object
+                  required:
+                    [
+                      name,
+                      description,
+                      personality,
+                      scenario,
+                      first_mes,
+                      mes_example,
+                      system_prompt,
+                      post_history_instructions,
+                    ]
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    personality:
+                      type: string
+                    scenario:
+                      type: string
+                    first_mes:
+                      type: string
+                    mes_example:
+                      type: string
+                    system_prompt:
+                      type: string
+                    post_history_instructions:
+                      type: string
+                source:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum: [soul-card, custom, editor, document, custom-text]
+                    id:
+                      type: string
+                    path:
+                      type: string
+      responses:
+        "200":
+          description: 落库结果，或 200 + 失败实体（`bad-request` / `settings-write-failed`）
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [ok, character, reused]
+                    properties:
+                      ok:
+                        type: boolean
+                        const: true
+                      character:
+                        type: object
+                        required: [id, name]
+                        properties:
+                          id:
+                            type: string
+                          name:
+                            type: string
+                      reused:
+                        type: boolean
+                  - $ref: "#/components/schemas/FailureResponse"
+
+  /dsh-pet-7340/persona/characters/apply:
+    post:
+      tags: [Config]
+      operationId: applyCharacter
+      summary: 把角色应用到一只宠物
+      description: |
+        一次读盘、一次写盘：只替换 `pet` 指定的实例（`whisperPrompt` + `personaCharacter` + 可选 `name`），
+        其余实例原样带回。三键都已是目标值 → `unchanged:true` 且**不写盘**；空正文角色拒绝写盘。
+        非 main 实例（pet pack）回 `persona-readonly-entry`。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pet, characterId]
+              properties:
+                pet:
+                  type: string
+                characterId:
+                  type: string
+                writeName:
+                  type: boolean
+                  description: 缺省 true；角色名为空时本来也不改
+      responses:
+        "200":
+          description: 应用结果，或 200 + 失败实体（`pet-required` / `unknown-pet` / `unknown-character` / `persona-readonly-entry` / `settings-write-failed`）
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [ok, pet, characterId, chars, wroteName]
+                    properties:
+                      ok:
+                        type: boolean
+                        const: true
+                      pet:
+                        type: string
+                      characterId:
+                        type: string
+                      chars:
+                        type: integer
+                      wroteName:
+                        type: boolean
+                      unchanged:
+                        type: boolean
+                        description: true = 三个键都已是目标值（没有写盘）
+                  - $ref: "#/components/schemas/FailureResponse"
+
+  /dsh-pet-7340/persona/characters/{id}:
+    delete:
+      tags: [Config]
+      operationId: deleteCharacter
+      summary: 删除一个角色
+      description: |
+        被任何实例引用时拒绝（`character-in-use`，附 `extra.referrers`）；无人引用才删文件。
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 角色 id
+      responses:
+        "200":
+          description: 删除结果，或 200 + 失败实体（`bad-request` / `unknown-character` / `character-in-use`）
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [ok, deleted]
+                    properties:
+                      ok:
+                        type: boolean
+                        const: true
+                      deleted:
+                        type: string
+                  - $ref: "#/components/schemas/FailureResponse"
+
+  /dsh-pet-7340/persona/import:
+    post:
+      tags: [Config]
+      operationId: importPersonaDocuments
+      summary: 文档 → 人设预览（零写盘）
+      description: |
+        多选 `md / txt / json / png 卡 / docx`：单文件解码后 ≤ 768 KiB、合计 ≤ 1 MiB、最多 5 个。
+        `json` 若是 `chara_card_v2`、PNG 若带 `chara` tEXt 块 → 直接取 8 字段（**跳过 LLM**）；
+        其余文本交给一次结构化（失败重试 1 次）。
+        **服务端零写盘**：只回预览，落库要再调 `/persona/characters/import`。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [files, pet]
+              properties:
+                pet:
+                  type: string
+                  description: 将应用到哪只宠物（只进提示词上下文，不落盘）
+                files:
+                  type: array
+                  maxItems: 5
+                  items:
+                    type: object
+                    required: [name, base64]
+                    properties:
+                      name:
+                        type: string
+                      base64:
+                        type: string
+      responses:
+        "200":
+          description: 预览，或 200 + 失败实体（`bad-request` / `too-many-items` / `extract-failed` / `unsupported` / `generate-error`）
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [ok, files, preview]
+                    properties:
+                      ok:
+                        type: boolean
+                        const: true
+                      files:
+                        type: array
+                        items:
+                          type: object
+                          required: [name, kind, chars]
+                          properties:
+                            name:
+                              type: string
+                            kind:
+                              type: string
+                              enum: [md, txt, json, png, docx]
+                            chars:
+                              type: integer
+                      preview:
+                        type: object
+                        required:
+                          [
+                            name,
+                            description,
+                            personality,
+                            scenario,
+                            first_mes,
+                            mes_example,
+                            system_prompt,
+                            post_history_instructions,
+                            text,
+                            chars,
+                          ]
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                          personality:
+                            type: string
+                          scenario:
+                            type: string
+                          first_mes:
+                            type: string
+                          mes_example:
+                            type: string
+                          system_prompt:
+                            type: string
+                          post_history_instructions:
+                            type: string
+                          text:
+                            type: string
+                          chars:
+                            type: integer
+                      usage:
+                        type: object
+                        properties:
+                          inputTokens:
+                            type: integer
+                          outputTokens:
+                            type: integer
+                  - $ref: "#/components/schemas/FailureResponse"
+        "413":
+          description: 请求体超过 1 MiB（`payload-too-large`）
+
+  /dsh-pet-7340/persona/polish:
+    post:
+      tags: [Config]
+      operationId: polishPersona
+      summary: AI 润色人设正文（零写盘）
+      description: |
+        只改措辞、不改名字、不新增设定、保持语言与第一人称、长度 ≤ 原文 1.3 倍。
+        结果只回给前端当预览；用户点「应用」才写进草稿并随保存落盘。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pet, text]
+              properties:
+                pet:
+                  type: string
+                text:
+                  type: string
+                  maxLength: 8000
+      responses:
+        "200":
+          description: 润色结果，或 200 + 失败实体（`bad-request` / `unknown-pet` / `generate-error`）
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [ok, text]
+                    properties:
+                      ok:
+                        type: boolean
+                        const: true
+                      text:
+                        type: string
+                      usage:
+                        type: object
+                        properties:
+                          inputTokens:
+                            type: integer
+                          outputTokens:
+                            type: integer
+                  - $ref: "#/components/schemas/FailureResponse"
+
   /dsh-pet-7340/pet-renderer:
     post:
       tags: [Config]
@@ -4912,6 +5510,50 @@ components:
           description: 恢复后的会话鱼设置（字段见 `GET /session-fish`）。
       description: 恢复成功。宿主随后广播配置变更并异步重载桌面 Helper。
 
+    RenderResourceBucket:
+      type: object
+      required: [status, dir, count, items, expect, missingFiles]
+      description: |
+        一个渲染方式桶。`status` 三态与 `missingFiles` 的判定由宿主给出（设置页只做模板插值，不拼路径）。
+      properties:
+        status:
+          type: string
+          enum: [ok, empty, missing]
+          description: |
+            `ok` = 有资源；`empty` = 目录在但没有结构文件（只有 layered 会这样，其它两种按 missing 处理）；
+            `missing` = 目录不在。
+        dir:
+          type: string
+          description: 该桶主目录的绝对路径（皮肤目录存在时给皮肤目录，否则给池桶目录）。
+        count:
+          type: integer
+          minimum: 0
+          description: 等于 `items.length`。
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, label, source]
+            properties:
+              id:
+                type: string
+                description: 写进 `pets[].model` 的值（webm 桶是动画名）。
+              label:
+                type: string
+              source:
+                type: string
+                enum: [pack, pool]
+        expect:
+          type: array
+          items:
+            type: string
+          description: 这个桶认什么结构文件（`manifest.json` / `*.model3.json` / `*.webm`）。
+        missingFiles:
+          type: array
+          items:
+            type: string
+          description: 空桶时缺的具体文件名（非空桶为空数组）。
+
     FailureResponse:
       type: object
       required: [ok, reason]
@@ -4943,6 +5585,11 @@ components:
 
             协议失败的原因（`invalid-json` / `method-not-allowed` / `payload-too-large` /
             `internal-error`）同样出现在这个实体里，只是状态码不是 200。
+
+            人设与角色库另有：`unknown-character`（角色库里没有这个 id）、`character-in-use`
+            （被宠物引用中，带 `extra.referrers`）、`extract-failed`（文档抽不出人设）、
+            `persona-readonly-entry`（目标实例不是主条目，不可写）、`persona-source-unavailable`
+            （来源没有可扫描产物，带 `extra.expectedPath`）、`unknown-persona-source`（未注册的来源）。
           enum:
             [
               bad-request,
@@ -4963,6 +5610,12 @@ components:
               pose-unavailable,
               unsupported,
               user-config-unparsable,
+              unknown-character,
+              character-in-use,
+              extract-failed,
+              persona-readonly-entry,
+              persona-source-unavailable,
+              unknown-persona-source,
             ]
         cause:
           type: string
@@ -4986,6 +5639,12 @@ components:
         message:
           type: string
           description: 人类可读的补充说明（可选）
+        extra:
+          type: object
+          additionalProperties: true
+          description: |
+            按 `reason` 不同而不同的附加字段：`referrers`（character-in-use）、`expectedPath`
+            （persona-source-unavailable）等。老调用方不读它即可。
 
     ErrorResponse:
       type: object

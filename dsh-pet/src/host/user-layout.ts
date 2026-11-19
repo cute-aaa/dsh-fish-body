@@ -18,6 +18,9 @@ import { join } from 'node:path';
 /** 素材组里动画的子目录名（与 `animSubdirFor` 的返回值一致：webm / mov）。 */
 const DEFAULT_ANIM_SUBDIRS: readonly string[] = ['webm', 'mov'];
 
+/** 角色库目录名（`<数据根>/data/persona-characters`，一角色一个 `<id>.json`）。 */
+export const PERSONA_CHARACTERS_DIR = 'persona-characters';
+
 /** 布局分组的稳定键：设置页的树按它取文案，初始化按它写文件夹备注。 */
 export type LayoutKey =
   | 'config'
@@ -167,6 +170,7 @@ export function layoutDirs(input: LayoutDirInput): string[] {
     paths.root,
     paths.configDir,
     paths.dataDir,
+    join(paths.dataDir, PERSONA_CHARACTERS_DIR),
     paths.cacheDir,
     paths.voiceCacheDir,
     paths.downloadCacheDir,
@@ -230,6 +234,7 @@ export function layoutNotes(paths: UserPaths): ReadonlyMap<string, string> {
     [paths.root, ROOT_NOTE],
     [paths.configDir, LAYOUT_NOTES.config],
     [paths.dataDir, LAYOUT_NOTES.data],
+    [join(paths.dataDir, PERSONA_CHARACTERS_DIR), '人设角色库：一个角色一个 <id>.json，可直接拷走或整目录删除。'],
     [paths.cacheDir, LAYOUT_NOTES.cache],
     [paths.voiceCacheDir, '语音合成缓存：文本对应的音频文件。'],
     [paths.downloadCacheDir, 'Electron 安装包下载缓存：已下好的 zip 与校验文件。'],
