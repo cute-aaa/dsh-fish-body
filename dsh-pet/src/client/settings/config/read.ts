@@ -35,6 +35,10 @@ export interface MainConfigPatch {
   chatAnimationEnabled?: boolean;
   confineToScreen?: boolean;
   trayEnabled?: boolean;
+  /** 桌宠总开关；缺省表示这次响应里没有可信值（消费端按开处理）。 */
+  petEnabled?: boolean;
+  /** 全局隐藏 / 暂停的系统级组合键；缺省表示这次响应里没有可信值（消费端按出厂值）。 */
+  hideAllHotkey?: string;
   /** 看屏幕与避让的十三项（已归一化：缺键与越界都按运行期口径夹过）。 */
   screen?: ScreenConfig;
   /** 手动播报开关：手动触发的碎碎念与对话回复；缺省表示这次响应里没有可信值。 */
@@ -102,6 +106,10 @@ export function readMainConfig(merged: MergedConfig): MainConfigPatch | null {
   if (typeof main.chatAnimationEnabled === 'boolean') patch.chatAnimationEnabled = main.chatAnimationEnabled;
   if (typeof main.confineToScreen === 'boolean') patch.confineToScreen = main.confineToScreen;
   if (typeof main.trayEnabled === 'boolean') patch.trayEnabled = main.trayEnabled;
+  // 桌宠总开关：成品里一定存在（内置默认 true），所以这里按布尔直取即可。
+  if (typeof main.petEnabled === 'boolean') patch.petEnabled = main.petEnabled;
+  // 全局隐藏 / 暂停的快捷键：成品里一定存在（内置默认值），字符串直取；空串 = 用户关掉了这条。
+  if (typeof main.hideAllHotkey === 'string') patch.hideAllHotkey = main.hideAllHotkey;
   // 看屏幕 / 避让：十三个平键收成一个嵌套值，归一化与宿主读配置时同一份函数。
   patch.screen = screenConfigOf(main);
   if (typeof main.voiceEnabled === 'boolean') patch.voiceEnabled = main.voiceEnabled;

@@ -12,6 +12,15 @@ export interface VoiceChoice {
   readonly id: string;
   readonly name: string;
   readonly tag?: string;
+  /**
+   * 这个音色此刻能不能合成；缺省（老宿主没这个字段）按可用处理。
+   *
+   * 不可用的音色仍然出现在清单里：菜单与下拉把它置灰并显示 `reason`，让人看得见
+   * 「差的是哪份权重 / 参考音频」，而不是整条音色凭空消失。
+   */
+  readonly available: boolean;
+  /** 不可用原因（缺哪份文件），置灰时显示在右侧。 */
+  readonly reason?: string;
 }
 
 /** 一个接入配置项（宿主声明，设置页据此生成控件）。 */
@@ -47,6 +56,8 @@ export interface VoiceProviderView {
   readonly voice: string;
   /** 接入配置项（服务地址 / 目录 / 语种…）：设置页按它生成表单。 */
   readonly fields: readonly VoiceFieldView[];
+  /** 扫描诊断（清单是怎么来的、哪些目录不存在、哪些音色缺文件）；没有就不显示。 */
+  readonly notes?: readonly string[];
 }
 
 /** 取对象；非对象返回 undefined。 */
@@ -71,7 +82,15 @@ function parseChoice(raw: unknown): VoiceChoice | undefined {
   if (!id) return undefined;
   const name = str(entry.name).trim() || id;
   const tag = str(entry.tag).trim();
-  return { id, name, ...(tag ? { tag } : {}) };
+  const reason = str(entry.reason).trim();
+  return {
+    id,
+    name,
+    ...(tag ? { tag } : {}),
+    // 老宿主没有 available 字段 → 按可用处理（那时也还不会列不可用的音色）
+    available: entry.available !== false,
+    ...(reason ? { reason } : {}),
+  };
 }
 
 /**
@@ -122,6 +141,9 @@ function parseProvider(raw: unknown): VoiceProviderView | undefined {
     : [];
   const reason = str(entry.reason).trim();
   const lastError = str(entry.lastError).trim();
+  const notes = Array.isArray(entry.notes)
+    ? entry.notes.map((item) => str(item).trim()).filter((item) => item !== '')
+    : [];
   return {
     id,
     name: str(entry.name).trim() || id,
@@ -133,6 +155,7 @@ function parseProvider(raw: unknown): VoiceProviderView | undefined {
     voices,
     voice: str(entry.voice).trim(),
     fields,
+    ...(notes.length > 0 ? { notes } : {}),
   };
 }
 

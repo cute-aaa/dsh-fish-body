@@ -234,6 +234,7 @@ export function makePetConfigSection(
           pets: list.mainPets,
           global: global.values,
           hotkeys: hotkeys.values,
+          hideAllHotkey: hotkeys.hideAll,
           sfxVolume: global.sfxVolume,
           sfx: sfx.config,
           chat: model.chatFlags,

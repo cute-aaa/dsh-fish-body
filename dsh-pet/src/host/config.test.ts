@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 
 import {
   migrateUserConfig,
+  petsEnabled,
   readAllConfig,
   readUserConfig,
   removeRoundsByTs,
@@ -443,6 +444,32 @@ describe('saveUserConfig —— 系统托盘开关（trayEnabled）', () => {
   test('请求体带了 → 以请求体为准', () => {
     const out = saveUserConfig({ pets: PETS, trayEnabled: false }, { trayEnabled: true }) as Record<string, unknown>;
     assert.equal(out.trayEnabled, false);
+  });
+});
+
+describe('saveUserConfig —— 桌宠总开关（petEnabled）', () => {
+  test('非法值整包拒绝（与其它全局布尔同口径，不静默丢用户输入）', () => {
+    assert.equal(saveUserConfig({ pets: PETS, petEnabled: 'false' }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, petEnabled: 0 }, undefined), null);
+  });
+
+  test('请求体没带 → 透传磁盘旧值（不得把用户关掉的总开关又打开）', () => {
+    const out = saveUserConfig({ pets: PETS }, { petEnabled: false }) as Record<string, unknown>;
+    assert.equal(out.petEnabled, false);
+  });
+
+  test('请求体带了 → 以请求体为准', () => {
+    const out = saveUserConfig({ pets: PETS, petEnabled: false }, { petEnabled: true }) as Record<string, unknown>;
+    assert.equal(out.petEnabled, false);
+  });
+});
+
+describe('petsEnabled —— 总开关的唯一判定', () => {
+  test('缺省 / 非 false 都按开处理；只有显式 false 才算关', () => {
+    assert.equal(petsEnabled({ main: {} }), true);
+    assert.equal(petsEnabled({ main: { petEnabled: true } }), true);
+    assert.equal(petsEnabled({ main: { petEnabled: 'false' } }), true, '读侧非法值走合并器的默认，不在这里当关');
+    assert.equal(petsEnabled({ main: { petEnabled: false } }), false);
   });
 });
 
@@ -1834,5 +1861,31 @@ describe('saveUserConfig —— hotkeys 段（九个悬停键）', () => {
     const clean = saveOnce({ pets: BASE.pets, hotkeys: { chat: 'k' } }, { hotkeys: { chat: 'j' } });
     assert.ok(clean !== null);
     assert.equal((clean.hotkeys as Record<string, string>).chat, 'k');
+  });
+});
+
+describe('saveUserConfig —— 全局隐藏 / 暂停快捷键（hideAllHotkey）', () => {
+  test('非法值整包拒绝：解析不出组合键就不落盘', () => {
+    assert.equal(saveUserConfig({ pets: PETS, hideAllHotkey: 'h' }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, hideAllHotkey: 'Control+Alt' }, undefined), null);
+    assert.equal(saveUserConfig({ pets: PETS, hideAllHotkey: 7 }, undefined), null);
+  });
+
+  test('合法值归一后落盘：别名与大小写只留一种写法', () => {
+    const out = saveUserConfig({ pets: PETS, hideAllHotkey: 'cmdorctrl + shift + k' }, undefined) as Record<
+      string,
+      unknown
+    >;
+    assert.equal(out.hideAllHotkey, 'CommandOrControl+Shift+K');
+  });
+
+  test('空串 = 明确关掉这条快捷键（落盘就是空串，不是丢键）', () => {
+    const out = saveUserConfig({ pets: PETS, hideAllHotkey: '  ' }, undefined) as Record<string, unknown>;
+    assert.equal(out.hideAllHotkey, '');
+  });
+
+  test('请求体没带 → 透传磁盘旧值', () => {
+    const out = saveUserConfig({ pets: PETS }, { hideAllHotkey: 'Control+Alt+G' }) as Record<string, unknown>;
+    assert.equal(out.hideAllHotkey, 'Control+Alt+G');
   });
 });

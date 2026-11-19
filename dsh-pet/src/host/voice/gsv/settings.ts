@@ -1,38 +1,44 @@
 /**
- * GSV（GPT-SoVITS 的 api_v2）连接配置：服务地址、当前音色、音色目录与两套权重目录。
+ * GSV（GPT-SoVITS 的 api_v2）连接配置：服务地址、当前音色、音色包目录、语种与启停脚本。
  *
- * 为什么不把本机路径写成代码默认值：这几个目录是「素材」不是「插件资产」，换台机器就不存在；
+ * 单一来源：**音色包目录**（`voicesDir`）。每个子目录一个音色，权重是真文件（导入时硬链接或复制），
+ * 参考音频是 `ref.<ext>`。没有「参考音频目录」「权重目录」「旧音色包格式」这些兼容来源：
+ * 它们曾经让「为什么这个音色是灰的」有三种以上答案，而现在只有一个——去看那个目录里缺了哪个文件。
+ *
+ * 为什么不在代码里写死本机路径：音色包是「素材」不是「插件资产」，换台机器就不存在；
  * 写死会让「不可用」的理由变成假的（目录不存在 vs 根本没配），排障时看不出该改哪一项。
- * 读的是 `<userRoot>/voice-providers.json` 的 `gsv` 段（见 ./store.ts），每次现读现用，改配置不必重启插件。
+ * 读的是 `<userRoot>/config/voice-providers.json` 的 `gsv` 段（见 ./store.ts），每次现读现用，改配置不必重启插件。
  * 只解析不校验：缺项一律空串，由 provider 用「未配置 xx」这个理由让链跳到下一环。
  * @module dsh-fish-body/src/host/voice/gsv/settings
  */
 
-/** GSV 服务的默认地址：与本机 voice-local 的 gsv.bat 一致（9880 是 api_v2 的默认端口）。 */
+/** GSV 服务的默认地址：api_v2 的默认端口是 9880。 */
 export const GSV_DEFAULT_BASE_URL = 'http://127.0.0.1:9880';
 
-/** 文本与参考文本的默认语种：VTube 那套热键名是中文，本机音色也都是中文韵律。 */
+/** 文本与参考文本的默认语种：本机音色多是中文韵律，api_v2 的 `text_lang`/`prompt_lang` 又都是必填。 */
 export const GSV_DEFAULT_LANG = 'zh';
+
+/** 缺「服务地址」时写给用户看的一项（进不可用理由，所以是人话而不是配置键）。 */
+export const GSV_FIELD_BASE_URL = '服务地址（baseURL）';
+
+/** 缺「音色包目录」时写给用户看的一项。 */
+export const GSV_FIELD_VOICES_DIR = '音色包目录（voicesDir）';
 
 /** 一段 GSV 配置（全是字符串：写进 JSONC 用户配置，不在代码里存对象）。 */
 export interface GsvSettings {
   /** api_v2 的根地址，不带尾斜杠。 */
   readonly baseURL: string;
-  /** 当前音色 id（= 音色目录名）。 */
+  /** 当前音色 id（= 音色包子目录名）；空串 = 用扫到的第一个可合成音色。 */
   readonly voice: string;
-  /** 音色目录：每个子目录一个音色，内含 `voice.json` + 参考音频。 */
+  /** 音色包目录：每个子目录一个音色（`ref.<ext>` + `ref.txt` + 权重）；空串 = 没有音色来源。 */
   readonly voicesDir: string;
-  /** GPT 权重目录（`*.ckpt`）；空串 = 不切权重，沿用服务启动时加载的那一套。 */
-  readonly gptWeightsDir: string;
-  /** SoVITS 权重目录（`*.pth`）；空串同上。 */
-  readonly sovitsWeightsDir: string;
   /** 合成文本的语种（`zh` / `ja` / `en`…）。 */
   readonly textLang: string;
   /** 参考音频的语种；缺省跟随 {@link textLang}。 */
   readonly promptLang: string;
   /** 启动脚本（设置页「启动」按钮跑它）；空串 = 不提供启动能力。 */
   readonly startScript: string;
-  /** 停止脚本（「停止」按钮跑它）；空串 = 只能手动关服务。 */
+  /** 停止脚本（「停止」按钮走 api_v2 的 `/control?command=exit`）；空串 = 用服务自带的退出。 */
   readonly stopScript: string;
 }
 
@@ -41,8 +47,6 @@ export const EMPTY_GSV_SETTINGS: GsvSettings = {
   baseURL: GSV_DEFAULT_BASE_URL,
   voice: '',
   voicesDir: '',
-  gptWeightsDir: '',
-  sovitsWeightsDir: '',
   textLang: GSV_DEFAULT_LANG,
   promptLang: GSV_DEFAULT_LANG,
   startScript: '',
@@ -62,6 +66,10 @@ function str(value: unknown): string {
 /**
  * 从 `voice-providers.json` 的解析结果里取 GSV 设置。
  *
+ * 已移除的旧键（`refsDir` / `gptWeightsDir` / `sovitsWeightsDir`）**不读也不删**：
+ * 老配置文件里残留的值既不会回传给设置页（`readProviderValues` 只按 `fields` 白名单取值），
+ * 也不会参与扫描——它们只会在用户下次保存时被原样留着，直到用户自己清掉。
+ *
  * @param source - 整个 provider 配置对象（`{ gsv: {...} }`），可以是 undefined。
  * @returns 补齐默认值后的设置；`gsv` 缺席时除了 baseURL/语种都是空串。
  */
@@ -71,8 +79,6 @@ export function gsvSettingsOf(source: unknown): GsvSettings {
     baseURL: str(conf.baseURL) || GSV_DEFAULT_BASE_URL,
     voice: str(conf.voice),
     voicesDir: str(conf.voicesDir),
-    gptWeightsDir: str(conf.gptWeightsDir),
-    sovitsWeightsDir: str(conf.sovitsWeightsDir),
     textLang: str(conf.textLang) || GSV_DEFAULT_LANG,
     promptLang: str(conf.promptLang) || str(conf.textLang) || GSV_DEFAULT_LANG,
     startScript: str(conf.startScript),
@@ -83,13 +89,16 @@ export function gsvSettingsOf(source: unknown): GsvSettings {
 /**
  * 还缺哪些必填项（给人话用的字段名，直接进不可用理由）。
  *
+ * 只有两项：服务地址与音色包目录。音色包目录是唯一来源，空着就等于「没有音色」，
+ * 所以它必填——比「四个来源至少填一个」更容易说清，也更容易修。
+ *
  * @param settings - {@link gsvSettingsOf} 的结果。
- * @returns 缺失字段的配置键；空数组表示可以尝试连接。
+ * @returns 缺失字段的人话名；空数组表示可以尝试连接。
  */
 export function gsvMissingFields(settings: GsvSettings): string[] {
   const missing: string[] = [];
-  if (!settings.baseURL) missing.push('baseURL');
-  if (!settings.voicesDir) missing.push('voicesDir');
+  if (!settings.baseURL) missing.push(GSV_FIELD_BASE_URL);
+  if (!settings.voicesDir) missing.push(GSV_FIELD_VOICES_DIR);
   return missing;
 }
 

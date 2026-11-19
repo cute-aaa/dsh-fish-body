@@ -113,6 +113,10 @@ export interface SaveFields {
   chatAnimationEnabled: boolean;
   confineToScreen: boolean;
   trayEnabled: boolean;
+  /** 桌宠总开关：false = 桌面不建窗、网页不渲染、定时任务停跑。 */
+  petEnabled: boolean;
+  /** 全局隐藏 / 暂停的系统级组合键（Electron accelerator 写法）；空串 = 关掉。 */
+  hideAllHotkey: string;
   /** 手动播报开关：手动触发的碎碎念与对话回复。 */
   voiceEnabled: boolean;
   /** 语音音色 id（白名单内的四个之一）。 */
@@ -167,6 +171,8 @@ export function buildSaveBody(fields: SaveFields): Record<string, unknown> {
     chatAnimationEnabled: fields.chatAnimationEnabled,
     confineToScreen: fields.confineToScreen,
     trayEnabled: fields.trayEnabled,
+    petEnabled: fields.petEnabled,
+    hideAllHotkey: fields.hideAllHotkey,
     voiceEnabled: fields.voiceEnabled,
     voiceName: fields.voiceName,
     voiceVolume: fields.voiceVolume,

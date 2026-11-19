@@ -2367,7 +2367,7 @@ paths:
         - **只白名单字段会被保留**：`pets[]` 的 `id`/`name`/`size`/`sizePercent`/`balanceEnabled`/
           `whisperEnabled`/`workStatusEnabled`/`fixedEnabled`/`display`/`position`，以及顶层
           `notificationsEnabled`/`clickSoundEnabled`/`whisperImageEnabled`/`chatImageEnabled`/
-          `chatAnimationEnabled`/`confineToScreen`/`trayEnabled`/`voiceEnabled`/`voiceName`/`voiceWhisperEnabled`/
+          `chatAnimationEnabled`/`confineToScreen`/`trayEnabled`/`petEnabled`/`hideAllHotkey`/`voiceEnabled`/`voiceName`/`voiceWhisperEnabled`/
           `voiceTodoEnabled`/`voiceNotifyEnabled`/`physics`/`font`/`whisperModel`/`chatModel`/`chatMemoryRounds`/
           `chatImageLimit`/`hotkeys`。
           其余字段会沿用磁盘上用户文件里的原值（透传保留），所以设置页保存
@@ -2986,6 +2986,56 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
+  /dsh-pet-7340/pick-file:
+    post:
+      tags: [Layout]
+      operationId: pickFile
+      summary: 弹出系统「选择文件」对话框
+      description: |
+        与 `/pick-folder` 同构：浏览器拿不到绝对路径，所以由宿主在自己所在的机器上弹系统对话框。
+        扩展名只用于生成系统过滤项（`.ckpt` / `.pth` / `.wav` / `.txt`），不做内容校验；
+        没有图形环境或平台不支持时回 `reason: unsupported`，界面展开手输框。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: 对话框标题
+                start:
+                  type: string
+                  description: 初始目录（平台支持时生效）
+                extensions:
+                  type: array
+                  description: 允许的扩展名（含点），只影响系统过滤项
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: |
+            选中时 `{ ok:true, path }`；取消时 `{ ok:false, reason:"cancelled" }`；
+            弹不出来时 `{ ok:false, reason:"unsupported", message }`。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                  path:
+                    type: string
+                  reason:
+                    type: string
+                    enum: [cancelled, unsupported]
+                  message:
+                    type: string
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
   /dsh-pet-7340/models:
     get:
       tags: [Config]
@@ -3373,6 +3423,8 @@ paths:
                           description: |
                             这个实现能念的音色（`/voice/provider-voice` 的可选值）；内置实现恒为空数组，
                             它的音色走请求体里的 `voice`。扫描失败时也是空数组（不能因此判整环不可用）。
+                            **缺权重或参考音频的音色也会列出来**，用 `available: false` + `reason` 标明缺什么：
+                            客户端据此在菜单/下拉里置灰，而不是让音色凭空消失。
                           items:
                             type: object
                             required: [id, name]
@@ -3383,7 +3435,20 @@ paths:
                                 type: string
                               tag:
                                 type: string
-                                description: 一行说明（音色包 `voice.json` 的 `desc`）。
+                                description: 一行说明（音色包 `desc` / 权重版本 / 零样本 / 兜底参考）。
+                              available:
+                                type: boolean
+                                description: 此刻能不能真的合成；缺省（老宿主）按可用处理。
+                              reason:
+                                type: string
+                                description: 不可用原因（缺 GPT/SoVITS 权重、缺参考音频，含期望文件名）。
+                        notes:
+                          type: array
+                          description: |
+                            扫描诊断：来源计数（权重/参考音频/音色包）、配了但不存在的目录、
+                            GPT 与 SoVITS 版本错配、配置的音色不可用时的回落说明。设置页逐行显示。
+                          items:
+                            type: string
                         voice:
                           type: string
                           description: 当前选中的音色 id；没有「当前音色」这个概念时为空串。
@@ -3421,6 +3486,55 @@ paths:
         "405":
           description: 方法不是 GET。
 
+  /dsh-pet-7340/voice/rescan:
+    post:
+      tags: [Voice]
+      operationId: rescanVoiceProvider
+      summary: 丢缓存重扫一次音色清单
+      description: |
+        音色包目录里的文件是用户在磁盘上直接加删的，而实现侧的扫描结果有软过期（TTL）。
+        设置页的「扫描音色」按钮走这条：清掉缓存、重新读目录，再把结论（可合成 / 总数 / 诊断）带回来。
+
+        不传 `provider` = 扫全部第三方实现；传了就只扫那一个。内置 edge 没有可扫描的音色目录，
+        传它的 id 会回 `unsupported`。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  description: 实现 id（缺省 = 全部第三方实现）。
+      responses:
+        "200":
+          description: 扫描完成；数量取自重新扫描后的注册表（与 `/voice/voices` 的 `providers` 同源）。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, ready, total, notes]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  ready:
+                    type: integer
+                    description: 现在能真的合成的音色数。
+                  total:
+                    type: integer
+                    description: 列出来的音色总数（含缺权重 / 缺参考音频的）。
+                  notes:
+                    type: array
+                    description: 扫描诊断（目录不存在、缺参考音频…）；没什么可说时为空数组。
+                    items:
+                      type: string
+        "400":
+          description: 请求体不是合法 JSON。
+        "405":
+          description: 方法不是 POST。
+
   /dsh-pet-7340/voice/provider-voice:
     post:
       tags: [Voice]
@@ -3430,8 +3544,10 @@ paths:
         只改 `<userRoot>/voice-providers.json` 里该实现的 `voice`，**不写** `pets[]`，也不重启桌面 Helper：
         下一句合成时实现自己切权重（换嗓子的成本是一次 `/set_*_weights`，不是重建窗口）。
 
-        `voice` 必须是该实现此刻扫到的音色之一（见 `/voice/voices` 的 `providers[].voices`）；
-        写一个扫不到的 id 在界面上看着像成功了，实际只会让这一环在合成时报错并落到 edge。
+        `voice` 必须是该实现此刻扫到、且 `available !== false` 的音色（见 `/voice/voices` 的
+        `providers[].voices`）；写一个扫不到的 id 在界面上看着像成功了，实际只会让这一环在合成时报错并落到 edge。
+        **列出来但置灰的音色（缺权重 / 缺参考音频）同样拒收**，错误里带的就是那份缺的文件名——
+        它已经显示在菜单与下拉里，不该再被写进配置。
       requestBody:
         required: true
         content:
@@ -3477,7 +3593,8 @@ paths:
       operationId: getProviderConfig
       summary: 读第三方语音实现的接入配置
       description: |
-        设置页「本地语音接入」表单的初值：只回该实现 `fields` 声明过的键（服务地址、音色目录、权重目录、语种），
+        设置页「本地语音接入」表单的初值：只回该实现 `fields` 声明过的键
+        （GSV 是服务地址 / GPT 权重目录 / SoVITS 权重目录 / 参考音频目录 / 音色包目录 / 语种 / 启停脚本），
         缺项给空串——不替用户编默认路径（那会让「没配」和「配错」看起来一样）。
       parameters:
         - name: provider
@@ -3516,10 +3633,14 @@ paths:
       operationId: setProviderConfig
       summary: 写第三方语音实现的接入配置
       description: |
-        只改 `<userRoot>/voice-providers.json` 里该实现的那几个键，**不写** `pets[]`、不重启桌面 Helper。
+        只改 `<userRoot>/config/voice-providers.json` 里该实现的那几个键，**不写** `pets[]`、不重启桌面 Helper。
         值一律 trim 后落盘；**空串 = 删掉该键**（回落代码默认，例如 baseURL 回 `http://127.0.0.1:9880`）。
         `baseURL` 只收 `http(s)://` 开头；键必须是该实现 `fields` 里声明过的，多写的直接 400 级业务失败
         （静默丢弃会让设置页以为保存成功）。保存后立刻重扫音色，响应里带回新的 `providers`。
+        GSV 的 `fields` 只有服务地址、音色包目录、两个语种与启停脚本；音色包目录是**唯一**的音色来源
+        （每个子目录一个音色，权重是真文件），参考音频目录 / 权重目录 / `voice.json` 指针都已移除，
+        老配置里残留的 `refsDir` / `gptWeightsDir` / `sovitsWeightsDir` 既不读也不删（保存时原样留着）。
+        音色由导入流程（`/voice/voice-pack` 的 `weights` + `apply`）写进音色包目录。
         声明了 `options` 的字段（下拉）只收候选值之一；保存成功后还会让该实现立刻重探一次可用性
         （付费开关与密钥都要马上生效，不必等它的软过期）。
 
@@ -3575,6 +3696,189 @@ paths:
                       type: object
         "400":
           description: 请求体不是合法 JSON。
+
+  /dsh-pet-7340/voice/voice-pack:
+    post:
+      tags: [Voice]
+      operationId: importVoicePacks
+      summary: 音色导入：选一次权重根 → 按文件名配对 → 逐条写进音色包目录；或只读预检
+      description: |
+        音色只有一处来源：`<voicesDir>/<id>/`（`ref.<ext>` + `ref.txt` + 真权重文件）。
+        参考音频目录、两个权重目录、`voice.json` 指针这些旧来源都已移除——配置里不再有它们，
+        老配置里的残留值既不被读取，也不会出现在任何接口的响应里。
+
+        三种模式：
+        - `"weights"`：只读。`root` 是 GPT_weights / SoVITS_weights 所在的那一层（选了
+          `GPT_weights_v2` 这种子目录会自动上提一级）；宿主展开两侧权重目录、按文件名归一出音色 id、
+          给每行默认配对（`pairWeightsOf`：同版本 > 版本未知 > 版本错配，再按 epoch/step）与
+          `linkable`（与音色包目录是否同盘），并用 `installed` 标出音色包目录里已经有的 id。零写入。
+        - `"plan"`：只读预检。`items`（1–50 条）逐条算一次落地计划；不合法的那条在 `errors` 里给原因，
+          `previews` 同位为 `null`。任一条报错就不该继续 apply。
+        - `"apply"`：写盘。`items` 逐条独立成败（一条失败不影响其它条），整批结束后调用 `gsv.rescan()` 一次，
+          响应带回新的 `providers`。
+
+        `placement` 只有两种：`hardlink`（界面叫「引用」，同盘硬链接成真文件，跨盘直接报错）与
+        `copy`（复制一份，目录自足，每套权重约 230 MB）。写入位置固定是 `<voicesDir>/<id>/`，
+        不再有「写到参考音频目录」这种选项。覆盖前把已有的 `ref.*`（含别的扩展名）、文本与同名权重
+        改名 `.bak-<时间戳>`；参考已存在且未允许覆盖时只补权重，不动参考。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              description: '`mode: "weights"` 用 `root`；`plan` / `apply` 用 `items`。'
+              properties:
+                provider:
+                  type: string
+                  enum: [gsv]
+                  description: 只服务 gsv；缺省按 gsv 处理。
+                mode:
+                  type: string
+                  enum: [weights, plan, apply]
+                  description: 缺省 plan（零写入）。
+                root:
+                  type: string
+                  description: 权重根目录的绝对路径（`weights` 必填，必须存在且下面确实有权重）。
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  description: 逐条导入项（`plan` / `apply` 必填）；顺序即结果顺序。
+                  items:
+                    type: object
+                    required: [weightPath, refAudioPath]
+                    properties:
+                      weightPath:
+                        type: string
+                        description: GPT（.ckpt）或 SoVITS（.pth）权重文件的绝对路径。
+                      counterpartPath:
+                        type: string
+                        description: 另一侧权重（必须与 `weightPath` 角色相反）；空串 = 只有一侧，导入后该音色置灰。
+                      refAudioPath:
+                        type: string
+                        description: 参考音频（.wav/.mp3/.flac/.ogg/.m4a，≤20 MB）。
+                      refText:
+                        type: string
+                        description: 参考文本（≤300 字）；空串 = 零样本，不写 ref.txt。
+                      id:
+                        type: string
+                        description: 音色 id（默认由权重文件名归一）；只能字母数字点下划线连字符，≤64。
+                      placement:
+                        type: string
+                        enum: [hardlink, copy]
+                        description: 权重的放法；缺省 hardlink（跨盘会失败，界面会先置灰并提示改用 copy）。
+                      overwrite:
+                        type: boolean
+                        description: 目标已存在时是否覆盖（旧文件先备份）；缺省 false。
+      responses:
+        "200":
+          description: 候选清单、预检结果或落地结果。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, mode]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  mode:
+                    type: string
+                    enum: [weights, plan, apply]
+                  scan:
+                    type: object
+                    description: |
+                      `weights` 时返回 `{ root, gptDirs, sovitsDirs, voicesDir, adopted,
+                      candidates:[{ id, gptFiles, sovitsFiles, gptPath?, sovitsPath?, bytes, linkable,
+                      installed, warnings }], notes }`。
+                  previews:
+                    type: array
+                    description: |
+                      `plan` 时与 `items` 同序；每条为 `{ suggestedId, id, kind, pair:{status,path,version,candidates},
+                      versions, warnings, targetDir, targetAudioPath, targetTextPath,
+                      weights:[{kind,source,target,action,bytes?}], placement, pending, status }`，
+                      该条不合法时为 `null`。`pair.status` 只有 `matched / missing / unpaired`，
+                      `weights[].action` 只有 `inside / hardlink / copy`。
+                    items:
+                      type: object
+                      nullable: true
+                  results:
+                    type: array
+                    description: |
+                      `apply` 时与 `items` 同序；每条为 `{ status: written|skipped, id, targetDir, audioPath?,
+                      textPath?, placed, notes, backups }`，该条失败时为 `null`。
+                    items:
+                      type: object
+                      nullable: true
+                  errors:
+                    type: array
+                    description: 逐条失败：`[{ index, id?, message }]`（`index` 对应 `items` 下标）。
+                    items:
+                      type: object
+                      required: [index, message]
+                      properties:
+                        index:
+                          type: number
+                        id:
+                          type: string
+                        message:
+                          type: string
+                  providers:
+                    type: array
+                    description: "`weights` / `apply` 后带回的实现状态（与 `/voice/voices` 的 `providers` 同形）。"
+                    items:
+                      type: object
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/voice/text-lines:
+    post:
+      tags: [Voice]
+      operationId: readVoiceTextLines
+      summary: 从一个文本文件里挑一行参考文本
+      description: |
+        供设置页「从文本文件选一行」使用：`.list`（含 `|`）取第 4 列 `text`，其它文本取整行；
+        跳过空行，最多返回 200 行（`max` 可调，上限 500）。只读、不建立任何 id 关联。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                  description: 文本文件绝对路径（≤5 MB）。
+                max:
+                  type: number
+                  description: 最多返回多少行（1–500，缺省 200）。
+      responses:
+        "200":
+          description: 候选行（带 1 起始行号）。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, lines]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  lines:
+                    type: array
+                    items:
+                      type: object
+                      required: [index, text]
+                      properties:
+                        index:
+                          type: number
+                        text:
+                          type: string
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
 
   /dsh-pet-7340/voice/volume:
     post:
@@ -3657,7 +3961,7 @@ paths:
         启动立刻返回（服务加载约 40 秒，可用性由 20s 的探活翻牌）；停止最多等 20 秒。
         插件**不会**自动启动它：GPU 加载会拖慢 profile 启动，失败还要退避重试。
 
-        启动**不建控制台窗口**：脚本的 stdout/stderr 追加到 `<DSH_HOME>/dsh-pet/logs/gsv/<provider>-start.log`。
+        启动**不建控制台窗口**：脚本的 stdout/stderr 追加到 `<userRoot>/logs/gsv/<provider>-start.log`。
         这条不是风格问题——`api_v2` 的 `/tts` 在合成前会 `print()`，而一个「窗口被关掉、服务还活着」的进程
         stdout 已失效，`print` 会抛 `OSError: [Errno 22] Invalid argument`，于是每句合成都 400、
         整条链静默落到 edge（本机真实事故）。没有窗口可关，这个状态就不存在了；
@@ -4841,7 +5145,7 @@ paths:
         - $ref: "#/components/parameters/PetIdQuery"
       responses:
         "200":
-          description: '已记下（`{ ok: true, petId, pending: true }`）或开关没开（`unsupported`）。'
+          description: "已记下（`{ ok: true, petId, pending: true }`）或开关没开（`unsupported`）。"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
@@ -4877,7 +5181,7 @@ paths:
                   type: string
       responses:
         "200":
-          description: '已记录（`{ ok: true }`）；`kind` 不是 `foreground` 时 `bad-request`。'
+          description: "已记录（`{ ok: true }`）；`kind` 不是 `foreground` 时 `bad-request`。"
         "400":
           description: 请求体不是合法 JSON（`invalid-json`）。
         "405":
@@ -6560,6 +6864,21 @@ components:
             $ref: "#/components/schemas/PetEntry"
         notificationsEnabled:
           type: boolean
+        petEnabled:
+          type: boolean
+          description: |
+            桌宠总开关：`false` = 全部宠物一起收起——桌面端不建任何宠物窗口（Helper 干脆不拉起来）、
+            网页端不渲染宠物、碎碎念 / 余额 / 待办提醒那几轮定时任务一并停跑。
+            与每只宠物的 `display` 正交：`display` 管这只去哪一屏，这一项管所有宠物开不开；
+            不传则沿用磁盘上的值（透传保留）。设置页「系统与桌面」卡的总开关写的就是它。缺失默认 `true`。
+        hideAllHotkey:
+          type: string
+          description: |
+            全局隐藏 / 暂停的系统级组合键（Electron accelerator 写法，如 `Control+Alt+H`）。
+            按一下把全部桌宠藏起来并暂停语音，再按一下放回来；桌面端由 Helper 用 `globalShortcut` 注册，
+            网页端只有页面在前台时生效。空串 = 关掉这条快捷键。
+            至少要一个修饰键 + 一个主键（`Control` / `CommandOrControl` / `Alt` / `Shift` 与字母、数字、F1–F12），
+            否则整包拒绝；落盘前归一成唯一写法。缺失默认 `Control+Alt+H`。
         whisperImageEnabled:
           type: boolean
         chatImageEnabled:

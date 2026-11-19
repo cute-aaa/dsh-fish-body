@@ -16,6 +16,15 @@ let voiceName = '';
 let voiceVolume = 1;
 /** 工作状态播报开关；只有成品配置明确为 true 才念。 */
 let notifyEnabled = false;
+/** 全局暂停（快捷键 / 托盘隐藏）：true = 一句自动播报都不念。 */
+let paused = false;
+/**
+ * 避让暂停（全屏应用在前台、桌面宠物被藏起来）：只由桌面的避让看门狗翻。
+ *
+ * 与 {@link paused} 分开是因为两者会同时发生又各自结束：托盘的「隐藏宠物」结束不该解除避让那层，
+ * 避让结束也不该把用户手动按下快捷键的暂停解开。任一为 true 就静音。
+ */
+let avoidPaused = false;
 /** 本端是网页端还是桌面端；`null` = 还没声明，此时不按叶子播放。 */
 let surface: VoiceTarget | null = null;
 /** 接口基址：网页端是同源前缀，桌面端由 `setVoiceBase` 换成 bridge 地址。 */
@@ -156,6 +165,42 @@ export function isVoiceNotifyEnabled(): boolean {
   return notifyEnabled;
 }
 
+/**
+ * 现在是不是「一句都不念」的状态（全局暂停或避让暂停）。
+ *
+ * @returns 任一暂停原因成立时为 true。
+ */
+export function isVoicePaused(): boolean {
+  return paused || avoidPaused;
+}
+
+/**
+ * 翻「全局暂停」（快捷键 / 托盘隐藏宠物 / 网页端的同一组合键）。
+ *
+ * 打开时立刻掐掉正在响的那一句：暂停的意义就是马上安静，而不是等这句念完。
+ * 手动点播（对话面板的喇叭）不受它影响——那是用户的明确动作，与自动播报不是一回事。
+ *
+ * @param next - 是否暂停；非 `true` 一律按恢复处理。
+ */
+export function setVoicePaused(next: unknown): void {
+  const value = next === true;
+  if (value === paused) return;
+  paused = value;
+  if (paused) stopAutoAudio();
+}
+
+/**
+ * 翻「避让暂停」（全屏应用在前台时桌面宠物被藏起来）。
+ *
+ * @param next - 是否暂停；非 `true` 一律按恢复处理。
+ */
+export function setVoiceAvoidPaused(next: unknown): void {
+  const value = next === true;
+  if (value === avoidPaused) return;
+  avoidPaused = value;
+  if (isVoicePaused()) stopAutoAudio();
+}
+
 /** 把音量收敛到 0–1；非数值按最大音量（1）处理——脏配置不该把声音悄悄变成 0。 */
 function clampVolume(value: unknown): number {
   const n = Number(value);
@@ -190,6 +235,12 @@ async function loadConfigOnce(): Promise<void> {
 export function playSayVoice(say: { readonly text: string; readonly voiceTo?: VoiceTarget }): void {
   const isMine = say.voiceTo !== undefined && say.voiceTo === surface;
   if (!say.text || !isMine) {
+    setVoiceState('idle');
+    return;
+  }
+  // 暂停期间（快捷键 / 全屏避让）：气泡照旧显示，只是不出声——恢复后也不补播这一句，
+  // 补播只会让人突然被一句「过去的话」吓到。
+  if (isVoicePaused()) {
     setVoiceState('idle');
     return;
   }
@@ -229,6 +280,9 @@ async function speakWhenReady(text: string, canPlayHidden = false): Promise<void
  */
 export function speakNotice(text: string): void {
   if (text === '') return;
+  // 暂停期间（快捷键 / 全屏避让）不出声：这条播报的原始理由是「用户正在别的应用里」，
+  // 但全屏看片 / 开会时突然念一句正是用户明确要求别发生的事。
+  if (isVoicePaused()) return;
   // 允许后台播：用户正在别的应用里，正是需要它出声的时候。
   void speakWhenReady(text, true);
 }

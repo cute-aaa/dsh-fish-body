@@ -5,7 +5,7 @@
  * 依赖由 apply 显式传入（见输入类型），模块内不读全局、不建单例。
  * @module dsh-fish-body/src/host/plugin/balance-poll
  */
-import { flattenPetList, readAllConfig } from '../config.ts';
+import { flattenPetList, petsEnabled, readAllConfig } from '../config.ts';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PACKAGE_ROOT } from '../paths.ts';
@@ -30,8 +30,16 @@ export type BalancePollInput = {
  */
 export function createBalancePoll(deps: BalancePollInput) {
   const { ctx, configPaths, getActivePetId, log, state, standaloneAiBalance } = deps;
-  /** 当前生效宠物列表：成品配置拍平（合并器已保证 id 唯一、字段填满），命令与桌面模式共用。 */
-  const effectivePetList = (): Record<string, unknown>[] => flattenPetList(readAllConfig(configPaths));
+  /**
+   * 当前生效宠物列表：成品配置拍平（合并器已保证 id 唯一、字段填满），命令与桌面模式共用。
+   *
+   * 桌宠总开关关掉时返回空列表：所有「按宠物办事」的下游（桌面窗、余额查询、待办提醒、/pet 菜单）
+   * 都从这一处取值，一处返回空就等于全局停摆——总开关不该在每只宠物身上各改一遍 display。
+   */
+  const effectivePetList = (): Record<string, unknown>[] => {
+    const merged = readAllConfig(configPaths);
+    return petsEnabled(merged) ? flattenPetList(merged) : [];
+  };
 
   /** 余额刷新周期（秒）：成品 main 条目的 eventsRefreshSec.balance（合并器已填默认；非法兜底 1800） */
   const balancePeriodSec = (cfg: Record<string, Record<string, unknown>>): number => {

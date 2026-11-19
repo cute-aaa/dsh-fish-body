@@ -78,6 +78,8 @@ export interface VoiceSettings {
   readonly runProcess: ProviderForms['runProcess'];
   /** 切本地音色（立即落盘）。 */
   readonly changeProviderVoice: ProviderForms['changeProviderVoice'];
+  /** 立刻重拉一次实现状态（导入参考后让新音色马上出现）。 */
+  readonly refreshProviders: () => void;
   /** 用成品配置覆盖七个随保存写入的字段。 */
   apply(patch: MainConfigPatch): void;
 }
@@ -175,6 +177,13 @@ export function useVoiceSettings(
     return () => window.clearInterval(timer);
   }, [adoptProviders]);
 
+  // 导入参考/配对落盘后立刻刷新：不等 30s 的轮询，音色格与右键菜单要马上看得到新嗓子。
+  const refreshProviders = useCallback((): void => {
+    void fetchVoices().then((body) => {
+      if (body !== null) adoptProviders(body.providers);
+    });
+  }, [adoptProviders]);
+
   const testPreview = useCallback((): void => {
     setPreviewMessage('');
     speakText(
@@ -226,6 +235,7 @@ export function useVoiceSettings(
     clearSecret: forms.clearSecret,
     runProcess: forms.runProcess,
     changeProviderVoice: forms.changeProviderVoice,
+    refreshProviders,
     apply,
   };
 }

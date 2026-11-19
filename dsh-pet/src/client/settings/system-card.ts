@@ -48,7 +48,7 @@ export function makeSystemCard(rt: SettingsRuntime): FunctionComponent<SystemCar
         cardHead(
           t('systemTitle'),
           t('systemHint'),
-          ['global.notificationsEnabled', 'global.trayEnabled', 'global.confineToScreen'],
+          ['global.petEnabled', 'global.notificationsEnabled', 'global.trayEnabled', 'global.confineToScreen'],
           h('button', {
             type: 'button',
             className: 'dsh-pet-cfg__btn is-sm',
@@ -57,6 +57,13 @@ export function makeSystemCard(rt: SettingsRuntime): FunctionComponent<SystemCar
           }),
         ),
         switchGrid([
+          toggleCell(
+            'petToggle',
+            flags.petEnabled,
+            busy,
+            (value) => props.onFlag('petEnabled', value),
+            'global.petEnabled',
+          ),
           toggleCell(
             'notifyToggle',
             flags.notificationsEnabled,

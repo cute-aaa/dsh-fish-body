@@ -126,6 +126,20 @@ test('状态表：合成失败原因单独报（lastError），与 available 分
   assert.equal(statuses[2]?.lastError, undefined, '内置实现没有这一项');
 });
 
+test('状态表：扫描诊断单独报（notes），实现抛错只当没有', () => {
+  registerVoiceProvider({ ...provider('gsv'), notes: () => ['音色来源：权重 2 个', '  '] });
+  registerVoiceProvider({
+    ...provider('quiet'),
+    notes: () => {
+      throw new Error('取诊断也炸了');
+    },
+  });
+  const statuses = voiceProviderStatuses();
+  assert.deepEqual(statuses[0]?.notes, ['音色来源：权重 2 个'], '空白项丢掉，坏项不影响其它');
+  assert.equal(statuses[1]?.notes, undefined, '实现自己抛错只当「没有诊断」');
+  assert.equal(statuses[2]?.notes, undefined, '内置实现没有这一项');
+});
+
 test('非法定义一律抛 TypeError', () => {
   assert.throws(() => registerVoiceProvider(null as never), TypeError, '非对象');
   assert.throws(() => registerVoiceProvider({ id: '', name: 'x' } as never), TypeError, '空 id');

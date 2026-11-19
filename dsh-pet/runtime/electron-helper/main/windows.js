@@ -514,6 +514,8 @@ function createWindows({
     keepOffTaskbar,
     stopTaskbarWatchdog,
     setHidden,
+    /** 现在是不是「手动隐藏」状态（托盘菜单的勾选态与全局快捷键共用这一个值）。 */
+    isHidden: () => manualHidden,
     setAvoidHidden,
     broadcastCommand,
     setPointerFallbackPaused: (paused) => {

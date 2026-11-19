@@ -170,3 +170,34 @@ export async function pickFolder(title: string, start?: string): Promise<PickOut
     return { kind: 'unsupported', message: '' };
   }
 }
+
+/**
+ * 调原生选文件框（权重 / 参考音频 / 文本）。
+ *
+ * @param title - 对话框标题。
+ * @param extensions - 允许的扩展名（含点），只影响系统过滤项。
+ * @param start - 初始目录（可不给）。
+ * @returns 结论；`unsupported` 带原因（界面据此展开手输框）。
+ */
+export async function pickFile(title: string, extensions: readonly string[], start?: string): Promise<PickOutcome> {
+  try {
+    const response = await fetch(ROUTE_PATH + '/pick-file', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        extensions,
+        ...(start === undefined ? {} : { start }),
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    if (payload?.ok === true && typeof payload.path === 'string') return { kind: 'picked', path: payload.path };
+    if (payload?.reason === 'cancelled') return { kind: 'cancelled' };
+    return {
+      kind: 'unsupported',
+      message: typeof payload?.message === 'string' ? payload.message : '',
+    };
+  } catch {
+    return { kind: 'unsupported', message: '' };
+  }
+}

@@ -5,7 +5,7 @@
  * 不拉进程、不管重启时序（归 ./spawn 与 ./sync）。
  * @module dsh-fish-body/src/host/plugin/desktop/pets
  */
-import { flattenPetList, readAllConfig } from '../../config.ts';
+import { flattenPetList, petsEnabled, readAllConfig } from '../../config.ts';
 import { renderSizeOf } from '../../../shared/pet-size.ts';
 import type { ConfigPaths } from '../../config.ts';
 import type { DesktopHelperDeps } from './types.ts';
@@ -15,6 +15,12 @@ export type DesktopPetsInput = Pick<DesktopHelperDeps, 'configPaths' | 'effectiv
 
 /** 该宠物是否参与桌面模式（Electron 透明窗）。 */
 const isDesktopVisible = (display: unknown): boolean => display === 'desktop' || display === 'both';
+
+/**
+ * 总开关判定在「算窗口列表」这一层，而不是在每只宠物上改 display：总开关要能在关掉后原样开回来
+ * （display 是用户的显式配置，不能替他改）。关掉的效果就是「没有桌面宠物」——Helper 干脆不拉起来。
+ * 规则本身在配置层（`petsEnabled`），网页端渲染也用同一条规则，两边不会各说一套。
+ */
 
 /** 一次现读的判定结果（`flattenPetList` 的元素形状由配置层决定，这里只关心数量与 display）。 */
 interface DesktopDecision {
@@ -28,6 +34,7 @@ interface DesktopDecision {
 function readDecision(configPaths: ConfigPaths): DesktopDecision {
   const merged = readAllConfig(configPaths);
   const pets = flattenPetList(merged);
+  if (!petsEnabled(merged)) return { pets, desktopPets: [] };
   return { pets, desktopPets: pets.filter((pet) => isDesktopVisible(pet.display)) };
 }
 
@@ -63,6 +70,9 @@ export function createDesktopPets(deps: DesktopPetsInput) {
    *  等渲染端上报再纠正会先闪一下错尺寸。 */
   const desktopPetList = (): Array<{ id: string; size: number }> => {
     try {
+      // 总开关关掉时列表为空：Helper 拿到空列表就等于「没有桌面宠物」，不会建出空窗口。
+      const merged = readAllConfig(configPaths);
+      if (!petsEnabled(merged)) return [];
       return effectivePetList()
         .filter((pet) => isDesktopVisible(pet.display))
         .map((pet) => ({ id: String(pet.id), size: renderSizeOf(pet) }));
@@ -75,9 +85,10 @@ export function createDesktopPets(deps: DesktopPetsInput) {
   const logDesktopDecision = (): void => {
     try {
       const { pets, desktopPets } = readDecision(configPaths);
-      const trayOn = readAllConfig(configPaths).main?.trayEnabled !== false;
+      const merged = readAllConfig(configPaths);
+      const trayOn = merged.main?.trayEnabled !== false;
       log.info(
-        `[fish-body] 桌面判定：pets=${pets.length}，桌面可见=${desktopPets.length}` +
+        `[fish-body] 桌面判定：pets=${pets.length}，总开关=${petsEnabled(merged) ? '开' : '关'}，桌面可见=${desktopPets.length}` +
           `（${desktopPets.map((pet) => String(pet.id)).join(',') || '无'}）→` +
           ` hasDesktopPet=${desktopPets.length > 0} tray=${trayOn}`,
       );

@@ -68,6 +68,8 @@ export interface VoiceCardProps {
   readonly localAvailable?: boolean;
   /** 不可用原因（服务没起 / 没配音色目录），显示在控件下方。 */
   readonly localReason?: string;
+  /** 当前选中的本地音色自己的不可用原因（缺权重/参考音频）；有值时贴在控件下方。 */
+  readonly localVoiceReason?: string;
   /** 本地音色切换中。 */
   readonly localBusy?: boolean;
   /** 选择本地音色（即时落盘，不随「保存」）。 */
@@ -135,7 +137,9 @@ export function makeVoiceCard(
                       disabled: props.busy || props.localBusy === true || props.localAvailable === false,
                       onChange: (voice: string) => props.onLocalVoiceChange?.(voice),
                     }),
-                    props.localAvailable === false ? props.localReason || t('voiceLocalHint') : t('voiceLocalHint'),
+                    props.localAvailable === false
+                      ? props.localReason || t('voiceLocalHint')
+                      : props.localVoiceReason || t('voiceLocalHint'),
                   ),
                 ]
               : []),

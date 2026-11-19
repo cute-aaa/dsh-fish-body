@@ -154,6 +154,12 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__barSpacer{flex:1 1 auto;min-width:8px}',
   '.dsh-pet-cfg__msg{margin-left:4px;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-state-success-primary)}',
   '.dsh-pet-cfg__msg.is-err{color:var(--dsw-alias-state-error-primary)}',
+  // 接入卡的扫描诊断：灰字小号、缩进列表；它解释「清单怎么来的」，不抢状态行的注意力。
+  '.dsh-pet-cfg__notes{margin:2px 0 0;padding-left:18px;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-label-tertiary)}',
+  // 行内复选项（配对卡的「自动识别 / 覆盖」）：与按钮同一行，标签文字跟正文同号。
+  '.dsh-pet-cfg__check{display:flex;align-items:center;gap:6px;font-size:var(--pcg-fs-body);cursor:pointer}',
+  '.dsh-pet-cfg__check input{width:auto;margin:0}',
+  '.dsh-pet-cfg__check input:disabled{cursor:default}',
 
   // 加载 / 失败提示条：就绪后整块不出现，也不占位。
   '.dsh-pet-cfg__banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-sm);background:var(--dsw-alias-interactive-bg-hover);font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-label-secondary)}',
@@ -165,6 +171,22 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__dialogTitle{font-size:var(--pcg-fs-title);font-weight:500;line-height:20px;color:var(--dsw-alias-label-primary)}',
   '.dsh-pet-cfg__dialogBody{font-size:var(--pcg-fs-body);line-height:20px;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}',
   '.dsh-pet-cfg__dialogActions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}',
+  // 导入音色弹窗比确认框宽：六格表单（权重 / 另一侧 / 参考音频 / 文本 / id / 目标）在 360px 会挤成一条缝。
+  '.dsh-pet-cfg__dialog.is-wide{width:min(680px,calc(100vw - 40px));max-height:calc(100vh - 80px);overflow-y:auto;scrollbar-width:thin}',
+  // 现状清单的一行：左边 id（等宽，便于和文件名对照），右边说明与「接入…」。
+  '.dsh-pet-cfg__row{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 0;border-top:1px solid var(--dsw-alias-border-l2)}',
+  '.dsh-pet-cfg__rowMain{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-label);color:var(--dsw-alias-label-primary)}',
+  // 导入清单的一行：勾选框在左，右边竖排「id+徽标 / 两侧权重 / 参考与放法 / 说明」。
+  // 没勾的行整体压暗：清单常常十几行，勾了哪些必须一眼看得出来。
+  '.dsh-pet-cfg__impRow{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-top:1px solid var(--dsw-alias-border-l2)}',
+  '.dsh-pet-cfg__impRow>input[type=checkbox]{flex:none;width:auto;margin:3px 0 0}',
+  '.dsh-pet-cfg__impRow.is-off{opacity:.62}',
+  '.dsh-pet-cfg__impBody{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 auto}',
+  '.dsh-pet-cfg__impMeta{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;min-width:0}',
+  '.dsh-pet-cfg__impSub{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}',
+  '.dsh-pet-cfg__impSub>select{flex:0 1 200px;min-width:0}',
+  '.dsh-pet-cfg__impSub>input[type=text]{flex:1 1 200px;min-width:0}',
+  '.dsh-pet-cfg__impNote{font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-state-warn-label)}',
 
   // 容器查询按内容压力点分档，不跟窗口宽度硬绑定（设置页可能被放在任意宽的面板里）。
   '@container (max-width:600px){.dsh-pet-cfg__grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}',

@@ -163,3 +163,164 @@ export function assignHotkey(map: HotkeyMap, action: HotkeyAction, key: string):
   if (owner !== undefined) out[owner] = previous;
   return out;
 }
+
+// ============================================================================
+// 系统级快捷键（带修饰键）：目前只有「全局隐藏 / 暂停」一条
+// ============================================================================
+
+/**
+ * 「全局隐藏 / 暂停」的出厂组合键。
+ *
+ * 与上面九个裸键不是同一类东西：那九个只在鼠标停着宠物时生效（宠物被藏起来时按不到），
+ * 而这条要在**任何应用前台**都能按下去——所以它必须带修饰键、由桌面端注册成系统级快捷键。
+ */
+export const DEFAULT_HIDE_ALL_HOTKEY = 'Control+Alt+H';
+
+/** 解析后的组合键：四个修饰位 + 一个主键（大写）。 */
+export interface GlobalHotkey {
+  readonly control: boolean;
+  /** 「主修饰键」：Windows/Linux 上是 Ctrl，macOS 上是 ⌘。 */
+  readonly commandOrControl: boolean;
+  readonly alt: boolean;
+  readonly shift: boolean;
+  readonly super: boolean;
+  /** 主键：大写字母 / 数字 / `F1`–`F12`。 */
+  readonly key: string;
+}
+
+/** 主键白名单：一个字母、一个数字，或 F1–F12。 */
+const GLOBAL_KEY_PATTERN = /^(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/;
+
+/** 修饰键的各种写法 → 规范名。手写配置里 alt/option、cmd/super/win 都有人写。 */
+const MODIFIER_ALIASES: Readonly<Record<string, keyof Omit<GlobalHotkey, 'key'>>> = {
+  ctrl: 'control',
+  control: 'control',
+  cmdorctrl: 'commandOrControl',
+  commandorcontrol: 'commandOrControl',
+  alt: 'alt',
+  option: 'alt',
+  shift: 'shift',
+  meta: 'super',
+  super: 'super',
+  cmd: 'super',
+  command: 'super',
+  win: 'super',
+};
+
+/**
+ * 解析一串组合键文本。
+ *
+ * 规则：用 `+` 分段，最后一段是主键，前面的都当修饰键；**至少要有一个修饰键**——
+ * 一个裸字母做系统级快捷键会把这台机器上所有输入框的那个字母抢走。
+ *
+ * @param raw - 形如 `Control+Alt+H` / `cmdorctrl+shift+k` 的文本。
+ * @returns 解析结果；空串、没有修饰键、主键不认识时返回 `null`。
+ */
+export function parseGlobalHotkey(raw: unknown): GlobalHotkey | null {
+  if (typeof raw !== 'string') return null;
+  const parts = raw
+    .split('+')
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item !== '');
+  if (parts.length < 2) return null;
+  const key = (parts[parts.length - 1] ?? '').toUpperCase();
+  if (!GLOBAL_KEY_PATTERN.test(key)) return null;
+  const flags = { control: false, commandOrControl: false, alt: false, shift: false, super: false };
+  for (const part of parts.slice(0, -1)) {
+    const field = MODIFIER_ALIASES[part];
+    if (field === undefined) return null;
+    flags[field] = true;
+  }
+  if (!flags.control && !flags.commandOrControl && !flags.alt && !flags.shift && !flags.super) return null;
+  return { ...flags, key };
+}
+
+/**
+ * 规范成 Electron accelerator 认的写法（`Control+Alt+H`）。
+ *
+ * 空串 = 明确「关掉这条快捷键」，与「没写」在配置里是同一件事；非法值也回空串——
+ * 读侧的落盘值由调用方决定，这里只保证「拿到什么就用什么」。
+ *
+ * @param raw - 配置里的原始文本。
+ * @returns 规范串；无法解析时 `''`。
+ */
+export function normalizeGlobalHotkey(raw: unknown): string {
+  const parsed = parseGlobalHotkey(raw);
+  if (parsed === null) return '';
+  const parts: string[] = [];
+  if (parsed.control) parts.push('Control');
+  if (parsed.commandOrControl) parts.push('CommandOrControl');
+  if (parsed.alt) parts.push('Alt');
+  if (parsed.shift) parts.push('Shift');
+  if (parsed.super) parts.push('Super');
+  parts.push(parsed.key);
+  return parts.join('+');
+}
+
+/** 默认按哪个平台解释「主修饰键」：网页端取 navigator，宿主/测试可用第二参数覆盖。 */
+function isMacLike(platform?: string): boolean {
+  if (platform !== undefined) return /darwin|mac|iphone|ipad/i.test(platform);
+  const scope = globalThis as { navigator?: { platform?: string; userAgent?: string } };
+  const text = `${scope.navigator?.platform ?? ''} ${scope.navigator?.userAgent ?? ''}`;
+  return /mac|iphone|ipad/i.test(text);
+}
+
+/** 一次键盘事件的修饰位（只取本判定要用的那几位）。 */
+export interface GlobalKeyEvent {
+  readonly ctrlKey: boolean;
+  readonly altKey: boolean;
+  readonly shiftKey: boolean;
+  readonly metaKey: boolean;
+  readonly key: string;
+}
+
+/**
+ * 这条键盘事件是不是按下了某个组合键。
+ *
+ * 网页端没有系统级快捷键可注册，只能在自己的页面上听 `keydown`；判定与桌面端注册的那份
+ * 是同一串文本（`normalizeGlobalHotkey` 的产物），所以两边行为一致。
+ *
+ * @param event - 键盘事件（或同形状的对象）。
+ * @param combo - 组合键文本；空串 = 没开这条快捷键，永远不匹配。
+ * @param platform - 判「主修饰键」用的平台串（测试注入）。
+ * @returns 命中时为 true。
+ */
+export function matchesGlobalHotkey(event: GlobalKeyEvent, combo: string, platform?: string): boolean {
+  const parsed = parseGlobalHotkey(combo);
+  if (parsed === null) return false;
+  const mac = isMacLike(platform);
+  // 主修饰键落到哪个位：mac 上是 ⌘（metaKey），其余平台是 Ctrl。
+  const wantCtrl = mac ? parsed.control : parsed.control || parsed.commandOrControl;
+  const wantMeta = mac ? parsed.commandOrControl || parsed.super : parsed.super;
+  return (
+    event.ctrlKey === wantCtrl &&
+    event.metaKey === wantMeta &&
+    event.altKey === parsed.alt &&
+    event.shiftKey === parsed.shift &&
+    event.key.toUpperCase() === parsed.key
+  );
+}
+
+/**
+ * 键帽文案：`Ctrl + Alt + H`。
+ *
+ * 按平台挑主修饰键的写法（macOS 用 ⌘），其余修饰键用常见缩写——这一串只用于展示，
+ * 判定与注册用的都是 {@link normalizeGlobalHotkey} 的产物。
+ *
+ * @param combo - 组合键文本。
+ * @param platform - 判平台的串（测试注入）。
+ * @returns 展示串；空串（= 关闭）时返回空串。
+ */
+export function globalHotkeyCap(combo: string, platform?: string): string {
+  const parsed = parseGlobalHotkey(combo);
+  if (parsed === null) return '';
+  const mac = isMacLike(platform);
+  const parts: string[] = [];
+  if (parsed.control) parts.push('Ctrl');
+  if (parsed.commandOrControl) parts.push(mac ? '⌘' : 'Ctrl');
+  if (parsed.alt) parts.push(mac ? '⌥' : 'Alt');
+  if (parsed.shift) parts.push(mac ? '⇧' : 'Shift');
+  if (parsed.super) parts.push(mac ? '⌘' : 'Win');
+  parts.push(parsed.key);
+  return parts.join(' + ');
+}

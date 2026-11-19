@@ -133,6 +133,19 @@ export function flattenPetList(merged: Record<string, Record<string, unknown>>):
   return out;
 }
 
+/**
+ * 桌宠总开关：`main.petEnabled`，缺省视为开。
+ *
+ * 只读 main 条目：它是「这台机器上桌宠开不开」这一个判断，不是每只宠物的属性——
+ * 放在 pets[] 里就变成「关掉要挨个关一遍、开回来还要记得原来每只的状态」。
+ *
+ * @param merged - 成品配置聚合（`readAllConfig` 的输出）。
+ * @returns 总开关是否为开。
+ */
+export function petsEnabled(merged: Record<string, Record<string, unknown>>): boolean {
+  return merged.main?.petEnabled !== false;
+}
+
 /** 在完成品聚合里按实例 id 定位宠物及其所属条目（host 内部消费索引）：
  *  条目 key 即素材根（assetRoot）；条目级字段（whisperPrompt/chatMemoryRounds/animations）随条目取
  *  （唯一例外：whisperPrompt 可被实例覆盖——调用方要生效值请走 ./persona 的 petPersona，别直接读 conf）。 */

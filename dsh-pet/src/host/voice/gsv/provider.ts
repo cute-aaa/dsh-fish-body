@@ -8,6 +8,9 @@
  *    并且切换过程串行化——两条语句同时合成时不能让 A 切到一半被 B 抢走。
  * 3. 产出是 wav 字节，扩展名与 Content-Type 由 speak/audio 那套表推出来，这里不转码。
  *
+ * 音色口径：清单来自**音色包目录**（`voices.ts`，一个子目录一个音色，权重是真文件），
+ * 缺权重/缺参考音频的音色**仍然列出**，只是不可合成并带 `reason`——设置页与右键菜单据此置灰，
+ * 用户能看见「差哪一份文件」。音色目录由「导入音色」流程造出来，不再有第二、第三个扫描源。
  * 另外记一件事：合成失败的原因留在 `lastError()` 里。回退链的设计是「静默落到 edge」，
  * 用户只会觉得「换了个嗓子」，所以「服务通着却念不出来」必须有一处能看见（设置页接入卡显示它）。
  * @module dsh-fish-body/src/host/voice/gsv/provider
@@ -17,7 +20,7 @@ import { VoiceSynthError } from '../edge.ts';
 import type { VoiceField, VoiceProvider, VoiceProviderAvailability } from '../registry.ts';
 import { gsvHttp, type GsvHttp, type GsvTtsRequest } from './client.ts';
 import { gsvMissingFields, type GsvSettings } from './settings.ts';
-import { scanGsvVoices, voiceById, weightsTag, type GsvVoice } from './voices.ts';
+import { scanGsvVoiceLibrary, voiceById, voiceTag, weightsTag, type GsvVoice, type GsvVoiceScan } from './voices.ts';
 
 /** 探活间隔（ms）：本地服务起停都在秒级，20s 足够让菜单在起服务后自动可用。 */
 const PROBE_INTERVAL_MS = 20_000;
@@ -25,9 +28,12 @@ const PROBE_INTERVAL_MS = 20_000;
 const PROBE_TIMEOUT_MS = 2_500;
 /** 单句合成上限（ms）：链上还有 edge 兜底，卡太久不如早点让步。 */
 const TTS_TIMEOUT_MS = 60_000;
-/** 切权重上限（ms）：加载 148MB ckpt 实测 0.3~0.6s，留足冷启动余量。 */
-const WEIGHTS_TIMEOUT_MS = 30_000;
-/** 音色目录扫描结果的软过期（ms）：加一个音色包不用重启插件。 */
+/**
+ * 切权重上限（ms）：同版本加载 ckpt 实测 0.3~0.6s，但跨版本（v2 ↔ v5turbo）会重载
+ * BERT/HuBERT 与整条推理管线，实测到十几秒；留足冷启动余量。
+ */
+const WEIGHTS_TIMEOUT_MS = 120_000;
+/** 音色目录扫描结果的软过期（ms）：加一个音色/权重不用重启插件。 */
 const SCAN_TTL_MS = 15_000;
 /** 语速换算法因子的上下界：与 api_v2 的 `speed_factor` 合理区间一致。 */
 const SPEED_MIN = 0.5;
@@ -47,13 +53,17 @@ export interface GsvProviderOptions {
 export interface GsvProvider extends VoiceProvider {
   /** 探活结论（同步读缓存，链每次合成都现查一次）。 */
   availability(): VoiceProviderAvailability;
-  /** 当前扫到的音色（带缓存，最多滞后 {@link SCAN_TTL_MS}）。 */
+  /** 扫到的全部音色（含不可合成的，带 `reason`；最多滞后 {@link SCAN_TTL_MS}）。 */
   voices(): readonly GsvVoice[];
+  /** 扫描诊断（来源计数、目录缺失、版本错配、回落说明）。 */
+  notes(): readonly string[];
   /** 立刻探一次服务；返回是否连通。 */
   refresh(): Promise<boolean>;
+  /** 丢掉扫描缓存后重扫 + 重探（导入参考/改了目录后立刻生效）。 */
+  rescan(): Promise<boolean>;
   /** 停止后台探活。 */
   dispose(): void;
-  /** 当前音色的缓存指纹（换音色/换 epoch 换缓存键）。 */
+  /** 当前音色的缓存指纹（换音色/换 epoch/换参考文本换缓存键）。 */
   cacheTag(): string;
   /**
    * 最近一次合成失败的原因；合成成功即清空。
@@ -71,15 +81,15 @@ function speedFactorOf(rate: string): number {
   return Math.min(SPEED_MAX, Math.max(SPEED_MIN, 1 + percent / 100));
 }
 
-/** 配置指纹：任一目录变了就重扫（音色包与权重都是用户在磁盘上加的）。 */
+/** 配置指纹：目录或语种变了就重扫（音色包里的文件是用户在磁盘上加的，靠 TTL 兜）。 */
 function scanKeyOf(settings: GsvSettings): string {
-  return [settings.voicesDir, settings.gptWeightsDir, settings.sovitsWeightsDir, settings.promptLang].join('|');
+  return [settings.voicesDir, settings.textLang, settings.promptLang].join('|');
 }
 
 /**
  * 造 GSV provider。注册后立刻后台探一次，之后按间隔重探。
  * @param options - 配置读取器、日志与可注入的 HTTP。
- * @returns provider 本体（含音色清单与 dispose）。
+ * @returns provider 本体（含音色清单、诊断与 dispose）。
  */
 export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
   const http = options.http ?? gsvHttp;
@@ -92,30 +102,70 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
   let probedOk = false;
   /** 最近一次合成失败的原因（给设置页看的警告）；合成成功即清空。 */
   let lastError: string | undefined;
-  /** 音色扫描缓存。 */
-  let scan: { key: string; at: number; voices: readonly GsvVoice[] } | undefined;
+  /** 音色扫描缓存（含诊断）。 */
+  let scan: { key: string; at: number; library: GsvVoiceScan } | undefined;
+  /** 配置里的音色扫不到/不可用时的回落说明（只保留本轮的那一条）。 */
+  let fallbackNote: string | undefined;
   /** 服务端当前已加载的权重（进程内记录：换音色才切，同一音色连说多句不重复切）。 */
   let applied: { gpt?: string; sovits?: string } = {};
   /** 切权重串行链：全局状态不能被两句并发合成交错切换。 */
   let switchQueue: Promise<void> = Promise.resolve();
   let timer: ReturnType<typeof setInterval> | undefined;
 
-  /** 当前音色清单（软过期，避免每次合成读一遍目录）。 */
-  function currentVoices(): readonly GsvVoice[] {
+  /** 当前扫描结果（软过期，避免每次合成读一遍目录）。 */
+  function currentLibrary(): GsvVoiceScan {
     const settings = options.settings();
     const key = scanKeyOf(settings);
     const now = Date.now();
-    if (scan && scan.key === key && now - scan.at < scanTtlMs) return scan.voices;
-    const voices = scanGsvVoices(settings);
-    scan = { key, at: now, voices };
-    return voices;
+    if (scan && scan.key === key && now - scan.at < scanTtlMs) return scan.library;
+    const library = scanGsvVoiceLibrary(settings);
+    scan = { key, at: now, library };
+    return library;
   }
 
-  /** 当前生效的音色：配置里指定的那个；没指定就用扫描到的第一个。 */
-  function currentVoice(): GsvVoice | undefined {
+  /** 全部候选音色（含不可用）。 */
+  function voices(): readonly GsvVoice[] {
+    return currentLibrary().voices;
+  }
+
+  /** 能真的交给 `/tts` 的音色。 */
+  function synthesizable(): GsvVoice[] {
+    return voices().filter((voice) => voice.available);
+  }
+
+  /**
+   * 本次合成用哪个音色：配置项优先；它不可用（或没扫到）时回落第一个可合成音色并留一句说明。
+   *
+   * 为什么允许回落：链上还有 edge 兜底，让整句失败只会让用户听不到本地音色；
+   * 而「换了嗓子」这件事写进设置页的 notes，用户看得到，不会以为配置生效了。
+   */
+  function resolveVoice(): GsvVoice | undefined {
     const settings = options.settings();
-    const voices = currentVoices();
-    return voiceById(voices, settings.voice) ?? (settings.voice ? undefined : voices[0]);
+    const wanted = settings.voice;
+    const usable = synthesizable();
+    if (wanted) {
+      const hit = voiceById(voices(), wanted);
+      if (hit?.available) {
+        fallbackNote = undefined;
+        return hit;
+      }
+      const fallback = usable[0];
+      fallbackNote = fallback
+        ? hit
+          ? `音色「${wanted}」不可用（${hit.reason ?? '未知原因'}），已改用「${fallback.id}」`
+          : `配置的音色「${wanted}」没有扫到，已改用「${fallback.id}」`
+        : `配置的音色「${wanted}」不可用：${hit?.reason ?? '没有扫到，且没有其他可合成音色'}`;
+      return fallback;
+    }
+    fallbackNote = undefined;
+    return usable[0];
+  }
+
+  /** 设置页要看的诊断：扫描诊断 + 本轮的回落说明。 */
+  function notes(): readonly string[] {
+    const list = [...currentLibrary().notes];
+    if (fallbackNote) list.push(fallbackNote);
+    return list;
   }
 
   async function refresh(): Promise<boolean> {
@@ -132,8 +182,17 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
     // 那句话正是要给用户看的，探活永远通也修不好它。
     if (alive && !probedOk) lastError = undefined;
     probedOk = alive;
-    verdict = alive ? { ok: true } : { ok: false, reason: `连不上 ${settings.baseURL}` };
-    return alive;
+    if (!alive) {
+      verdict = { ok: false, reason: `连不上 ${settings.baseURL}` };
+      return false;
+    }
+    // 服务通着却一个能合成都列不出来：直接判不可用并说清缺什么，别让每句话都失败一次再落到 edge。
+    const library = currentLibrary();
+    const ready = library.voices.find((voice) => voice.available);
+    verdict = ready
+      ? { ok: true }
+      : { ok: false, reason: library.notes[0] ?? 'GSV 没有可合成的音色（音色包目录里缺权重或参考音频）' };
+    return ready !== undefined;
   }
 
   /**
@@ -165,10 +224,11 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
     const settings = options.settings();
     const missing = gsvMissingFields(settings);
     if (missing.length > 0) throw new VoiceSynthError(`GSV 未配置：${missing.join(' / ')}`);
-    const voice = currentVoice();
+    const voice = resolveVoice();
     if (!voice) {
-      throw new VoiceSynthError(settings.voice ? `GSV 音色不存在：${settings.voice}` : 'GSV 音色未选择');
+      throw new VoiceSynthError(notes()[0] ?? 'GSV 没有可合成的音色');
     }
+    if (!voice.refAudioPath) throw new VoiceSynthError(`GSV 音色「${voice.id}」缺少参考音频`);
     await applyWeights(settings, voice);
     const request: GsvTtsRequest = {
       text: input.text,
@@ -176,12 +236,9 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
       refAudioPath: voice.refAudioPath,
       promptText: voice.refText,
       promptLang: voice.promptLang,
-      textSplitMethod: voice.textSplitMethod,
+      // 切句法：音色包不再逐音色声明，统一按标点切（`cut5`）；采样参数交给 api_v2 的默认值。
+      textSplitMethod: 'cut5',
       speedFactor: speedFactorOf(input.rate),
-      ...(voice.temperature === undefined ? {} : { temperature: voice.temperature }),
-      ...(voice.topK === undefined ? {} : { topK: voice.topK }),
-      ...(voice.topP === undefined ? {} : { topP: voice.topP }),
-      ...(voice.seed === undefined ? {} : { seed: voice.seed }),
     };
     try {
       const clip = await http.tts(settings.baseURL, request, TTS_TIMEOUT_MS);
@@ -198,22 +255,41 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
   }
 
   const fields: readonly VoiceField[] = [
-    { key: 'baseURL', label: 'GSV 服务地址', kind: 'text', placeholder: 'http://127.0.0.1:9880' },
+    {
+      key: 'baseURL',
+      label: 'GSV 服务地址',
+      kind: 'text',
+      required: true,
+      placeholder: 'http://127.0.0.1:9880',
+      description: 'api_v2 的根地址；原生 GPT-SoVITS 的 api_v2.py 默认监听 9880。',
+    },
     // 音色不在 fields 里：它是「运行时选谁」，走右键/设置页的音色下拉（/voice/provider-voice），
     // 与「怎么连上这个服务」是两件事；混进表单只会让人手打一个扫不到的 id。
     {
       key: 'voicesDir',
-      label: '音色目录',
+      label: '音色包目录',
       kind: 'text',
-      required: true,
-      placeholder: 'D:/AI/FishChi/voice-local/voices',
+      placeholder: 'D:/AI/GSV-voices',
+      description: [
+        '每个子目录 = 一个音色（导入时自动生成），清单与音色来源都以这里为准。',
+        '<id>/',
+        '  ref.wav        参考音频（也可 <id>.wav 或目录里唯一的音频；3–10 秒最稳）',
+        '  ref.txt        参考文本（也可 <id>.txt 或目录里唯一的 .txt；缺省 = 零样本）',
+        '  *.ckpt         GPT 权重（引用 = 硬链接，或复制）',
+        '  *.pth          SoVITS 权重（同上）',
+      ].join('\n'),
     },
-    { key: 'gptWeightsDir', label: 'GPT 权重目录', kind: 'text', placeholder: '…/GPT_weights_v2' },
-    { key: 'sovitsWeightsDir', label: 'SoVITS 权重目录', kind: 'text', placeholder: '…/SoVITS_weights_v2' },
-    { key: 'textLang', label: '合成语种', kind: 'text', placeholder: 'zh' },
+    { key: 'textLang', label: '合成语种', kind: 'text', placeholder: 'zh', description: 'api_v2 的 text_lang，必填。' },
+    {
+      key: 'promptLang',
+      label: '参考文本语种',
+      kind: 'text',
+      placeholder: 'zh',
+      description: 'api_v2 的 prompt_lang，必填（全局生效，音色包里不再逐音色覆盖）。',
+    },
     // 启停脚本：只由设置页的「启动 / 停止」按钮触发，插件不会自动跑它们（GPU 加载几十秒，
     // 拖慢 profile 启动；失败还得退避重试，那是另一套机制）。空着就是没有这个能力。
-    { key: 'startScript', label: '启动脚本', kind: 'text', placeholder: 'D:/AI/FishChi/voice-local/gsv.bat' },
+    { key: 'startScript', label: '启动脚本', kind: 'text', placeholder: 'D:/AI/GSV/start-gsv.bat' },
     {
       key: 'stopScript',
       label: '停止脚本（可选）',
@@ -224,30 +300,40 @@ export function createGsvProvider(options: GsvProviderOptions): GsvProvider {
 
   const provider: GsvProvider = {
     id: 'gsv',
-    name: 'GSV（本地 GPT-SoVITS）',
+    name: 'GSV（GPT-SoVITS api_v2）',
     fields,
     availability: () => verdict,
     synthesize,
     lastError: () => lastError,
-    voices: currentVoices,
+    voices,
+    notes,
     refresh,
+    rescan: async () => {
+      // 清扫描缓存：新导入的音色不能等 15s 软过期，菜单必须马上看得见。
+      scan = undefined;
+      return refresh();
+    },
     cacheTag: () => {
       try {
-        const settings = options.settings();
-        return weightsTag(currentVoice()) || settings.voice;
+        return weightsTag(resolveVoice());
       } catch {
         return '';
       }
     },
     listVoices: () =>
-      currentVoices().map((voice) => ({
+      voices().map((voice) => ({
         id: voice.id,
         name: voice.id,
-        ...(voice.desc ? { tag: voice.desc } : {}),
+        ...(voiceTag(voice) ? { tag: voiceTag(voice) } : {}),
+        available: voice.available,
+        ...(voice.reason === undefined ? {} : { reason: voice.reason }),
       })),
     activeVoice: () => {
-      const settings = options.settings();
-      return settings.voice || (currentVoice()?.id ?? '');
+      try {
+        return resolveVoice()?.id ?? '';
+      } catch {
+        return '';
+      }
     },
     dispose: () => {
       if (timer) clearInterval(timer);

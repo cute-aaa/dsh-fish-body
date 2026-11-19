@@ -11,7 +11,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { jsx } from 'react/jsx-runtime';
 
-import { DEFAULT_HOTKEYS, type HotkeyAction, type HotkeyMap } from '../../shared/hotkeys.ts';
+import { DEFAULT_HIDE_ALL_HOTKEY, DEFAULT_HOTKEYS, type HotkeyAction, type HotkeyMap } from '../../shared/hotkeys.ts';
 import { keycapOf, type ShortcutHost } from '../app-shortcut.ts';
 import { makeShortcutsCard } from './shortcuts-card.ts';
 
@@ -110,6 +110,9 @@ function render(
       options.onAssign?.(action, key);
     },
     onReset: () => options.onReset?.(),
+    hideAll: DEFAULT_HIDE_ALL_HOTKEY,
+    onHideAllChange: () => {},
+    onHideAllReset: () => {},
     disabled: false,
   });
   return { tree, seen, assigned };
@@ -165,6 +168,9 @@ function makeHarness(rows: Row[] = [], hotkeys: HotkeyMap = DEFAULT_HOTKEYS) {
       hotkeys,
       onAssign: (action, key) => assigned.push([action, key]),
       onReset: () => (reset += 1),
+      hideAll: DEFAULT_HIDE_ALL_HOTKEY,
+      onHideAllChange: () => {},
+      onHideAllReset: () => {},
       disabled: false,
     });
     return current;
@@ -320,5 +326,51 @@ describe('ShortcutsCard —— 快捷键卡', () => {
     } finally {
       box.restore();
     }
+  });
+});
+
+describe('ShortcutsCard —— 全局隐藏 / 暂停', () => {
+  test('这一行有分组标题、输入框与「恢复默认」', () => {
+    const text = texts(render().tree).join('\n');
+    assert.ok(text.includes('shortcutGroupHide'), '分组标题');
+    assert.ok(text.includes('shortcutHideHint'), '说明行（键帽由 capOf 填进占位符）');
+    assert.ok(text.includes('shortcutHideReset'), '恢复默认按钮');
+    assert.ok(text.includes('shortcutHideLabel'), '输入框的行标题');
+  });
+
+  test('写坏了就地提示，不等到保存失败', () => {
+    const Card = makeShortcutsCard(
+      { h, t: (key: string) => key, useState: makeUseState([]), useEffect } as never,
+      makeCtx([]),
+    );
+    const tree = Card({
+      hotkeys: DEFAULT_HOTKEYS,
+      hideAll: 'Control+Alt+',
+      onAssign: () => {},
+      onReset: () => {},
+      onHideAllChange: () => {},
+      onHideAllReset: () => {},
+      disabled: false,
+    });
+    assert.ok(texts(tree).includes('shortcutHideInvalid'));
+  });
+
+  test('留空 = 关掉：说明里点明这条快捷键不生效', () => {
+    const Card = makeShortcutsCard(
+      { h, t: (key: string) => key, useState: makeUseState([]), useEffect } as never,
+      makeCtx([]),
+    );
+    const tree = Card({
+      hotkeys: DEFAULT_HOTKEYS,
+      hideAll: '',
+      onAssign: () => {},
+      onReset: () => {},
+      onHideAllChange: () => {},
+      onHideAllReset: () => {},
+      disabled: false,
+    });
+    const text = texts(tree).join('\n');
+    assert.ok(text.includes('shortcutHideOff'), '空串要说清「已关闭」');
+    assert.equal(text.includes('shortcutHideInvalid'), false, '空串不是错误');
   });
 });

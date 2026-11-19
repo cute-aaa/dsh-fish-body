@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 
 import { buildSaveFields, type SaveFieldParts } from './save-fields.ts';
 import { DEFAULT_FONT } from '../../shared/fonts.ts';
-import { DEFAULT_HOTKEYS } from '../../shared/hotkeys.ts';
+import { DEFAULT_HIDE_ALL_HOTKEY, DEFAULT_HOTKEYS } from '../../shared/hotkeys.ts';
 import { DEFAULT_PHYSICS } from '../../shared/physics.ts';
 import { SCREEN_DEFAULTS } from '../../shared/screen-config.ts';
 import { DEFAULT_WEIGHTS } from '../../shared/weights.ts';
@@ -34,6 +34,7 @@ const pet = (id: string): Pet => ({
 const parts = (): SaveFieldParts => ({
   pets: [pet('m1')],
   global: {
+    petEnabled: true,
     notificationsEnabled: false,
     sfxEnabled: false,
     sfxKeepAlive: true,
@@ -41,6 +42,7 @@ const parts = (): SaveFieldParts => ({
     trayEnabled: false,
   },
   hotkeys: { ...DEFAULT_HOTKEYS, chat: 'k' },
+  hideAllHotkey: DEFAULT_HIDE_ALL_HOTKEY,
   screen: { ...SCREEN_DEFAULTS, readEnabled: true, intervalSec: 90 },
   sfxVolume: 0.25,
   sfx: { events: { click: { volume: 0.8 } } },
@@ -81,6 +83,7 @@ describe('buildSaveFields —— 保存请求体的摊平', () => {
     );
     assert.equal(fields.confineToScreen, true);
     assert.equal(fields.trayEnabled, false);
+    assert.equal(fields.petEnabled, true, '总开关也要进请求体，否则关不掉');
   });
 
   test('语音字段名一一对应：whisper/todo/notify 翻成 voiceXxxEnabled，stripEmoji 翻成 speakStripEmoji', () => {

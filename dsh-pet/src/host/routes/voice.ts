@@ -20,6 +20,7 @@ import { providerConfigPath, readProviderConfig, writeProviderVoice } from '../v
 import { gsvSettingsOf } from '../voice/gsv/settings.ts';
 import { startLogPath, startService, stopService } from '../voice/gsv/process.ts';
 import { requestExit } from '../voice/gsv/client.ts';
+import { handleVoicePackRoutes } from './voice-pack.ts';
 
 /**
  * 没有停止脚本时的停法：让 api_v2 自己退出。
@@ -39,11 +40,63 @@ async function stopByControl(baseURL: string): Promise<{ ok: boolean; message?: 
 export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
   const { body, method, rest, signal } = input;
 
+  // 音色配对（权重配对 + 参考音频）与文本行读取：写盘后要立刻重扫，单独一份处理器。
+  const packed = await handleVoicePackRoutes(deps, input);
+  if (packed !== undefined) return packed;
+
   if (rest === 'voice/voices') {
     if (method !== 'GET') return methodNotAllowed();
     // providers 是「谁在念、能不能用、要配什么、能念哪些音色」的声明式清单：设置页据此生成控件（T3.6），
     // 也让排障能看出「注册了却没轮上」。链序在这里就是数组顺序（第三方在前，内置 edge 收尾）。
     return okResult({ ok: true, voices: deps.voice.listVoices(), providers: voiceProviderStatuses() });
+  }
+
+  // 重新扫描音色清单：音色包里的文件是用户在磁盘上直接加删的，而实现的扫描结果有软过期（TTL）。
+  // 不主动清缓存的话，导完音色 / 手放了新的权重目录之后要等一轮才看得见 —— 设置页的「扫描音色」按钮走这里。
+  if (rest === 'voice/rescan') {
+    if (method !== 'POST') return methodNotAllowed();
+    let parsed: { provider?: unknown };
+    try {
+      parsed = (JSON.parse(body ?? 'null') ?? {}) as { provider?: unknown };
+    } catch {
+      return invalidJson();
+    }
+    const providerId = typeof parsed.provider === 'string' ? parsed.provider.trim() : '';
+    // 不传 provider = 扫全部第三方实现（设置页的「扫描音色」按钮只传自己要的那一个）。
+    const targets =
+      providerId === ''
+        ? voiceProviderStatuses()
+            .filter((item) => !item.builtin)
+            .map((item) => item.id)
+        : [providerId];
+    if (providerId !== '') {
+      const provider = voiceProviderOf(providerId);
+      if (provider === undefined) return failResult('provider-missing', `没有这个语音实现：${providerId}`);
+      if (provider.rescan === undefined) {
+        return failResult('unsupported', `这个实现没有可重新扫描的音色清单：${providerId}`);
+      }
+    }
+    for (const target of targets) {
+      const provider = voiceProviderOf(target);
+      if (provider?.rescan === undefined) continue; // 不支持重扫的实现（内置 / 骨架）跳过一个
+      try {
+        await provider.rescan();
+      } catch (error) {
+        return failResult('generate-error', error instanceof Error ? error.message : String(error));
+      }
+    }
+    // 结论一律从注册表现取（与 /voice/voices 同一份），不在这里另算一遍数量。
+    const statuses = voiceProviderStatuses().filter(
+      (item) => !item.builtin && (providerId === '' || item.id === providerId),
+    );
+    const voices = statuses.flatMap((item) => item.voices);
+    const notes = statuses.flatMap((item) => item.notes ?? []);
+    return okResult({
+      ok: true,
+      ready: voices.filter((voice) => voice.available !== false).length,
+      total: voices.length,
+      notes,
+    });
   }
 
   // 切第三方实现的音色：只改 `<userRoot>/voice-providers.json`，不动主配置（那份带注释，整份重写会丢）。
@@ -63,8 +116,13 @@ export async function handleVoiceRoutes(deps: PetRouteDeps, input: RouteInput): 
     const status = voiceProviderStatuses().find((item) => item.id === providerId);
     if (!status) return failResult('provider-missing', `没有这个语音实现：${providerId}`);
     if (status.builtin) return failResult('bad-request', '内置实现的音色请用 voiceName 设置');
-    if (!status.voices.some((item) => item.id === voiceId)) {
+    const choice = status.voices.find((item) => item.id === voiceId);
+    if (!choice) {
       return failResult('bad-request', `未知音色：${voiceId}`);
+    }
+    // 列出来但置灰的音色不能选：缺权重/缺参考音频时写进去只会让每句话都失败再落到 edge。
+    if (choice.available === false) {
+      return failResult('bad-request', `音色 ${voiceId} 不可用：${choice.reason ?? '缺少权重或参考音频'}`);
     }
     try {
       await writeProviderVoice(providerConfigPath(deps.userRoot), providerId, voiceId);

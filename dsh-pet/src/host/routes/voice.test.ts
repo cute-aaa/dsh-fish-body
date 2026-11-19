@@ -279,6 +279,63 @@ describe('voice/provider-process —— 启停脚本', () => {
   });
 });
 
+describe('voice/provider-voice —— 运行时选音色', () => {
+  afterEach(() => {
+    resetVoiceProviders();
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  /** 一个带「可用 / 不可用」两种音色与诊断的实现。 */
+  function registerMixedStub(): () => void {
+    return registerVoiceProvider({
+      id: 'gsv',
+      name: 'GSV（GPT-SoVITS api_v2）',
+      fields: [{ key: 'baseURL', label: '地址', kind: 'text' }],
+      listVoices: () => [
+        { id: 'klee', name: 'klee', available: true },
+        { id: 'norma', name: 'norma', available: false, reason: '缺少参考音频：refs/norma.wav' },
+      ],
+      activeVoice: () => 'klee',
+      notes: () => ['音色来源：权重 2 个、参考音频 1 个'],
+      synthesize: async () => ({ data: new Uint8Array([1]), mime: 'audio/wav' }),
+    });
+  }
+
+  test('不可用音色：拒绝并回缺什么（列出来不等于能选）', async () => {
+    const dispose = registerMixedStub();
+    try {
+      const result = await handleVoiceRoutes(
+        providerDeps(tempRoot()),
+        input('voice/provider-voice', 'POST', JSON.stringify({ provider: 'gsv', voice: 'norma' })),
+      );
+      assert.equal(result?.kind === 'json' ? result.status : 0, 200);
+      const obj = (result as { obj: { ok: boolean; reason: string; message: string } }).obj;
+      assert.equal(obj.ok, false);
+      assert.equal(obj.reason, 'bad-request');
+      assert.match(obj.message, /缺少参考音频/);
+    } finally {
+      dispose();
+    }
+  });
+
+  test('可用音色：写入配置并回新状态', async () => {
+    const dispose = registerMixedStub();
+    const root = tempRoot();
+    try {
+      const result = await handleVoiceRoutes(
+        providerDeps(root),
+        input('voice/provider-voice', 'POST', JSON.stringify({ provider: 'gsv', voice: 'klee' })),
+      );
+      assert.equal((result as { obj: { ok: boolean } }).obj.ok, true);
+      assert.equal(JSON.parse(readFileSync(providerFile(root), 'utf8')).gsv.voice, 'klee');
+      const providers = (result as { obj: { providers: Array<{ notes?: string[] }> } }).obj.providers;
+      assert.deepEqual(providers[0]?.notes, ['音色来源：权重 2 个、参考音频 1 个'], '诊断要跟着状态回给设置页');
+    } finally {
+      dispose();
+    }
+  });
+});
+
 describe('voice/provider-config —— 接入配置读写', () => {
   afterEach(() => {
     resetVoiceProviders();
@@ -400,5 +457,102 @@ describe('voice/provider-config —— 接入配置读写', () => {
     } finally {
       dispose();
     }
+  });
+});
+
+describe('POST /voice/rescan —— 重新同步音色清单', () => {
+  /** 注册一个支持 rescan 的假实现：rescan 之后把音色表换成「新的那份」。 */
+  function registerRescanStub() {
+    const calls: string[] = [];
+    let ready = false;
+    const dispose = registerVoiceProvider({
+      id: 'gsv',
+      name: 'GSV',
+      listVoices: () => [
+        { id: 'klee', name: 'klee', available: ready },
+        { id: 'hutao', name: 'hutao', available: false },
+      ],
+      notes: () => (ready ? [] : ['音色包目录：1 个目录，可合成 0 个']),
+      activeVoice: () => 'klee',
+      rescan: async () => {
+        calls.push('rescan');
+        ready = true;
+        return true;
+      },
+      synthesize: async () => ({ data: new Uint8Array([1]), mime: 'audio/wav' }),
+    });
+    return { calls, dispose };
+  }
+
+  test('重扫后按注册表现取数量：可合成 / 总数 / 诊断', async () => {
+    const { calls, dispose } = registerRescanStub();
+    try {
+      const result = await handleVoiceRoutes(
+        makeDeps(async () => ({ ok: true, file: '/x.mp3' })),
+        input('voice/rescan', 'POST', '{"provider":"gsv"}'),
+      );
+      assert.equal(result?.kind, 'json');
+      if (result?.kind !== 'json') return;
+      assert.equal(result.status, 200);
+      assert.deepEqual(calls, ['rescan'], '必须真的清缓存重扫，而不是只回一个数字');
+      const obj = result.obj as { ok: boolean; ready: number; total: number; notes: string[] };
+      assert.equal(obj.ok, true);
+      assert.equal(obj.total, 2);
+      assert.equal(obj.ready, 1, '重扫之后 klee 变成可合成');
+      assert.deepEqual(obj.notes, [], '重扫成功后诊断清空');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('不传 provider：扫所有第三方实现', async () => {
+    const { calls, dispose } = registerRescanStub();
+    try {
+      const result = await handleVoiceRoutes(
+        makeDeps(async () => ({ ok: true, file: '/x.mp3' })),
+        input('voice/rescan', 'POST', '{}'),
+      );
+      assert.equal(result?.kind === 'json' ? result.status : 0, 200);
+      assert.deepEqual(calls, ['rescan']);
+    } finally {
+      dispose();
+    }
+  });
+
+  test('没有这个实现 / 实现不支持重扫：业务失败实体', async () => {
+    const ghost = await handleVoiceRoutes(
+      makeDeps(async () => ({ ok: true, file: '/x.mp3' })),
+      input('voice/rescan', 'POST', '{"provider":"ghost"}'),
+    );
+    assert.equal((ghost as { obj: { reason: string } }).obj.reason, 'provider-missing');
+
+    const dispose = registerVoiceProvider({
+      id: 'edge2',
+      name: '边缘',
+      listVoices: () => [],
+      synthesize: async () => ({ data: new Uint8Array([1]), mime: 'audio/wav' }),
+    });
+    try {
+      const noRescan = await handleVoiceRoutes(
+        makeDeps(async () => ({ ok: true, file: '/x.mp3' })),
+        input('voice/rescan', 'POST', '{"provider":"edge2"}'),
+      );
+      assert.equal((noRescan as { obj: { reason: string } }).obj.reason, 'unsupported');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('GET 与坏 JSON：405 / 400', async () => {
+    const method = await handleVoiceRoutes(
+      makeDeps(async () => ({ ok: true, file: '/x.mp3' })),
+      input('voice/rescan', 'GET'),
+    );
+    assert.equal(method?.kind === 'json' ? method.status : 0, 405);
+    const broken = await handleVoiceRoutes(
+      makeDeps(async () => ({ ok: true, file: '/x.mp3' })),
+      input('voice/rescan', 'POST', 'nope'),
+    );
+    assert.equal(broken?.kind === 'json' ? broken.status : 0, 400);
   });
 });

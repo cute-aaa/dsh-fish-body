@@ -14,7 +14,7 @@ import { existsSync, statSync } from 'node:fs';
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { patchLocations, resolveSkinDir, writeRootPointer } from '../locations.ts';
 import { checkMoveTarget, dirSize, moveTree, type MoveProgress } from '../move-tree.ts';
-import { pickFolder } from '../pick-folder.ts';
+import { pickFile, pickFolder } from '../pick-folder.ts';
 import { pathsOf } from './paths.ts';
 import type { PetRouteDeps, RouteInput } from './types.ts';
 import type { RouteResult } from '../http.ts';
@@ -88,7 +88,13 @@ export function resetMoveState(): void {
  * 路由层给的 `body` 是**原始文本**（HTTP 那层不做解析），所以这里要自己 JSON.parse；
  * 解析失败按空对象处理，让下面的「缺 which / 缺路径」分支给出统一的 bad-request。
  */
-function bodyOf(body: unknown): { which?: string; path?: string; title?: string; start?: string } {
+function bodyOf(body: unknown): {
+  which?: string;
+  path?: string;
+  title?: string;
+  start?: string;
+  extensions?: unknown[];
+} {
   const raw: Record<string, unknown> =
     typeof body === 'string'
       ? ((): Record<string, unknown> => {
@@ -106,7 +112,13 @@ function bodyOf(body: unknown): { which?: string; path?: string; title?: string;
         : {};
   const text = (value: unknown): string | undefined =>
     typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
-  return { which: text(raw.which), path: text(raw.path), title: text(raw.title), start: text(raw.start) };
+  return {
+    which: text(raw.which),
+    path: text(raw.path),
+    title: text(raw.title),
+    start: text(raw.start),
+    ...(Array.isArray(raw.extensions) ? { extensions: raw.extensions } : {}),
+  };
 }
 
 /**
@@ -222,6 +234,25 @@ export async function handleLayoutRoutes(deps: PetRouteDeps, input: RouteInput):
     });
     if (picked.kind === 'picked') return okResult({ ok: true, path: picked.path });
     if (picked.kind === 'cancelled') return okResult({ ok: false, reason: 'cancelled' });
+    // 弹不出来要说进日志：用户那边只看到一句「没反应」，排障时这行是唯一线索（缺解释器 / 无桌面会话 / 超时）。
+    deps.log.warn(`[fish-body] 目录选择框不可用：${picked.message}`);
+    return okResult({ ok: false, reason: 'unsupported', message: picked.message });
+  }
+
+  // 选文件：只给「权重 / 参考音频 / 文本」这三类用；扩展名由界面传，宿主只负责弹原生对话框。
+  if (rest === 'pick-file') {
+    if (method !== 'POST') return methodNotAllowed();
+    const body = bodyOf(input.body);
+    const picked = await pickFile({
+      ...(body.title === undefined ? {} : { title: body.title }),
+      ...(body.start === undefined ? {} : { start: body.start }),
+      ...(Array.isArray(body.extensions)
+        ? { extensions: body.extensions.filter((item): item is string => typeof item === 'string') }
+        : {}),
+    });
+    if (picked.kind === 'picked') return okResult({ ok: true, path: picked.path });
+    if (picked.kind === 'cancelled') return okResult({ ok: false, reason: 'cancelled' });
+    deps.log.warn(`[fish-body] 文件选择框不可用：${picked.message}`);
     return okResult({ ok: false, reason: 'unsupported', message: picked.message });
   }
 

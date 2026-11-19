@@ -143,11 +143,22 @@ function createTray({
     });
   }
 
-  /** 「隐藏宠物 / 显示宠物」：整批窗口 hide/showInactive，改的是显隐不是配置。 */
+  /**
+   * 「隐藏宠物 / 显示宠物」：整批窗口 hide/showInactive，改的是显隐不是配置。
+   *
+   * 状态真值在 windows（`isHidden()`）：全局快捷键改的是同一个 `manualHidden`，本模块若自己再记一份，
+   * 快捷键按过之后托盘那一项就会显示成反的（点一下像是没反应）。
+   */
+  function isHiddenNow() {
+    if (petWindows && typeof petWindows.isHidden === 'function') return petWindows.isHidden();
+    return hidden;
+  }
+
   function toggleHidden() {
     if (!petWindows || typeof petWindows.setHidden !== 'function') return;
-    hidden = !hidden;
-    petWindows.setHidden(hidden);
+    const next = !isHiddenNow();
+    hidden = next;
+    petWindows.setHidden(next);
     void refreshTray();
   }
 
@@ -348,7 +359,7 @@ function createTray({
           click: () => traySetVolume(value),
         })),
       },
-      { label: hidden ? '显示宠物' : '隐藏宠物', click: toggleHidden },
+      { label: isHiddenNow() ? '显示宠物' : '隐藏宠物', click: toggleHidden },
       { type: 'separator' },
       { label: '重载配置', click: () => trayPost('/reload', 'reload') },
       { label: '重启插件', click: () => trayPost('/plugin-restart', 'plugin-restart') },
