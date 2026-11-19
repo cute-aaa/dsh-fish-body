@@ -1,12 +1,13 @@
 /**
- * 云端 TTS 的契约测试：三种协议的请求形状、配置判据、响应嗅探、老配置兼容与缓存指纹。
+ * 云端 TTS 的契约测试：四轴 + 预设的请求形状、配置判据、三种 JSON 响应取值、老配置兼容与缓存指纹。
  *
  * 钉住这几件事，因为它们是「接上任意 TTS 之后不会悄悄多花钱 / 不会静默坏掉 / 不会把密钥发错地方」的全部保证：
  *   1. 探活只看配置与密钥在场，**不发请求**（TTS 没有免费 ping，拿一句话去试就等于付钱）；
- *   2. 三种协议各自的 URL、鉴权头与 body 形状；`deepseek` 必须与改造前逐字节一致（老配置直接换代）；
- *   3. 返回什么类型由魔数决定，不信 `Content-Type`；认不出就把前 16 字节与 Content-Type 一起报出来；
- *   4. 非 2xx 的错误文案截断到 512 字符，带 `protocol` 与脱敏后的 `baseURL`，绝不带 key；
- *   5. 换协议 / 换服务 / 换模型 / 换音色 / 换模板都必须改变缓存指纹。
+ *   2. 六个预设各自预填哪四轴；用户仍可逐项覆盖；
+ *   3. `{voice}` 进路径、`api-key` 头、`key` 查询串、SSML 包裹、form 编码、JSON 转义；
+ *   4. `json-base64` / `json-hex` / `json-url` 的取值（含数组下标路径）；
+ *   5. 老 `protocol: 'deepseek'` 与改造前逐字节一致；密钥回退只按最终生效预设判；
+ *   6. 换预设 / 换四轴 / 换服务 / 换模型 / 换音色都必须改变缓存指纹。
  *
  * 全部用注入的假 fetch，不打真网。
  */
@@ -17,22 +18,32 @@ import {
   CLOUD_API_KEY_FALLBACK,
   CLOUD_API_KEY_REF,
   CLOUD_FIELDS,
+  CLOUD_PRESETS,
+  CLOUD_PRESET_NONE_LABEL,
+  CLOUD_PRESET_SPECS,
   DEFAULT_CLOUD_BASE_URL,
-  DEFAULT_CLOUD_PROTOCOL,
+  EMPTY_CLOUD_SETTINGS,
+  cloudAllowsHostKey,
+  cloudAxesOf,
   cloudBaseURL,
   cloudCacheTag,
   cloudConfigProblems,
   cloudConfigured,
   cloudFieldsFor,
   cloudKeyRefs,
+  cloudPresetOf,
   cloudProtocolOf,
+  cloudRequiredKeys,
+  cloudRequestOf,
   cloudSettingsOf,
   cloudSpeechURL,
   cloudVoiceId,
   createCloudKeyReader,
   createCloudProvider,
+  digPath,
   hexPreview,
   redactURL,
+  renderTemplate,
   sniffAudioMime,
 } from './provider.ts';
 import { secretFieldsOf, secretRefsOf } from '../provider-secrets.ts';
@@ -53,15 +64,22 @@ const OGG = audioBytes([0x4f, 0x67, 0x67, 0x53]); // OggS
 const M4A = audioBytes([0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70]); // ....ftyp
 const HTML = audioBytes([0x3c, 0x68, 0x74, 0x6d, 0x6c, 0x3e]);
 
-/** 造一个记下每次调用的假传输层。 */
-function recorder(makeResponse: () => Response): {
-  calls: { url: string; init?: RequestInit }[];
+/** 一次假请求的两项关键形状。 */
+interface Call {
+  readonly url: string;
+  readonly init?: RequestInit;
+}
+
+/** 造一个记下每次调用、按调用序号回响应的假传输层。 */
+function recorder(respond: (call: Call, index: number) => Response): {
+  calls: Call[];
   fetchImpl: typeof fetch;
 } {
-  const calls: { url: string; init?: RequestInit }[] = [];
+  const calls: Call[] = [];
   const fetchImpl = (async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
-    calls.push({ url: String(input), init });
-    return makeResponse();
+    const call: Call = { url: String(input), init };
+    calls.push(call);
+    return respond(call, calls.length - 1);
   }) as typeof fetch;
   return { calls, fetchImpl };
 }
@@ -74,12 +92,17 @@ function cloudOf(conf: Record<string, unknown>): ReturnType<typeof cloudSettings
 /** 一次合成的输入（语速对云端无效，但要按链的形状传）。 */
 const ask = { text: '你好', rate: '+0%' };
 
-/** 造一个「配置齐全」的 provider 便于各个用例只关心自己那一段。 */
+/** 取请求头（fetch 的 init.headers 一定是普通对象）。 */
+function headersOf(call: Call | undefined): Record<string, string> {
+  return (call?.init?.headers ?? {}) as Record<string, string>;
+}
+
+/** 造一个「配置齐全」的 provider，便于各个用例只关心自己那一段。 */
 function providerOf(
   conf: Record<string, unknown>,
-  options: { key?: string | undefined; response?: () => Response } = {},
+  options: { key?: string | undefined; respond?: (call: Call, index: number) => Response } = {},
 ) {
-  const { calls, fetchImpl } = recorder(options.response ?? (() => new Response(WAV)));
+  const { calls, fetchImpl } = recorder(options.respond ?? (() => new Response(WAV)));
   const provider = createCloudProvider({
     settings: () => cloudOf(conf),
     readKey: async () => ('key' in options ? options.key : 'sk-test'),
@@ -98,69 +121,169 @@ function fakeCredentials(store: Record<string, string>): unknown {
   };
 }
 
+/** 必填项（排好序，断言只管「有没有）。 */
+function requiredOf(conf: Record<string, unknown>): string[] {
+  return cloudFieldsFor(cloudOf(conf))
+    .filter((field) => field.required === true)
+    .map((field) => field.key)
+    .sort();
+}
+
 describe('cloudSettingsOf —— 解析与老配置兼容', () => {
-  test('缺段 / 写坏都当全空，协议落回缺省', () => {
+  test('缺段 / 写坏都当全空，预设落回缺省', () => {
     for (const source of [undefined, null, 'x', [], { gsv: {} }]) {
-      assert.deepEqual(cloudSettingsOf(source), {
-        useCloud: false,
-        protocol: DEFAULT_CLOUD_PROTOCOL,
-        baseURL: '',
-        model: '',
-        voice: '',
-        path: '',
-        bodyTemplate: '',
-        headers: '',
-        format: '',
-      });
+      assert.deepEqual(cloudSettingsOf(source), EMPTY_CLOUD_SETTINGS);
     }
+    assert.equal(EMPTY_CLOUD_SETTINGS.preset, 'deepseek');
+    assert.equal(EMPTY_CLOUD_SETTINGS.protocol, 'custom');
   });
 
   test('只取字符串并 trim；只有 on 才算开启', () => {
-    assert.deepEqual(cloudSettingsOf({ cloud: { baseURL: ' https://a/v1 ', voice: ' tide ', useCloud: 'on' } }), {
-      useCloud: true,
-      protocol: 'openai',
-      baseURL: 'https://a/v1',
-      model: '',
-      voice: 'tide',
-      path: '',
-      bodyTemplate: '',
-      headers: '',
-      format: '',
+    const settings = cloudSettingsOf({
+      cloud: { baseURL: ' https://a/v1 ', voice: ' tide ', useCloud: 'on', preset: 'DeepSeek' },
     });
-    assert.equal(cloudSettingsOf({ cloud: { useCloud: 'on ' } }).useCloud, true);
+    assert.equal(settings.useCloud, true);
+    assert.equal(settings.baseURL, 'https://a/v1');
+    assert.equal(settings.voice, 'tide');
+    assert.equal(settings.preset, 'deepseek');
+    assert.equal(settings.protocol, 'custom', '预设与协议不一致时，协议跟着预设归一');
     for (const value of ['off', 'true', 'ON', 1, true, '', undefined]) {
       assert.equal(cloudSettingsOf({ cloud: { useCloud: value } }).useCloud, false, `useCloud=${String(value)}`);
     }
   });
 
-  test('没有 protocol：空地址或含 deepseek 判 deepseek，其余判 openai', () => {
-    assert.equal(cloudSettingsOf({ cloud: {} }).protocol, 'deepseek');
-    assert.equal(cloudSettingsOf({ cloud: { baseURL: 'https://api.deepseek.com' } }).protocol, 'deepseek');
-    assert.equal(cloudSettingsOf({ cloud: { baseURL: 'https://my-deepseek-proxy.lan/v1' } }).protocol, 'deepseek');
-    assert.equal(cloudSettingsOf({ cloud: { baseURL: 'https://api.openai.com/v1' } }).protocol, 'openai');
-    assert.equal(cloudSettingsOf({ cloud: { baseURL: 'http://127.0.0.1:8080' } }).protocol, 'openai');
+  test('没有 protocol / preset：空地址或含 deepseek 判 deepseek，其余判 openai-speech', () => {
+    const legacy = cloudSettingsOf({ cloud: { baseURL: 'https://api.deepseek.com', voice: 'tide' } });
+    assert.equal(legacy.preset, 'deepseek');
+    assert.equal(legacy.protocol, 'custom');
+
+    assert.equal(cloudSettingsOf({ cloud: {} }).preset, 'deepseek');
+    assert.equal(cloudSettingsOf({ cloud: { baseURL: 'https://my-deepseek-proxy.lan/v1' } }).preset, 'deepseek');
+
+    const openai = cloudSettingsOf({ cloud: { baseURL: 'https://api.openai.com/v1' } });
+    assert.equal(openai.preset, 'openai-speech');
+    assert.equal(openai.protocol, 'openai');
+    assert.equal(cloudSettingsOf({ cloud: { baseURL: 'http://127.0.0.1:8080' } }).preset, 'openai-speech');
   });
 
-  test('显式 protocol 优先于地址推断，大小写与空白都被归一', () => {
+  test('老 protocol 逐个映射到预设，deepseek 归一成 custom', () => {
+    const deepseek = cloudSettingsOf({ cloud: { protocol: 'deepseek', baseURL: 'https://anything.example.com' } });
+    assert.equal(deepseek.preset, 'deepseek');
+    assert.equal(deepseek.protocol, 'custom');
+    assert.equal(cloudSettingsOf({ cloud: { protocol: 'openai' } }).preset, 'openai-speech');
+    assert.equal(cloudSettingsOf({ cloud: { protocol: 'custom' } }).preset, 'none');
+  });
+
+  test('显式 preset 优先，并且能把协议带过去', () => {
+    const mimo = cloudOf({ preset: 'mimo' });
+    assert.equal(mimo.preset, 'mimo');
+    assert.equal(mimo.protocol, 'openai');
+    const azure = cloudOf({ preset: 'azure' });
+    assert.equal(azure.protocol, 'custom');
+    // 预设写坏不算显式：退回按历史 protocol 推断
+    assert.equal(cloudPresetOf('mimoo', 'openai', 'https://x'), 'openai-speech');
+    assert.equal(cloudPresetOf(42, 'deepseek', 'https://x'), 'deepseek');
+    // 下拉的显示值按 `none` 前缀容忍，其余字段原样读
+    const manual = cloudOf({
+      preset: CLOUD_PRESET_NONE_LABEL,
+      path: '/t',
+      bodyTemplate: '{"text":"{text}"}',
+    });
+    assert.equal(manual.preset, 'none');
+    assert.equal(manual.protocol, 'custom');
+    assert.equal(manual.path, '/t');
+    assert.equal(manual.bodyTemplate, '{"text":"{text}"}');
+    assert.equal(cloudPresetOf(CLOUD_PRESET_NONE_LABEL, 'openai', 'https://x'), 'none');
+    assert.equal(cloudPresetOf('none', 'custom', ''), 'none');
+  });
+
+  test('cloudProtocolOf 归一：大小写/空白都吃，写坏的按地址推断', () => {
     assert.equal(cloudProtocolOf('OpenAI ', 'https://api.deepseek.com'), 'openai');
     assert.equal(cloudProtocolOf(' custom', 'https://api.openai.com'), 'custom');
-    assert.equal(cloudProtocolOf('deepseek', 'https://anything.example.com'), 'deepseek');
-    // 写坏的值不算显式：退回按地址推断，不让一个手滑把配置判成不可用
-    assert.equal(cloudProtocolOf('openaii', 'https://api.deepseek.com'), 'deepseek');
+    assert.equal(cloudProtocolOf('deepseek', 'https://anything.example.com'), 'custom');
+    assert.equal(cloudProtocolOf('openaii', 'https://api.deepseek.com'), 'custom');
     assert.equal(cloudProtocolOf(42, 'https://x.example.com'), 'openai');
   });
 });
 
-describe('生效值归一', () => {
-  test('地址留空按协议取默认，末尾斜杠去掉', () => {
+describe('四轴解析 —— 预设默认值 + 用户覆盖', () => {
+  test('六个预设各自预填的四轴', () => {
+    const cases = [
+      ['openai-speech', '/v1/audio/speech', 'bearer', 'json', 'audio', ''],
+      ['mimo', '/v1/chat/completions', 'api-key-header', 'json', 'json-base64', 'choices.0.message.audio.data'],
+      ['deepseek', '/v1/tools/tts', 'bearer', 'json', 'audio', ''],
+      ['azure', '/cognitiveservices/v1', 'api-key-header', 'ssml', 'audio', ''],
+      ['elevenlabs', '/v1/text-to-speech/{voice}', 'x-api-key', 'json', 'audio', ''],
+      ['google', '/v1/text:synthesize?key={key}', 'query', 'json', 'json-base64', 'audioContent'],
+    ] as const;
+    for (const [preset, path, authStyle, bodyKind, responseKind, responsePath] of cases) {
+      const axes = cloudAxesOf(cloudOf({ preset, baseURL: 'https://example.com', model: 'm', voice: 'v' }));
+      assert.equal(axes.path, path, preset);
+      assert.equal(axes.authStyle, authStyle, preset);
+      assert.equal(axes.bodyKind, bodyKind, preset);
+      assert.equal(axes.responseKind, responseKind, preset);
+      assert.equal(axes.responsePath, responsePath, preset);
+    }
+    assert.equal(CLOUD_PRESET_SPECS.mimo.responsePath, 'choices.0.message.audio.data');
+    assert.equal(CLOUD_PRESETS.length, 7, '六个预设 + none');
+  });
+
+  test('预设只是预填：逐项覆盖都生效', () => {
+    const axes = cloudAxesOf(
+      cloudOf({
+        preset: 'mimo',
+        path: '/v2/say/{voice}',
+        authStyle: 'bearer',
+        authHeader: 'X-Custom-Key',
+        bodyKind: 'form',
+        bodyTemplate: 'text={text}',
+        responseKind: 'json-hex',
+        responsePath: 'result.0.audio',
+        format: 'mp3',
+        headers: '{"x-extra":"1"}',
+        model: 'my-model',
+        voice: 'my-voice',
+        baseURL: 'https://mine.example.com',
+      }),
+    );
+    assert.equal(axes.path, '/v2/say/{voice}');
+    assert.equal(axes.authStyle, 'bearer');
+    assert.equal(axes.authHeader, 'X-Custom-Key');
+    assert.equal(axes.bodyKind, 'form');
+    assert.equal(axes.bodyTemplate, 'text={text}');
+    assert.equal(axes.responseKind, 'json-hex');
+    assert.equal(axes.responsePath, 'result.0.audio');
+    assert.equal(axes.format, 'mp3');
+    assert.equal(axes.headers, '{"x-extra":"1"}');
+    assert.equal(axes.model, 'my-model');
+    assert.equal(axes.voice, 'my-voice');
+    assert.equal(axes.baseURL, 'https://mine.example.com');
+  });
+
+  test('空串 = 没设：清空某一项回到预设默认值', () => {
+    const axes = cloudAxesOf(cloudOf({ preset: 'openai-speech', format: '', voice: '', bodyKind: '' }));
+    assert.equal(axes.format, 'mp3');
+    assert.equal(axes.voice, '');
+    assert.equal(axes.bodyKind, 'json');
+  });
+
+  test('写坏的 select 值不算显式，回落预设默认', () => {
+    const axes = cloudAxesOf(cloudOf({ preset: 'mimo', authStyle: 'basic', bodyKind: 'xml', responseKind: 'blob' }));
+    assert.equal(axes.authStyle, 'api-key-header');
+    assert.equal(axes.bodyKind, 'json');
+    assert.equal(axes.responseKind, 'json-base64');
+  });
+
+  test('地址留空按预设/协议取默认，末尾斜杠去掉', () => {
     assert.equal(cloudBaseURL(cloudOf({})), DEFAULT_CLOUD_BASE_URL);
     assert.equal(cloudBaseURL(cloudOf({ protocol: 'openai' })), 'https://api.openai.com');
     assert.equal(cloudBaseURL(cloudOf({ protocol: 'custom' })), '');
-    assert.equal(cloudBaseURL(cloudOf({ baseURL: 'https://a/v1//' })), 'https://a/v1');
+    assert.equal(cloudBaseURL(cloudOf({ preset: 'azure' })), '');
+    assert.equal(cloudBaseURL(cloudOf({ preset: 'deepseek', baseURL: 'https://a/v1//' })), 'https://a/v1');
     assert.equal(DEFAULT_CLOUD_BASE_URL, 'https://api.deepseek.com');
   });
 
-  test('音色是自由文本：空值只有 deepseek 才补 stella', () => {
+  test('音色：deepseek 空值补 stella，其余预设原样（空就是空）', () => {
     assert.equal(cloudVoiceId(cloudOf({ voice: 'alloy' })), 'alloy');
     assert.equal(cloudVoiceId(cloudOf({ voice: 'tide' })), 'tide');
     assert.equal(cloudVoiceId(cloudOf({})), 'stella');
@@ -168,7 +291,7 @@ describe('生效值归一', () => {
     assert.equal(cloudVoiceId(cloudOf({ protocol: 'openai' })), '');
   });
 
-  test('合成地址：openai 不重复拼 /v1，custom 支持绝对 path', () => {
+  test('合成地址：{voice} 进路径、{key} 进查询串、openai 不重复 /v1、custom 支持绝对 path', () => {
     assert.equal(
       cloudSpeechURL(cloudOf({ protocol: 'deepseek', baseURL: 'https://api.deepseek.com' })),
       'https://api.deepseek.com/v1/tools/tts',
@@ -182,15 +305,42 @@ describe('生效值归一', () => {
       'https://tts.example.com/v1/audio/speech',
     );
     assert.equal(
-      cloudSpeechURL(cloudOf({ protocol: 'custom', baseURL: 'https://tts.example.com', path: 'tts' })),
+      cloudSpeechURL(cloudOf({ preset: 'elevenlabs', baseURL: 'https://api.elevenlabs.io', voice: 'Alice Smith' })),
+      'https://api.elevenlabs.io/v1/text-to-speech/Alice%20Smith',
+    );
+    assert.equal(
+      cloudSpeechURL(cloudOf({ preset: 'google', baseURL: 'https://g.example.com' }), 'gk-test'),
+      'https://g.example.com/v1/text:synthesize?key=gk-test',
+    );
+    assert.equal(
+      cloudSpeechURL(cloudOf({ protocol: 'custom', preset: 'none', baseURL: 'https://tts.example.com', path: 'tts' })),
       'https://tts.example.com/tts',
     );
     assert.equal(
       cloudSpeechURL(
-        cloudOf({ protocol: 'custom', baseURL: 'https://tts.example.com', path: 'https://other.example.com/say' }),
+        cloudOf({
+          protocol: 'custom',
+          preset: 'none',
+          baseURL: 'https://tts.example.com',
+          path: 'https://other.example.com/say',
+        }),
       ),
       'https://other.example.com/say',
     );
+  });
+
+  test('authStyle=query 且模板没写 {key}：key 追加到查询串', () => {
+    const url = cloudSpeechURL(
+      cloudOf({
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://tts.example.com',
+        path: '/say?fmt=wav',
+        authStyle: 'query',
+      }),
+      'k 1',
+    );
+    assert.equal(url, 'https://tts.example.com/say?fmt=wav&key=k%201');
   });
 
   test('cloudConfigured 只看付费开关', () => {
@@ -199,8 +349,67 @@ describe('生效值归一', () => {
   });
 });
 
-describe('CLOUD_FIELDS —— 声明与动态必填', () => {
-  test('密钥字段带主引用与只读回退引用', () => {
+describe('cloudRequiredKeys / 字段声明', () => {
+  test('必填随预设/协议/鉴权方式变', () => {
+    assert.deepEqual(requiredOf({ protocol: 'deepseek' }), ['apiKey']);
+    assert.deepEqual(requiredOf({ protocol: 'openai' }), ['apiKey', 'baseURL', 'model', 'voice']);
+    assert.deepEqual(requiredOf({ protocol: 'custom' }), ['apiKey', 'baseURL', 'bodyTemplate', 'path']);
+    assert.deepEqual(requiredOf({ baseURL: 'https://api.openai.com/v1' }), ['apiKey', 'baseURL', 'model', 'voice']);
+    assert.deepEqual(requiredOf({ preset: 'mimo' }), ['apiKey', 'baseURL', 'model', 'voice']);
+    assert.deepEqual(requiredOf({ preset: 'azure' }), ['apiKey', 'baseURL', 'voice']);
+    assert.deepEqual(requiredOf({ preset: 'google' }), ['apiKey', 'baseURL', 'model']);
+    assert.deepEqual(requiredOf({ preset: 'elevenlabs' }), ['apiKey', 'baseURL', 'model', 'voice']);
+  });
+
+  test('authStyle=none 的本机服务不要密钥', () => {
+    const required = cloudRequiredKeys(
+      cloudOf({
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'http://127.0.0.1:9000',
+        path: '/tts',
+        authStyle: 'none',
+      }),
+    );
+    assert.ok(!required.includes('apiKey'));
+    assert.deepEqual(
+      cloudConfigProblems(
+        cloudOf({
+          protocol: 'custom',
+          preset: 'none',
+          baseURL: 'http://127.0.0.1:9000',
+          path: '/tts',
+          bodyTemplate: '{"text":"{text}"}',
+          authStyle: 'none',
+        }),
+        true,
+      ),
+      [],
+    );
+  });
+
+  test('字段清单：16 项，四轴字段齐全，密钥仍走凭据库', () => {
+    assert.deepEqual(
+      CLOUD_FIELDS.map((field) => field.key),
+      [
+        'useCloud',
+        'preset',
+        'protocol',
+        'baseURL',
+        'path',
+        'authStyle',
+        'authHeader',
+        'model',
+        'voice',
+        'format',
+        'bodyKind',
+        'bodyTemplate',
+        'responseKind',
+        'responsePath',
+        'headers',
+        'apiKey',
+      ],
+    );
     const secrets = secretFieldsOf(CLOUD_FIELDS);
     assert.deepEqual(
       secrets.map((field) => [field.key, field.credentialRef]),
@@ -209,63 +418,63 @@ describe('CLOUD_FIELDS —— 声明与动态必填', () => {
     assert.deepEqual(secretRefsOf(secrets[0]!), [CLOUD_API_KEY_REF, CLOUD_API_KEY_FALLBACK]);
   });
 
-  test('音色是自由文本输入框，不再是 stella / tide 下拉', () => {
-    const voice = CLOUD_FIELDS.find((field) => field.key === 'voice');
-    assert.equal(voice?.kind, 'text');
-    assert.equal(voice?.options, undefined);
-    assert.match(voice?.description ?? '', /alloy/);
-    assert.match(voice?.description ?? '', /stella/);
-  });
-
-  test('必填随协议变：openai 要 baseURL+model+voice，custom 要 baseURL+path+bodyTemplate', () => {
-    const requiredOf = (conf: Record<string, unknown>): string[] =>
-      cloudFieldsFor(cloudOf(conf))
-        .filter((field) => field.required === true)
-        .map((field) => field.key)
-        .sort();
-    assert.deepEqual(requiredOf({ protocol: 'deepseek' }), ['apiKey']);
-    assert.deepEqual(requiredOf({ protocol: 'openai' }), ['apiKey', 'baseURL', 'model', 'voice']);
-    assert.deepEqual(requiredOf({ protocol: 'custom' }), ['apiKey', 'baseURL', 'bodyTemplate', 'path']);
-    // 缺 protocol 的老配置按地址推断：推断成 openai 时它那几项就是必填
-    assert.deepEqual(requiredOf({ baseURL: 'https://api.openai.com/v1' }), ['apiKey', 'baseURL', 'model', 'voice']);
-  });
-
-  test('protocol 下拉把当前生效协议排最前（老配置显示的必须是真的那个）', () => {
-    const optionsOf = (conf: Record<string, unknown>): readonly string[] =>
-      cloudFieldsFor(cloudOf(conf)).find((field) => field.key === 'protocol')?.options ?? [];
-    assert.equal(optionsOf({})[0], 'deepseek');
-    assert.equal(optionsOf({ baseURL: 'https://api.openai.com/v1' })[0], 'openai');
-    assert.equal(optionsOf({ protocol: 'custom' })[0], 'custom');
-    assert.deepEqual([...optionsOf({})].sort(), ['custom', 'deepseek', 'openai']);
+  test('下拉把当前生效值排最前（老配置显示的必须是真的那个）', () => {
+    const optionsOf = (conf: Record<string, unknown>, key: string): readonly string[] =>
+      cloudFieldsFor(cloudOf(conf)).find((field) => field.key === key)?.options ?? [];
+    assert.equal(optionsOf({}, 'preset')[0], 'deepseek');
+    assert.equal(optionsOf({ baseURL: 'https://api.openai.com/v1' }, 'preset')[0], 'openai-speech');
+    assert.equal(optionsOf({ preset: 'azure' }, 'preset')[0], 'azure');
+    assert.equal(optionsOf({ preset: 'mimo' }, 'authStyle')[0], 'api-key-header');
+    assert.equal(optionsOf({ preset: 'azure' }, 'bodyKind')[0], 'ssml');
+    assert.equal(optionsOf({ preset: 'mimo' }, 'responseKind')[0], 'json-base64');
+    assert.equal(optionsOf({ preset: 'google' }, 'responseKind')[0], 'json-base64');
+    assert.equal(optionsOf({ preset: 'mimo' }, 'protocol')[0], 'openai');
+    assert.equal(optionsOf({ preset: 'azure' }, 'protocol')[0], 'custom');
+    // 下拉直接把字符串当显示文本，所以 `none` 用带中文说明的显示值承载（不新增 UI 组件）
+    assert.ok(optionsOf({}, 'preset').includes(CLOUD_PRESET_NONE_LABEL));
+    assert.ok(!optionsOf({}, 'preset').includes('none'), '不再用裸 none 当显示值');
+    assert.equal(optionsOf({ preset: CLOUD_PRESET_NONE_LABEL }, 'preset')[0], CLOUD_PRESET_NONE_LABEL);
+    assert.deepEqual(
+      [...optionsOf({}, 'preset')].sort(),
+      [...CLOUD_PRESETS.map((preset) => (preset === 'none' ? CLOUD_PRESET_NONE_LABEL : preset))].sort(),
+    );
   });
 });
 
-describe('云端密钥引用 —— 只有 deepseek 复用宿主 DEEPSEEK_API_KEY', () => {
-  test('引用策略：deepseek 两把，openai / custom 只认主引用', () => {
-    assert.deepEqual(cloudKeyRefs('deepseek'), [CLOUD_API_KEY_REF, CLOUD_API_KEY_FALLBACK]);
-    assert.deepEqual(cloudKeyRefs('openai'), [CLOUD_API_KEY_REF]);
-    assert.deepEqual(cloudKeyRefs('custom'), [CLOUD_API_KEY_REF]);
+describe('云端密钥引用 —— 只按最终生效预设判', () => {
+  test('引用策略：deepseek 两把，其余只认主引用', () => {
+    assert.equal(cloudAllowsHostKey(cloudOf({ protocol: 'deepseek' })), true, '老配置映射来的也算');
+    assert.deepEqual(cloudKeyRefs(cloudOf({ protocol: 'deepseek' })), [CLOUD_API_KEY_REF, CLOUD_API_KEY_FALLBACK]);
+    assert.deepEqual(cloudKeyRefs(cloudOf({ preset: 'deepseek' })), [CLOUD_API_KEY_REF, CLOUD_API_KEY_FALLBACK]);
+    for (const preset of ['openai-speech', 'mimo', 'azure', 'elevenlabs', 'google', 'none'] as const) {
+      const settings = cloudOf({ preset, protocol: 'custom' });
+      assert.equal(cloudAllowsHostKey(settings), false, preset);
+      assert.deepEqual(cloudKeyRefs(settings), [CLOUD_API_KEY_REF], preset);
+    }
   });
 
-  test('openai + 只有宿主 DEEPSEEK_API_KEY：不可用，且一个请求都不发', async () => {
-    const { calls, fetchImpl } = recorder(() => new Response(WAV));
-    const provider = createCloudProvider({
-      settings: () => cloudOf({ protocol: 'openai', baseURL: 'https://tts.example.com', model: 'm', voice: 'v' }),
-      readKey: createCloudKeyReader(fakeCredentials({ [CLOUD_API_KEY_FALLBACK]: 'sk-host-deepseek' })),
-      fetch: fetchImpl,
-    });
-    assert.equal(await provider.refresh?.(), false);
-    const reason = provider.availability?.();
-    assert.match(reason && !reason.ok ? reason.reason : '', /API Key/);
-    await assert.rejects(() => provider.synthesize(ask), /API Key/);
-    assert.equal(calls.length, 0, '读不到 key 就不该发请求，更不该把宿主的 key 发给第三方地址');
+  test('openai-speech / mimo + 只有宿主 DEEPSEEK_API_KEY：不可用，且一个请求都不发', async () => {
+    for (const preset of ['openai-speech', 'mimo'] as const) {
+      const { calls, fetchImpl } = recorder(() => new Response(WAV));
+      const provider = createCloudProvider({
+        settings: () => cloudOf({ preset, baseURL: 'https://tts.example.com', model: 'm', voice: 'v' }),
+        readKey: createCloudKeyReader(fakeCredentials({ [CLOUD_API_KEY_FALLBACK]: 'sk-host-deepseek' })),
+        fetch: fetchImpl,
+      });
+      assert.equal(await provider.refresh?.(), false, preset);
+      const reason = provider.availability?.();
+      assert.match(reason && !reason.ok ? reason.reason : '', /API Key/);
+      await assert.rejects(() => provider.synthesize(ask), /API Key/);
+      assert.equal(calls.length, 0, '读不到 key 就不该发请求，更不该把宿主的 key 发给第三方地址');
+    }
   });
 
-  test('custom + 只有宿主 DEEPSEEK_API_KEY：同样不可用', async () => {
+  test('custom 四轴 + 只有宿主 DEEPSEEK_API_KEY：同样不可用', async () => {
     const provider = createCloudProvider({
       settings: () =>
         cloudOf({
           protocol: 'custom',
+          preset: 'none',
           baseURL: 'https://tts.example.com',
           path: '/tts',
           bodyTemplate: '{"text":"{text}"}',
@@ -277,199 +486,64 @@ describe('云端密钥引用 —— 只有 deepseek 复用宿主 DEEPSEEK_API_KE
     assert.match(reason && !reason.ok ? reason.reason : '', /API Key/);
   });
 
-  test('deepseek + 只有宿主 DEEPSEEK_API_KEY：仍可用（向后兼容），请求带的就是那把 key', async () => {
-    const { calls, fetchImpl } = recorder(() => new Response(WAV));
-    const provider = createCloudProvider({
-      settings: () => cloudOf({ baseURL: 'https://api.deepseek.com', voice: 'tide' }),
-      readKey: createCloudKeyReader(fakeCredentials({ [CLOUD_API_KEY_FALLBACK]: 'sk-host-deepseek' })),
-      fetch: fetchImpl,
-    });
-    assert.equal(await provider.refresh?.(), true);
-    await provider.synthesize(ask);
-    const headers = calls[0]?.init?.headers as Record<string, string>;
-    assert.equal(headers.authorization, 'Bearer sk-host-deepseek');
+  test('deepseek 预设（含老配置）+ 只有宿主凭据：仍可用，请求带的就是那把 key', async () => {
+    for (const conf of [{ baseURL: 'https://api.deepseek.com', voice: 'tide' }, { protocol: 'deepseek' }]) {
+      const { calls, fetchImpl } = recorder(() => new Response(WAV));
+      const provider = createCloudProvider({
+        settings: () => cloudOf(conf),
+        readKey: createCloudKeyReader(fakeCredentials({ [CLOUD_API_KEY_FALLBACK]: 'sk-host-deepseek' })),
+        fetch: fetchImpl,
+      });
+      assert.equal(await provider.refresh?.(), true);
+      await provider.synthesize(ask);
+      assert.equal(headersOf(calls[0]).authorization, 'Bearer sk-host-deepseek');
+    }
   });
 
   test('主引用在场时永远优先用它', async () => {
     const readKey = createCloudKeyReader(
       fakeCredentials({ [CLOUD_API_KEY_REF]: 'sk-mine', [CLOUD_API_KEY_FALLBACK]: 'sk-host' }),
     );
-    assert.equal(await readKey('deepseek'), 'sk-mine');
-    assert.equal(await readKey('openai'), 'sk-mine');
-    assert.equal(await readKey('custom'), 'sk-mine');
+    for (const preset of ['deepseek', 'openai-speech', 'mimo', 'google'] as const) {
+      assert.equal(await readKey(cloudOf({ preset })), 'sk-mine', preset);
+    }
   });
 
   test('凭据服务缺席或读失败：按没配处理，不抛', async () => {
-    assert.equal(await createCloudKeyReader(undefined)('deepseek'), undefined);
-    assert.equal(await createCloudKeyReader('not a service')('deepseek'), undefined);
+    assert.equal(await createCloudKeyReader(undefined)(cloudOf({})), undefined);
+    assert.equal(await createCloudKeyReader('not a service')(cloudOf({})), undefined);
     const throwing = {
       resolve: async () => {
         throw new Error('credentials unavailable');
       },
     };
-    assert.equal(await createCloudKeyReader(throwing)('deepseek'), undefined);
+    assert.equal(await createCloudKeyReader(throwing)(cloudOf({})), undefined);
   });
 
-  test('apiKey 字段的回退引用跟着协议收起（设置页不会对第三方地址显示「已保存」）', () => {
+  test('apiKey 字段的回退引用跟着生效预设收起', () => {
     const fallbacksOf = (conf: Record<string, unknown>): readonly string[] | undefined =>
       cloudFieldsFor(cloudOf(conf)).find((field) => field.key === 'apiKey')?.credentialFallbacks;
     assert.deepEqual(fallbacksOf({ protocol: 'deepseek' }), [CLOUD_API_KEY_FALLBACK]);
-    for (const protocol of ['openai', 'custom']) {
-      assert.deepEqual(fallbacksOf({ protocol }), [], protocol);
+    for (const preset of ['openai-speech', 'mimo', 'azure', 'elevenlabs', 'google', 'none'] as const) {
+      assert.deepEqual(fallbacksOf({ preset, protocol: 'custom' }), [], preset);
     }
   });
 });
 
-describe('createCloudProvider —— 可用性（只判配置，不发请求）', () => {
-  test('未探活前不可用，理由给人话', async () => {
-    const provider = createCloudProvider({ settings: () => cloudOf({}), readKey: async () => undefined });
-    const verdict = provider.availability?.();
-    assert.equal(verdict?.ok, false);
-    assert.match(verdict && !verdict.ok ? verdict.reason : '', /尚未探活/);
-  });
-
-  test('没有 key：不可用，理由点明可复用宿主凭据', async () => {
-    const provider = createCloudProvider({ settings: () => cloudOf({}), readKey: async () => undefined });
-    assert.equal(await provider.refresh?.(), false);
-    const reason = provider.availability?.();
-    assert.equal(reason?.ok, false);
-    assert.match(reason && !reason.ok ? reason.reason : '', /API Key/);
-    assert.match(reason && !reason.ok ? reason.reason : '', new RegExp(CLOUD_API_KEY_FALLBACK));
-  });
-
-  test('老配置（只有 baseURL + voice）+ key：可用，且探活一次请求都不发', async () => {
+describe('createCloudProvider —— 请求构造（每个预设）', () => {
+  test('openai-speech：/v1/audio/speech、bearer、四字段 body、默认 mp3', async () => {
     const { provider, calls } = providerOf({
-      useCloud: 'on',
-      baseURL: 'https://api.deepseek.com',
-      voice: 'tide',
-    });
-    assert.equal(await provider.refresh?.(), true);
-    assert.deepEqual(provider.availability?.(), { ok: true });
-    assert.equal(calls.length, 0, '探活不该花一次合成');
-  });
-
-  test('openai 缺 model / voice：理由把两个字段都点出来', async () => {
-    const provider = createCloudProvider({
-      settings: () => cloudOf({ protocol: 'openai', baseURL: 'https://tts.example.com' }),
-      readKey: async () => 'sk-test',
-    });
-    assert.equal(await provider.refresh?.(), false);
-    const reason = provider.availability?.();
-    assert.match(reason && !reason.ok ? reason.reason : '', /model/);
-    assert.match(reason && !reason.ok ? reason.reason : '', /voice/);
-  });
-
-  test('custom 缺 bodyTemplate：理由点名字段', async () => {
-    const problems = cloudConfigProblems(
-      cloudOf({ protocol: 'custom', baseURL: 'https://tts.example.com', path: '/tts' }),
-      true,
-    );
-    assert.equal(problems.length, 1);
-    assert.match(problems[0] ?? '', /bodyTemplate/);
-  });
-
-  test('custom 模板缺 {text} / 不是 JSON / headers 写坏：都是配置错误', async () => {
-    const missingText = cloudConfigProblems(
-      cloudOf({ protocol: 'custom', baseURL: 'https://a', path: '/t', bodyTemplate: '{"input":"hi"}' }),
-      true,
-    );
-    assert.match(missingText.join('；'), /\{text\}/);
-
-    const brokenJSON = cloudConfigProblems(
-      cloudOf({ protocol: 'custom', baseURL: 'https://a', path: '/t', bodyTemplate: '{"text":"{text}"' }),
-      true,
-    );
-    assert.match(brokenJSON.join('；'), /bodyTemplate 不是合法的 JSON 对象/);
-
-    const brokenHeaders = cloudConfigProblems(
-      cloudOf({
-        protocol: 'custom',
-        baseURL: 'https://a',
-        path: '/t',
-        bodyTemplate: '{"text":"{text}"}',
-        headers: 'x',
-      }),
-      true,
-    );
-    assert.match(brokenHeaders.join('；'), /headers 不是合法的 JSON 对象/);
-  });
-
-  test('地址写坏：不可用，理由说清前缀要求', async () => {
-    const provider = createCloudProvider({
-      settings: () => cloudOf({ baseURL: 'api.example.com' }),
-      readKey: async () => 'sk-test',
-    });
-    assert.equal(await provider.refresh?.(), false);
-    const reason = provider.availability?.();
-    assert.match(reason && !reason.ok ? reason.reason : '', /http:\/\//);
-  });
-
-  test('配置变了 refresh 会翻牌，并且清掉上次的失败原因', async () => {
-    let conf: Record<string, unknown> = { useCloud: 'on' };
-    const provider = createCloudProvider({
-      settings: () => cloudOf(conf),
-      readKey: async () => 'sk-test',
-      fetch: (async () => new Response('boom', { status: 500 })) as typeof fetch,
-    });
-    assert.equal(await provider.refresh?.(), true);
-    await assert.rejects(() => provider.synthesize(ask));
-    assert.match(provider.lastError?.() ?? '', /500/);
-    conf = { useCloud: 'on', protocol: 'openai', baseURL: 'https://tts.example.com' };
-    assert.equal(await provider.refresh?.(), false, '缺 model / voice 应当立刻判不可用');
-    const reason = provider.availability?.();
-    assert.match(reason && !reason.ok ? reason.reason : '', /model/);
-  });
-
-  test('标了 billable：自动回退链不得选它', () => {
-    const provider = createCloudProvider({ settings: () => cloudOf({}), readKey: async () => undefined });
-    assert.equal(provider.billable, true);
-  });
-});
-
-describe('createCloudProvider —— 三种协议的请求构造', () => {
-  test('deepseek：路径、鉴权与 body 与改造前逐字节一致（向后兼容）', async () => {
-    const { provider, calls } = providerOf({
-      protocol: 'deepseek',
-      baseURL: 'https://api.deepseek.com/',
-      voice: 'tide',
-    });
-    const clip = await provider.synthesize(ask);
-    assert.equal(clip.mime, 'audio/wav');
-    assert.deepEqual(new Uint8Array(clip.data), WAV);
-
-    assert.equal(calls.length, 1);
-    const [call] = calls;
-    assert.equal(call?.url, 'https://api.deepseek.com/v1/tools/tts');
-    assert.equal(call?.init?.method, 'POST');
-    const headers = call?.init?.headers as Record<string, string>;
-    assert.equal(headers.authorization, 'Bearer sk-test');
-    assert.equal(headers['content-type'], 'application/json');
-    assert.deepEqual(JSON.parse(String(call?.init?.body)), {
-      text: '你好',
-      voice_id: 'tide',
-      format: 'wav',
-      filter_markdown: true,
-    });
-  });
-
-  test('deepseek 音色为空按 stella，地址留空按官方默认', async () => {
-    const { provider, calls } = providerOf({});
-    await provider.synthesize(ask);
-    assert.equal(JSON.parse(String(calls[0]?.init?.body)).voice_id, 'stella');
-    assert.equal(calls[0]?.url, DEFAULT_CLOUD_BASE_URL + '/v1/tools/tts');
-  });
-
-  test('openai：/v1/audio/speech、四个字段、response_format 默认 mp3', async () => {
-    const { provider, calls } = providerOf({
-      protocol: 'openai',
+      preset: 'openai-speech',
       baseURL: 'https://tts.example.com',
       model: 'gpt-4o-mini',
       voice: 'alloy',
     });
-    await provider.synthesize(ask);
+    const clip = await provider.synthesize(ask);
+    assert.equal(clip.mime, 'audio/wav');
     const [call] = calls;
     assert.equal(call?.url, 'https://tts.example.com/v1/audio/speech');
-    const headers = call?.init?.headers as Record<string, string>;
+    assert.equal(call?.init?.method, 'POST');
+    const headers = headersOf(call);
     assert.equal(headers.authorization, 'Bearer sk-test');
     assert.equal(headers['content-type'], 'application/json');
     assert.deepEqual(JSON.parse(String(call?.init?.body)), {
@@ -480,9 +554,9 @@ describe('createCloudProvider —— 三种协议的请求构造', () => {
     });
   });
 
-  test('openai：baseURL 已含 /v1 时不重复，response_format 可配', async () => {
+  test('openai-speech：baseURL 已含 /v1 不重复，response_format 可配', async () => {
     const { provider, calls } = providerOf({
-      protocol: 'openai',
+      preset: 'openai-speech',
       baseURL: 'https://api.openai.com/v1',
       model: 'tts-1',
       voice: 'nova',
@@ -493,9 +567,167 @@ describe('createCloudProvider —— 三种协议的请求构造', () => {
     assert.equal(JSON.parse(String(calls[0]?.init?.body)).response_format, 'wav');
   });
 
-  test('custom：路径拼接、模板占位符替换、额外请求头合并且可覆盖默认', async () => {
+  test('mimo：chat/completions + api-key 头 + choices 里的 base64 响应', async () => {
+    const payload = Buffer.from(WAV).toString('base64');
+    const { provider, calls } = providerOf(
+      {
+        preset: 'mimo',
+        baseURL: 'https://api.mimo.example.com',
+        model: 'mimo-v2-tts',
+        voice: 'mimo_default',
+      },
+      {
+        respond: () =>
+          new Response(JSON.stringify({ choices: [{ message: { audio: { data: payload } } }] }), {
+            headers: { 'content-type': 'application/json' },
+          }),
+      },
+    );
+    const clip = await provider.synthesize(ask);
+    assert.equal(clip.mime, 'audio/wav');
+    assert.deepEqual(new Uint8Array(clip.data), WAV);
+    const [call] = calls;
+    assert.equal(call?.url, 'https://api.mimo.example.com/v1/chat/completions');
+    const headers = headersOf(call);
+    assert.equal(headers['api-key'], 'sk-test');
+    assert.equal(headers.authorization, undefined, 'MiMo 走 api-key 头，不该再发 bearer');
+    assert.equal(headers['content-type'], 'application/json');
+    assert.deepEqual(JSON.parse(String(call?.init?.body)), {
+      model: 'mimo-v2-tts',
+      messages: [{ role: 'assistant', content: '你好' }],
+      audio: { format: 'wav', voice: 'mimo_default' },
+    });
+  });
+
+  test('deepseek：老配置（protocol=deepseek）路径、鉴权与 body 与改造前逐字节一致', async () => {
+    const { provider, calls } = providerOf({
+      protocol: 'deepseek',
+      baseURL: 'https://api.deepseek.com/',
+      voice: 'tide',
+    });
+    await provider.synthesize(ask);
+    const [call] = calls;
+    assert.equal(call?.url, 'https://api.deepseek.com/v1/tools/tts');
+    assert.equal(call?.init?.method, 'POST');
+    const headers = headersOf(call);
+    assert.equal(headers.authorization, 'Bearer sk-test');
+    assert.equal(headers['content-type'], 'application/json');
+    assert.equal(
+      String(call?.init?.body),
+      '{"text":"你好","voice_id":"tide","format":"wav","filter_markdown":true}',
+      '字节级兼容：字段名与顺序都不能变',
+    );
+  });
+
+  test('deepseek：音色为空按 stella，地址留空按官方默认', async () => {
+    const { provider, calls } = providerOf({});
+    await provider.synthesize(ask);
+    assert.equal(JSON.parse(String(calls[0]?.init?.body)).voice_id, 'stella');
+    assert.equal(calls[0]?.url, DEFAULT_CLOUD_BASE_URL + '/v1/tools/tts');
+  });
+
+  test('azure：Ocp-Apim-Subscription-Key + ssml 包裹 + X-Microsoft-OutputFormat', async () => {
+    const { provider, calls } = providerOf({
+      preset: 'azure',
+      baseURL: 'https://eastasia.tts.speech.microsoft.com',
+      voice: 'zh-CN-XiaoxiaoNeural',
+    });
+    await provider.synthesize({ text: '你好 & <世界>', rate: '+0%' });
+    const [call] = calls;
+    assert.equal(call?.url, 'https://eastasia.tts.speech.microsoft.com/cognitiveservices/v1');
+    const headers = headersOf(call);
+    assert.equal(headers['Ocp-Apim-Subscription-Key'], 'sk-test');
+    assert.equal(headers.authorization, undefined);
+    assert.equal(headers['content-type'], 'application/ssml+xml');
+    assert.equal(headers['X-Microsoft-OutputFormat'], 'audio-24khz-48kbitrate-mono-mp3');
+    assert.equal(
+      String(call?.init?.body),
+      '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-CN">' +
+        '<voice name="zh-CN-XiaoxiaoNeural">你好 &amp; &lt;世界&gt;</voice></speak>',
+    );
+  });
+
+  test('elevenlabs：{voice} 进路径、xi-api-key 头、text + model_id', async () => {
+    const { provider, calls } = providerOf({
+      preset: 'elevenlabs',
+      baseURL: 'https://api.elevenlabs.io',
+      model: 'eleven_multilingual_v2',
+      voice: '21m00Tcm4TlvDq8ikWAM',
+    });
+    await provider.synthesize(ask);
+    const [call] = calls;
+    assert.equal(call?.url, 'https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM');
+    const headers = headersOf(call);
+    assert.equal(headers['xi-api-key'], 'sk-test');
+    assert.equal(headers.authorization, undefined);
+    assert.deepEqual(JSON.parse(String(call?.init?.body)), {
+      text: '你好',
+      model_id: 'eleven_multilingual_v2',
+    });
+  });
+
+  test('google：key 进查询串、无鉴权头、audioContent 解 base64', async () => {
+    const payload = Buffer.from(MP3_ID3).toString('base64');
+    const { provider, calls } = providerOf(
+      { preset: 'google', baseURL: 'https://texttospeech.googleapis.com', model: 'cmn-CN' },
+      { respond: () => new Response(JSON.stringify({ audioContent: payload })) },
+    );
+    const clip = await provider.synthesize(ask);
+    assert.equal(clip.mime, 'audio/mpeg');
+    const [call] = calls;
+    assert.equal(call?.url, 'https://texttospeech.googleapis.com/v1/text:synthesize?key=sk-test');
+    const headers = headersOf(call);
+    assert.equal(headers.authorization, undefined, 'key 在查询串里，不该再发头');
+    assert.equal(headers['content-type'], 'application/json');
+    assert.deepEqual(JSON.parse(String(call?.init?.body)), {
+      input: { text: '你好' },
+      voice: { languageCode: 'cmn-CN' },
+      audioConfig: { audioEncoding: 'MP3' },
+    });
+  });
+
+  test('custom + form：application/x-www-form-urlencoded，占位符做 URL 编码', async () => {
     const { provider, calls } = providerOf({
       protocol: 'custom',
+      preset: 'none',
+      baseURL: 'https://tts.example.com',
+      path: '/tts',
+      bodyKind: 'form',
+      bodyTemplate: 'text={text}&voice={voice}&model={model}',
+      model: 'm 1',
+      voice: 'v&1',
+    });
+    const text = '你好 世界';
+    await provider.synthesize({ text, rate: '+0%' });
+    const [call] = calls;
+    assert.equal(headersOf(call)['content-type'], 'application/x-www-form-urlencoded');
+    assert.equal(String(call?.init?.body), 'text=%E4%BD%A0%E5%A5%BD%20%E4%B8%96%E7%95%8C&voice=v%261&model=m%201');
+  });
+
+  test('custom + ssml：<speak> 包裹后放进模板的 {text} 位置', async () => {
+    const { provider, calls } = providerOf({
+      protocol: 'custom',
+      preset: 'none',
+      baseURL: 'https://tts.example.com',
+      path: '/say',
+      bodyKind: 'ssml',
+      bodyTemplate: '{text}',
+      voice: 'zh-CN-YunxiNeural',
+    });
+    await provider.synthesize({ text: '<hi>', rate: '+0%' });
+    const [call] = calls;
+    assert.equal(headersOf(call)['content-type'], 'application/ssml+xml');
+    assert.equal(
+      String(call?.init?.body),
+      '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-CN">' +
+        '<voice name="zh-CN-YunxiNeural">&lt;hi&gt;</voice></speak>',
+    );
+  });
+
+  test('custom + json：路径拼接、占位符 JSON 转义、额外请求头合并且可覆盖默认', async () => {
+    const { provider, calls } = providerOf({
+      protocol: 'custom',
+      preset: 'none',
       baseURL: 'https://tts.example.com/base/',
       path: 'tts',
       model: 'm1',
@@ -503,21 +735,71 @@ describe('createCloudProvider —— 三种协议的请求构造', () => {
       bodyTemplate: '{"text":"{text}","speaker":"{voice}","model":"{model}"}',
       headers: '{"xi-api-key":"k2","content-type":"application/json; charset=utf-8"}',
     });
-    const text = '他说"你好"';
+    const text = '他说"你好"\n第二行';
     await provider.synthesize({ text, rate: '+0%' });
     const [call] = calls;
     assert.equal(call?.url, 'https://tts.example.com/base/tts');
-    const headers = call?.init?.headers as Record<string, string>;
+    const headers = headersOf(call);
     assert.equal(headers.authorization, 'Bearer sk-test');
     assert.equal(headers['xi-api-key'], 'k2');
     assert.equal(headers['content-type'], 'application/json; charset=utf-8');
-    // 模板替换值做过 JSON 转义：台词里的引号不会拼坏 body
+    // 模板替换值做过 JSON 转义：台词里的引号与换行不会拼坏 body
     assert.deepEqual(JSON.parse(String(call?.init?.body)), { text, speaker: 'v1', model: 'm1' });
+  });
+
+  test('custom + json：台词里写着 {model} 也不会被二次替换', async () => {
+    const { provider, calls } = providerOf({
+      protocol: 'custom',
+      preset: 'none',
+      baseURL: 'https://a',
+      path: '/t',
+      bodyTemplate: '{"text":"{text}","model":"{model}"}',
+      model: 'm1',
+    });
+    await provider.synthesize({ text: '保持 {model} 原样', rate: '+0%' });
+    assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), { text: '保持 {model} 原样', model: 'm1' });
+  });
+
+  test('authStyle=none：不发任何鉴权头（本机服务）', async () => {
+    const { provider, calls } = providerOf(
+      {
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'http://127.0.0.1:9000',
+        path: '/tts',
+        authStyle: 'none',
+        bodyTemplate: '{"text":"{text}"}',
+      },
+      { key: undefined },
+    );
+    await provider.synthesize(ask);
+    const headers = headersOf(calls[0]);
+    assert.equal(headers.authorization, undefined);
+    assert.equal(headers['api-key'], undefined);
+    assert.equal(headers['content-type'], 'application/json');
+  });
+
+  test('authHeader 自定义头名（api-key-header）', async () => {
+    const request = cloudRequestOf(
+      cloudOf({
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://a',
+        path: '/t',
+        authStyle: 'api-key-header',
+        authHeader: 'X-Subscription-Key',
+        bodyTemplate: '{"text":"{text}"}',
+      }),
+      '你好',
+      'sk-1',
+    );
+    assert.equal(headersOf({ url: request.url, init: request.init })['X-Subscription-Key'], 'sk-1');
   });
 
   test('custom：模板缺 {text} 时不发请求，直接按配置错误失败', async () => {
     const { provider, calls } = providerOf({
       protocol: 'custom',
+      preset: 'none',
       baseURL: 'https://tts.example.com',
       path: '/tts',
       bodyTemplate: '{"input":"hi"}',
@@ -526,9 +808,194 @@ describe('createCloudProvider —— 三种协议的请求构造', () => {
     assert.equal(calls.length, 0);
     assert.match(provider.lastError?.() ?? '', /\{text\}/);
   });
+
+  test('custom：模板不是合法 JSON 时也不发请求', async () => {
+    const { provider, calls } = providerOf({
+      protocol: 'custom',
+      preset: 'none',
+      baseURL: 'https://tts.example.com',
+      path: '/tts',
+      bodyTemplate: '{"text":"{text}"',
+    });
+    await assert.rejects(() => provider.synthesize(ask), /bodyTemplate 不是合法的 JSON 对象/);
+    assert.equal(calls.length, 0);
+  });
 });
 
-describe('createCloudProvider —— 响应处理', () => {
+describe('renderTemplate / digPath —— 纯函数契约', () => {
+  test('json 转义引号与换行，form 做 URL 编码，ssml 做 XML 转义', () => {
+    assert.equal(
+      renderTemplate('{"text":"{text}"}', 'json', { text: 'a"b\nc', model: '', voice: '', format: '', key: '' }),
+      '{"text":"a\\"b\\nc"}',
+    );
+    assert.equal(
+      renderTemplate('text={text}', 'form', { text: 'a&b c', model: '', voice: '', format: '', key: '' }),
+      'text=a%26b%20c',
+    );
+    assert.equal(
+      renderTemplate('{text}', 'ssml', { text: 'a&b', model: '', voice: 'v', format: '', key: '' }),
+      '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-CN">' +
+        '<voice name="v">a&amp;b</voice></speak>',
+    );
+  });
+
+  test('缺 {text} 抛配置错误', () => {
+    assert.throws(
+      () => renderTemplate('{"a":1}', 'json', { text: 'x', model: '', voice: '', format: '', key: '' }),
+      /\{text\}/,
+    );
+  });
+
+  test('digPath 支持数组下标与缺省', () => {
+    const parsed = { choices: [{ message: { audio: { data: 'abc' } } }], list: [1, 2] };
+    assert.equal(digPath(parsed, 'choices.0.message.audio.data'), 'abc');
+    assert.equal(digPath(parsed, 'list.1'), 2);
+    assert.equal(digPath(parsed, 'choices.x'), undefined);
+    assert.equal(digPath(parsed, ''), undefined);
+    assert.equal(digPath(null, 'a'), undefined);
+  });
+});
+
+describe('createCloudProvider —— JSON 响应取值', () => {
+  test('json-base64：数组下标路径 + 解码', async () => {
+    const payload = Buffer.from(WAV).toString('base64');
+    const { provider } = providerOf(
+      { preset: 'mimo', baseURL: 'https://a', model: 'm', voice: 'v' },
+      { respond: () => new Response(JSON.stringify({ choices: [{ message: { audio: { data: payload } } }] })) },
+    );
+    const clip = await provider.synthesize(ask);
+    assert.deepEqual(new Uint8Array(clip.data), WAV);
+  });
+
+  test('json-hex：十六进制串解码（容忍空白）', async () => {
+    const hex = Buffer.from(WAV).toString('hex').replace(/(..)/g, '$1 ').trim();
+    const { provider } = providerOf(
+      {
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://a',
+        path: '/t',
+        bodyTemplate: '{"text":"{text}"}',
+        responseKind: 'json-hex',
+        responsePath: 'result.0.audio',
+      },
+      { respond: () => new Response(JSON.stringify({ result: [{ audio: hex }] })) },
+    );
+    const clip = await provider.synthesize(ask);
+    assert.deepEqual(new Uint8Array(clip.data), WAV);
+  });
+
+  test('json-url：再 GET 一次拿字节；跨域不带鉴权头（不破坏签名 URL）', async () => {
+    const { provider, calls } = providerOf(
+      {
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://api.example.com',
+        path: '/t',
+        bodyTemplate: '{"text":"{text}"}',
+        responseKind: 'json-url',
+        responsePath: 'audio_url',
+      },
+      {
+        respond: (call) =>
+          call.url.startsWith('https://api.example.com')
+            ? new Response(JSON.stringify({ audio_url: 'https://cdn.example.com/a.wav' }))
+            : new Response(WAV),
+      },
+    );
+    const clip = await provider.synthesize(ask);
+    assert.equal(clip.mime, 'audio/wav');
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1]?.url, 'https://cdn.example.com/a.wav');
+    assert.equal(calls[1]?.init?.method, 'GET');
+    assert.deepEqual(headersOf(calls[1]), {}, '跨域地址不带 Authorization');
+  });
+
+  test('json-url：同源时带上本次鉴权头', async () => {
+    const { provider, calls } = providerOf(
+      {
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://cdn.example.com',
+        path: '/t',
+        bodyTemplate: '{"text":"{text}"}',
+        responseKind: 'json-url',
+        responsePath: 'data.0.url',
+      },
+      {
+        respond: (call) =>
+          call.url === 'https://cdn.example.com/t'
+            ? new Response(JSON.stringify({ data: [{ url: 'https://cdn.example.com/a.wav' }] }))
+            : new Response(WAV),
+      },
+    );
+    await provider.synthesize(ask);
+    assert.equal(headersOf(calls[1]).authorization, 'Bearer sk-test');
+  });
+
+  test('json 响应路径取不到 / 编码不合法 / 地址不合法：都按失败处理', async () => {
+    const cases = [
+      [{}, /JSON 里找不到 audioContent/],
+      [{ audio: { data: 'x' } }, /实际顶层键：audio/],
+      [{ audioContent: '' }, /不是非空字符串/],
+      [{ audioContent: '%%%' }, /base64 不合法/],
+    ] as const;
+    for (const [body, pattern] of cases) {
+      const { provider } = providerOf(
+        { preset: 'google', baseURL: 'https://a', model: 'm' },
+        { respond: () => new Response(JSON.stringify(body)) },
+      );
+      await assert.rejects(() => provider.synthesize(ask), pattern);
+    }
+    const hexProvider = providerOf(
+      {
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://a',
+        path: '/t',
+        bodyTemplate: '{"text":"{text}"}',
+        responseKind: 'json-hex',
+        responsePath: 'data',
+      },
+      { respond: () => new Response(JSON.stringify({ data: 'zz' })) },
+    );
+    await assert.rejects(() => hexProvider.provider.synthesize(ask), /十六进制不合法/);
+
+    const urlProvider = providerOf(
+      {
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://a',
+        path: '/t',
+        bodyTemplate: '{"text":"{text}"}',
+        responseKind: 'json-url',
+        responsePath: 'data',
+      },
+      { respond: () => new Response(JSON.stringify({ data: 'file:///etc/passwd' })) },
+    );
+    await assert.rejects(() => urlProvider.provider.synthesize(ask), /不是 http\(s\) 地址/);
+  });
+
+  test('responsePath 写错：错误列出实际顶层键，不让用户对着 500 猜', async () => {
+    const { provider } = providerOf(
+      { preset: 'mimo', baseURL: 'https://a', model: 'm', voice: 'v' },
+      { respond: () => new Response(JSON.stringify({ id: 'x', output: { audio: '...' } })) },
+    );
+    await assert.rejects(() => provider.synthesize(ask), /JSON 里找不到 choices\.0\.message\.audio\.data/);
+    const reason = provider.lastError?.() ?? '';
+    assert.match(reason, /实际顶层键：id、output/);
+  });
+
+  test('声明 JSON 响应但返回非 JSON：报错', async () => {
+    const { provider } = providerOf(
+      { preset: 'google', baseURL: 'https://a', model: 'm' },
+      { respond: () => new Response('not json') },
+    );
+    await assert.rejects(() => provider.synthesize(ask), /不是合法 JSON/);
+  });
+});
+
+describe('createCloudProvider —— 响应处理与错误', () => {
   test('魔数嗅探四类容器（不看 Content-Type）', () => {
     assert.equal(sniffAudioMime(WAV), 'audio/wav');
     assert.equal(sniffAudioMime(MP3_ID3), 'audio/mpeg');
@@ -548,7 +1015,7 @@ describe('createCloudProvider —— 响应处理', () => {
     ] as const) {
       const { provider } = providerOf(
         {},
-        { response: () => new Response(bytes, { headers: { 'content-type': 'text/plain' } }) },
+        { respond: () => new Response(bytes, { headers: { 'content-type': 'text/plain' } }) },
       );
       const clip = await provider.synthesize(ask);
       assert.equal(clip.mime, mime);
@@ -558,7 +1025,7 @@ describe('createCloudProvider —— 响应处理', () => {
   test('认不出格式：报前 16 字节 hex 与 Content-Type', async () => {
     const { provider } = providerOf(
       {},
-      { response: () => new Response(HTML, { headers: { 'content-type': 'text/html; charset=utf-8' } }) },
+      { respond: () => new Response(HTML, { headers: { 'content-type': 'text/html; charset=utf-8' } }) },
     );
     await assert.rejects(() => provider.synthesize(ask), /返回的不是音频/);
     const reason = provider.lastError?.() ?? '';
@@ -568,23 +1035,23 @@ describe('createCloudProvider —— 响应处理', () => {
   });
 
   test('空响应按失败处理，不写半截缓存', async () => {
-    const { provider } = providerOf({}, { response: () => new Response(new Uint8Array(0)) });
+    const { provider } = providerOf({}, { respond: () => new Response(new Uint8Array(0)) });
     await assert.rejects(() => provider.synthesize(ask), /音频为空/);
     assert.match(provider.lastError?.() ?? '', /音频为空/);
   });
 
   test('内容审核 400：抛错，lastError 带服务端原话', async () => {
     const body = JSON.stringify({ error: { message: 'Content Exists Risk' } });
-    const { provider } = providerOf({}, { response: () => new Response(body, { status: 400 }) });
+    const { provider } = providerOf({}, { respond: () => new Response(body, { status: 400 }) });
     await assert.rejects(() => provider.synthesize(ask), /400/);
     assert.match(provider.lastError?.() ?? '', /Content Exists Risk/);
   });
 
-  test('非 2xx：文案截断到 512 字符，带 protocol 与 baseURL，且不含 key', async () => {
+  test('非 2xx：文案截断到 512 字符，带协议+预设+baseURL，且不含 key', async () => {
     const long = 'x'.repeat(600);
     const { provider } = providerOf(
-      { protocol: 'openai', baseURL: 'https://tts.example.com', model: 'm', voice: 'v' },
-      { key: 'sk-secret-key', response: () => new Response(long, { status: 500 }) },
+      { preset: 'mimo', baseURL: 'https://tts.example.com', model: 'm', voice: 'v' },
+      { key: 'sk-secret-key', respond: () => new Response(long, { status: 500 }) },
     );
     let message = '';
     await assert.rejects(
@@ -595,15 +1062,27 @@ describe('createCloudProvider —— 响应处理', () => {
       },
     );
     assert.match(message, /openai/);
+    assert.match(message, /mimo/);
     assert.match(message, /https:\/\/tts\.example\.com/);
     assert.ok(message.includes('x'.repeat(512)), '保留 512 字符');
     assert.ok(!message.includes('x'.repeat(513)), '超过 512 的部分必须截掉');
     assert.ok(!message.includes('sk-secret-key'), 'key 不进错误文案');
-    assert.match(provider.lastError?.() ?? '', /^500（openai/);
+    assert.match(provider.lastError?.() ?? '', /^500（openai mimo/);
+  });
+
+  test('错误文案里的查询串被脱敏（google 的 key 不进日志）', async () => {
+    const { provider } = providerOf(
+      { preset: 'google', baseURL: 'https://g.example.com', model: 'm' },
+      { key: 'top-secret', respond: () => new Response('boom', { status: 500 }) },
+    );
+    await assert.rejects(() => provider.synthesize(ask));
+    const reason = provider.lastError?.() ?? '';
+    assert.ok(!reason.includes('top-secret'), reason);
+    assert.match(reason, /https:\/\/g\.example\.com/);
   });
 
   test('非 JSON 的错误体也留一句可读的文案', async () => {
-    const { provider } = providerOf({}, { response: () => new Response('<html>503</html>', { status: 503 }) });
+    const { provider } = providerOf({}, { respond: () => new Response('<html>503</html>', { status: 503 }) });
     await assert.rejects(() => provider.synthesize(ask), /503/);
     assert.match(provider.lastError?.() ?? '', /503/);
   });
@@ -614,7 +1093,7 @@ describe('createCloudProvider —— 响应处理', () => {
     assert.equal(calls.length, 0);
   });
 
-  test('传输层抛错（超时）也留原因，并带上协议与地址', async () => {
+  test('传输层抛错（超时）也留原因，并带上协议与预设', async () => {
     const provider = createCloudProvider({
       settings: () => cloudOf({}),
       readKey: async () => 'sk-test',
@@ -642,21 +1121,174 @@ describe('createCloudProvider —— 响应处理', () => {
     await provider.synthesize(ask);
     assert.equal(provider.lastError?.(), undefined);
   });
+
+  test('标了 billable：自动回退链不得选它', () => {
+    const provider = createCloudProvider({ settings: () => cloudOf({}), readKey: async () => undefined });
+    assert.equal(provider.billable, true);
+  });
 });
 
-describe('缓存指纹与老配置', () => {
-  const tagOf = (conf: Record<string, unknown>): string => cloudCacheTag(cloudOf(conf));
-  const base = { protocol: 'openai', baseURL: 'https://tts.example.com', model: 'm', voice: 'v' };
+describe('配置判据（探活只判配置，不发请求）', () => {
+  test('未探活前不可用，理由给人话', async () => {
+    const provider = createCloudProvider({ settings: () => cloudOf({}), readKey: async () => undefined });
+    const verdict = provider.availability?.();
+    assert.equal(verdict?.ok, false);
+    assert.match(verdict && !verdict.ok ? verdict.reason : '', /尚未探活/);
+  });
 
-  test('换协议 / 换地址 / 换模型 / 换音色 / 换格式 / 换模板都必须换键', () => {
+  test('没有 key：不可用，deepseek 下点明可复用宿主凭据', async () => {
+    const provider = createCloudProvider({ settings: () => cloudOf({}), readKey: async () => undefined });
+    assert.equal(await provider.refresh?.(), false);
+    const reason = provider.availability?.();
+    assert.equal(reason?.ok, false);
+    assert.match(reason && !reason.ok ? reason.reason : '', /API Key/);
+    assert.match(reason && !reason.ok ? reason.reason : '', new RegExp(CLOUD_API_KEY_FALLBACK));
+
+    const mimo = createCloudProvider({
+      settings: () => cloudOf({ preset: 'mimo', baseURL: 'https://a', model: 'm', voice: 'v' }),
+      readKey: async () => undefined,
+    });
+    assert.equal(await mimo.refresh?.(), false);
+    const mimoReason = mimo.availability?.();
+    assert.match(mimoReason && !mimoReason.ok ? mimoReason.reason : '', /API Key/);
+    assert.ok(
+      !(mimoReason && !mimoReason.ok && mimoReason.reason.includes(CLOUD_API_KEY_FALLBACK)),
+      '第三方预设不该提示复用宿主凭据',
+    );
+  });
+
+  test('老配置（只有 baseURL + voice）+ key：可用，且探活一次请求都不发', async () => {
+    const { provider, calls } = providerOf({
+      useCloud: 'on',
+      baseURL: 'https://api.deepseek.com',
+      voice: 'tide',
+    });
+    assert.equal(await provider.refresh?.(), true);
+    assert.deepEqual(provider.availability?.(), { ok: true });
+    assert.equal(calls.length, 0, '探活不该花一次合成');
+  });
+
+  test('openai 缺 model / voice：理由把两个字段都点出来', async () => {
+    const provider = createCloudProvider({
+      settings: () => cloudOf({ protocol: 'openai', baseURL: 'https://tts.example.com' }),
+      readKey: async () => 'sk-test',
+    });
+    assert.equal(await provider.refresh?.(), false);
+    const reason = provider.availability?.();
+    assert.match(reason && !reason.ok ? reason.reason : '', /model/);
+    assert.match(reason && !reason.ok ? reason.reason : '', /voice/);
+  });
+
+  test('custom 缺 bodyTemplate / path：理由点名字段', () => {
+    const problems = cloudConfigProblems(cloudOf({ protocol: 'custom', baseURL: 'https://tts.example.com' }), true);
+    assert.deepEqual(problems, ['缺少必填项：path、bodyTemplate']);
+  });
+
+  test('custom 模板缺 {text} / 不是 JSON / headers 写坏：都是配置错误', () => {
+    const missingText = cloudConfigProblems(
+      cloudOf({ protocol: 'custom', preset: 'none', baseURL: 'https://a', path: '/t', bodyTemplate: '{"input":"hi"}' }),
+      true,
+    );
+    assert.match(missingText.join('；'), /\{text\}/);
+
+    const brokenJSON = cloudConfigProblems(
+      cloudOf({
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://a',
+        path: '/t',
+        bodyTemplate: '{"text":"{text}"',
+      }),
+      true,
+    );
+    assert.match(brokenJSON.join('；'), /bodyTemplate 不是合法的 JSON 对象/);
+
+    const brokenHeaders = cloudConfigProblems(
+      cloudOf({
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://a',
+        path: '/t',
+        bodyTemplate: '{"text":"{text}"}',
+        headers: 'x',
+      }),
+      true,
+    );
+    assert.match(brokenHeaders.join('；'), /headers 不是合法的 JSON 对象/);
+  });
+
+  test('responseKind 是 JSON 但 responsePath 为空：必填项点出来', () => {
+    const problems = cloudConfigProblems(
+      cloudOf({
+        protocol: 'custom',
+        preset: 'none',
+        baseURL: 'https://a',
+        path: '/t',
+        bodyTemplate: '{"text":"{text}"}',
+        responseKind: 'json-base64',
+      }),
+      true,
+    );
+    assert.match(problems.join('；'), /responsePath/);
+  });
+
+  test('地址写坏：不可用，理由说清前缀要求', async () => {
+    const provider = createCloudProvider({
+      settings: () => cloudOf({ baseURL: 'api.example.com' }),
+      readKey: async () => 'sk-test',
+    });
+    assert.equal(await provider.refresh?.(), false);
+    const reason = provider.availability?.();
+    assert.match(reason && !reason.ok ? reason.reason : '', /http:\/\//);
+  });
+
+  test('配置变了 refresh 会翻牌，并且清掉上次的失败原因', async () => {
+    let conf: Record<string, unknown> = { useCloud: 'on' };
+    let failNext = true;
+    const provider = createCloudProvider({
+      settings: () => cloudOf(conf),
+      readKey: async () => 'sk-test',
+      fetch: (async () =>
+        failNext ? new Response('boom', { status: 500 }) : new Response(WAV)) as unknown as typeof fetch,
+    });
+    assert.equal(await provider.refresh?.(), true);
+    await assert.rejects(() => provider.synthesize(ask));
+    assert.match(provider.lastError?.() ?? '', /500/);
+    failNext = false;
+    conf = { useCloud: 'on', preset: 'mimo', baseURL: 'https://tts.example.com' };
+    assert.equal(await provider.refresh?.(), false, '缺 model / voice 应当立刻判不可用');
+    const reason = provider.availability?.();
+    assert.match(reason && !reason.ok ? reason.reason : '', /model/);
+  });
+});
+
+describe('缓存指纹与音色展示', () => {
+  const tagOf = (conf: Record<string, unknown>): string => cloudCacheTag(cloudOf(conf));
+  const base = {
+    preset: 'openai-speech',
+    protocol: 'openai',
+    baseURL: 'https://tts.example.com',
+    model: 'm',
+    voice: 'v',
+  };
+
+  test('换预设 / 协议 / 地址 / 路径 / 鉴权 / 模型 / 音色 / 格式 / 请求体 / 响应取值都换键', () => {
     const tags = [
       tagOf(base),
-      tagOf({ ...base, protocol: 'custom', path: '/t', bodyTemplate: '{"text":"{text}"}' }),
+      tagOf({ ...base, preset: 'mimo' }),
+      tagOf({ ...base, protocol: 'custom', preset: 'none', path: '/t', bodyTemplate: '{"text":"{text}"}' }),
       tagOf({ ...base, baseURL: 'https://other.example.com' }),
+      tagOf({ ...base, path: '/v2/speech' }),
+      tagOf({ ...base, authStyle: 'api-key-header' }),
+      tagOf({ ...base, authHeader: 'X-Key' }),
       tagOf({ ...base, model: 'm2' }),
       tagOf({ ...base, voice: 'v2' }),
       tagOf({ ...base, format: 'wav' }),
-      tagOf({ ...base, protocol: 'custom', path: '/t', bodyTemplate: '{"text":"{text}","speed":1}' }),
+      tagOf({ ...base, bodyKind: 'form', bodyTemplate: 'text={text}' }),
+      tagOf({ ...base, bodyTemplate: '{"model":"{model}","input":"{text}","voice":"{voice}","response_format":"x"}' }),
+      tagOf({ ...base, responseKind: 'json-base64', responsePath: 'audio' }),
+      tagOf({ ...base, responsePath: 'other.0.audio' }),
+      tagOf({ ...base, headers: '{"X-Out":"wav"}' }),
     ];
     assert.equal(new Set(tags).size, tags.length, '任意一项变化都不能命中旧音频');
   });
@@ -665,13 +1297,13 @@ describe('缓存指纹与老配置', () => {
     assert.equal(tagOf(base), tagOf(base));
     assert.ok(!tagOf(base).includes('sk-'));
     assert.ok(tagOf(base).startsWith('openai|'));
+    assert.match(cloudCacheTag(cloudOf({})), /^custom\|deepseek\|/);
   });
 
-  test('老配置（无 protocol、DeepSeek 地址）指纹落在 deepseek 上，与显式写法一致', () => {
+  test('老配置与显式预设写法指纹一致', () => {
     const legacy = tagOf({ baseURL: 'https://api.deepseek.com', voice: 'tide' });
-    const explicit = tagOf({ protocol: 'deepseek', baseURL: 'https://api.deepseek.com', voice: 'tide' });
+    const explicit = tagOf({ preset: 'deepseek', baseURL: 'https://api.deepseek.com', voice: 'tide' });
     assert.equal(legacy, explicit);
-    assert.match(legacy, /^deepseek\|/);
   });
 
   test('redactURL：去掉 userinfo、查询串与片段', () => {
@@ -681,21 +1313,20 @@ describe('缓存指纹与老配置', () => {
     assert.equal(redactURL('not a url?key=abc'), 'not a url');
   });
 
-  test('云端只报「当前这一个」音色，并带上协议；真没配置才是空列表', () => {
+  test('云端只报「当前这一个」音色，tag 是生效预设；真没配置才是空列表', () => {
     const openai = createCloudProvider({
-      settings: () => cloudOf({ protocol: 'openai', voice: 'alloy' }),
+      settings: () => cloudOf({ preset: 'openai-speech', voice: 'alloy' }),
       readKey: async () => 'sk-test',
     });
-    assert.deepEqual(openai.listVoices?.(), [{ id: 'alloy', name: 'alloy', tag: 'openai' }]);
+    assert.deepEqual(openai.listVoices?.(), [{ id: 'alloy', name: 'alloy', tag: 'openai-speech' }]);
     assert.equal(openai.activeVoice?.(), 'alloy');
 
     // deepseek 留空按 stella：服务端会用它，所以仍算「配了」
     const deepseek = createCloudProvider({ settings: () => cloudOf({}), readKey: async () => 'sk-test' });
     assert.deepEqual(deepseek.listVoices?.(), [{ id: 'stella', name: 'stella', tag: 'deepseek' }]);
 
-    // openai 没填 voice：没有可显示的嗓子
     const empty = createCloudProvider({
-      settings: () => cloudOf({ protocol: 'openai' }),
+      settings: () => cloudOf({ preset: 'openai-speech' }),
       readKey: async () => 'sk-test',
     });
     assert.deepEqual(empty.listVoices?.(), []);

@@ -140,36 +140,58 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 写进 DSH 凭据库——配置文件会被备份、会被贴进 issue。写入语义：`patch` 里非空才写、**空串是「不改」**
 （值不回传，界面只能给空框），要删必须放进 `clear`。宿主凭据库没有写入能力时（独立模式的替身只有
 `resolve`）回 `unsupported`，不静默丢弃用户填的密钥。
-`credentialFallbacks` 是**只读**回退，且**按协议生效**：云端的 `apiKey` 只在 `protocol: deepseek` 时回退到
-`DEEPSEEK_API_KEY`（设置页据此显示「已保存」）；`openai` / `custom` 的 `fields[].credentialFallbacks` 为空，
-只认用户自己填的那把 key——**第三方 baseURL 永不复用宿主的 DeepSeek 密钥**（否则把 baseURL 指到陌生服务，
-就等于把宿主的模型凭据发出去）。保存与清除永远只动主引用，不会连宿主的模型凭据一起删。
+`credentialFallbacks` 是**只读**回退，且**按最终生效预设生效**：云端的 `apiKey` 只在预设解析成 `deepseek`
+（显式预设，或老配置 `protocol: 'deepseek'` 映射来的）时回退到 `DEEPSEEK_API_KEY`（设置页据此显示「已保存」）；
+其余预设的 `fields[].credentialFallbacks` 为空，只认用户自己填的那把 key——**第三方 baseURL 永不复用宿主的
+DeepSeek 密钥**（否则把 baseURL 指到陌生服务，就等于把宿主的模型凭据发出去）。保存与清除永远只动主引用，
+不会连宿主的模型凭据一起删。
 
-**云端 TTS 是通用接入**（`id: cloud`）：`protocol` 决定接口形状，三种都支持——
-`deepseek`（`POST {baseURL}/v1/tools/tts`，body 固定 `{ text, voice_id, format: 'wav', filter_markdown: true }`，
-12s 超时；这是改造前的形状，老配置原样继续跑）、
-`openai`（`POST {baseURL}/v1/audio/speech`，body `{ model, input, voice, response_format }`，`response_format`
-默认 `mp3`；服务地址已带 `/v1` 时不会重复拼）、
-`custom`（`POST {baseURL}{path}`，body 由 `bodyTemplate` 渲染，可用占位符 `{text}`（必填）/ `{model}` / `{voice}`，
-`headers` 可加额外请求头并与默认的 `Authorization: Bearer <key>` 合并）。
+**云端 TTS 是通用接入**（`id: cloud`）：接口形状拆成四个**正交**维度，全部由配置声明，代码里没有按服务名分支：
 
-字段：`useCloud`（`off`/`on`）、`protocol`（`deepseek` / `openai` / `custom`）、`baseURL`、`model`、`voice`、
-`path`、`bodyTemplate`、`format`、`headers`、`apiKey`。**`required` 随协议变**，由 `/voice/voices` 的
-`providers[].fields[].required` 直接下发（设置页只画星号，不判断协议）：`openai` 要 `baseURL`+`model`+`voice`+key，
-`deepseek` 只要 key（`baseURL` 留空用 `https://api.deepseek.com`，`model` 对该协议无效），
-`custom` 要 `baseURL`+`path`+`bodyTemplate`+key。`voice` 是**自由文本**，按服务商填（`alloy` / `nova` / `stella`…）；
-云端因此没有可枚举的清单，`providers[].voices` 只回**当前生效的那一个**（`{ id, name, tag: protocol }`，
+| 维度     | 字段                            | 取值                                                                                                                                                                        |
+| -------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| endpoint | `baseURL` + `path`              | `path` 是路径模板，可用 `{voice}`（音色进路径）与 `{key}`（查询串鉴权）；写成完整 URL 时直接用它；服务地址已带 `/v1` 不重复拼                                               |
+| auth     | `authStyle` + `authHeader`      | `bearer`（`Authorization: Bearer <key>`）/ `api-key-header`（`api-key: <key>`，可用 `authHeader` 换头名）/ `x-api-key`（`xi-api-key`）/ `query`（`?key=`）/ `none`          |
+| body     | `bodyKind` + `bodyTemplate`     | `json`（替换值做 JSON 转义，替换后必须是合法 JSON 对象）/ `form`（`application/x-www-form-urlencoded`，替换值 URL 编码）/ `ssml`（`{text}` 被 `<speak>…</speak>` 整段替换） |
+| response | `responseKind` + `responsePath` | `audio`（响应体就是音频）/ `json-base64` / `json-hex` / `json-url`（取到地址再 GET 一次）；`responsePath` 是点号路径，支持数组下标                                          |
+
+`bodyTemplate` 可用占位符 `{text}`（必填）/ `{model}` / `{voice}` / `{format}` / `{key}`。
+
+`protocol` 只剩两个：`openai`（命中 OpenAI 家族的两种形态）与 `custom`（其余全部按上表声明）。
+`preset` 是**预填**，不是另一套代码路径——选一个预设会自动填好四轴，用户仍可逐项覆盖（清空某项 = 回到预设默认值）：
+
+| 预设            | path                            | auth                                          | body                                                                     | response                                         |
+| --------------- | ------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------ |
+| `openai-speech` | `/v1/audio/speech`              | bearer                                        | json：`model` / `input` / `voice` / `response_format`（默认 `mp3`）      | audio                                            |
+| `mimo`          | `/v1/chat/completions`          | api-key-header（`api-key`）                   | json：`messages[0].content` + `audio{format,voice}`（format 默认 `wav`） | json-base64，`choices.0.message.audio.data`      |
+| `deepseek`      | `/v1/tools/tts`                 | bearer                                        | json：`{ text, voice_id, format: 'wav', filter_markdown: true }`         | audio（老配置的缺省）                            |
+| `azure`         | `/cognitiveservices/v1`         | api-key-header（`Ocp-Apim-Subscription-Key`） | ssml：`<speak><voice name="…">台词</voice></speak>`                      | audio（`X-Microsoft-OutputFormat` 走 `headers`） |
+| `elevenlabs`    | `/v1/text-to-speech/{voice}`    | x-api-key（`xi-api-key`）                     | json：`text` / `model_id`                                                | audio                                            |
+| `google`        | `/v1/text:synthesize?key={key}` | query                                         | json：`input.text` / `voice.languageCode` / `audioConfig.audioEncoding`  | json-base64，`audioContent`                      |
+
+`none（手动填四轴）` 表示不预填、完全手填四轴（下拉直接用显示值承载中文，配置里存的就是这一整串，解析按
+`none` 前缀归一）。`rate` 对云端无效（各服务没有统一的语速参数）。
+
+字段：`useCloud`（`off`/`on`）、`preset`、`protocol`（`openai` / `custom`）、`baseURL`、`path`、`authStyle`、
+`authHeader`、`model`、`voice`、`format`、`bodyKind`、`bodyTemplate`、`responseKind`、`responsePath`、`headers`、
+`apiKey`。**`required` 随配置变**，由 `/voice/voices` 的 `providers[].fields[].required` 直接下发（设置页只画星号，
+不判断协议）：选预设后 path / 模板 / 响应路径都有默认值，只有 `custom` + `none` 才要求 `path` 与 `bodyTemplate`；
+`apiKey` 由 `authStyle` 决定（`none` 的本机服务不要密钥）。`voice` 是**自由文本**，按服务商填（`alloy` / `nova` /
+`stella`…）；云端因此没有可枚举的清单，`providers[].voices` 只回**当前生效的那一个**（`{ id, name, tag: preset }`，
 `deepseek` 留空时是 `stella`），要换音色请改接入卡（`/voice/provider-voice` 只收清单里的值）。
 
 响应**不再假定 wav**：按魔数嗅探 `RIFF`→wav、`ID3`/`0xFF Ex`→mp3、`OggS`→ogg、`ftyp`→m4a；认不出就报
-「返回的不是音频（前 16 字节 hex）」并带上 `Content-Type`。非 2xx 的错误文案截断到 512 字符，带 `protocol` 与
-**脱敏后的 `baseURL`**（去掉 userinfo 与查询串，绝不带 key）。缓存键含 `protocol`、`baseURL`、`path`、`model`、
-`voice`、`format` 与 `bodyTemplate` 的指纹：换协议 / 换服务 / 换模型 / 换音色都不会命中旧音频。
+「返回的不是音频（前 16 字节 hex）」并带上 `Content-Type`。非 2xx 的错误文案截断到 512 字符，带 `protocol`、
+`preset` 与**脱敏后的 `baseURL`**（去掉 userinfo 与查询串，绝不带 key——`google` 的 key 在查询串里）。
+缓存键含 `protocol`、`preset`、`baseURL`、`path`、`authStyle`、`authHeader`、`model`、`voice`、`format`、
+`bodyKind`、`responseKind`、`responsePath` 与 `bodyTemplate`/`headers` 的指纹：换预设 / 换服务 / 换模型 / 换音色
+都不会命中旧音频。
 
-老配置（`config/voice-providers.json` 里只有 `useCloud` / `baseURL` / `voice`）没有 `protocol` 时按地址推断：
-空或含 `deepseek` → `deepseek`，否则 → `openai`；缺这一项**不会**被判成不可用。`useCloud` 不是「保存」的
-一部分：保存后宿主立刻重探一次可用性（`refresh()`），开关与密钥当即生效。`rate` 对云端无效（三种协议都没有
-统一的语速参数，说明写在字段描述里）；wav 比同长度 mp3 大约 8 倍，缓存上限 20 MB 约能存 100 句，靠 LRU 淘汰。
+老配置（`config/voice-providers.json` 里只有 `useCloud` / `baseURL` / `voice`）没有 `protocol` / `preset` 时：
+空地址或含 `deepseek` → `deepseek` 预设（`protocol` 归一成 `custom`，请求逐字节与改造前一致），否则 →
+`openai-speech` 预设（`protocol: openai`）；显式 `protocol: 'deepseek'` 同样映射到该预设。缺这一项**不会**
+被判成不可用。`useCloud` 不是「保存」的一部分：保存后宿主立刻重探一次可用性（`refresh()`），开关与密钥当即
+生效。wav 比同长度 mp3 大约 8 倍，缓存上限 20 MB 约能存 100 句，靠 LRU 淘汰。
 计费按服务商自己的规则（DeepSeek 按字符：汉字算 2 字符，每万字符 3 元、限时 1.5 元）。
 
 `POST /voice/provider-process` 只跑 `config/voice-providers.json` 里填的启停脚本，**不建控制台窗口**：
