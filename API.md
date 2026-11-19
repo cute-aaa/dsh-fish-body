@@ -140,15 +140,37 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 写进 DSH 凭据库——配置文件会被备份、会被贴进 issue。写入语义：`patch` 里非空才写、**空串是「不改」**
 （值不回传，界面只能给空框），要删必须放进 `clear`。宿主凭据库没有写入能力时（独立模式的替身只有
 `resolve`）回 `unsupported`，不静默丢弃用户填的密钥。
-`credentialFallbacks` 是**只读**回退：云端 TTS 声明了 `DEEPSEEK_API_KEY`，本机已有它时设置页直接显示「已保存」，
-不用再粘一次；保存与清除永远只动主引用，不会连宿主的模型凭据一起删。
+`credentialFallbacks` 是**只读**回退，且**按协议生效**：云端的 `apiKey` 只在 `protocol: deepseek` 时回退到
+`DEEPSEEK_API_KEY`（设置页据此显示「已保存」）；`openai` / `custom` 的 `fields[].credentialFallbacks` 为空，
+只认用户自己填的那把 key——**第三方 baseURL 永不复用宿主的 DeepSeek 密钥**（否则把 baseURL 指到陌生服务，
+就等于把宿主的模型凭据发出去）。保存与清除永远只动主引用，不会连宿主的模型凭据一起删。
 
-**云端 TTS 接的是 DeepSeek**（`id: cloud`，`POST {baseURL}/v1/tools/tts`）：字段是 `useCloud`（`off`/`on`）、
-`baseURL`（留空用 `https://api.deepseek.com`）、`voice`（`stella` / `tide`）、`apiKey`。
-接口**没有 model 参数、不支持语速、只回 wav / pcm**，所以：`rate` 对它无效（说明写在字段描述里）；
-`format` 固定 `wav`（`pcm` 是裸流，缓存与 `<audio>` 都认不了）；wav 比同长度 mp3 大约 8 倍，
-缓存上限 20 MB 约能存 100 句，靠 LRU 淘汰。计费按字符（汉字算 2 字符，每万字符 3 元、限时 1.5 元）。
-`useCloud` 不是「保存」的一部分：保存后宿主立刻重探一次可用性（`refresh()`），开关与密钥当即生效。
+**云端 TTS 是通用接入**（`id: cloud`）：`protocol` 决定接口形状，三种都支持——
+`deepseek`（`POST {baseURL}/v1/tools/tts`，body 固定 `{ text, voice_id, format: 'wav', filter_markdown: true }`，
+12s 超时；这是改造前的形状，老配置原样继续跑）、
+`openai`（`POST {baseURL}/v1/audio/speech`，body `{ model, input, voice, response_format }`，`response_format`
+默认 `mp3`；服务地址已带 `/v1` 时不会重复拼）、
+`custom`（`POST {baseURL}{path}`，body 由 `bodyTemplate` 渲染，可用占位符 `{text}`（必填）/ `{model}` / `{voice}`，
+`headers` 可加额外请求头并与默认的 `Authorization: Bearer <key>` 合并）。
+
+字段：`useCloud`（`off`/`on`）、`protocol`（`deepseek` / `openai` / `custom`）、`baseURL`、`model`、`voice`、
+`path`、`bodyTemplate`、`format`、`headers`、`apiKey`。**`required` 随协议变**，由 `/voice/voices` 的
+`providers[].fields[].required` 直接下发（设置页只画星号，不判断协议）：`openai` 要 `baseURL`+`model`+`voice`+key，
+`deepseek` 只要 key（`baseURL` 留空用 `https://api.deepseek.com`，`model` 对该协议无效），
+`custom` 要 `baseURL`+`path`+`bodyTemplate`+key。`voice` 是**自由文本**，按服务商填（`alloy` / `nova` / `stella`…）；
+云端因此没有可枚举的清单，`providers[].voices` 只回**当前生效的那一个**（`{ id, name, tag: protocol }`，
+`deepseek` 留空时是 `stella`），要换音色请改接入卡（`/voice/provider-voice` 只收清单里的值）。
+
+响应**不再假定 wav**：按魔数嗅探 `RIFF`→wav、`ID3`/`0xFF Ex`→mp3、`OggS`→ogg、`ftyp`→m4a；认不出就报
+「返回的不是音频（前 16 字节 hex）」并带上 `Content-Type`。非 2xx 的错误文案截断到 512 字符，带 `protocol` 与
+**脱敏后的 `baseURL`**（去掉 userinfo 与查询串，绝不带 key）。缓存键含 `protocol`、`baseURL`、`path`、`model`、
+`voice`、`format` 与 `bodyTemplate` 的指纹：换协议 / 换服务 / 换模型 / 换音色都不会命中旧音频。
+
+老配置（`config/voice-providers.json` 里只有 `useCloud` / `baseURL` / `voice`）没有 `protocol` 时按地址推断：
+空或含 `deepseek` → `deepseek`，否则 → `openai`；缺这一项**不会**被判成不可用。`useCloud` 不是「保存」的
+一部分：保存后宿主立刻重探一次可用性（`refresh()`），开关与密钥当即生效。`rate` 对云端无效（三种协议都没有
+统一的语速参数，说明写在字段描述里）；wav 比同长度 mp3 大约 8 倍，缓存上限 20 MB 约能存 100 句，靠 LRU 淘汰。
+计费按服务商自己的规则（DeepSeek 按字符：汉字算 2 字符，每万字符 3 元、限时 1.5 元）。
 
 `POST /voice/provider-process` 只跑 `config/voice-providers.json` 里填的启停脚本，**不建控制台窗口**：
 脚本的 stdout/stderr 追加到 `<DSH_HOME>/fish-body/logs/gsv/<provider>-start.log`。这不是风格问题——

@@ -28,16 +28,14 @@ import { createHearService } from './voice/hear.ts';
 import { openDirectory } from './open-folder.ts';
 import { createGsvProvider } from './voice/gsv/provider.ts';
 import {
+  createCloudKeyReader,
   createCloudProvider,
-  CLOUD_API_KEY_FALLBACK,
-  CLOUD_API_KEY_REF,
   CLOUD_PROVIDER_ID,
   cloudConfigured,
   cloudSettingsOf,
 } from './voice/cloud/provider.ts';
 import { gsvSettingsOf } from './voice/gsv/settings.ts';
 import { providerConfigPath, readProviderConfig, readProviderValues } from './voice/gsv/store.ts';
-import { credentialRef } from '@deepseek-ai/dsh-credentials';
 import { registerVoiceProvider } from './voice/registry.ts';
 import { TodoStore } from './todo/store.ts';
 import type { PetRouteDeps } from './routes/types.ts';
@@ -84,21 +82,9 @@ export function apply(ctx: any): void {
   // 云端 TTS（DeepSeek，按量计费）：**不进自动回退链**——链只收不花钱的实现（见 voice/chain.ts）。
   // 只有用户在设置页打开「使用云端语音」时，speak 才把它排到链首；它自己失败则回落免费链。
   // 注册顺序排在 GSV 之后：免费实现优先于付费实现，是这条链路的基本取向。
-  const readCloudKey = async (): Promise<string | undefined> => {
-    const service = setup.optionalService('credentials') as
-      { resolve(ref: ReturnType<typeof credentialRef>): Promise<{ value?: string } | undefined> } | undefined;
-    if (!service || typeof service.resolve !== 'function') return undefined;
-    // 主引用优先，没有就复用宿主已有的 DEEPSEEK_API_KEY（只读）
-    for (const ref of [CLOUD_API_KEY_REF, CLOUD_API_KEY_FALLBACK]) {
-      try {
-        const resolved = await service.resolve(credentialRef(ref));
-        if (resolved?.value) return resolved.value;
-      } catch {
-        // 凭据库读失败不该让合成抛：换下一个引用试
-      }
-    }
-    return undefined;
-  };
+  // 密钥读取按协议选引用：只有 deepseek 会复用宿主的 DEEPSEEK_API_KEY，openai / custom 只认云端自己那把
+  // （见 voice/cloud/provider.ts 的 cloudKeyRefs）；逻辑搬进被测模块，这里只递宿主凭据服务。
+  const readCloudKey = createCloudKeyReader(setup.optionalService('credentials'));
   const cloud = createCloudProvider({
     settings: () => cloudSettingsOf(readProviderConfig(providerConfigPath(userRoot))),
     readKey: readCloudKey,

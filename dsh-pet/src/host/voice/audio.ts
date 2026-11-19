@@ -28,6 +28,9 @@ const MIME_TO_EXT: Readonly<Record<string, string>> = {
   'audio/wave': 'wav',
   'audio/ogg': 'ogg',
   'audio/webm': 'webm',
+  // 有些 TTS 服务（含 openai 的 response_format=m4a 之类）直接回 mp4 容器；浏览器 <audio> 认它
+  'audio/mp4': 'm4a',
+  'audio/m4a': 'm4a',
 };
 
 /** 全部已知扩展名；缓存查找与淘汰都按它扫。 */
