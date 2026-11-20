@@ -14,6 +14,8 @@ import { petBridge } from './bridge.ts';
 import { draftPet, nextPetId } from './pet-draft.ts';
 import type { PetPatch } from './pet-card-parts.ts';
 import type { SettingsRuntime } from './runtime.ts';
+import { settingsTabStorage } from './tab-memory.ts';
+import { readPetSelection, resolveSelection, savePetSelection } from './selection-memory.ts';
 
 /** 种类条的一项。 */
 export interface PetKind {
@@ -107,9 +109,28 @@ export function usePetList(
   const { useState, useCallback, useRef } = rt;
   // 初值取容器拍平的成品：加载完成前先显示这份，避免整页闪空白。加载期间整页只读，不会被提交。
   const initial = petBridge.current;
+  // 首次渲染就把「上次选中的那只」解析出来（无 IO、无闪烁）：只读一次存储，之后靠 ref 复用。
+  // `saved` 单独留着：首帧列表可能还不完整（容器拍平是异步的），那时解析出来的只是回落值，
+  // 记忆本身不能丢——`replace()` 要用它再校验一次（E2E 抓到的真实缺口）。
+  const firstRef = useRef<{ saved: string | null; petId: string; kind: string } | null>(null);
+  const first =
+    firstRef.current ??
+    (() => {
+      const saved = readPetSelection(settingsTabStorage());
+      const resolved = resolveSelection(saved, initial, initial[0]?.assetRoot ?? 'main');
+      return { saved, petId: resolved.petId, kind: resolved.kind };
+    })();
+  firstRef.current = first;
+  /** 「记住的候选」：用户动作会更新它；`replace()` 只读它，保证权威列表到达时记忆还在。 */
+  const savedRef = useRef<string | null>(first.saved);
+  /** 写记忆的唯一入口：ref 与存储一起更新，两者不会各说一套。 */
+  const remember = (petId: string): void => {
+    savedRef.current = petId === '' ? null : petId;
+    savePetSelection(settingsTabStorage(), petId);
+  };
   const [pets, setPets] = useState<Pet[]>(initial.map((pet) => ({ ...pet, position: { ...pet.position } })));
-  const [kind, setKind] = useState<string>(initial[0]?.assetRoot ?? 'main');
-  const [selId, setSelId] = useState<string>(initial[0]?.id ?? '');
+  const [kind, setKind] = useState<string>(first.kind);
+  const [selId, setSelId] = useState<string>(first.petId);
   // 加载快照：写回计划要拿它做比较，放在 ref 里避免多一次渲染。
   const loadedRef = useRef<readonly ConfigEntry[]>([]);
   // 当前种类也要能在 replace 的稳定回调里读到最新值（回调不能依赖 kind 状态）。
@@ -142,12 +163,22 @@ export function usePetList(
       return next;
     });
     setSelId(id);
+    remember(id);
   };
 
   const remove = (): void => {
     const list = pets.filter((pet) => pet.id !== selId);
+    // 当前种类优先：这一种类还有别的实例就留在它上面；整种类删空了才换种类，
+    // 并且把 kind 一起搬过去——否则卡片显示另一只、chip 行还停在已经没有条目的种类上，
+    // 要等刷新才自纠（旧实现就是「取全部条目第一只但 kind 不变」）。
+    const next = list.find((pet) => (pet.assetRoot ?? 'main') === kind) ?? list[0];
+    const nextId = next?.id ?? '';
+    const nextKind = next === undefined ? kind : (next.assetRoot ?? 'main');
     setPets(list);
-    setSelId(list[0]?.id ?? '');
+    setKind(nextKind);
+    setSelId(nextId);
+    // 只在真的落到某一只时才记：空列表记空串会盖掉上一次的记忆，而它下次仍要校验，记了也没意义。
+    if (nextId !== '') remember(nextId);
   };
 
   // 只有 setState，跨渲染稳定：放进 applyConfig 的依赖里不会反复重拉配置。
@@ -158,18 +189,21 @@ export function usePetList(
     const nextKind = entries.some((entry) => entry.key === kindRef.current)
       ? kindRef.current
       : (entries[0]?.key ?? 'main');
+    // 回落规则与首帧共用 resolveSelection：还在就留（并纠正种类）、不在就是 nextKind 的第一只。
+    // 这里**不写存储**——它是对账而不是用户动作，写了会在每次加载时多制造一次写入。
+    const resolved = resolveSelection(savedRef.current, loaded, nextKind);
     setPets(loaded);
-    setKind(nextKind);
-    setSelId((id) => {
-      if (loaded.some((pet) => pet.id === id)) return id;
-      return loaded.find((pet) => (pet.assetRoot ?? 'main') === nextKind)?.id ?? '';
-    });
+    setKind(resolved.kind);
+    setSelId(resolved.petId);
   }, []);
 
   const selectKind = (entry: string): void => {
     setKind(entry);
-    const first = pets.find((pet) => (pet.assetRoot ?? 'main') === entry);
-    if (first) setSelId(first.id);
+    const firstOfKind = pets.find((pet) => (pet.assetRoot ?? 'main') === entry);
+    if (firstOfKind) {
+      setSelId(firstOfKind.id);
+      remember(firstOfKind.id);
+    }
   };
 
   const current = pets.find((pet) => pet.id === selId);
@@ -192,7 +226,10 @@ export function usePetList(
     visiblePets: pets.filter((pet) => (pet.assetRoot ?? 'main') === kind),
     selId,
     entryPrompt,
-    select: setSelId,
+    select: (id: string) => {
+      setSelId(id);
+      remember(id);
+    },
     selectKind,
     update,
     add,

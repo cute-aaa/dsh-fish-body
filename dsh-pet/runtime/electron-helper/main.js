@@ -224,8 +224,8 @@ if (BRIDGE) {
 // 托盘放在本进程，是因为它是桌面模式唯一不进浏览器的入口：某只宠物的 display 改成 web/none 后
 // 桌面窗口与它自己的右键菜单一起消失，只有托盘还能在桌面侧把它切回来。
 // 它不是非有不可：main 条目的 trayEnabled 为 false 时不建托盘，宿主也就不再为本进程常驻。
-// 数据不新增通道：读写都走渲染端在用的同一条 bridge。菜单是静态的——每次切换 display 宿主都会重启
-// 本进程（syncDesktop），新进程按新配置重建菜单，所以不需要「重建菜单刷新勾选」的逻辑。
+// 数据不新增通道：读写都走渲染端在用的同一条 bridge。菜单按当前状态重建——切换 display 时宿主会重启
+// 本进程（syncDesktop），新进程按新配置建菜单；「鼠标穿透」不重启进程，靠变更广播重画（见下方订阅）。
 
 const PET_ROUTE = '/dsh-pet-7340';
 const ORIGIN = new URL(process.env.DSH_PET_CONFIG_URL || 'http://127.0.0.1:3080/dsh-pet-7340/config').origin;
@@ -264,6 +264,15 @@ const tray = createTray({
   // 托盘要能隐藏/显示宠物窗口、并让渲染端「回到初始位置」
   petWindows,
 });
+
+/**
+ * 「鼠标穿透」变更广播的装配。
+ *
+ * 三个入口（宠物右键菜单 / 托盘项 / 设置页保存后的重启落位）最终都汇到 petWindows.setClickThrough
+ * 这一个出口，所以只订阅一次就覆盖全部来源：任一入口翻过之后，托盘下一次打开的菜单就是新勾选。
+ * 走合并刷新（scheduleRefresh）而不是逐次重画：广播与写盘回执会在同一瞬间连着来。
+ */
+petWindows.onClickThroughChange(() => void tray.scheduleRefresh());
 
 /**
  * 应用模式的重建钩子：同进程里没有「重启 helper 进程」这条路，宿主改完显示位置会调它——

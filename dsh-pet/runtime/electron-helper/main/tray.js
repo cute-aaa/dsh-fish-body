@@ -86,6 +86,26 @@ function createTray({
   let tray = null;
   /** 托盘「隐藏宠物」的当前状态：只影响窗口显隐，不动配置（下一次重建进程会回到「显示」）。 */
   let hidden = false;
+  /** 合并刷新的在飞标记与补跑标记（见 scheduleRefresh）。 */
+  let refreshInFlight = false;
+  let refreshAgain = false;
+
+  /**
+   * 取某只宠物的「鼠标穿透」勾选来源：**优先运行期真相，配置只作回落**。
+   *
+   * 右键菜单那条路径是「先翻窗（IPC，本地立刻）→ 再写配置（POST，跨进程）」两条并行通道，
+   * 只看配置会在写盘回执到达前读到旧值，且没有第二次触发——勾选就停在旧值上（R1 的缺陷本身）。
+   * 运行期镜像就是窗口此刻的真实状态，读它直接消掉这个竞争。
+   *
+   * @param {string} petId - 宠物 id。
+   * @param {boolean} fallback - 配置值（窗口还没建/已销毁时用）。
+   * @returns {boolean} 菜单该打的勾。
+   */
+  function clickThroughOfPet(petId, fallback) {
+    if (!petWindows || typeof petWindows.clickThroughOf !== 'function') return fallback;
+    const value = petWindows.clickThroughOf(petId);
+    return typeof value === 'boolean' ? value : fallback;
+  }
 
   /** 写回某只宠物的 display：宿主写完配置会重启本进程，响应可能永远不回（同 sprite.js 的 setPetDisplay） */
   function traySetPetDisplay(id, display) {
@@ -110,15 +130,15 @@ function createTray({
   /**
    * 切某只宠物的「鼠标穿透」。
    *
-   * 托盘与宠物窗口在同一个进程里：先就地翻窗（`setClickThrough` 会强制整窗穿透并把最终值回推渲染端），
-   * 再把目标值写进配置（`/pet-click-through` 不重启 Helper，下一次启动按配置落位）。
-   * 写完刷新一次菜单，勾选跟着走。
+   * 托盘与宠物窗口在同一个进程里：先就地翻窗（`setClickThrough` 会强制整窗穿透、把最终值回推渲染端，
+   * 并触发变更广播），再把目标值写进配置（`/pet-click-through` 不重启 Helper，下一次启动按配置落位）。
+   * 写完的这次刷新只是对账——广播已经把菜单刷过一次，合并刷新会把它并成一次。
    */
   function traySetClickThrough(id, value) {
     const win = petWindows && petWindows.state && petWindows.state.windows ? petWindows.state.windows.get(id) : null;
     if (win && typeof petWindows.setClickThrough === 'function') petWindows.setClickThrough(win, value);
     hostRequest('POST', petRoute + '/pet-click-through', JSON.stringify({ id, value }))
-      .then(() => refreshTray())
+      .then(() => scheduleRefresh())
       .catch((e) => {
         console.error('[fish-body-desktop] tray pet-click-through failed:', String(e && e.message ? e.message : e));
       });
@@ -211,7 +231,8 @@ function createTray({
           renderer,
           // 当前渲染方式的覆盖值；缺键 = 跟随 baseSize（与 shared/pet-size 的 renderSizeOf 同口径）。
           overrideSize: Number.isFinite(ownSize) && ownSize > 0 ? ownSize : undefined,
-          clickThrough: pet && pet.clickThrough === true,
+          // 鼠标穿透的勾：运行期镜像优先（窗口真实状态），窗口不在才回落配置值。
+          clickThrough: clickThroughOfPet(String((pet && pet.id) || ''), pet && pet.clickThrough === true),
         };
       })
       .filter((pet) => pet.id);
@@ -397,9 +418,37 @@ function createTray({
     }
   }
 
+  /**
+   * 合并式刷新：变更广播与写盘回执会在一瞬间连着来两下，逐次重画既浪费宿主往返也让菜单跳。
+   *
+   * 在飞时只置补跑标记，结束后再把标记消化掉——所以一次 burst 最多多跑一轮；
+   * 而「最后到达的那次变更」一定落进某次重画（菜单不会停在倒数第二个值）。永不抛：调用方是事件回调。
+   */
+  async function scheduleRefresh() {
+    if (refreshInFlight) {
+      refreshAgain = true;
+      return;
+    }
+    refreshInFlight = true;
+    try {
+      do {
+        refreshAgain = false;
+        await refreshTray();
+      } while (refreshAgain);
+    } catch (e) {
+      // refreshTray 自己已吞错；这里兜住「非 refreshTray 抛出的」意外，绝不把异常丢进事件回调
+      console.error('[fish-body-desktop] tray schedule refresh failed:', String(e && e.message ? e.message : e));
+    } finally {
+      refreshInFlight = false;
+      refreshAgain = false;
+    }
+  }
+
   return {
     start: startTray,
     refresh: refreshTray,
+    // 变更广播的落点：装配根订阅 windows.onClickThroughChange 后调它
+    scheduleRefresh,
     exists: () => tray !== null,
     destroy() {
       if (!tray) return;

@@ -56,6 +56,13 @@ function createWindows({
   const windowIgnore = new Map();
   /** 每窗口的「鼠标穿透」开关镜像（`pets[].clickThrough`）：true 时任何通道都翻不回可交互 */
   const clickThrough = new Map();
+  /**
+   * 「鼠标穿透」变更订阅者集合。
+   *
+   * 三个入口（右键菜单、托盘、设置页保存后的重启落位）最终都汇到 setClickThrough 这一个出口，
+   * 订阅者（装配根 main.js）据此让托盘菜单追上非托盘来源的变更——托盘自己不再需要「谁改的」这条知识。
+   */
+  const clickThroughListeners = new Set();
   /** 每窗口「渲染端正拿着鼠标输入」标记，由渲染端经 pet:input-busy 上报 */
   const inputBusy = new Map();
   /** 新渲染端把菜单/聊天框局部矩形单独上报，避免忙碌态下整窗透明余量吞点击 */
@@ -112,12 +119,68 @@ function createWindows({
     windowIgnore.set(win.id, next);
   }
 
+  /** 按窗口反查宠物 id（窗口表是 petId → win）：查不到返回空串，日志里如实留空。 */
+  function petIdOfWindow(win) {
+    for (const [petId, candidate] of windows) {
+      if (candidate === win) return petId;
+    }
+    return '';
+  }
+
   /**
-   * 应用一只宠物的「鼠标穿透」开关（渲染端切换、启动落位都走这里）。
+   * 按 petId 取运行期「鼠标穿透」镜像。
+   *
+   * `undefined` = 不知道（窗口还没建，或已销毁）：调用方（托盘）据此回落配置值，
+   * 所以销毁即删镜像是安全的，不会留一条过期勾选。
+   *
+   * @param {string} petId - 宠物 id。
+   * @returns {boolean|undefined} 该窗口当前的穿透开关。
+   */
+  function clickThroughOf(petId) {
+    const win = windows.get(String(petId));
+    if (!win || win.isDestroyed()) return undefined;
+    return clickThrough.get(win.id);
+  }
+
+  /**
+   * 订阅「鼠标穿透」变更：监听者拿到 `(petId, value)`。
+   *
+   * 回调抛错一律吞掉——订阅者是托盘刷新，它坏掉不能连累窗口翻转（窗口状态才是用户直接感知的那一面）。
+   *
+   * @param {(petId: string, value: boolean) => void} listener - 变更回调。
+   * @returns {() => void} 退订函数。
+   */
+  function onClickThroughChange(listener) {
+    if (typeof listener !== 'function') return () => {};
+    clickThroughListeners.add(listener);
+    return () => {
+      clickThroughListeners.delete(listener);
+    };
+  }
+
+  /** 值真的变了才广播：同值调用（启动落位、渲染端重复上报）不制造托盘刷新风暴。 */
+  function notifyClickThroughChange(win, value) {
+    const petId = petIdOfWindow(win);
+    // 宿主把 helper 的 stderr 当 warn 落盘（console.log 会被日志级别过滤掉），真机取证只认这一行
+    console.error('[fish-body-desktop] click-through changed pet=' + petId + ' value=' + value);
+    for (const listener of clickThroughListeners) {
+      try {
+        listener(petId, value);
+      } catch (e) {
+        console.error('[fish-body-desktop] click-through listener failed:', String(e && e.message ? e.message : e));
+      }
+    }
+  }
+
+  /**
+   * 应用一只宠物的「鼠标穿透」开关（渲染端切换、托盘、启动落位都走这里）。
    *
    * 打开：立刻强制整窗穿透并广播给渲染端（渲染端据此停掉悬停/提示判定）。
    * 关闭：**不**主动翻成可交互——直接把窗口交还给常规通道（渲染端上报 + 兜底轮询），
    * 否则启动落位那一次「关」会让透明大窗先挡一下鼠标，宠物贴边时还会被钉在可交互状态。
+   *
+   * 这是穿透状态的唯一出口，因此变更广播也挂在这里：`prev !== value`（首次登记 prev 为
+   * `undefined`，同样算变更）时通知订阅者。回推渲染端仍无条件发（防渲染端漂移）。
    *
    * @param {object} win - 目标窗口。
    * @param {boolean} on - 是否穿透。
@@ -125,9 +188,11 @@ function createWindows({
   function setClickThrough(win, on) {
     if (!win || win.isDestroyed()) return;
     const value = on === true;
+    const prev = clickThrough.get(win.id);
     clickThrough.set(win.id, value);
     if (value) setWindowIgnore(win, true);
     if (!win.isDestroyed()) win.webContents.send('pet:click-through', value);
+    if (prev !== value) notifyClickThroughChange(win, value);
   }
 
   /** 桌面几何：逐屏工作区、外接矩形、主屏下标；边界判定必须走 areas 的并集而不是 hull。 */
@@ -509,6 +574,9 @@ function createWindows({
     geometry: deskGeometry,
     setWindowIgnore,
     setClickThrough,
+    // 穿透状态的读取面与变更广播：托盘刷新与装配根据此跟上非托盘来源的变更
+    clickThroughOf,
+    onClickThroughChange,
     updatePetState,
     broadcastPetStates,
     keepOffTaskbar,

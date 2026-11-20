@@ -503,12 +503,15 @@ export const EMPTY_CLOUD_SETTINGS: CloudSettings = {
   headers: '',
 };
 
+/** 取一个预设的 spec（`none` + `openai` 时按 `openai-speech` 预填，让老 `openai` 配置形状不变）。 */
+function presetSpecOf(preset: CloudPreset, protocol: CloudProtocol): CloudPresetSpec {
+  if (preset === 'none') return protocol === 'openai' ? CLOUD_PRESET_SPECS['openai-speech'] : EMPTY_PRESET_SPEC;
+  return CLOUD_PRESET_SPECS[preset];
+}
+
 /** 取一个预设（`none` + `openai` 时按 `openai-speech` 预填，让老 `openai` 配置形状不变）。 */
 function specOf(settings: CloudSettings): CloudPresetSpec {
-  if (settings.preset === 'none') {
-    return settings.protocol === 'openai' ? CLOUD_PRESET_SPECS['openai-speech'] : EMPTY_PRESET_SPEC;
-  }
-  return CLOUD_PRESET_SPECS[settings.preset];
+  return presetSpecOf(settings.preset, settings.protocol);
 }
 
 /**
@@ -539,6 +542,140 @@ export function cloudAxesOf(settings: CloudSettings): CloudAxes {
     voice: firstNonEmpty(settings.voice, spec.voice),
   };
 }
+
+/**
+ * 预设会「预填」的键：四轴（路径 / 鉴权 / 请求体 / 响应取值）及其派生项，加上音色。
+ *
+ * 与 {@link CloudPresetSpec} 的字段一一对应；`model` 不在这里（预设没有模型默认值），
+ * `useCloud` / `apiKey` 也不在（付费开关与密钥不属预设）。
+ */
+const PRESET_AXIS_KEYS = [
+  'path',
+  'authStyle',
+  'authHeader',
+  'bodyKind',
+  'bodyTemplate',
+  'responseKind',
+  'responsePath',
+  'headers',
+  'format',
+  'voice',
+] as const;
+
+/** `none（手动填四轴）` 的预填值：全空 —— 在存储层就是「把这些键全删掉」，回到纯手填。 */
+const EMPTY_AXIS_DEFAULTS: Readonly<Record<string, string>> = {
+  path: '',
+  authStyle: '',
+  authHeader: '',
+  bodyKind: '',
+  bodyTemplate: '',
+  responseKind: '',
+  responsePath: '',
+  headers: '',
+  format: '',
+  voice: '',
+};
+
+/**
+ * 一个预设的「默认值表」：**它会把哪些字面值写进配置**。
+ *
+ * 与 {@link cloudAxesOf} 的兜底同源（同一份 `CLOUD_PRESET_SPECS`），所以「写进去的值」与
+ * 「留空时生效的值」永远相等——这正是 R2 要的那个一致性。
+ *
+ * @param preset - 预设名。
+ * @param protocol - 仅在 `none` 时有意义（`none` + `openai` 按 `openai-speech` 预填，同 {@link specOf}）。
+ * @returns 十个键的字面值；`none` 一律空串。
+ */
+function axisDefaultsOf(preset: CloudPreset, protocol: CloudProtocol): Readonly<Record<string, string>> {
+  if (preset === 'none') return EMPTY_AXIS_DEFAULTS;
+  const spec = presetSpecOf(preset, protocol);
+  return {
+    path: spec.path,
+    authStyle: spec.authStyle,
+    authHeader: spec.authHeader ?? '',
+    bodyKind: spec.bodyKind,
+    bodyTemplate: spec.bodyTemplate,
+    responseKind: spec.responseKind,
+    responsePath: spec.responsePath ?? '',
+    headers: spec.headers ?? '',
+    format: spec.format,
+    voice: spec.voice,
+  };
+}
+
+/**
+ * 把「这次选的预设」的默认值展开进要写的 patch（R2：真预填）。
+ *
+ * 只在 `patch` 里出现 `preset` 键时动手；规则是**手填保护**：
+ * 某个键本次要写的值（`patch` 有就用 `patch`，即用户在表单里刚改的；否则用盘上的）
+ * 是空串、或仍等于**旧**预设的默认值时，才用新预设的默认值覆盖它；否则原样保留。
+ *
+ * 为什么判「本次要写的值」而不是只看盘上的值：设置页保存时把整份草稿都发上来
+ * （`voice-tab` 的 `saveProvider(form.id, state.values)`），只看盘上会把用户在同一屏里
+ * 刚填的值当成「旧值」覆盖掉。
+ *
+ * `none（手动填四轴）` 写成空串（= 删键），所以切过去是真的回到手填，不会残留上一个预设的路径。
+ * `baseURL` 只在新预设自带地址（deepseek）时才写：其余预设的有效地址是 `cloudBaseURL` 的
+ * openai 兜底，把它写死会绑死用户配置。
+ *
+ * @param patch - 本次要写的普通键值。
+ * @param current - 盘上当前的普通键值（`readProviderValues` 的结果）。
+ * @returns 展开后的新 patch（不改入参）。
+ */
+export function expandCloudPresetPatch(
+  patch: Readonly<Record<string, string>>,
+  current: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const next: Record<string, string> = { ...patch };
+  if (!Object.prototype.hasOwnProperty.call(patch, 'preset')) return next;
+
+  const baseURL = (current.baseURL ?? '').trim();
+  const oldPreset = cloudPresetOf(current.preset, current.protocol, baseURL);
+  const newPreset = cloudPresetOf(patch.preset, patch.protocol ?? current.protocol, baseURL);
+  const oldDefaults = axisDefaultsOf(oldPreset, protocolOfPreset(oldPreset));
+  const newDefaults = axisDefaultsOf(newPreset, protocolOfPreset(newPreset));
+  /** 本次要写的值：patch 里有就用它（用户刚改的），否则回落盘上。 */
+  const incoming = (key: string): string => patch[key] ?? current[key] ?? '';
+
+  for (const key of PRESET_AXIS_KEYS) {
+    const value = incoming(key);
+    // 空 = 「跟随预设」；等于旧默认 = 「上次预填进来的」——这两种都该被新预设接管
+    if (value === '' || value === oldDefaults[key]) next[key] = newDefaults[key];
+  }
+
+  // 协议：与轴同一条保护规则。比较前先归一——老配置里存的是历史值 `deepseek`，
+  // 它的规范形态是 `custom`；拿原文比会把「旧预设默认」误判成「用户手填」。
+  const incomingProtocol = explicitProtocolOf(incoming('protocol')) ?? incoming('protocol');
+  if (incomingProtocol === '' || incomingProtocol === protocolOfPreset(oldPreset)) {
+    next.protocol = protocolOfPreset(newPreset);
+  }
+
+  // 根地址三件事（缺一条就会把 A 的域名拼上 B 的路径）：
+  //   ① 新预设自带地址（deepseek）：旧值为空、或等于旧预设官方默认时写新地址；
+  //   ② 新预设**不**自带地址（mimo / openai-speech / none）：旧值若正好是上一个预设的官方默认
+  //      （= 上次预填进来的，不是用户手填的），必须清成空串——否则 `cloudBaseURL()` 见非空即用，
+  //      mimo 的 path 会拼到 deepseek 的域名上；
+  //   ③ 用户手填的地址（≠ 任何预设官方默认）在任何切换下都不动。
+  const oldBaseDefault =
+    oldPreset === 'none' ? '' : (presetSpecOf(oldPreset, protocolOfPreset(oldPreset)).baseURL ?? '');
+  const newBaseDefault =
+    newPreset === 'none' ? '' : (presetSpecOf(newPreset, protocolOfPreset(newPreset)).baseURL ?? '');
+  const incomingBase = incoming('baseURL');
+  if (newBaseDefault !== '') {
+    if (incomingBase === '' || incomingBase === oldBaseDefault) next.baseURL = newBaseDefault;
+  } else if (incomingBase !== '' && incomingBase === oldBaseDefault) {
+    next.baseURL = '';
+  }
+
+  return next;
+}
+
+/** 「落盘地址是不是别的预设留下的」用的官方地址表（空地址的预设不在里面）。 */
+const PRESET_BASE_URLS: ReadonlyArray<{ preset: CloudPreset; url: string }> = (
+  Object.entries(CLOUD_PRESET_SPECS) as Array<[Exclude<CloudPreset, 'none'>, CloudPresetSpec]>
+)
+  .map(([preset, spec]) => ({ preset, url: spec.baseURL ?? '' }))
+  .filter((item) => item.url !== '');
 
 /** 生效的接口根地址：留空按预设/协议取默认（custom 没有默认，回空串）；末尾斜杠去掉。 */
 export function cloudBaseURL(settings: CloudSettings): string {
@@ -682,8 +819,9 @@ const BASE_FIELDS: readonly VoiceField[] = [
     kind: 'select',
     options: [CLOUD_PRESET_NONE_LABEL, ...CLOUD_PRESETS.filter((preset) => preset !== 'none')],
     description:
-      '选一个预填四轴（路径、鉴权、请求体、响应取值）；预设只是默认值，下面的字段可以逐项覆盖，' +
-      'none（手动填四轴）= 完全手填',
+      '选一个预设；点「保存接入配置」时会把该预设的四轴默认值写进下面字段（你手填过的项保持不动）；' +
+      '切到 none（手动填四轴）会清掉这些预填值，完全手填。' +
+      '注意：手填的值若正好等于旧预设的默认值，会被当成「上次预填的」而被新预设覆盖',
   },
   {
     key: 'protocol',
@@ -699,7 +837,9 @@ const BASE_FIELDS: readonly VoiceField[] = [
     label: '服务地址',
     kind: 'text',
     placeholder: DEFAULT_CLOUD_BASE_URL,
-    description: '接口根地址（不带具体路径）；deepseek 预设留空用官方地址，其余预设必填',
+    description:
+      '接口根地址（不带具体路径）。留空时：deepseek 用官方地址；接口协议 = openai 而预设未自带地址时' +
+      '用 OpenAI 官方地址；custom 没有默认值，必须填',
   },
   {
     key: 'path',
@@ -988,6 +1128,22 @@ export function cloudConfigProblems(settings: CloudSettings, hasKey: boolean): s
     if (required.includes('baseURL')) problems.push('缺少必填项：baseURL');
   } else if (!/^https?:\/\//i.test(axes.baseURL)) {
     problems.push('服务地址（baseURL）必须以 http:// 或 https:// 开头');
+  } else if (settings.preset !== 'none') {
+    // 一致性：预设模式下，落盘地址不得是**另一个**预设的官方地址。
+    // 切预设而地址没清时 `cloudBaseURL()` 见非空即用 → 新预设的 path 会拼到旧域名上
+    // （deepseek → mimo 就是 https://api.deepseek.com/v1/chat/completions）。
+    //
+    // `none（手动填四轴）` 必须跳过：那里地址完全由用户填，清空它没有任何兜底，
+    // 而「手填地址恰好是 deepseek 官方地址 + 自己的 path/template」是合法配置，
+    // 拦下来等于逼用户改用 deepseek 预设。
+    const ownBase = specOf(settings).baseURL ?? '';
+    const foreign = PRESET_BASE_URLS.find((item) => item.url === axes.baseURL && item.url !== ownBase);
+    if (foreign !== undefined) {
+      problems.push(
+        `服务地址和当前预设对不上：这一项是「${foreign.preset}」预设的官方地址，而当前预设是「${settings.preset}」。` +
+          '换预设时旧官方地址没被清掉就会出现这种组合；可以清空这一项（回落当前预设默认）或改成自己的地址',
+      );
+    }
   }
   const missing = required
     .filter((key) => key !== 'apiKey' && key !== 'baseURL')
@@ -1429,6 +1585,9 @@ export function createCloudProvider(deps: CloudProviderDeps): VoiceProvider {
     // 允许读的引用同样按生效预设收窄：只有 deepseek 才允许回退宿主 `DEEPSEEK_API_KEY`，
     // 否则「baseURL 指到第三方却读宿主 key」等于把宿主的模型凭据发给陌生服务。
     keyRefs: (values) => cloudKeyRefs(cloudSettingsOf({ cloud: values })),
+    // 预设展开（R2）：路由在「拆完 plain/secret、鉴权判定之前」调一次，把该预设的四轴默认值
+    // 真写进配置——否则说明写着「预填四轴」而界面全空（QA-19），文案与行为各说一套。
+    expandPatch: (patch, current) => expandCloudPresetPatch(patch, current),
     availability: () => verdict,
     // 音色是自由文本、没有可枚举的清单，只把「当前这一个」报出来：右键菜单与设置页据此显示在用什么嗓子，
     // 切到别的音色得改接入卡（/voice/provider-voice 只收清单里的值）

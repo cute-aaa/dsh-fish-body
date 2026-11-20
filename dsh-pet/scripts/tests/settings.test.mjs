@@ -213,6 +213,8 @@ async function open(
     reducedMotion,
     // 语音实现清单：给了就让「声音」分区出现对应的接入卡（默认走兜底 JSON，没有 provider）。
     voiceProviders = null,
+    // 接入配置的「服务端」状态：`{ values, secrets }`，POST 时按预设展开后写回（R2 的 UI 侧证据）。
+    voiceConfig = null,
   } = {},
 ) {
   const context = await browser.newContext(reducedMotion ? { reducedMotion, viewport } : { viewport });
@@ -472,6 +474,18 @@ async function open(
     }
     if (path === '/dsh-pet-7340/voice/voices' && voiceProviders !== null) {
       return route.fulfill({ json: { ok: true, voices: [], providers: voiceProviders } });
+    }
+    // 接入配置：GET 回「服务端」当前值，POST 先按预设展开再回展开后的值。
+    // 展开规则与宿主同形（空值/等于旧预设默认值才覆盖），所以保存后卡上显示的就是「生效值」。
+    if (path === '/dsh-pet-7340/voice/provider-config' && voiceConfig !== null) {
+      if (request.method() === 'POST') {
+        const patch = request.postDataJSON()?.patch ?? {};
+        voiceConfig.patches.push(patch);
+        voiceConfig.values = expandPresetPatch(voiceConfig.values, patch);
+      }
+      return route.fulfill({
+        json: { ok: true, provider: 'cloud', values: voiceConfig.values, secrets: voiceConfig.secrets },
+      });
     }
     return route.fulfill({
       json: { providers: [{ id: 'test', name: 'Test', models: [{ id: 'model', name: 'Model' }] }] },
@@ -1172,6 +1186,258 @@ test('audio → 每个语音实现一张接入卡：云端骨架按 fields 生�
       animations: 'disabled',
     });
   }
+});
+
+/**
+ * 预设默认值（键集 = 宿主的 `PRESET_AXIS_KEYS`；本文件只用到这四个预设）。
+ *
+ * 真正的展开规则（手填保护、切 none 清空、不写多余键）由 `src/host/voice/cloud/provider.test.ts`
+ * 逐条钉住；这里只让「服务端」按同一条契约回包，UI 侧才能断言「显示值 = 生效值」。
+ */
+const PRESET_AXIS_DEFAULTS = {
+  'openai-speech': {
+    path: '/v1/audio/speech',
+    authStyle: 'bearer',
+    authHeader: '',
+    bodyKind: 'json',
+    responseKind: 'audio',
+    responsePath: '',
+    format: 'mp3',
+    voice: '',
+    protocol: 'openai',
+  },
+  mimo: {
+    path: '/v1/chat/completions',
+    authStyle: 'api-key-header',
+    authHeader: 'api-key',
+    bodyKind: 'json',
+    responseKind: 'json-base64',
+    responsePath: 'choices.0.message.audio.data',
+    format: 'wav',
+    voice: '',
+    protocol: 'openai',
+  },
+  deepseek: {
+    path: '/v1/tools/tts',
+    authStyle: 'bearer',
+    authHeader: '',
+    bodyKind: 'json',
+    responseKind: 'audio',
+    responsePath: '',
+    format: 'wav',
+    voice: 'stella',
+    protocol: 'custom',
+    baseURL: 'https://api.deepseek.com',
+  },
+  none: {
+    path: '',
+    authStyle: '',
+    authHeader: '',
+    bodyKind: '',
+    responseKind: '',
+    responsePath: '',
+    format: '',
+    voice: '',
+    protocol: 'custom',
+  },
+};
+
+/** 「服务端」的展开：`patch` 带 `preset` 时用它那一套默认值覆盖轴（夹具简化为直接覆盖）。 */
+function expandPresetPatch(values, patch) {
+  const next = { ...values, ...patch };
+  if (!('preset' in patch)) return next;
+  return { ...next, ...(PRESET_AXIS_DEFAULTS[patch.preset] ?? PRESET_AXIS_DEFAULTS.none) };
+}
+
+/** 预设说明：与 `provider.ts` 的 `BASE_FIELDS` 逐字相同的两句承诺（断言不看实现，看渲染）。 */
+const PRESET_PROMISE = '会把该预设的四轴默认值写进';
+const PRESET_NONE_PROMISE = '会清掉这些预填值';
+
+/** 云端接入卡的完整字段（与宿主 `cloudFieldsFor` 同序同标签），用于「值真的显示出来」的断言。 */
+const cloudFullProvider = {
+  id: 'cloud',
+  name: '云端语音（扩展）',
+  builtin: false,
+  available: true,
+  voices: [],
+  voice: '',
+  fields: [
+    { key: 'useCloud', label: '使用云端语音', kind: 'select', options: ['off', 'on'] },
+    {
+      key: 'preset',
+      label: '服务预设',
+      kind: 'select',
+      options: ['none（手动填四轴）', 'openai-speech', 'mimo', 'deepseek'],
+      description:
+        '选一个预设；点「保存接入配置」时会把该预设的四轴默认值写进下面字段（你手填过的项保持不动）；' +
+        '切到 none（手动填四轴）会清掉这些预填值，完全手填。' +
+        '注意：手填的值若正好等于旧预设的默认值，会被当成「上次预填的」而被新预设覆盖',
+    },
+    { key: 'protocol', label: '接口协议', kind: 'select', options: ['openai', 'custom'] },
+    { key: 'baseURL', label: '服务地址', kind: 'text', placeholder: 'https://api.deepseek.com' },
+    { key: 'path', label: '合成路径', kind: 'text', placeholder: '/v1/audio/speech' },
+    {
+      key: 'authStyle',
+      label: '鉴权方式',
+      kind: 'select',
+      options: ['bearer', 'api-key-header', 'x-api-key', 'query', 'none'],
+    },
+    { key: 'authHeader', label: '鉴权头名', kind: 'text' },
+    { key: 'model', label: '模型', kind: 'text' },
+    { key: 'voice', label: '音色', kind: 'text', placeholder: 'alloy' },
+    { key: 'format', label: '返回格式', kind: 'text', placeholder: 'mp3' },
+    { key: 'bodyKind', label: '请求体编码', kind: 'select', options: ['json', 'form', 'ssml'] },
+    { key: 'bodyTemplate', label: '请求体模板', kind: 'text' },
+    {
+      key: 'responseKind',
+      label: '响应取值',
+      kind: 'select',
+      options: ['audio', 'json-base64', 'json-hex', 'json-url'],
+    },
+    { key: 'responsePath', label: '响应取值路径', kind: 'text' },
+    { key: 'headers', label: '额外请求头', kind: 'text' },
+    { key: 'apiKey', label: 'API Key', kind: 'password', placeholder: 'sk-…' },
+  ],
+};
+
+/** 按字段标签取那一行的控件（`.dsh-pet-cfg__field` 里同时装着标签、控件与说明）。 */
+const fieldOf = (page, label) =>
+  page
+    .locator('.dsh-pet-cfg__field')
+    .filter({ has: page.locator('.dsh-pet-cfg__flabel', { hasText: new RegExp('^' + label + ' *\\*?$') }) })
+    .first();
+
+/** 读一个文本字段的当前显示值。 */
+const fieldValue = async (page, label) => fieldOf(page, label).locator('input').first().inputValue();
+
+/** 读一个下拉字段的当前选中值。 */
+const fieldSelected = async (page, label) => fieldOf(page, label).locator('select').first().inputValue();
+
+/** 一整套「空」的服务端值：所有键都在，值全空（与宿主 `readProviderValues` 同形）。 */
+const emptyCloudValues = () => Object.fromEntries(cloudFullProvider.fields.map((field) => [field.key, '']));
+
+test('R2：选预设并保存后，输入框显示的就是展开后的生效值（不是空）', async (t) => {
+  const voiceConfig = { values: emptyCloudValues(), secrets: { apiKey: false }, patches: [] };
+  const { page } = await open(t, {
+    voiceProviders: [cloudFullProvider],
+    voiceConfig,
+    viewport: { width: 1000, height: 2200 },
+  });
+  await tab(page, 'Sound').click();
+  await page.getByText('云端语音（扩展）', { exact: true }).waitFor();
+
+  // 保存前：文本字段全空——这正是 QA-19 抱怨的那个状态
+  // （下拉用的是原生 <select>，空值渲染成第一项，所以「空」只对文本字段可断言）
+  assert.equal(await fieldValue(page, '合成路径'), '', '未保存前不该有预填值');
+  assert.equal(await fieldValue(page, '响应取值路径'), '', '未保存前不该有预填值');
+  assert.equal(voiceConfig.patches.length, 0, '打开页面不该触发保存');
+
+  // 选 mimo → 点「保存接入配置」→ 服务端展开并回传 values → 卡上用它们覆盖草稿
+  await fieldOf(page, '服务预设').locator('select').selectOption('mimo');
+  await page.getByRole('button', { name: 'Save connection', exact: true }).click();
+  await page.getByText('Saved; the voice list has been refreshed', { exact: true }).waitFor();
+
+  assert.deepEqual(
+    {
+      path: await fieldValue(page, '合成路径'),
+      authStyle: await fieldSelected(page, '鉴权方式'),
+      responseKind: await fieldSelected(page, '响应取值'),
+      responsePath: await fieldValue(page, '响应取值路径'),
+      format: await fieldValue(page, '返回格式'),
+      protocol: await fieldSelected(page, '接口协议'),
+    },
+    {
+      path: '/v1/chat/completions',
+      authStyle: 'api-key-header',
+      responseKind: 'json-base64',
+      responsePath: 'choices.0.message.audio.data',
+      format: 'wav',
+      protocol: 'openai',
+    },
+    'mimo 的四轴必须真的显示在字段里（说明承诺过的就是这些值）',
+  );
+  assert.equal(voiceConfig.patches.length, 1, '一次保存只发一次');
+  assert.equal(voiceConfig.patches[0].preset, 'mimo', '草稿里的 preset 要跟着发上去');
+
+  // 再切 deepseek：mimo 的残留被清、stella 与官方地址填上
+  await fieldOf(page, '服务预设').locator('select').selectOption('deepseek');
+  await page.getByRole('button', { name: 'Save connection', exact: true }).click();
+  await page.waitForTimeout(200);
+
+  assert.equal(await fieldValue(page, '合成路径'), '/v1/tools/tts');
+  assert.equal(await fieldValue(page, '音色'), 'stella', 'deepseek 的默认音色要显示出来');
+  assert.equal(await fieldSelected(page, '接口协议'), 'custom');
+  assert.equal(await fieldValue(page, '服务地址'), 'https://api.deepseek.com', 'deepseek 自带地址');
+  assert.equal(await fieldValue(page, '响应取值路径'), '', 'mimo 的 JSON 路径必须被清掉');
+  assert.equal(await fieldValue(page, '鉴权头名'), '', 'mimo 的 api-key 头名不能留给 deepseek');
+
+  if (process.env.DSH_PET_UI_ARTIFACTS) {
+    mkdirSync(process.env.DSH_PET_UI_ARTIFACTS, { recursive: true });
+    await page.screenshot({
+      path: join(process.env.DSH_PET_UI_ARTIFACTS, 'T6-settings-preset.png'),
+      fullPage: true,
+      animations: 'disabled',
+    });
+  }
+});
+
+test('R2：服务预设的说明与行为同源（承诺预填就真的预填）', async (t) => {
+  const voiceConfig = { values: emptyCloudValues(), secrets: { apiKey: false }, patches: [] };
+  const { page } = await open(t, {
+    voiceProviders: [cloudFullProvider],
+    voiceConfig,
+    viewport: { width: 1000, height: 2200 },
+  });
+  await tab(page, 'Sound').click();
+  await page.getByText('云端语音（扩展）', { exact: true }).waitFor();
+
+  // 字段说明挂在标签的 data-tip 上（悬浮即气泡），不是常显文本——所以读属性而不是 innerText。
+  const description = await fieldOf(page, '服务预设').locator('.dsh-pet-cfg__flabel').first().getAttribute('data-tip');
+  assert.ok(description, '服务预设这一项必须带说明（否则「预填」这件事没有任何地方承诺）');
+  assert.ok(description.includes(PRESET_PROMISE), `说明里要写明保存时会预填：${description}`);
+  assert.ok(description.includes(PRESET_NONE_PROMISE), '说明里要写明切 none 会清掉预填值');
+  assert.equal(
+    description.includes('预设只是默认值，下面的字段可以逐项覆盖'),
+    false,
+    '旧文案（只说「可以覆盖」而不说「保存时写进去」）不该留下',
+  );
+});
+
+test('R3：改选另一只宠物 → 刷新 → 仍停在它上面', async (t) => {
+  const twoPets = {
+    main: { ...customized.main, pets: [pet, { ...pet, id: 'pet-2', name: 'Red' }] },
+  };
+  const { page } = await open(t, { get: twoPets, viewport: { width: 900, height: 1400 } });
+  await tab(page, 'Pet').click();
+  await page.locator('#dsh-pet-cfg-panel-pet [data-pet-id]').first().waitFor();
+  assert.equal(
+    await page.locator('#dsh-pet-cfg-panel-pet [data-pet-id="pet-1"]').getAttribute('class'),
+    'dsh-pet-cfg__chip is-active',
+    '默认停在第一只',
+  );
+  assert.equal(await page.evaluate(() => localStorage.getItem('dsh-pet/settings-pet')), null);
+
+  await page.locator('#dsh-pet-cfg-panel-pet [data-pet-id="pet-2"]').click();
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem('dsh-pet/settings-pet')),
+    'pet-2',
+    '点了哪只就记哪只（key = dsh-pet/settings-pet，值是裸 petId）',
+  );
+
+  await page.reload();
+  await page.locator('.dsh-pet-cfg').waitFor();
+  await tab(page, 'Pet').click();
+  await page.locator('#dsh-pet-cfg-panel-pet [data-pet-id="pet-2"]').waitFor();
+  assert.equal(
+    await page.locator('#dsh-pet-cfg-panel-pet [data-pet-id="pet-2"]').getAttribute('class'),
+    'dsh-pet-cfg__chip is-active',
+    '刷新后仍停在第二只',
+  );
+  assert.equal(
+    await page.locator('#dsh-pet-cfg-panel-pet [data-pet-id="pet-1"]').getAttribute('class'),
+    'dsh-pet-cfg__chip',
+    '第一只不再是选中态',
+  );
 });
 
 test('T22: AI polish shows a preview, and cancel leaves the persona untouched', async (t) => {

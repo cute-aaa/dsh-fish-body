@@ -101,6 +101,26 @@ export interface VoiceProvider {
    */
   keyRefs?(values: Readonly<Record<string, string>>): readonly string[];
   /**
+   * 「这次 patch 带预设时，先把预设默认值展开进要写的值」（可选）。
+   *
+   * 存在的理由：`fields` 的说明承诺「选预设会预填四轴」，而只写用户给的键会让界面出现
+   * 「说明说预填、字段全空」（QA-19）。展开放在**宿主**侧，客户端因此不必复制一份预设表。
+   *
+   * 路由的调用时机是「拆完普通项/密钥项之后、鉴权判定之前」：`needsKey` 必须看到展开后的
+   * 生效值，否则 `preset=mimo` 会被判成「不需要密钥」（R2 与 D-07 的交点）。
+   *
+   * 必须是纯函数（不改入参、不读盘、不抛正常路径的错）：路由会把结果按该实现的 `fields`
+   * 键白名单再过滤一遍，多写的键不会落盘。
+   *
+   * @param patch - 本次要写的普通配置项（已通过键白名单与取值形状校验）。
+   * @param current - 盘上当前的普通配置项（缺项为空串）。
+   * @returns 展开后的新 patch。
+   */
+  expandPatch?(
+    patch: Readonly<Record<string, string>>,
+    current: Readonly<Record<string, string>>,
+  ): Record<string, string>;
+  /**
    * 现在能不能用（服务没起、没配 key、音色没加载…）。
    *
    * 缺省视为可用；必须同步返回——每次合成都会现查一次，异步探测要自己缓存结论。

@@ -18,6 +18,7 @@ import { registerVoiceProvider, resetVoiceProviders } from '../voice/registry.ts
 import {
   CLOUD_API_KEY_FALLBACK,
   CLOUD_API_KEY_REF,
+  CLOUD_FIELDS,
   EMPTY_CLOUD_SETTINGS,
   cloudAxesOf,
   cloudSettingsOf,
@@ -604,6 +605,226 @@ describe('P2-9 / 生产云端口径：needsKey 与 keyRefs 必须由实现给出
       assert.match(String(obj.message), /不能清空/);
       assert.equal(existsSync(userPaths(root).voiceProviders), false, '被拒时不得写普通项');
       assert.equal(store.get(CLOUD_API_KEY_REF), 'user-key', '被拒时不得动凭据');
+    } finally {
+      dispose();
+    }
+  });
+});
+
+describe('R2 预设展开：patch 带 preset 时宿主把四轴默认值展开进落盘值', () => {
+  /** 生产云端的路由用实例（同一个工厂，settings 走空配置：只影响 fields 的候选顺序，不影响判定）。 */
+  const productionCloud = (): ReturnType<typeof createCloudProvider> =>
+    createCloudProvider({ settings: () => EMPTY_CLOUD_SETTINGS, readKey: async () => undefined });
+
+  /** 落盘的普通项（`{ cloud: {...} }`），没有文件时给空对象。 */
+  const savedOf = (root: string): Record<string, string> => {
+    const file = userPaths(root).voiceProviders;
+    if (!existsSync(file)) return {};
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as { cloud?: Record<string, string> };
+    return parsed.cloud ?? {};
+  };
+
+  test('{preset:"mimo"}：path/鉴权/响应取值/格式/协议 真的写进配置（不是只在合成时兜底）', async () => {
+    const dispose = registerVoiceProvider(productionCloud());
+    const root = tempRoot();
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'cloud', { patch: { preset: 'mimo' } }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, true, JSON.stringify(obj));
+      const values = obj.values as Record<string, string>;
+      assert.equal(values.path, '/v1/chat/completions');
+      assert.equal(values.authStyle, 'api-key-header');
+      assert.equal(values.authHeader, 'api-key');
+      assert.equal(values.bodyKind, 'json');
+      assert.equal(values.responseKind, 'json-base64');
+      assert.equal(values.responsePath, 'choices.0.message.audio.data');
+      assert.equal(values.format, 'wav');
+      assert.equal(values.protocol, 'openai', 'mimo 属于 openai 协议族（修掉「显示 custom」）');
+      assert.equal(values.preset, 'mimo');
+      // 落盘的键只能是该实现声明过的（R-6：多写的键读侧白名单看不见，最难排查）
+      const declared = new Set(CLOUD_FIELDS.map((field) => field.key));
+      assert.ok(declared.size > 10, '云端该声明十来个字段');
+      for (const key of Object.keys(savedOf(root))) {
+        assert.ok(declared.has(key), `落盘出现了未声明的键 ${key}`);
+      }
+    } finally {
+      dispose();
+    }
+  });
+
+  test('换到 {preset:"deepseek"}：mimo 的残留被清掉，stella 与官方地址被写上', async () => {
+    const dispose = registerVoiceProvider(productionCloud());
+    const root = tempRoot();
+    try {
+      await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'cloud', { patch: { preset: 'mimo' } }),
+      );
+      const result = await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'cloud', { patch: { preset: 'deepseek' } }),
+      );
+      const values = jsonOf(result).values as Record<string, string>;
+      assert.equal(values.path, '/v1/tools/tts');
+      assert.equal(values.voice, 'stella');
+      assert.equal(values.protocol, 'custom');
+      assert.equal(values.baseURL, 'https://api.deepseek.com');
+      assert.equal(values.responsePath, '', 'mimo 的 JSON 路径必须清掉（空串 = 删键）');
+      const saved = savedOf(root);
+      assert.equal('responsePath' in saved, false, '清空的值不得以空串形式留在 JSON 里');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('{preset:"none"}：轴键全清，真的回到手填', async () => {
+    const dispose = registerVoiceProvider(productionCloud());
+    const root = tempRoot();
+    try {
+      await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'cloud', { patch: { preset: 'mimo' } }),
+      );
+      const result = await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'cloud', { patch: { preset: 'none（手动填四轴）' } }),
+      );
+      const values = jsonOf(result).values as Record<string, string>;
+      for (const key of [
+        'path',
+        'authStyle',
+        'authHeader',
+        'bodyKind',
+        'bodyTemplate',
+        'responseKind',
+        'responsePath',
+        'format',
+        'voice',
+      ]) {
+        assert.equal(values[key], '', `${key} 应被清空`);
+      }
+      assert.equal(values.protocol, 'custom');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('手填保护（路由级）：用户改过的音色在换预设时不被覆盖', async () => {
+    const dispose = registerVoiceProvider(productionCloud());
+    const root = tempRoot();
+    try {
+      await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'cloud', { patch: { preset: 'mimo', voice: 'nova' } }),
+      );
+      const result = await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'cloud', { patch: { preset: 'deepseek' } }),
+      );
+      const values = jsonOf(result).values as Record<string, string>;
+      assert.equal(values.voice, 'nova', '手填的音色必须留着');
+      assert.equal(values.path, '/v1/tools/tts', '没手填过的项照旧被新预设接管');
+    } finally {
+      dispose();
+    }
+  });
+
+  test('设置页的真实请求形状：整份草稿一起发（旧值也在 patch 里）也要换干净', async () => {
+    const dispose = registerVoiceProvider(productionCloud());
+    const root = tempRoot();
+    try {
+      // 先在 deepseek 上躺一会儿（草稿里因此是 deepseek 的整套值）
+      await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'cloud', { patch: { preset: 'deepseek' } }),
+      );
+      const before = jsonOf(await handleProviderConfig(depsOf(root, fakeCredentials().seam), input('GET', 'cloud')))
+        .values as Record<string, string>;
+
+      // 用户只把下拉改成 mimo 就点保存：客户端发的是「整份草稿」（voice-tab 的 state.values）
+      const draft = { ...before, preset: 'mimo' };
+      const result = await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'cloud', { patch: draft }),
+      );
+      const values = jsonOf(result).values as Record<string, string>;
+      assert.equal(values.path, '/v1/chat/completions', '草稿里的旧路径等于旧预设默认值 → 该被新预设接管');
+      assert.equal(values.voice, '', 'stella 是 deepseek 的默认值 → 换成 mimo 要清掉');
+      assert.equal(values.responsePath, 'choices.0.message.audio.data');
+      assert.equal(
+        values.baseURL,
+        '',
+        'deepseek 的官方地址是旧预设的默认（不是用户手填）→ 切走必须清掉，否则 mimo 的 path 会拼到 deepseek 域名上',
+      );
+    } finally {
+      dispose();
+    }
+  });
+
+  test('展开出来的值要过同一套形状校验：实现不能借展开写入 ftp:// 或候选外的值', async () => {
+    const dispose = registerVoiceProvider({
+      id: 'expand-evil',
+      name: '越权展开探针',
+      fields: [
+        { key: 'preset', label: '预设', kind: 'select', options: ['none', 'openai-speech'] },
+        { key: 'baseURL', label: '服务地址', kind: 'text' },
+        { key: 'authStyle', label: '鉴权', kind: 'select', options: ['bearer', 'none'] },
+      ],
+      // 展开时塞一个协议不对的地址 + 一个候选之外的值
+      expandPatch: (patch) => ({ ...patch, baseURL: 'ftp://evil.example', authStyle: 'sneaky' }),
+      synthesize: async () => {
+        throw new Error('探针不合成');
+      },
+    });
+    const root = tempRoot();
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'expand-evil', { patch: { preset: 'openai-speech' } }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, false, `越权值必须被挡下：${JSON.stringify(obj)}`);
+      assert.match(String(obj.message), /baseURL|authStyle/, '错误要指名是哪一项不合规');
+      assert.equal(existsSync(userPaths(root).voiceProviders), false, '被拒时不得写盘');
+    } finally {
+      dispose();
+    }
+  });
+});
+
+describe('R2 展开顺序：展开必须发生在鉴权判定之前', () => {
+  test('展开在鉴权判定之前：展开出来的 authStyle 必须影响 needsKey（顺序反了就白展开）', async () => {
+    /** 探针实现：只说「展开会把 authStyle 写成 none」，needsKey 看的就是这个值。 */
+    const journal = { calls: 0 };
+    const dispose = registerVoiceProvider({
+      id: 'expand-probe',
+      name: '展开顺序探针',
+      fields: [
+        { key: 'preset', label: '预设', kind: 'select', options: ['none', 'openai-speech'] },
+        { key: 'authStyle', label: '鉴权', kind: 'text' },
+      ],
+      expandPatch: (patch) => {
+        journal.calls += 1;
+        return { ...patch, authStyle: 'none' };
+      },
+      needsKey: (values) => values.authStyle !== 'none',
+      synthesize: async () => {
+        throw new Error('探针不合成');
+      },
+    });
+    const root = tempRoot();
+    try {
+      const result = await handleProviderConfig(
+        depsOf(root, fakeCredentials().seam),
+        input('POST', 'expand-probe', { patch: { preset: 'openai-speech' } }),
+      );
+      const obj = jsonOf(result);
+      assert.equal(obj.ok, true, `未展开就被鉴权判定拦下：${JSON.stringify(obj)}`);
+      assert.equal(journal.calls, 1, '一次保存只该展开一次');
+      assert.equal((obj.values as Record<string, string>).authStyle, 'none');
     } finally {
       dispose();
     }

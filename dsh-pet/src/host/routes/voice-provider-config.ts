@@ -165,6 +165,8 @@ export async function handleProviderConfig(deps: ProviderConfigDeps, input: Rout
   // 普通键从 JSON 读；密钥键**永远不从 JSON 读**（那份文件里不该有它们，读到也不回传）。
   const plainKeys = keys.filter((key) => !secretKeys.includes(key));
   const seam = providerSecretSeamOf(deps.optionalService('credentials'));
+  // 实现本体（`needsKey` / `keyRefs` / `expandPatch` 都在它上面，status 只是给设置页的形状）。
+  const provider = voiceProviderOf(status.id);
 
   if (method === 'GET') {
     const secrets = seam ? await readSecretPresence(seam, status.fields) : {};
@@ -194,6 +196,30 @@ export async function handleProviderConfig(deps: ProviderConfigDeps, input: Rout
     return failResult('bad-request', 'patch 是空的');
   }
 
+  // 预设展开（R2）：`patch` 带 `preset` 时由实现把该预设的四轴默认值展开进要写的值。
+  // 时机固定在「鉴权判定之前」——`needsKey` 看的是 expandCloudPresetPatch 不能改的生效值，
+  // 顺序反了就会出现「preset=mimo 被判成不需要 key」（D-07 的同一条坑）。
+  // 展开结果再按 `plainKeys` 过滤一次：实现多写的键一律不落盘（读侧白名单看不见的键最难排查）。
+  // 展开只补「用户没手填过的」项，所以这一步不会覆盖用户在表单里改过的值。
+  if (provider?.expandPatch !== undefined && Object.keys(plainPatch).length > 0) {
+    try {
+      const expanded = provider.expandPatch(plainPatch, readProviderValues(file, status.id, plainKeys));
+      const allowed = new Set(plainKeys);
+      const filtered: Record<string, string> = {};
+      for (const [key, value] of Object.entries(expanded)) {
+        if (allowed.has(key)) filtered[key] = value;
+      }
+      // 展开出来的值要跟用户输入走**同一套**形状校验：否则第三方实现能借展开写进
+      // `baseURL: "ftp://…"`、超长值或下拉候选之外的值，绕过上面 validatePatch 的所有闸门。
+      const rechecked = validatePatch(status.fields, filtered);
+      if (!rechecked.ok) return rechecked.res;
+      for (const key of Object.keys(plainPatch)) delete plainPatch[key];
+      Object.assign(plainPatch, rechecked.value);
+    } catch (error) {
+      return failResult('generate-error', error instanceof Error ? error.message : String(error));
+    }
+  }
+
   // 需要鉴权的协议必须有 key：否则会「保存成功但用不了」——界面说有 key、实际一次都发不出去。
   // 判定用**写入后**的生效值，但结论向实现索取：云端四轴的 `authStyle`/`protocol` 存空串表示
   // 「跟随预设」，路由解析裸值会把「预设要求鉴权」误判成「不需要 key」（D-07 的假修根因）。
@@ -201,7 +227,6 @@ export async function handleProviderConfig(deps: ProviderConfigDeps, input: Rout
   {
     const effective = { ...readProviderValues(file, status.id, plainKeys), ...plainPatch };
     // 钩子在**实现**上（`VoiceProvider`），不在 status 快照里：status 只是给设置页的形状。
-    const provider = voiceProviderOf(status.id);
     const needsKey =
       provider?.needsKey !== undefined
         ? provider.needsKey(effective)

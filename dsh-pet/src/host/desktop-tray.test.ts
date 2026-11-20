@@ -16,6 +16,8 @@ interface TrayModule {
   createTray(deps: Record<string, unknown>): {
     start(): Promise<void>;
     refresh(): Promise<void>;
+    /** 合并刷新（变更广播的落点）：在飞时只记一次补跑。 */
+    scheduleRefresh(): Promise<void>;
     exists(): boolean;
     destroy(): void;
   };
@@ -47,6 +49,8 @@ function harness(options: {
   canQuit?: boolean;
   volume?: number;
   pets?: Array<Record<string, unknown>>;
+  /** 运行期穿透镜像（petId → 值）；缺键 = undefined = 窗口不在，托盘应回落配置。 */
+  runtimeClickThrough?: Record<string, boolean>;
 }) {
   const requests: string[] = [];
   const bodies: string[] = [];
@@ -100,6 +104,8 @@ function harness(options: {
       state: { windows: new Map(options.pets?.map((pet) => [String(pet.id), { id: pet.id }]) ?? []) },
       setClickThrough: (win: { id?: unknown }, value: boolean) =>
         windowCalls.push('clickThrough=' + String(win?.id) + ':' + String(value)),
+      // 运行期穿透镜像的读取面：托盘据此判断「窗口此刻真的穿透没」，缺键即 undefined（回落配置）。
+      clickThroughOf: (petId: string) => options.runtimeClickThrough?.[petId],
     },
   };
 
@@ -467,5 +473,52 @@ describe('createTray —— 重建后刷新', () => {
     const { tray, menus } = harness({ pets: [] });
     await tray.refresh();
     assert.equal(menus.length, 0);
+  });
+
+  test('refresh() 只重绘一次：一次调用恰替换一次菜单（不重复画）', async () => {
+    const { tray, menus } = harness({ pets: [{ id: 'main', display: 'desktop' }] });
+    await tray.start();
+    assert.equal(menus.length, 1);
+    await tray.refresh();
+    assert.equal(menus.length, 2, '一次 refresh 只该多画一次');
+    await tray.refresh();
+    assert.equal(menus.length, 3);
+  });
+
+  test('scheduleRefresh() 在飞期间合并：连续三次触发只补跑一次（共两次重画）', async () => {
+    const { tray, menus } = harness({ pets: [{ id: 'main', display: 'desktop' }] });
+    await tray.start();
+    assert.equal(menus.length, 1);
+    // 三次都不 await：第一次正在 await hostRequest，后两次只该置同一个补跑标记
+    const runs = [tray.scheduleRefresh(), tray.scheduleRefresh(), tray.scheduleRefresh()];
+    await Promise.all(runs);
+    assert.equal(menus.length, 3, '一次在飞 + 一次补跑 = 多画两次（不是每个触发都画一遍）');
+  });
+});
+
+describe('createTray —— 穿透勾选的来源（运行期镜像优先，配置回落）', () => {
+  test('镜像有值就用镜像：配置说 false、窗口此刻是 true → 打勾', async () => {
+    const { tray, menus } = harness({
+      pets: [{ id: 'main', name: '鱼生', display: 'desktop', clickThrough: false }],
+      runtimeClickThrough: { main: true },
+    });
+    await tray.start();
+    assert.equal(
+      menus[menus.length - 1].find((entry) => entry.label === '鼠标穿透')?.checked,
+      true,
+      '镜像就是窗口真实状态：配置还没写回时也不能显示旧勾选',
+    );
+  });
+
+  test('镜像没有这只（窗口未建/已销毁）→ 回落 pets[].clickThrough', async () => {
+    const { tray, menus } = harness({
+      pets: [{ id: 'main', name: '鱼生', display: 'desktop', clickThrough: true }],
+    });
+    await tray.start();
+    assert.equal(
+      menus[menus.length - 1].find((entry) => entry.label === '鼠标穿透')?.checked,
+      true,
+      '没有运行期信息时必须照旧看配置（否则桌面宠物一律显示未穿透）',
+    );
   });
 });

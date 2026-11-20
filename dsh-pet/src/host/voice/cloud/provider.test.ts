@@ -22,6 +22,7 @@ import {
   CLOUD_PRESET_NONE_LABEL,
   CLOUD_PRESET_SPECS,
   DEFAULT_CLOUD_BASE_URL,
+  DEFAULT_OPENAI_BASE_URL,
   EMPTY_CLOUD_SETTINGS,
   cloudAllowsHostKey,
   cloudAxesOf,
@@ -41,6 +42,7 @@ import {
   createCloudKeyReader,
   createCloudProvider,
   digPath,
+  expandCloudPresetPatch,
   hexPreview,
   redactURL,
   renderTemplate,
@@ -1330,5 +1332,263 @@ describe('缓存指纹与音色展示', () => {
       readKey: async () => 'sk-test',
     });
     assert.deepEqual(empty.listVoices?.(), []);
+  });
+});
+
+describe('expandCloudPresetPatch —— 预设展开与手填保护（R2）', () => {
+  /** 一次「盘上已展开成 preset」的等价状态：直接喂 axisDefaultsOf 的结果太绕，用真实展开生成。 */
+  const expanded = (preset: string, patch: Record<string, string> = {}): Record<string, string> =>
+    expandCloudPresetPatch({ preset, ...patch }, {});
+
+  /**
+   * 模拟路由的落盘效果：盘上值 + 本次要写的 patch。
+   *
+   * 被跳过的键**不进入** patch（不写 = 盘上原样保留），所以断言「手填值保住了」必须看合并后的
+   * 生效值，而不是看返回值里有没有这个键——空串在这里等价于「删键」。
+   */
+  const effectiveAfter = (
+    current: Readonly<Record<string, string>>,
+    next: Readonly<Record<string, string>>,
+  ): Record<string, string> => {
+    const merged: Record<string, string> = { ...current };
+    for (const [key, value] of Object.entries(next)) {
+      if (value === '') delete merged[key];
+      else merged[key] = value;
+    }
+    return merged;
+  };
+
+  test('不带 preset 键：原样返回，一个键都不加', () => {
+    const patch = { path: '/v1/audio/speech', voice: 'alloy' };
+    assert.deepEqual(expandCloudPresetPatch(patch, {}), patch);
+    assert.deepEqual(expandCloudPresetPatch({}, { voice: 'alloy' }), {}, '空 patch 也不该被补');
+  });
+
+  test('空配置 + preset=mimo：四轴与协议真的写进去了（这才是「真预填」）', () => {
+    const next = expanded('mimo');
+    assert.equal(next.path, '/v1/chat/completions');
+    assert.equal(next.authStyle, 'api-key-header');
+    assert.equal(next.authHeader, 'api-key');
+    assert.equal(next.bodyKind, 'json');
+    assert.equal(next.responseKind, 'json-base64');
+    assert.equal(next.responsePath, 'choices.0.message.audio.data');
+    assert.equal(next.format, 'wav');
+    assert.equal(next.protocol, 'openai', 'mimo 属于 openai 协议族（修掉「显示 custom」）');
+    assert.equal(next.voice, '');
+    assert.equal('baseURL' in next, false, 'mimo 不自带地址：写死会绑死用户配置');
+  });
+
+  test('换预设：旧预设的残留被清掉，新预设的默认值补上（mimo → deepseek）', () => {
+    const current = expanded('mimo');
+    const next = expandCloudPresetPatch({ preset: 'deepseek' }, current);
+    assert.equal(next.path, '/v1/tools/tts');
+    assert.equal(next.voice, 'stella');
+    assert.equal(next.protocol, 'custom');
+    assert.equal(next.baseURL, DEFAULT_CLOUD_BASE_URL, 'deepseek 自带地址，要写进字段');
+    assert.equal(next.responsePath, '', 'mimo 的 JSON 路径必须被清掉，否则 deepseek 会去 JSON 里找音频');
+    assert.equal(next.authStyle, 'bearer');
+    assert.equal(next.authHeader, '', 'mimo 的 api-key 头名不能留给 deepseek');
+  });
+
+  test('手填保护：非空且不等于旧预设默认的项保持不动', () => {
+    const current = expanded('mimo', { voice: 'nova' }); // 用户手改过音色
+    const next = expandCloudPresetPatch({ preset: 'deepseek' }, current);
+    const after = effectiveAfter(current, next);
+    assert.equal(after.voice, 'nova', '手填的音色不该被新预设覆盖');
+    assert.equal(next.voice, undefined, '被跳过的键不进 patch → 不写，盘上原样保留');
+    assert.equal(after.path, '/v1/tools/tts', '没手填过的项照旧被新预设接管');
+  });
+
+  test('手填保护：同一屏里刚改的值也算手填（patch 里的值优先于盘上）', () => {
+    const next = expandCloudPresetPatch({ preset: 'mimo', voice: 'nova' }, {});
+    assert.equal(next.voice, 'nova', '用户在表单里填了 nova 又选了预设，不能把 nova 冲掉');
+  });
+
+  test('等于旧预设默认的项仍要覆盖（否则换预设换不干净）', () => {
+    const current = expanded('deepseek'); // voice='stella'、path='/v1/tools/tts' 都是 deepseek 的默认
+    const next = expandCloudPresetPatch({ preset: 'mimo' }, current);
+    assert.equal(next.voice, '', 'stella 是旧预设默认值 → 该被 mimo 的空默认接管');
+    assert.equal(next.path, '/v1/chat/completions');
+  });
+
+  test('切 none（手动填四轴）：轴键全清成空串 = 删键，不残留上一个预设', () => {
+    const current = expanded('mimo');
+    const next = expandCloudPresetPatch({ preset: CLOUD_PRESET_NONE_LABEL }, current);
+    for (const key of [
+      'path',
+      'authStyle',
+      'authHeader',
+      'bodyKind',
+      'bodyTemplate',
+      'responseKind',
+      'responsePath',
+      'headers',
+      'format',
+      'voice',
+    ]) {
+      assert.equal(next[key], '', `${key} 应被清空（回到纯手填）`);
+    }
+    assert.equal(next.protocol, 'custom');
+  });
+
+  test('不写 fields 之外的键：落盘键全是该实现声明过的', () => {
+    const declared = new Set(CLOUD_FIELDS.map((field) => field.key));
+    for (const preset of CLOUD_PRESETS) {
+      for (const key of Object.keys(expandCloudPresetPatch({ preset }, {}))) {
+        assert.ok(declared.has(key), `preset=${preset} 展开了未声明的键 ${key}`);
+      }
+    }
+  });
+
+  test('不改入参（纯函数）：patch 与 current 都保持原样', () => {
+    const patch = { preset: 'mimo' };
+    const current = { voice: 'stella' };
+    expandCloudPresetPatch(patch, current);
+    assert.deepEqual(patch, { preset: 'mimo' });
+    assert.deepEqual(current, { voice: 'stella' });
+  });
+
+  test('baseURL：手填过的地址保留，空地址才由「自带地址」的预设填上', () => {
+    // 手填地址优先级最高：新预设自带地址也不能盖掉用户自己的网关
+    const current = { ...expanded('deepseek'), baseURL: 'https://my-gateway.example.com' };
+    const next = expandCloudPresetPatch({ preset: 'deepseek' }, current);
+    assert.equal('baseURL' in next, false, '手填的地址不进 patch → 盘上原样保留');
+    assert.equal(effectiveAfter(current, next).baseURL, 'https://my-gateway.example.com');
+    // 空的地址会被预填写上（deepseek 自带地址）
+    assert.equal(expanded('deepseek').baseURL, DEFAULT_CLOUD_BASE_URL);
+  });
+
+  test('幂等：把展开结果再喂一次同一个预设，结果不变', () => {
+    const once = expanded('mimo');
+    const twice = expandCloudPresetPatch({ preset: 'mimo' }, once);
+    assert.deepEqual(twice, once);
+  });
+
+  test('老配置没有 preset 键（只有 protocol/baseURL）：按历史映射推断旧预设，不误伤手填值', () => {
+    // 老配置：protocol=deepseek + 手填 path（≠ deepseek 默认）→ 换到 mimo 时 path 保留
+    const current = { protocol: 'deepseek', baseURL: DEFAULT_CLOUD_BASE_URL, path: '/my/proxy', voice: '' };
+    const next = expandCloudPresetPatch({ preset: 'mimo' }, current);
+    assert.equal('path' in next, false, '手填路径不是旧预设默认值 → 不动它');
+    assert.equal(effectiveAfter(current, next).path, '/my/proxy');
+    assert.equal(next.protocol, 'openai', '旧预设按历史映射认出是 deepseek → 协议族变了要写');
+  });
+
+  test('切走不带地址的预设：旧预设的官方地址必须清掉（否则 B 的 path 拼到 A 的域名上）', () => {
+    // P1：deepseek → mimo。旧地址是 deepseek 的官方默认（不是用户手填），切走要清成空串，
+    // 这样 cloudBaseURL() 才会回落 mimo 的 openai 兜底，而不是继续指着 api.deepseek.com。
+    const onDeepseek = expanded('deepseek');
+    assert.equal(onDeepseek.baseURL, DEFAULT_CLOUD_BASE_URL, '前提：deepseek 落盘了官方地址');
+
+    const toMimo = expandCloudPresetPatch({ preset: 'mimo' }, onDeepseek);
+    const savedBase = 'baseURL' in toMimo ? String(toMimo.baseURL) : String(onDeepseek.baseURL);
+    assert.equal(savedBase, '', '切到 mimo 时旧官方地址必须被清空');
+
+    // 清空之后生效地址是 OpenAI 兜底，问题清单里也不该再报「地址是别人的」
+    const settings = cloudSettingsOf({ cloud: { ...onDeepseek, ...toMimo, preset: 'mimo' } });
+    assert.equal(cloudBaseURL(settings), DEFAULT_OPENAI_BASE_URL);
+    assert.deepEqual(
+      cloudConfigProblems(settings, true).filter((item) => item.includes('服务地址') || item.includes('预设')),
+      [],
+      '地址回落正确时不该报一致性错误',
+    );
+  });
+
+  test('切到 openai-speech 同理：deepseek 的官方地址不得留下', () => {
+    const onDeepseek = expanded('deepseek');
+    const next = expandCloudPresetPatch({ preset: 'openai-speech' }, onDeepseek);
+    assert.equal('baseURL' in next ? next.baseURL : onDeepseek.baseURL, '');
+    assert.equal(cloudBaseURL(cloudSettingsOf({ cloud: { ...onDeepseek, ...next } })), DEFAULT_OPENAI_BASE_URL);
+  });
+
+  test('用户手填的地址不被清：切预设也保留自己的网关', () => {
+    const onDeepseek = { ...expanded('deepseek'), baseURL: 'https://my.proxy' };
+    const toMimo = expandCloudPresetPatch({ preset: 'mimo' }, onDeepseek);
+    assert.equal('baseURL' in toMimo ? toMimo.baseURL : onDeepseek.baseURL, 'https://my.proxy');
+    // 手填地址也不该被一致性检查误判
+    const settings = cloudSettingsOf({ cloud: { ...onDeepseek, ...toMimo, preset: 'mimo' } });
+    assert.deepEqual(
+      cloudConfigProblems(settings, true).filter((item) => item.includes('服务地址')),
+      [],
+    );
+  });
+
+  test('手填地址经两次切换仍保留：deepseek → mimo → openai-speech', () => {
+    // 单次切换已有用例；两次连着切才是真机上的形态（用户换预设不会只换一次），
+    // 而每次切都会经过「旧预设官方地址 → 清空」这段逻辑，漏一个分支就会把手填地址吃掉。
+    const handwritten = 'https://my.proxy.example';
+    let current: Record<string, string> = { ...expanded('deepseek'), baseURL: handwritten };
+    for (const preset of ['mimo', 'openai-speech']) {
+      const next = expandCloudPresetPatch({ preset }, current);
+      const saved = effectiveAfter(current, next);
+      assert.equal(saved.baseURL, handwritten, `切到 ${preset} 后手填地址必须原样保留`);
+      assert.equal(
+        cloudBaseURL(cloudSettingsOf({ cloud: saved })),
+        handwritten,
+        `切到 ${preset} 后生效地址仍是用户自己的网关`,
+      );
+      current = saved;
+    }
+    assert.equal(current.preset, 'openai-speech', '前提：确实切了两次');
+    assert.deepEqual(
+      cloudConfigProblems(cloudSettingsOf({ cloud: current }), true).filter(
+        (item) => item.includes('服务地址') || item.includes('官方地址'),
+      ),
+      [],
+      '两次切换后手填地址也不该被一致性检查误判',
+    );
+  });
+
+  test('一致性检查只在预设模式生效：手填（none）+ deepseek 官方地址是合法配置，不得误伤', () => {
+    // 用户完全手填四轴、地址恰好用 deepseek 官方域名、path/template 都是自己的：
+    // 这是合法配置（none 模式下清空地址没有兜底），不该被「地址是别的预设的」拦下。
+    const handwritten = cloudSettingsOf({
+      cloud: {
+        preset: 'none（手动填四轴）',
+        protocol: 'openai',
+        baseURL: DEFAULT_CLOUD_BASE_URL,
+        path: '/v1/chat/completions',
+        bodyTemplate: '{"model":"{model}","messages":[{"role":"user","content":"{text}"}]}',
+        model: 'my-model',
+        voice: 'my-voice',
+      },
+    });
+    assert.deepEqual(
+      cloudConfigProblems(handwritten, true).filter((item) => item.includes('官方地址')),
+      [],
+      '手填模式不该报「地址和预设对不上」',
+    );
+  });
+
+  test('一致性检查：预设模式下地址仍是别的预设官方地址时报错（真正要拦的没漏）', () => {
+    // 模拟「旧版本留下的残留」：preset 已是 mimo，地址却还是 deepseek 的官方地址
+    const broken = cloudSettingsOf({
+      cloud: { preset: 'mimo', protocol: 'openai', baseURL: DEFAULT_CLOUD_BASE_URL, model: 'x', voice: 'x' },
+    });
+    const problems = cloudConfigProblems(broken, true);
+    assert.ok(
+      problems.some((item) => item.includes('官方地址') && item.includes('mimo')),
+      `预设模式下应报出这对不上：${problems.join('；')}`,
+    );
+    // 自家预设的官方地址不算错
+    const fine = cloudSettingsOf({
+      cloud: { preset: 'deepseek', protocol: 'custom', baseURL: DEFAULT_CLOUD_BASE_URL },
+    });
+    assert.deepEqual(
+      cloudConfigProblems(fine, true).filter((item) => item.includes('官方地址')),
+      [],
+    );
+  });
+
+  test('preset 的字段说明与实现同源：承诺「保存时写进默认值」，并写明 none 会清空', () => {
+    const field = cloudFieldsFor(EMPTY_CLOUD_SETTINGS).find((item) => item.key === 'preset');
+    assert.ok(field?.description, 'preset 必须有说明');
+    // 这两句是「文案与行为一致」的机器可验锚点：浏览器端只证渲染，真正的措辞归这里管
+    assert.ok(field.description.includes('会把该预设的四轴默认值写进'), field.description);
+    assert.ok(field.description.includes('会清掉这些预填值'), field.description);
+    assert.equal(
+      field.description.includes('预设只是默认值，下面的字段可以逐项覆盖'),
+      false,
+      '旧文案（只说「可以覆盖」而不说「保存时写进去」）必须被替换掉',
+    );
   });
 });
