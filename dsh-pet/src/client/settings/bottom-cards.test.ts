@@ -37,6 +37,7 @@ const checks = (tree: unknown): Node[] =>
   flatten(tree).filter((node) => node.tag === 'input' && node.props.type === 'checkbox');
 
 const flags: GlobalFlags = {
+  petEnabled: true,
   notificationsEnabled: true,
   sfxEnabled: true,
   sfxKeepAlive: false,
@@ -116,10 +117,10 @@ describe('SystemCard —— 系统与桌面', () => {
       dirty: NO_DIRTY,
     } as never);
     const boxes = checks(tree);
-    assert.equal(boxes.length, 3, '通知 / 托盘 / 锁定屏幕各一个');
+    assert.equal(boxes.length, 4, '总开关 / 通知 / 托盘 / 锁定屏幕各一个');
     for (const box of boxes)
       (box.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } });
-    assert.deepEqual(keys, ['notificationsEnabled', 'trayEnabled', 'confineToScreen']);
+    assert.deepEqual(keys, ['petEnabled', 'notificationsEnabled', 'trayEnabled', 'confineToScreen']);
   });
 
   test('测试弹窗只管触发；结论来自 permMsg', () => {

@@ -23,6 +23,10 @@
  */
 const EXACT_PATHS: ReadonlySet<string> = new Set([
   'pets',
+  // 总开关：关掉要真的把桌面窗收走、开回来要重新建窗，都走宿主重建 Helper 这条路径。
+  'global.petEnabled',
+  // 系统级快捷键由 Helper 主进程注册：换键位必须重启 Helper 才会重新注册。
+  'hideAllHotkey',
   'global.confineToScreen',
   'global.trayEnabled',
   'global.notificationsEnabled',

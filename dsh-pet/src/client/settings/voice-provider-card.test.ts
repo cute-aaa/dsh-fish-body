@@ -37,6 +37,7 @@ const props = (patch: Partial<VoiceProviderCardProps> = {}): VoiceProviderCardPr
     available: true,
     reason: '',
     lastError: '',
+    notes: [],
     fields: [],
     values: {},
     secrets: {},
@@ -109,6 +110,28 @@ describe('VoiceProviderCard —— 下拉字段', () => {
   });
 });
 
+describe('VoiceProviderCard —— 扫描诊断', () => {
+  test('notes 逐行渲染成列表；没有就不留空列表', () => {
+    const tree = Card(props({ fields: [voiceField], notes: ['音色来源：权重 2 个', 'klee：缺少参考音频'] }));
+    const list = flatten(tree).find((node) => node.tag === 'ul');
+    assert.ok(list, 'notes 要渲染出来，别只留在接口里');
+    assert.equal(list.props.className, 'dsh-pet-cfg__notes');
+    const items = flatten(list.props.children).filter((node) => node.tag === 'li');
+    assert.deepEqual(
+      items.map((node) =>
+        flatten(node)
+          .map((inner) => inner.props.children)
+          .join(''),
+      ),
+      ['音色来源：权重 2 个', 'klee：缺少参考音频'],
+    );
+    assert.equal(
+      flatten(Card(props({ fields: [voiceField] }))).some((node) => node.tag === 'ul'),
+      false,
+    );
+  });
+});
+
 describe('VoiceProviderCard —— 动作结论只占一行', () => {
   /** 卡片里的 `__msg` 行（顶部可用性 + 底部动作结论）。 */
   const messagesOf = (tree: unknown): Node[] =>
@@ -149,6 +172,33 @@ describe('VoiceProviderCard —— 动作结论只占一行', () => {
     const tree = Card(props({ fields: [voiceField] }));
     // 只剩顶部那一行「就绪」。
     assert.equal(messagesOf(tree).length, 1);
+  });
+});
+
+describe('VoiceProviderCard —— 实现自己的额外动作', () => {
+  /** 卡片里某个节点的位置（flatten 是深度优先，顺序即渲染顺序）。 */
+  const indexOf = (nodes: Node[], predicate: (node: Node) => boolean): number => nodes.findIndex(predicate);
+
+  test('beforeActions 落在字段之后、保存按钮之前', () => {
+    const marker = h('div', { className: 'marker-x', children: ['导入音色…'] });
+    const nodes = flatten(Card(props({ fields: [voiceField], beforeActions: marker })));
+    const markerAt = indexOf(nodes, (node) => node.props.className === 'marker-x');
+    const selectAt = indexOf(nodes, (node) => node.tag === 'select');
+    const saveAt = indexOf(
+      nodes,
+      (node) => node.tag === 'button' && (node.props.children as unknown[]).includes('voiceProviderSave'),
+    );
+    assert.equal(markerAt >= 0, true, '额外动作必须真的渲染出来');
+    assert.equal(markerAt > selectAt, true, '先看目录/地址，再动手导');
+    assert.equal(markerAt < saveAt, true, '不要挤在按钮行里');
+  });
+
+  test('没给 beforeActions 时什么都不多渲染', () => {
+    const nodes = flatten(Card(props({ fields: [voiceField] })));
+    assert.equal(
+      nodes.some((node) => node.props.className === 'marker-x'),
+      false,
+    );
   });
 });
 

@@ -16,9 +16,12 @@ import {
   PLAYBACK_WAIT_MAX_MS,
   buildSilentWav,
   getVoiceState,
+  isVoicePaused,
   playSayVoice,
   setSurface,
+  setVoiceAvoidPaused,
   setVoiceConfig,
+  setVoicePaused,
   speakNotice,
   speakText,
   subscribeVoiceUtterance,
@@ -690,6 +693,79 @@ describe('speakText —— 设置页试听的覆盖项', () => {
       assert.deepEqual(volumes, [0.9], '音量也要跟着覆盖值，否则试听音量与实际不符');
     } finally {
       globalThis.fetch = previousFetch;
+      browser.restore();
+      fetchStub.restore();
+    }
+  });
+});
+
+describe('暂停（快捷键 / 全屏避让）—— 一句都不念', () => {
+  test('全局暂停：点名的 say 也不合成', async () => {
+    const fetchStub = stubFetch();
+    const browser = stubBrowser();
+    try {
+      setSurface('web');
+      setVoiceConfig('', 1);
+      setVoicePaused(true);
+      assert.equal(isVoicePaused(), true);
+      playSayVoice({ text: '暂停中不该念', voiceTo: 'web' });
+      await flush();
+      assert.equal(fetchStub.calls.length, 0, '暂停期间不该花一次合成');
+      assert.equal(getVoiceState(), 'idle');
+    } finally {
+      setVoicePaused(false);
+      browser.restore();
+      fetchStub.restore();
+    }
+  });
+
+  test('恢复之后照旧念（暂停不是单向阀门）', async () => {
+    const fetchStub = stubFetch();
+    const browser = stubBrowser();
+    try {
+      setSurface('web');
+      setVoiceConfig('', 1);
+      setVoicePaused(true);
+      playSayVoice({ text: '这一句被挡', voiceTo: 'web' });
+      await flush();
+      setVoicePaused(false);
+      playSayVoice({ text: '这一句要念', voiceTo: 'web' });
+      await flush();
+      assert.deepEqual(fetchStub.calls, [{ text: '这一句要念' }]);
+    } finally {
+      setVoicePaused(false);
+      browser.restore();
+      fetchStub.restore();
+    }
+  });
+
+  test('避让暂停与全局暂停是两层：任一为真就静音，各自结束互不覆盖', async () => {
+    try {
+      assert.equal(isVoicePaused(), false);
+      setVoiceAvoidPaused(true);
+      assert.equal(isVoicePaused(), true, '全屏避让藏起来时静音');
+      setVoicePaused(true);
+      setVoiceAvoidPaused(false);
+      assert.equal(isVoicePaused(), true, '避让结束不该解开用户按下的暂停');
+      setVoicePaused(false);
+      assert.equal(isVoicePaused(), false);
+    } finally {
+      setVoicePaused(false);
+      setVoiceAvoidPaused(false);
+    }
+  });
+
+  test('工作状态播报同样被暂停挡住', async () => {
+    const fetchStub = stubFetch();
+    const browser = stubBrowser();
+    try {
+      setVoiceConfig('', 1);
+      setVoicePaused(true);
+      speakNotice('任务完成');
+      await flush();
+      assert.equal(fetchStub.calls.length, 0);
+    } finally {
+      setVoicePaused(false);
       browser.restore();
       fetchStub.restore();
     }

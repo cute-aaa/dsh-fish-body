@@ -15,6 +15,10 @@ import { computePanelPlacement, type PanelPosition } from './placement.ts';
 export interface SelectOption {
   id: string;
   label: string;
+  /** 置灰且不可选（有意义但当前用不了，例如缺权重/参考音频的本地音色）。 */
+  disabled?: boolean;
+  /** 置灰原因，显示在行右侧；不参与文本匹配。 */
+  hint?: string;
 }
 
 /** 下拉的对外契约：一个字段一个实例。 */
@@ -60,13 +64,21 @@ export function makeSelect(
     };
     const commit = (index: number): void => {
       const option = props.options[index];
+      // 置灰行点了不算数：浮层也不关，让人看清右边那句「缺什么」。
+      if (option === undefined || option.disabled === true) return;
       setOpen(false);
-      if (option !== undefined && option.id !== props.value) props.onChange(option.id);
+      if (option.id !== props.value) props.onChange(option.id);
     };
     const step = (dir: number): void => {
       const count = props.options.length;
       if (count === 0) return;
-      const next = (Math.max(active, 0) + dir + count) % count;
+      // 键盘不该停在置灰行上：跳过它们再绕一圈；全是置灰就原地不动。
+      let next = Math.max(active, 0);
+      for (let tried = 0; tried < count; tried += 1) {
+        next = (next + dir + count) % count;
+        if (props.options[next]?.disabled !== true) break;
+      }
+      if (props.options[next]?.disabled === true) return;
       setActive(next);
       panelRef.current?.querySelector('[data-row="' + next + '"]')?.scrollIntoView({ block: 'nearest' });
     };
@@ -163,12 +175,19 @@ export function makeSelect(
                   type: 'button',
                   role: 'option',
                   'aria-selected': option.id === props.value,
+                  'aria-disabled': option.disabled === true,
                   'data-row': index,
-                  className: 'dsh-pet-sel__item' + (index === active ? ' is-active' : ''),
+                  title: option.hint ?? '',
+                  className:
+                    'dsh-pet-sel__item' +
+                    (index === active ? ' is-active' : '') +
+                    (option.disabled === true ? ' is-disabled' : ''),
                   onMouseMove: () => setActive(index),
                   onClick: () => commit(index),
                   children: [
                     h('span', { key: 'n', className: 'dsh-pet-sel__name', children: option.label }),
+                    // 置灰原因写在行右侧：与右键菜单的 hint 同义，那里也是灰色小字。
+                    option.hint ? h('span', { key: 'h', className: 'dsh-pet-sel__hint', children: option.hint }) : null,
                     h('span', {
                       key: 'c',
                       className: 'dsh-pet-sel__check',

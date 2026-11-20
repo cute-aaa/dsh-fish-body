@@ -136,7 +136,8 @@ export function startService(script: string, logFile?: string): ScriptRunResult 
 /**
  * 停止 GSV：跑停止脚本并等它退出（最多 {@link STOP_TIMEOUT_MS}）。
  *
- * 没有停止脚本就明确拒绝：按端口扫进程会杀错别的东西，比「停不掉」更糟。
+ * 没配停止脚本时由路由改走 api_v2 的 `/control?command=exit`（服务自己退），不在这里按端口扫进程——
+ * 那样会杀错别的东西（本机 9880 未必只跑 GSV），比「停不掉」更糟。
  *
  * @param script - 停止脚本绝对路径（可为空）。
  * @returns 已停止 / 失败原因。

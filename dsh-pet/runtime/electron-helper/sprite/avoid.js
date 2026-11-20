@@ -102,6 +102,10 @@
       if (next.hide !== hidden) {
         hidden = next.hide;
         bridge.setAvoidHidden(hidden);
+        // 藏起来就顺带把语音暂停：窗口 hide() 之后页面还在跑，自动播报会从一个看不见的宠物那儿
+        // 突然念出来——「躲起来」本身就意味着用户正在专心看别的东西。
+        // 与快捷键那份暂停分开记（S.setVoiceAvoidPaused），两者互不覆盖。
+        if (S && typeof S.setVoiceAvoidPaused === 'function') S.setVoiceAvoidPaused(hidden);
         // 一行状态日志：这是背景行为，出问题时只能靠它确认「到底躲了没有、什么时候回来的」
         console.info(
           '[fish-body] 避让' + (hidden ? '隐藏' : '恢复') + ' pet=' + petId + ' 原因=' + (wanted.reason || '—'),

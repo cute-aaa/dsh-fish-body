@@ -45,7 +45,10 @@ function replacePlaceholders(text: string, name: string): string {
 /**
  * 把人设卡投影成一段 whisperPrompt 正文。
  *
- * 只保留有内容的段落（人设/性格/背景/开场白/对话示例/system/收尾指令）并按固定顺序拼接。
+ * 只保留有内容的段落并按固定顺序拼接。「人设」「性格」这些标签只加在**后续**段上：
+ * 第一段就是人设正文本身，再顶一个「人设：」只会在设置页的输入框里看着像系统自动塞进去的前缀
+ * （用户第一反应就是「这行不是我写的」），对模型也没有任何信息量。
+ *
  * @param data - 已解析的卡字段。
  * @returns 拼好的正文；没有任何可用内容时返回空串。
  */
@@ -54,7 +57,8 @@ export function projectCard(data: CharaCardData): string {
   const sections: string[] = [];
   const push = (label: string, value: string): void => {
     const text = replace(value);
-    if (text) sections.push(`${label}：${text}`);
+    // 第一段不戴标签：段落顺序是固定的，读到什么都不用靠标签区分「这是人设」。
+    if (text) sections.push(sections.length === 0 ? text : `${label}：${text}`);
   };
   push('人设', data.description);
   push('性格', data.personality);

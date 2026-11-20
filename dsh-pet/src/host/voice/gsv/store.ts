@@ -1,8 +1,8 @@
 /**
- * 第三方语音实现的配置落盘：`<userRoot>/voice-providers.json`。
+ * 第三方语音实现的配置落盘：`<userRoot>/config/voice-providers.json`。
  *
  * 为什么不写进 `main-config.jsonc`：那一份是带大量注释的 JSONC，整份重写会把用户手写的注释与
- * 排版全丢掉；而这里存的是「本机服务地址 + 当前音色 + 素材目录」这类机器级设置，
+ * 排版全丢掉；而这里存的是「本机服务地址 + 当前音色 + 权重/参考音频目录」这类机器级设置，
  * 独立成一份普通 JSON 既能原子改写，换台机器时也只丢这一份。
  * 只做读写，不校验字段——解析在 ./settings.ts，取值合法性在路由里按扫描结果判。
  * @module dsh-fish-body/src/host/voice/gsv/store

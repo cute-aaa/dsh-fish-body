@@ -117,8 +117,10 @@ export const CONTROLS_CSS = [
   '.dsh-pet-mp__group{padding:6px 8px 2px;font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary)}',
   '.dsh-pet-mp__item,.dsh-pet-sel__item{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:none;border-radius:var(--pcg-radius-sm);background:transparent;color:inherit;font:inherit;font-size:var(--pcg-fs-body);line-height:20px;text-align:left;cursor:pointer}',
   '.dsh-pet-mp__item:hover:not(:disabled),.dsh-pet-mp__item.is-active,.dsh-pet-sel__item:hover:not(:disabled),.dsh-pet-sel__item.is-active{background:var(--dsw-alias-interactive-bg-hover)}',
-  '.dsh-pet-mp__item:disabled,.dsh-pet-sel__item:disabled{color:var(--dsw-alias-label-dimmed);cursor:default}',
+  '.dsh-pet-mp__item:disabled,.dsh-pet-sel__item:disabled,.dsh-pet-sel__item.is-disabled{color:var(--dsw-alias-label-dimmed);cursor:default}',
   '.dsh-pet-mp__name,.dsh-pet-sel__name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}',
+  // 置灰原因（缺权重/缺参考音频）：贴在名称右侧，与右键菜单的 hint 同义。
+  '.dsh-pet-sel__hint{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary)}',
   '.dsh-pet-mp__check,.dsh-pet-sel__check{flex:none;margin-left:auto}',
   '.dsh-pet-mp__status{padding:8px;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-label-tertiary)}',
 

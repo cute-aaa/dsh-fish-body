@@ -120,21 +120,51 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 ## 九、语音
 
-| 接口                                                | 功能                                                                                                                                   |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /dsh-pet-7340/voice/speak`                    | 合成并返回音频：`{ text, voice?, rate? }`；同一输入命中缓存，队列最多排 3 个                                                           |
-| `POST /dsh-pet-7340/voice/hear`                     | 识别音频回文字：`{ audio }`，16kHz/单声道/PCM16 WAV 的 base64                                                                          |
-| `GET /dsh-pet-7340/voice/voices`                    | 可用音色列表 + 合成链状态；前端拿它渲染选择器，不要硬编码 id                                                                           |
-| `GET /dsh-pet-7340/voice/provider-config?provider=` | 读一个实现的接入配置：`values`（普通项）+ `secrets`（密钥**配没配**，值从不回传）                                                      |
-| `POST /dsh-pet-7340/voice/provider-config`          | 写接入配置：`{ provider, patch, clear? }`；普通项进 `voice-providers.json`，密钥项进 DSH 凭据库；声明了 `options` 的字段只收候选值之一 |
-| `POST /dsh-pet-7340/voice/provider-voice`           | 切某个实现的音色：`{ provider, voice }`，立即落盘（不是「保存」的一部分）                                                              |
+| 接口                                                | 功能                                                                                                                                                                 |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /dsh-pet-7340/voice/speak`                    | 合成并返回音频：`{ text, voice?, rate? }`；同一输入命中缓存，队列最多排 3 个                                                                                         |
+| `POST /dsh-pet-7340/voice/hear`                     | 识别音频回文字：`{ audio }`，16kHz/单声道/PCM16 WAV 的 base64                                                                                                        |
+| `GET /dsh-pet-7340/voice/voices`                    | 可用音色列表 + 合成链状态；前端拿它渲染选择器，不要硬编码 id                                                                                                         |
+| `GET /dsh-pet-7340/voice/provider-config?provider=` | 读一个实现的接入配置：`values`（普通项）+ `secrets`（密钥**配没配**，值从不回传）                                                                                    |
+| `POST /dsh-pet-7340/voice/provider-config`          | 写接入配置：`{ provider, patch, clear? }`；普通项进 `voice-providers.json`，密钥项进 DSH 凭据库；声明了 `options` 的字段只收候选值之一                               |
+| `POST /dsh-pet-7340/voice/provider-voice`           | 切某个实现的音色：`{ provider, voice }`，立即落盘（不是「保存」的一部分）；列出来但置灰的音色（缺权重/参考音频）拒收                                                 |
+| `POST /dsh-pet-7340/voice/voice-pack`               | 音色导入：`{ mode, root? , items? }`；`weights` 选一次权重根、返回逐行候选（零写入），`plan` 整批只读预检，`apply` 批量落盘（权重按 `hardlink`/`copy` 放）并重扫一次 |
+| `POST /dsh-pet-7340/voice/rescan`                   | 丢缓存重扫音色清单：`{ provider? }`，缺省扫全部第三方实现；回 `ready` / `total` / `notes`（设置页「扫描音色」按钮）                                                  |
+| `POST /dsh-pet-7340/voice/text-lines`               | 读一个文本文件里的候选行：`.list` 取第 4 列，其余取整行（供「从文本文件选一行」）                                                                                    |
+| `POST /dsh-pet-7340/pick-file`                      | 弹系统「选择文件」框：`{ title?, start?, extensions? }`；结果与 `pick-folder` 同形                                                                                   |
 
 合成链是「注册的**免费**第三方在前、内置 edge 收尾」，任一环失败就**静默**落到下一环（用户只会听到换了嗓子）。
 **按量计费的实现不进这条链**（`billable`）：被「可用」自动选中等于替用户花钱。它只在用户打开自己的付费开关
 （今天只有云端 TTS 的 `useCloud`）时被排到链首，自己失败则回落免费链——失败的那次请求不计费，所以回落不增加成本。
-`/voice/voices` 的 `providers[]` 因此有两个互不替代的字段：`reason` 是「这一环现在能不能用」，
+`/voice/voices` 的 `providers[]` 因此有三个互不替代的字段：`reason` 是「这一环现在能不能用」，
 `lastError` 是「通着但上一句念失败了」（参考音频坏了、上游 `/tts` 报错…，合成成功即消失）——
-后者是「本地音色其实没用上」唯一可见的线索，设置页的接入卡把它当警告显示。
+后者是「本地音色其实没用上」唯一可见的线索，设置页的接入卡把它当警告显示；
+`notes` 是**扫描诊断**（来源计数、配了但不存在的目录、GPT/SoVITS 版本错配、配置的音色不可用时回落到了谁）。
+`providers[].voices[]` 还带逐条 `available` / `reason`：缺参考音频或某一侧权重的音色会照常列出，
+只是 `available: false`，菜单与下拉据此置灰并显示缺哪份文件（如 `缺少参考音频：klee/ref.wav`）。
+
+**本地 GSV 的音色只有一处来源**：`<voicesDir>/<id>/`（一个子目录一个音色）。目录里三样东西：
+
+```
+<id>/
+  ref.wav | ref.mp3 | …       参考音频（`ref.*` 优先；目录里只有一个音频时也认）
+  ref.txt | <id>.txt | <ref 同名>.txt   参考文本（依次取第一段非空行；都没有 = 零样本）
+  *.ckpt / *.pth              两侧权重（顶层，或一层 `v2/` 这类子目录；必须是真文件）
+```
+
+音色 id 就是子目录名；`voice.json`、`refsDir`、`gptWeightsDir`/`sovitsWeightsDir`、
+`_default.wav/.txt` 兜底这些旧写法**都已移除**——老配置里的残留键既不读也不删，导入流程会把目录造出来。
+
+**新音色怎么进来**（设置页 GSV 卡里只有「导入音色…」一个按钮，点开是弹窗）：
+
+1. `mode: "weights"` + `root`：选一次目录（`GPT_weights*` / `SoVITS_weights*` 所在的那一层），宿主展开两侧
+   权重目录、按文件名归一出音色 id、给每行默认配对与 `linkable`（能不能硬链接），并标出档案目录里已有的 id；
+2. 逐行勾选、挑参考音频与参考文本、选放法：`hardlink`（界面叫「引用」，同盘真文件、不占双份；跨盘界面会置灰，
+   宿主也会直接报错）或 `copy`（复制，目录自足，一套约 230 MB）；
+3. `mode: "plan"` 整批只读预检 → 有任何一条不合法就一条都不写；`mode: "apply"` 批量落盘，逐条独立成败，
+   整批结束后只重扫一次。
+
+`.list` 不参与关联：它只被 `/voice/text-lines` 用来取第 4 列当参考文本。
 
 **密钥不进配置文件**：`kind: password` 且声明了 `credentialRef` 的字段（今天只有云端 TTS 的 `apiKey`）
 写进 DSH 凭据库——配置文件会被备份、会被贴进 issue。写入语义：`patch` 里非空才写、**空串是「不改」**

@@ -232,12 +232,16 @@ export const voiceMenuBranch = (providers: readonly VoiceProviderView[]): MenuBr
     label: provider.name,
     children: provider.voices.map((choice): MenuLeaf => {
       const checked = provider.voice === choice.id;
+      // 两层不可用：整个实现没起来（服务没起/目录没配）与单个音色缺文件（缺权重/参考音频）。
+      // 后者也要置灰——点了只会让每句话失败再落到 edge，不如把「差哪份文件」摆在右边。
+      const voiceOff = choice.available === false;
+      const hint = voiceOff ? (choice.reason ?? '缺少权重或参考音频') : (provider.reason ?? '不可用');
       return {
         label: checked ? `${choice.name} ✓` : choice.name,
         action: 'set-provider-voice',
         voiceProvider: provider.id,
         providerVoice: choice.id,
-        ...(provider.available ? {} : { disabled: true, hint: provider.reason ?? '不可用' }),
+        ...(provider.available && !voiceOff ? {} : { disabled: true, hint }),
       };
     }),
   }));

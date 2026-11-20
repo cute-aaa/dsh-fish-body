@@ -14,7 +14,7 @@ import type { SettingsRuntime } from './runtime.ts';
 
 /** 全局分区的状态与回调。 */
 export interface GlobalSettings {
-  /** 五个开关的当前值（键名即成品配置字段名）。 */
+  /** 六个开关的当前值（键名即成品配置字段名）。 */
   readonly values: GlobalFlags;
   /** 音效总音量（0–1）；与语音音量各管各的。 */
   readonly sfxVolume: number;
@@ -35,6 +35,7 @@ export interface GlobalSettings {
 export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCallback'>): GlobalSettings {
   const { useState, useCallback } = rt;
   // 初值都是内置默认：加载成功后由成品值覆盖，未就绪期间整页只读，存不出去。
+  const [petEnabled, setPetEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [sfxEnabled, setSfxEnabled] = useState(true);
   const [sfxKeepAlive, setSfxKeepAlive] = useState(true);
@@ -45,6 +46,10 @@ export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCal
   // 键名到 setter 的映射只写一遍，避免长 switch；通知开关的权限申请走同一条入口。
   const setFlag = useCallback(
     (key: GlobalFlagKey, value: boolean): void => {
+      if (key === 'petEnabled') {
+        setPetEnabled(value);
+        return;
+      }
       if (key !== 'notificationsEnabled') {
         if (key === 'sfxEnabled') setSfxEnabled(value);
         else if (key === 'sfxKeepAlive') setSfxKeepAlive(value);
@@ -56,11 +61,12 @@ export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCal
       // 只在开启时申请：无手势的自动申请可能被浏览器静默压制。
       if (value) void requestNotificationPermission();
     },
-    [setSfxEnabled, setSfxKeepAlive, setConfineToScreen, setNotificationsEnabled, setTrayEnabled],
+    [setSfxEnabled, setSfxKeepAlive, setConfineToScreen, setNotificationsEnabled, setTrayEnabled, setPetEnabled],
   );
 
   // 只有 setState，跨渲染稳定：放进设置页 applyConfig 的依赖里不会让配置反复重拉。
   const apply = useCallback((patch: MainConfigPatch): void => {
+    if (patch.petEnabled !== undefined) setPetEnabled(patch.petEnabled);
     if (patch.notificationsEnabled !== undefined) setNotificationsEnabled(patch.notificationsEnabled);
     if (patch.sfxEnabled !== undefined) setSfxEnabled(patch.sfxEnabled);
     if (patch.sfxKeepAlive !== undefined) setSfxKeepAlive(patch.sfxKeepAlive);
@@ -70,7 +76,7 @@ export function useGlobalSettings(rt: Pick<SettingsRuntime, 'useState' | 'useCal
   }, []);
 
   return {
-    values: { notificationsEnabled, sfxEnabled, sfxKeepAlive, confineToScreen, trayEnabled },
+    values: { petEnabled, notificationsEnabled, sfxEnabled, sfxKeepAlive, confineToScreen, trayEnabled },
     sfxVolume,
     setFlag,
     setSfxVolume,

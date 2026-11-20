@@ -6,10 +6,11 @@
  * @module dsh-fish-body/src/client/settings/global-flags
  */
 
-/** 五个全局开关的键名，与成品配置的字段名一致。 */
-export type GlobalFlagKey = 'notificationsEnabled' | 'sfxEnabled' | 'sfxKeepAlive' | 'confineToScreen' | 'trayEnabled';
+/** 六个全局开关的键名，与成品配置的字段名一致。 */
+export type GlobalFlagKey =
+  'notificationsEnabled' | 'sfxEnabled' | 'sfxKeepAlive' | 'confineToScreen' | 'trayEnabled' | 'petEnabled';
 
-/** 五个全局开关的当前值。 */
+/** 六个全局开关的当前值。 */
 export type GlobalFlags = Record<GlobalFlagKey, boolean>;
 
 /** 一个开关的展示定义：键名、文案键，以及它属于哪张卡（只在装配分区时用）。 */
@@ -23,6 +24,8 @@ export interface GlobalFlagDef {
 
 /** 展示顺序即 `PUT /config` 之外的两张卡里的排列顺序。 */
 export const GLOBAL_FLAGS: readonly GlobalFlagDef[] = [
+  // 桌宠总开关排在最前：它是「所有宠物开不开」，比通知 / 托盘更靠近用户第一眼要找的东西。
+  { key: 'petEnabled', label: 'petToggle', card: 'system' },
   { key: 'notificationsEnabled', label: 'notifyToggle', card: 'system' },
   { key: 'sfxEnabled', label: 'sfxToggle', card: 'audio' },
   { key: 'sfxKeepAlive', label: 'sfxKeepAliveToggle', card: 'audio' },

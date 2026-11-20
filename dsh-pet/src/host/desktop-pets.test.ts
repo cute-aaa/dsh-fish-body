@@ -136,4 +136,26 @@ describe('createDesktopPets —— 判定必须现读配置', () => {
       f.cleanup();
     }
   });
+
+  test('桌宠总开关关掉：display 再怎么设也不建窗，开回来原样恢复', () => {
+    const f = fixture({ display: 'desktop' });
+    try {
+      const list = [{ id: 'main', display: 'desktop', size: 200 }];
+      const pets = createDesktopPets({ configPaths: f.paths, effectivePetList: () => list, log: quietLog });
+      assert.equal(pets.getHasDesktopPet(), true, '前提：display=desktop 时有一只桌面宠物');
+      assert.equal(pets.desktopPetList().length, 1);
+
+      // 用户层写总开关 false：桌面窗列表立刻为空，不需要改任何一只宠物的 display。
+      const off = { ...baseConfig('desktop'), petEnabled: false };
+      writeFileSync(f.paths.defaultFile, JSON.stringify(off));
+      assert.equal(pets.getHasDesktopPet(), false, '总开关关掉 = 没有桌面宠物');
+      assert.deepEqual(pets.desktopPetList(), [], 'Helper 拿到空列表就不会建窗');
+
+      writeFileSync(f.paths.defaultFile, JSON.stringify(baseConfig('desktop')));
+      assert.equal(pets.getHasDesktopPet(), true, '开回来：display 没被改过，原样恢复');
+      assert.equal(pets.desktopPetList().length, 1);
+    } finally {
+      f.cleanup();
+    }
+  });
 });

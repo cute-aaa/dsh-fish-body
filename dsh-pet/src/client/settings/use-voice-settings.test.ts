@@ -48,12 +48,15 @@ describe('readStringRecord —— 接入配置值的解析', () => {
 
 describe('localProviderOf —— 本地音色格的数据源', () => {
   test('跳过内置实现与没有音色的实现', () => {
-    const chosen = provider('gsv', { voices: [{ id: 'v1', name: 'V1' }], voice: 'v1' });
+    const chosen = provider('gsv', { voices: [{ id: 'v1', name: 'V1', available: true }], voice: 'v1' });
     assert.equal(localProviderOf([provider('edge', { builtin: true }), provider('silent'), chosen]), chosen);
   });
 
   test('没有可切音色的实现时返回 undefined', () => {
-    assert.equal(localProviderOf([provider('edge', { builtin: true, voices: [{ id: 'v1', name: 'V1' }] })]), undefined);
+    assert.equal(
+      localProviderOf([provider('edge', { builtin: true, voices: [{ id: 'v1', name: 'V1', available: true }] })]),
+      undefined,
+    );
   });
 });
 

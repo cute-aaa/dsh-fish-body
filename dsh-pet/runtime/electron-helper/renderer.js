@@ -198,10 +198,15 @@ if (window.petBridge && window.petBridge.onDisplays) {
   });
 }
 
-// 托盘命令：目前只有「回到初始位置」。托盘在主进程，不知道会话位置与拖拽状态，所以复位由这里做
-// （与右键菜单「回到初始位置」同一条 goHome）。拖拽/飞行中不打断：那会把人手里的宠物直接拽走。
+// 托盘 / 快捷键命令：「回到初始位置」与「暂停 / 恢复」。
+// 托盘与全局快捷键都在主进程，不知道会话位置与拖拽状态，所以复位由这里做（与右键菜单同一条 goHome）；
+// 暂停要落到**本窗口的语音模块**上：窗口被 hide() 之后页面还在跑，不在这里静音就会从看不见的宠物那儿出声。
 if (window.petBridge && window.petBridge.onCommand) {
   window.petBridge.onCommand((name) => {
+    if (name === 'pause' || name === 'resume') {
+      if (S && typeof S.setVoicePaused === 'function') S.setVoicePaused(name === 'pause');
+      return;
+    }
     if (name !== 'home') return;
     for (const s of sprites) {
       if (s.dragState.active || s.throwRef !== null) continue;

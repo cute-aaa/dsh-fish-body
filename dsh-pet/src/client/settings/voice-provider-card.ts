@@ -9,6 +9,7 @@
  * @module dsh-fish-body/src/client/settings/voice-provider-card
  */
 import type { FunctionComponent } from 'react';
+import type { jsx } from 'react/jsx-runtime';
 import type { VoiceFieldView } from '../../shared/voice-providers.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit, INPUT_CLASS } from './ui.ts';
@@ -30,6 +31,8 @@ export interface VoiceProviderCardProps {
    * ——回退链会静默换嗓子，不写出来用户只会以为音色变了。
    */
   readonly lastError: string;
+  /** 扫描诊断（来源计数、目录不存在、版本错配、音色回落）；没有就空数组。 */
+  readonly notes: readonly string[];
   /** 宿主声明的配置项。 */
   readonly fields: readonly VoiceFieldView[];
   /** 当前值（键 = `fields[].key`；密钥字段恒为空串，值从不回传）。 */
@@ -62,6 +65,13 @@ export interface VoiceProviderCardProps {
   readonly onStart: () => void;
   /** 跑停止脚本。 */
   readonly onStop: () => void;
+  /**
+   * 字段网格之后、按钮行之前的自定义片段（今天是 GSV 的「导入音色…」那一块）。
+   *
+   * 由调用方（语音分区）造好传进来：这张卡只认「声明式配置项」，导入流程是某个实现
+   * 独有的动作，写进卡片就会变成第二个 `id === 'gsv'` 分支。
+   */
+  readonly beforeActions?: ReturnType<typeof jsx> | null;
 }
 
 /** 上一次动作的结论（保存或启停）。 */
@@ -134,6 +144,14 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
         status
           ? h('div', { className: 'dsh-pet-cfg__msg is-err', children: [status] })
           : h('div', { className: 'dsh-pet-cfg__msg', children: [t('voiceProviderReady')] }),
+        // 扫描诊断：清单是怎么来的、哪些目录不存在、哪些音色缺文件。放在状态下面一行，
+        // 因为它回答的是「为什么只有这些音色」，而不是「现在能不能用」。
+        props.notes.length > 0
+          ? h('ul', {
+              className: 'dsh-pet-cfg__notes',
+              children: props.notes.map((note, index) => h('li', { key: `${index}`, children: [note] })),
+            })
+          : null,
         h('div', {
           className: 'dsh-pet-cfg__grid2',
           children: props.fields.map((item) =>
@@ -188,6 +206,8 @@ export function makeVoiceProviderCard(rt: SettingsRuntime): FunctionComponent<Vo
             ),
           ),
         }),
+        // 实现自己的额外动作（GSV：导入音色）。放在字段网格之后：先看清目录与地址，再动手导。
+        props.beforeActions ?? null,
         h('div', {
           className: 'dsh-pet-cfg__actions',
           children: [

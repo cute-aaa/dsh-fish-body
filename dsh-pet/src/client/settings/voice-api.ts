@@ -111,3 +111,32 @@ export async function fetchProviderConfig(providerId: string): Promise<ProviderC
     return null;
   }
 }
+
+/** 重新扫描一次音色清单的结论。 */
+export interface RescanResult {
+  /** 现在能真的合成的音色数。 */
+  readonly ready: number;
+  /** 列出来的音色总数（含缺文件的）。 */
+  readonly total: number;
+  /** 扫描诊断（目录不存在、缺参考音频…）；空数组表示没什么可说的。 */
+  readonly notes: readonly string[];
+}
+
+/**
+ * 让宿主丢掉扫描缓存、重扫一遍音色包目录。
+ *
+ * 设置页「扫描音色」按钮用它：音色包里的文件是用户在磁盘上加删的，宿主侧那份扫描结果有软过期，
+ * 不主动重扫就要等 TTL 到点才看得见新嗓子。
+ *
+ * @param providerId - 实现 id（目前只有 `gsv` 有可扫描的音色目录）。
+ * @param rejection - 宿主拒绝且没带原因时的兜底文案。
+ * @returns 扫描结论（可合成数 / 总数 / 诊断）。
+ * @throws HTTP 非 2xx、响应体不可解析或宿主拒绝。
+ */
+export async function rescanVoiceProvider(providerId: string, rejection: string): Promise<RescanResult> {
+  const body = await postJson('/voice/rescan', { provider: providerId }, rejection);
+  const ready = typeof body.ready === 'number' ? body.ready : 0;
+  const total = typeof body.total === 'number' ? body.total : 0;
+  const notes = Array.isArray(body.notes) ? body.notes.filter((item): item is string => typeof item === 'string') : [];
+  return { ready, total, notes };
+}

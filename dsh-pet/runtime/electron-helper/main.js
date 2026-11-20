@@ -52,6 +52,7 @@ const { createBridge } = require('./main/bridge.js');
 const { createTray } = require('./main/tray.js');
 const { createWindows } = require('./main/windows.js');
 const { registerIpc } = require('./main/ipc.js');
+const { createHideAllHotkey } = require('./main/shortcut.js');
 const { startForegroundWatch, stopForegroundWatch } = require('./main/foreground.js');
 const { createDisplaySync } = require('./main/displays.js');
 const { dshHomeDir, resolveUserDataDir } = require('./main/user-data.js');
@@ -248,6 +249,15 @@ const petWindows = createWindows({
   topmostLevel,
   taskbarWatchdogEnabled: taskbarWatchdogEnabledFromEnv(process.env.DSH_PET_TASKBAR_WATCHDOG),
 });
+/** 系统级快捷键：全局隐藏 / 暂停（窗口开关归 petWindows，这里只注册组合键）。 */
+const hideAllHotkey = createHideAllHotkey({
+  windows: petWindows,
+  log: (line) => console.error(line),
+  // 托盘那一项的文字跟着翻（隐藏 / 显示）；tray 在本行之后才创建，回调执行时已就绪。
+  onToggled: () => {
+    void tray.refresh();
+  },
+});
 /** 托盘：显示开关与退出入口。 */
 const tray = createTray({
   app,
@@ -328,6 +338,21 @@ app.whenReady().then(() => {
 
   linuxPointer?.start();
   petWindows.create();
+
+  // 系统级「全局隐藏 / 暂停」：组合键在成品配置的 main.hideAllHotkey（宿主侧已校验并归一成
+  // Electron accelerator 写法；空串 = 关掉这条快捷键）。配置改了宿主会重启本进程，所以只在这里读一次。
+  void (async () => {
+    let accelerator = '';
+    try {
+      const resp = await bridge.hostRequest('GET', PET_ROUTE + '/config');
+      const merged = JSON.parse(resp.body || '{}');
+      const raw = merged && merged.main ? merged.main.hideAllHotkey : '';
+      accelerator = typeof raw === 'string' ? raw : '';
+    } catch (e) {
+      console.error('[fish-body-desktop] 读取快捷键配置失败:', String(e && e.message ? e.message : e));
+    }
+    hideAllHotkey.apply(accelerator);
+  })();
 
   // 识屏的兜底取帧路径：getDisplayMedia 在 Electron 里必须有 handler，否则渲染端直接抛
   // NotSupportedError。这里自动选第一块屏（桌宠没有「用户点选共享目标」的交互可走），
@@ -419,6 +444,8 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   // 前台轮询是本进程拉起的 PowerShell：宿主硬杀拦不到，只能在这里收掉，免得留孤儿进程
   stopForegroundWatch();
+  // 全局快捷键是系统资源：显式注销，别留一个按了没反应的组合键
+  hideAllHotkey.dispose();
   petWindows.stopTaskbarWatchdog();
   if (!tray.exists()) return;
   try {

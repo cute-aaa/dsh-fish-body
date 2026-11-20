@@ -17,6 +17,13 @@ import { keycapOf, subscribeShortcutKeycaps, type ShortcutHost } from '../app-sh
 import { petChatShortcutKeycap } from '../chat/shortcut.ts';
 import { petShortcutKeycap } from '../pet/card/shortcut.ts';
 import { hotkeyHint, isHotkeyKey, type HotkeyAction, type HotkeyMap } from '../../shared/hotkeys.ts';
+import {
+  DEFAULT_HIDE_ALL_HOTKEY,
+  globalHotkeyCap,
+  normalizeGlobalHotkey,
+  parseGlobalHotkey,
+} from '../../shared/hotkeys.ts';
+import { INPUT_CLASS } from './ui.ts';
 import { DISPLAY_ORDER } from '../../shared/display-hotkey.ts';
 
 /** 折叠正文的 id：与卡头按钮的 `aria-controls` 成对。 */
@@ -29,10 +36,16 @@ const PASTE_KEYCAP = keycapOf({ code: 'KeyV', modifiers: ['primary'] });
 export interface ShortcutsCardProps {
   /** 当前九个悬停键（来自配置，已归一）。 */
   readonly hotkeys: HotkeyMap;
+  /** 全局隐藏 / 暂停的组合键（输入框原文；空串 = 关掉）。 */
+  readonly hideAll: string;
   /** 改一个键（同一个键给了别的动作时由上层互换）。 */
   readonly onAssign: (action: HotkeyAction, key: string) => void;
   /** 九个键整体恢复出厂。 */
   readonly onReset: () => void;
+  /** 改「全局隐藏 / 暂停」的组合键。 */
+  readonly onHideAllChange: (value: string) => void;
+  /** 这条组合键恢复出厂值。 */
+  readonly onHideAllReset: () => void;
   /** 保存中或配置未就绪：捕获与改绑都停手。 */
   readonly disabled: boolean;
   /** 未保存改动查询口（卡头与每一行的小圆点）。 */
@@ -89,7 +102,7 @@ export function makeShortcutsCard(rt: SettingsRuntime, ctx: ShortcutHost): Funct
   const { h, t, useState, useEffect } = rt;
 
   return function ShortcutsCard(props: ShortcutsCardProps) {
-    const { hotkeys, onAssign, onReset, disabled } = props;
+    const { hotkeys, hideAll, onAssign, onReset, onHideAllChange, onHideAllReset, disabled } = props;
     const dirty = props.dirty ?? NO_DIRTY;
     // 每张卡自带一份小件：圆点要按这张卡的 dirty 判定，不能在装配时固定成共享实例。
     const { foldCard, note } = makeUiKit({ h, t }, dirty);
@@ -123,6 +136,12 @@ export function makeShortcutsCard(rt: SettingsRuntime, ctx: ShortcutHost): Funct
       window.addEventListener('keydown', onKey, true);
       return () => window.removeEventListener('keydown', onKey, true);
     }, [editing, onAssign]);
+
+    /** 组合键的展示串：解析得出来就按它展示，解析不出来（正在输入）退回出厂值。 */
+    const capOf = (value: string): string => {
+      const normalized = normalizeGlobalHotkey(value);
+      return globalHotkeyCap(normalized === '' ? DEFAULT_HIDE_ALL_HOTKEY : normalized);
+    };
 
     /** 一行：左边动作名，右边键帽（可点击改绑）；`fixed` 表示这一行不能改（只有展示）。 */
     const row = (label: string, hint: string, action?: HotkeyAction) => {
@@ -201,6 +220,43 @@ export function makeShortcutsCard(rt: SettingsRuntime, ctx: ShortcutHost): Funct
             row('shortcutRowPaste', PASTE_KEYCAP),
           ],
         }),
+        // 四、全局隐藏 / 暂停：系统级组合键（带修饰键、桌面端由 Helper 注册、网页端只在本页前台时生效）。
+        // 与上面九个裸键分开的原因写在模块头：那一类只在鼠标停着宠物时判定，宠物藏起来时就按不到了。
+        h('p', { key: 'hideTitle', className: 'dsh-pet-cfg__cardTitle', children: t('shortcutGroupHide') }),
+        note(t('shortcutGroupHideHint'), true),
+        h('div', {
+          key: 'hideRow',
+          className: 'dsh-pet-cfg__field' + (dirty.has('hideAllHotkey') ? ' is-dirty' : ''),
+          children: [
+            h('span', { key: 'l', className: 'dsh-pet-cfg__flabel', children: t('shortcutHideLabel') }),
+            h('input', {
+              key: 'v',
+              type: 'text',
+              className: INPUT_CLASS,
+              value: hideAll,
+              placeholder: DEFAULT_HIDE_ALL_HOTKEY,
+              disabled,
+              spellCheck: false,
+              onChange: (event: { target: { value: string } }) => onHideAllChange(event.target.value),
+            }),
+            h('button', {
+              key: 'r',
+              type: 'button',
+              className: 'dsh-pet-cfg__btn is-sm',
+              disabled,
+              onClick: onHideAllReset,
+              children: t('shortcutHideReset'),
+            }),
+          ],
+        }),
+        // 行内校验：输入到一半（`Control+Alt+`）不算错，只有「非空却解析不出来」才提示——
+        // 宿主保存时同样会拒，这里提前说清，省一次「保存失败」的往返。
+        hideAll.trim() !== '' && parseGlobalHotkey(hideAll) === null
+          ? h('div', { key: 'hideBad', className: 'dsh-pet-cfg__msg is-err', children: t('shortcutHideInvalid') })
+          : note(t('shortcutHideHint').replace('{cap}', capOf(hideAll)), true),
+        hideAll.trim() === ''
+          ? h('div', { key: 'hideOff', className: 'dsh-pet-cfg__msg', children: t('shortcutHideOff') })
+          : null,
       ],
     });
   };

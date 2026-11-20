@@ -65,7 +65,7 @@ export function apply(ctx: any): void {
     EXTERNAL_WORK_SESSION,
     nextExternalWorkSeq,
   } = setup;
-  // 本地 GSV（GPT-SoVITS api_v2）：配置在 `<userRoot>/voice-providers.json`（路由 /voice/provider-voice 写它）。
+  // 本地 GSV（GPT-SoVITS api_v2）：配置在 `<userRoot>/config/voice-providers.json`（路由 /voice/provider-voice 写它）。
   // 注册后即成为回退链的第一环；服务没起或没配时 availability 为假，链自动落到内置 edge，不报错也不静默。
   const gsv = createGsvProvider({
     settings: () => gsvSettingsOf(readProviderConfig(providerConfigPath(userRoot))),

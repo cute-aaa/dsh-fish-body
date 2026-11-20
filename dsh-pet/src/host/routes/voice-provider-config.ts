@@ -23,8 +23,8 @@ import {
 } from '../voice/provider-secrets.ts';
 import type { ProviderSecretSeam } from '../voice/provider-secrets.ts';
 
-/** 单个配置项的长度上限（字符）：路径与 URL 都远短于这个，超了基本是粘错内容。 */
-const MAX_CONFIG_VALUE_CHARS = 512;
+/** 单个配置项的长度上限（字符）：多根权重目录可能写两三条长路径，留到 1024。 */
+const MAX_CONFIG_VALUE_CHARS = 1024;
 
 /** 这条路由需要的宿主能力。 */
 export interface ProviderConfigDeps {

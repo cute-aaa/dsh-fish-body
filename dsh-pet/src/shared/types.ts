@@ -409,6 +409,11 @@ export interface PoolEntryItem {
 
 /** config.jsonc 全集——运行时直接使用。 */
 export interface ClientConfig {
+  /** 桌宠总开关：false = 全部宠物一起收起（桌面不建窗、网页不渲染、定时任务停跑）。
+   *  与每只宠物的 `display` 正交：display 管这只去哪一屏，这一项管所有宠物开不开。缺失默认 true。 */
+  petEnabled?: boolean;
+  /** 全局隐藏 / 暂停的系统级组合键（Electron accelerator 写法）；空串 = 关掉这条快捷键。 */
+  hideAllHotkey?: string;
   /** 系统通知总开关：true = 对话完成 / 生成失败 / 输出截断 / 权限申请 / 用户选择时弹出通知；缺失即配置错误 */
   notificationsEnabled: boolean;
   /** 音效总开关：true = 按 sfx 段（含自动匹配到的文件）出音；false = 全程静音。

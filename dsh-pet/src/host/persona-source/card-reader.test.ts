@@ -43,7 +43,10 @@ test('projectCard：拼接人设字段并替换 {{char}}/{{user}} 占位符', ()
   const data = parseCard(JSON.stringify(CARD));
   assert.ok(data, '合法卡必须解析成功');
   const text = projectCard(data);
-  assert.match(text, /人设：鱼生是一只蓝色大肥鱼。/);
+  // 第一段不戴「人设：」标签：它就是正文本身，标签只出现在后续段上
+  // （否则设置页的人设输入框里会多出一个用户没写过的前缀，像是系统自动加的）。
+  assert.ok(text.startsWith('鱼生是一只蓝色大肥鱼。'), text.slice(0, 40));
+  assert.equal(/^人设：/.test(text), false);
   assert.match(text, /性格：慵懒、贪吃/);
   assert.match(text, /背景：桌面宠物/);
   assert.match(text, /开场白：主人，今天想吃什么？/);

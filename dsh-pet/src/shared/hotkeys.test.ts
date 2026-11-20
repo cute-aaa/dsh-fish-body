@@ -18,6 +18,11 @@ import {
   isHotkeyAction,
   isHotkeyKey,
   normalizeHotkeys,
+  normalizeGlobalHotkey,
+  parseGlobalHotkey,
+  matchesGlobalHotkey,
+  globalHotkeyCap,
+  DEFAULT_HIDE_ALL_HOTKEY,
 } from './hotkeys.ts';
 
 describe('出厂键位', () => {
@@ -165,5 +170,63 @@ describe('hotkeyHint / hotkeyOf', () => {
   test('键位表缺失时回落到出厂键', () => {
     assert.equal(hotkeyOf(undefined, 'todo'), 'd');
     assert.equal(hotkeyOf({ ...DEFAULT_HOTKEYS }, 'todo'), 'd');
+  });
+});
+
+describe('系统级组合键（全局隐藏 / 暂停）', () => {
+  test('解析：修饰键 + 主键，别名收成规范名', () => {
+    assert.deepEqual(parseGlobalHotkey('Control+Alt+h'), {
+      control: true,
+      commandOrControl: false,
+      alt: true,
+      shift: false,
+      super: false,
+      key: 'H',
+    });
+    assert.equal(parseGlobalHotkey('cmdorctrl+shift+k')?.commandOrControl, true, 'cmdorctrl 是主修饰键');
+    assert.equal(parseGlobalHotkey('ctrl+f5')?.key, 'F5', 'F 键也在白名单里');
+    assert.equal(parseGlobalHotkey('meta+1')?.super, true, 'meta/cmd/win 都收成 super');
+  });
+
+  test('解析拒绝：空串、没有修饰键、主键不认识、多余分段', () => {
+    assert.equal(parseGlobalHotkey(''), null);
+    assert.equal(parseGlobalHotkey('h'), null, '裸键做系统级快捷键会把所有输入框的 h 抢走');
+    assert.equal(parseGlobalHotkey('Control+Alt+Fnord'), null);
+    assert.equal(parseGlobalHotkey('Control+Alt'), null, '没有主键就不算组合键');
+    assert.equal(parseGlobalHotkey('Control+Alt+H+X'), null);
+    assert.equal(parseGlobalHotkey(42), null);
+  });
+
+  test('归一化：落盘只有一种写法；空串/非法都收成空串（= 关掉）', () => {
+    assert.equal(normalizeGlobalHotkey(' control + alt + h '), 'Control+Alt+H');
+    assert.equal(normalizeGlobalHotkey('cmdorctrl+shift+k'), 'CommandOrControl+Shift+K');
+    assert.equal(normalizeGlobalHotkey('   '), '', '空串是「关掉」这个明确状态');
+    assert.equal(normalizeGlobalHotkey('Control'), '');
+  });
+
+  test('键盘事件匹配：修饰位必须精确对上', () => {
+    const combo = 'Control+Alt+H';
+    const base = { ctrlKey: true, altKey: true, shiftKey: false, metaKey: false, key: 'h' };
+    assert.equal(matchesGlobalHotkey(base, combo, 'win32'), true);
+    assert.equal(matchesGlobalHotkey({ ...base, altKey: false }, combo, 'win32'), false, '少按 Alt 不算');
+    assert.equal(matchesGlobalHotkey({ ...base, shiftKey: true }, combo, 'win32'), false, '多按 Shift 不算');
+    assert.equal(matchesGlobalHotkey({ ...base, key: 'j' }, combo, 'win32'), false);
+    assert.equal(matchesGlobalHotkey(base, '', 'win32'), false, '关掉之后永远不匹配');
+  });
+
+  test('主修饰键跟随平台：CommandOrControl 在 macOS 上认 ⌘', () => {
+    const combo = 'CommandOrControl+K';
+    const mac = { ctrlKey: false, altKey: false, shiftKey: false, metaKey: true, key: 'k' };
+    assert.equal(matchesGlobalHotkey(mac, combo, 'darwin'), true);
+    assert.equal(matchesGlobalHotkey(mac, combo, 'win32'), false);
+    const win = { ...mac, ctrlKey: true, metaKey: false };
+    assert.equal(matchesGlobalHotkey(win, combo, 'win32'), true);
+  });
+
+  test('键帽文案：按平台挑主修饰键的写法', () => {
+    assert.equal(globalHotkeyCap('Control+Alt+H', 'win32'), 'Ctrl + Alt + H');
+    assert.equal(globalHotkeyCap('CommandOrControl+Shift+K', 'darwin'), '⌘ + ⇧ + K');
+    assert.equal(globalHotkeyCap('', 'win32'), '');
+    assert.equal(globalHotkeyCap(DEFAULT_HIDE_ALL_HOTKEY, 'win32'), 'Ctrl + Alt + H');
   });
 });

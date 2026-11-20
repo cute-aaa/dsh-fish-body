@@ -14,8 +14,14 @@ import { synthesize, VoiceSynthError, type SynthInput } from './edge.ts';
 import { BUILTIN_VOICE_ID, voiceProviderEntries, type VoiceProvider } from './registry.ts';
 import type { AudioClip } from './audio.ts';
 
-/** 第三方实现的单次合成上限（ms）：与内置同口径，避免一句卡住串行队列。 */
-const PROVIDER_TIMEOUT_MS = 15_000;
+/**
+ * 第三方实现的单次合成上限（ms）。
+ *
+ * 比内置的 28s 宽一点：本地 GSV 换音色跨版本时（v2 ↔ v5turbo）会重载 BERT/HuBERT 与推理管线，
+ * 首句实测到十几秒；15s 的旧值会把这种合法的慢判成失败、静默落到 edge，用户以为音色没生效。
+ * 仍要有上限：真挂住时不能把整条串行队列拖死。
+ */
+const PROVIDER_TIMEOUT_MS = 35_000;
 /** 内置 edge 合成的总时限（ms）：依赖自带的 15s 只是「静默」超时，每来一帧就重置，不能当总时限用。 */
 const BUILTIN_TIMEOUT_MS = 28_000;
 /** 内置实现的尝试次数：上游偶发首连失败，重试一次基本必成。 */

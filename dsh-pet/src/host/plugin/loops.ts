@@ -4,7 +4,7 @@
  * 不实现取数与文案（归 balance-poll / chat-memory），只负责节奏与生命周期。
  * @module dsh-fish-body/src/host/plugin/loops
  */
-import { findPetInstance, flattenPetList, readAllConfig } from '../config.ts';
+import { findPetInstance, flattenPetList, petsEnabled, readAllConfig } from '../config.ts';
 import { isDisplayed } from '../surface.ts';
 import { automaticWhisperSchedule } from '../whisper-policy.ts';
 import type { BalancePoll } from './balance-poll.ts';
@@ -68,13 +68,18 @@ export function registerLoops(deps: LoopsInput): void {
       try {
         const cfg = readAllConfig(configPaths);
         sec = balancePeriodSec(cfg);
-        // 没有任何「醒着且启用余额」的宠物 → 不查（省外部调用）：睡着的宠物不看不听，
-        // 拉了也只会白花一次外部 API；配置改了或醒了，下一拍自然跟上。
-        const pets = flattenPetList(cfg);
-        if (pets.some((p) => p.balanceEnabled === true && !sleep.sleeping(String(p.id ?? '')))) {
-          await refreshBalance();
+        // 桌宠总开关关掉 = 一个宠物都没有：不查余额（省外部调用），但周期照排——开回来立刻恢复。
+        if (!petsEnabled(cfg)) {
+          log.info('[fish-body] 余额周期跳过：桌宠总开关已关闭');
         } else {
-          log.info('[fish-body] 余额周期跳过：没有醒着且启用余额的宠物');
+          // 没有任何「醒着且启用余额」的宠物 → 不查（省外部调用）：睡着的宠物不看不听，
+          // 拉了也只会白花一次外部 API；配置改了或醒了，下一拍自然跟上。
+          const pets = flattenPetList(cfg);
+          if (pets.some((p) => p.balanceEnabled === true && !sleep.sleeping(String(p.id ?? '')))) {
+            await refreshBalance();
+          } else {
+            log.info('[fish-body] 余额周期跳过：没有醒着且启用余额的宠物');
+          }
         }
       } catch (e) {
         // 读配置抛错 = 安装损坏（readAllConfig 只在内置默认缺失/损坏时抛，用户层写坏只会告警回退）：
@@ -143,6 +148,13 @@ export function registerLoops(deps: LoopsInput): void {
       let next = 300;
       try {
         const cfg = readAllConfig(configPaths);
+        // 桌宠总开关关掉 = 全都不显示：一拍都不生成，也不推进 lastWhisperAt——开回来立刻补一句。
+        // 与「display=none 的宠物跳过」同一口径，只是这一条管全部。
+        if (!petsEnabled(cfg)) {
+          log.info('[fish-body] 碎碎念调度跳过：桌宠总开关已关闭');
+          arm(300);
+          return;
+        }
         const now = Date.now();
         let min = Infinity;
         // 每一拍的账：检查几只、到点几只、没到点几只、跳过几只（带原因）。只用于日志，调度行为不变。
@@ -249,6 +261,11 @@ export function registerLoops(deps: LoopsInput): void {
       let next = SLEEP_TALK_DEFAULT_SEC;
       try {
         const cfg = readAllConfig(configPaths);
+        // 总开关关掉时宠物根本不在画面上：梦话也不说（与碎碎念同一口径，周期照排）。
+        if (!petsEnabled(cfg)) {
+          arm(SLEEP_TALK_DEFAULT_SEC);
+          return;
+        }
         const now = Date.now();
         let min = Infinity;
         for (const petId of sleep.ids()) {

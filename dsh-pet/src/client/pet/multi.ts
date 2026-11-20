@@ -46,7 +46,8 @@ import type { WorkStatusSnapshot } from '../../shared/work-status.ts';
 import type { PetCardProps } from './card/props.ts';
 import type { PetRuntime, RuntimePet } from './types.ts';
 import { configureSfxFromMain, loadSfxIndex } from './sfx.ts';
-import { setSurface, setVoiceConfig, setVoiceNotifyEnabled } from '../../shared/voice.ts';
+import { setSurface, setVoiceConfig, setVoiceNotifyEnabled, setVoicePaused } from '../../shared/voice.ts';
+import { matchesGlobalHotkey } from '../../shared/hotkeys.ts';
 import { runStatePoll } from './state-poll.ts';
 import { setMenuItems } from '../menu-service.ts';
 import { setStateSnapshot } from '../state-service.ts';
@@ -70,6 +71,13 @@ export function createPetMulti(
 
   return function PetMulti() {
     const [pets, setPets] = useState<Pet[]>([]);
+    // 桌宠总开关（main.petEnabled）：关掉时网页上一个都不渲染。配置值随每次重拉刷新。
+    const [petsOn, setPetsOn] = useState(true);
+    // 「全局隐藏 / 暂停」：网页端没有系统级快捷键可注册，只能在页面上听同一串组合键。
+    // 隐藏后组件返回 null 但依然挂载，所以再按一次就能恢复——这是它不至于变成单向操作的关键。
+    const [hotkey, setHotkey] = useState('');
+    const [hiddenByKey, setHiddenByKey] = useState(false);
+    const hiddenRef = useRef(false);
     const [ready, setReady] = useState(false);
     // 碰撞站场：每只 PetCard 注册槽位，纯 ref 同步，不触发重渲染。
     const arenaRef = useRef<{ slots: Record<string, PetCollisionSlot> }>({ slots: {} });
@@ -122,6 +130,10 @@ export function createPetMulti(
         }
         // 音效总闸只读 main 条目：开关、常驻预热与总音量，缺字段按内置默认（关 / 开 / 0.5）。
         configureSfxFromMain(main);
+        // 桌宠总开关：关掉时不渲染任何宠物（清单本身照旧留在 petBridge 里，设置页还要用它编辑）。
+        setPetsOn(main.petEnabled !== false);
+        // 全局隐藏 / 暂停的组合键：与桌面端注册的是同一串文本（宿主侧已归一）。
+        setHotkey(typeof main.hideAllHotkey === 'string' ? main.hideAllHotkey : '');
         // 本页就是网页端：按叶子播放时只认 voiceTo='web' 的那一句。
         setSurface('web');
         // 音色与音量同源：缺字段即「用默认音色 / 最大音量」，不在端上兜默认值。
@@ -177,9 +189,30 @@ export function createPetMulti(
       };
     }, []);
 
+    // 全局隐藏 / 暂停的组合键：命中就翻转「藏起来 + 暂停语音」。
+    // 暂停走 shared/voice（与桌面端同一条判定），隐藏走本组件的渲染门——网页端没有窗口可藏。
+    useEffect(() => {
+      if (hotkey === '' || typeof window === 'undefined') return;
+      const onKeyDown = (event: KeyboardEvent): void => {
+        if (!matchesGlobalHotkey(event, hotkey)) return;
+        event.preventDefault();
+        const next = !hiddenRef.current;
+        hiddenRef.current = next;
+        setHiddenByKey(next);
+        setVoicePaused(next);
+        // 停下来时不补播下一句：恢复后由下一次自动播报自然接上。
+        console.info('[fish-body] 快捷键：' + (next ? '隐藏并暂停' : '显示并恢复') + '（' + hotkey + '）');
+      };
+      window.addEventListener('keydown', onKeyDown);
+      return () => window.removeEventListener('keydown', onKeyDown);
+    }, [hotkey]);
+
     // overlay 只渲染 display 为 web 或 both 的宠物，且一个页面只渲染一只：
     // 导入的皮肤包默认同标 web，全渲染就会在页面上叠出一排宠物。
-    const { pet: shownPet, hidden: hiddenPets } = pickSurfacePet(pets, (p) => isWebVisible(p.display));
+    // 总开关关掉、或用户按了「全局隐藏」时列表直接清空——这条判断放在这里，
+    // 是因为它是页面上唯一的渲染入口。
+    const visiblePets = petsOn && !hiddenByKey ? pets : [];
+    const { pet: shownPet, hidden: hiddenPets } = pickSurfacePet(visiblePets, (p) => isWebVisible(p.display));
     const hiddenIds = hiddenPets.map((p) => p.id).join(',');
     // 配置冲突只在变化时告警一次，避免每帧刷屏；换配置会重拉，故按 id 集合判重。
     const warnedHiddenRef = useRef('');

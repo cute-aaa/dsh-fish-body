@@ -43,6 +43,7 @@ export function makeSnapshot(sources: SnapshotSources): FormSnapshot {
     pets: list.pets,
     global: { ...global.values, sfxVolume: global.sfxVolume },
     hotkeys: hotkeys.values,
+    hideAllHotkey: hotkeys.hideAll,
     sfx: sfx.config,
     voice: {
       enabled: voice.enabled,

@@ -86,8 +86,11 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
         h(ShortcutsCard, {
           key: 'shortcuts',
           hotkeys: hotkeys.values,
+          hideAll: hotkeys.hideAll,
           onAssign: hotkeys.setKey,
           onReset: hotkeys.reset,
+          onHideAllChange: hotkeys.setHideAll,
+          onHideAllReset: hotkeys.resetHideAll,
           disabled: busy,
           dirty,
         }),

@@ -25,6 +25,8 @@ export interface SaveFieldParts {
   readonly global: GlobalFlags;
   /** 九个悬停键（设置页「快捷键」卡）。 */
   readonly hotkeys: HotkeyMap;
+  /** 全局隐藏 / 暂停的系统级组合键（同卡；空串 = 关掉）。 */
+  readonly hideAllHotkey: string;
   /** 音效总音量（0–1）；与语音音量分开，混音器那条是进程级总闸。 */
   readonly sfxVolume: number;
   /** 音效分区写回的 `sfx` 段（事件槽覆盖 / 动作音 / hook / 按渲染方式 / 按皮肤）。 */
@@ -53,6 +55,7 @@ export function buildSaveFields(parts: SaveFieldParts): SaveFields {
     // 两个开关组各自就是成品字段名的一份映射，摊平即可：漏键会被类型检查逮住。
     ...parts.global,
     hotkeys: parts.hotkeys,
+    hideAllHotkey: parts.hideAllHotkey,
     sfxVolume: parts.sfxVolume,
     sfx: parts.sfx,
     ...parts.chat,

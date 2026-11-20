@@ -21,6 +21,7 @@ import {
   parseClockMinutes,
 } from '../../shared/screen-config.ts';
 import { isKnownVoice } from '../voice/voices.ts';
+import { parseGlobalHotkey } from '../../shared/hotkeys.ts';
 import { MAX_RESOURCE_DIRS } from '../../shared/pool.ts';
 import { FONT_FAMILY_SET, RENDERER_SET } from './constants.ts';
 import { sfxValid } from './sfx.ts';
@@ -260,6 +261,12 @@ export function topFieldValid(key: string, value: unknown): boolean {
     }
     case 'notificationsEnabled':
       return typeof value === 'boolean';
+    case 'petEnabled':
+      // 桌宠总开关（全局布尔，只读 main 条目）：false = 桌面不建窗、网页不渲染、定时任务停跑
+      return typeof value === 'boolean';
+    case 'hideAllHotkey':
+      // 全局隐藏 / 暂停的系统级快捷键：空串 = 关掉；非空必须是能解析的组合键（读写出自同一份解析器）
+      return typeof value === 'string' && (value.trim() === '' || parseGlobalHotkey(value) !== null);
     case 'sfxEnabled':
       // 音效总开关（全局布尔，只读 main 条目）：与 notificationsEnabled 同一套校验
       return typeof value === 'boolean';

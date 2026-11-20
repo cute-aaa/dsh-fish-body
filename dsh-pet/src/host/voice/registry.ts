@@ -61,6 +61,15 @@ export interface ProviderVoiceInfo {
   readonly name: string;
   /** 补充说明（如音色包的一行描述）。 */
   readonly tag?: string;
+  /**
+   * 这个音色此刻能不能真的合成（缺权重、缺参考音频时为 false）。
+   *
+   * 缺省视为可用——老实现没有这个概念。不可用的音色**仍然列出来**（菜单/下拉里置灰），
+   * 这样用户能看见「有这些嗓子，只是差一份文件」，而不是整个实现看起来只有半个音色表。
+   */
+  readonly available?: boolean;
+  /** 不可用原因（缺哪份权重/参考音频），直接显示给用户。 */
+  readonly reason?: string;
 }
 
 /** 第三方语音实现：给一段文本，返回音频字节与格式。 */
@@ -153,6 +162,13 @@ export interface VoiceProvider {
    */
   refresh?(): Promise<boolean>;
   /**
+   * 丢掉缓存后重新扫描/探测（可选）。
+   *
+   * 与 {@link refresh} 的区别：refresh 只重探可用性，扫描结果仍走软过期；导入参考音频、改了目录后
+   * 需要「立刻看见新音色」，所以给一个明确的清缓存入口。
+   */
+  rescan?(): Promise<boolean>;
+  /**
    * 最近一次合成失败的原因（可选）。
    *
    * 与 `availability` 分开：可用性只管「连不连得通」，而这一项记的是「通着却念不出来」
@@ -161,6 +177,13 @@ export interface VoiceProvider {
    * 合成成功即清空；同步返回。
    */
   lastError?(): string | undefined;
+  /**
+   * 扫描诊断（可选）：来源计数、配了但不存在的目录、版本错配、回落说明。
+   *
+   * 与 `lastError` 分开：这是「清单是怎么来的」，不是「刚才念失败了吗」。
+   * 设置页的接入卡按行显示；同步返回，实现自己缓存扫描结果。
+   */
+  notes?(): readonly string[];
   /**
    * 把一段文本合成为音频。
    *
@@ -261,6 +284,8 @@ export interface VoiceProviderStatus {
   readonly voices: readonly ProviderVoiceInfo[];
   /** 当前选中的音色 id；没有这个概念（内置实现）时为空串。 */
   readonly voice: string;
+  /** 扫描诊断（清单是怎么来的、哪些目录不存在、哪些音色缺文件）。 */
+  readonly notes?: readonly string[];
 }
 
 /**
@@ -271,6 +296,7 @@ export interface VoiceProviderStatus {
 export function voiceProviderStatuses(): VoiceProviderStatus[] {
   const external = voiceProviderEntries().map((entry) => {
     const lastError = safelyOptional(() => entry.provider.lastError?.());
+    const notes = safelyList(() => entry.provider.notes?.() ?? []);
     return {
       id: entry.provider.id,
       name: entry.provider.name,
@@ -282,6 +308,7 @@ export function voiceProviderStatuses(): VoiceProviderStatus[] {
       // 音色扫描失败（目录没配、磁盘抽风）不该让整条链不可用：空数组就是「暂时列不出音色」
       voices: safely(() => entry.provider.listVoices?.() ?? []),
       voice: safelyText(() => entry.provider.activeVoice?.() ?? ''),
+      ...(notes.length === 0 ? {} : { notes }),
     };
   });
   return [
@@ -322,6 +349,15 @@ function safelyOptional(read: () => string | undefined): string | undefined {
     return read();
   } catch {
     return undefined;
+  }
+}
+
+/** 取诊断清单时的兜底：实现自己抛错只当「没有诊断」，坏条目静默丢弃。 */
+function safelyList(read: () => readonly string[]): string[] {
+  try {
+    return read().filter((item) => typeof item === 'string' && item.trim() !== '');
+  } catch {
+    return [];
   }
 }
 

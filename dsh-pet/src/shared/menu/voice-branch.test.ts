@@ -18,8 +18,8 @@ function provider(over: Partial<VoiceProviderView> = {}): VoiceProviderView {
     builtin: false,
     available: true,
     voices: [
-      { id: 'vodyanitsa', name: 'vodyanitsa' },
-      { id: 'klee', name: 'klee', tag: '原神角色语音' },
+      { id: 'vodyanitsa', name: 'vodyanitsa', available: true },
+      { id: 'klee', name: 'klee', tag: '原神角色语音', available: true },
     ],
     voice: 'vodyanitsa',
     fields: [],
@@ -50,8 +50,36 @@ describe('readVoiceProviders —— 网络数据的容错解析', () => {
     const gsv = list[0];
     assert.ok(gsv);
     assert.equal(gsv.available, true, '老宿主没有 available 字段 → 按可用处理');
-    assert.deepEqual(gsv.voices, [{ id: 'klee', name: 'klee' }]);
+    assert.deepEqual(gsv.voices, [{ id: 'klee', name: 'klee', available: true }]);
     assert.equal(gsv.voice, '');
+  });
+
+  test('逐音色状态与扫描诊断：缺省按可用，空白诊断不留空数组', () => {
+    const [view] = readVoiceProviders([
+      {
+        id: 'gsv',
+        voices: [
+          { id: 'klee', available: true },
+          { id: 'norma', available: false, reason: ' 缺少参考音频 ' },
+          { id: 'old' },
+        ],
+        notes: ['音色来源：权重 2 个', '  ', 42],
+      },
+      { id: 'plain', voices: [], notes: [] },
+    ]);
+    assert.ok(view);
+    assert.deepEqual(
+      view.voices.map((voice) => [voice.id, voice.available, voice.reason]),
+      [
+        ['klee', true, undefined],
+        ['norma', false, '缺少参考音频'],
+        ['old', true, undefined],
+      ],
+      '没有 available 字段的按可用处理（老宿主）',
+    );
+    assert.deepEqual(view.notes, ['音色来源：权重 2 个'], '空白与非字符串丢掉');
+    const plain = readVoiceProviders([{ id: 'plain', voices: [], notes: [] }])[0];
+    assert.equal(plain?.notes, undefined, '空诊断不留下空数组');
   });
 
   test('switchableProviders：内置实现与没音色的实现都不进菜单', () => {
@@ -95,6 +123,26 @@ describe('voiceMenuBranch —— 右键「音色」子菜单', () => {
       assert.equal('disabled' in leaf ? leaf.disabled : undefined, true);
       assert.match('hint' in leaf ? (leaf.hint ?? '') : '', /9880/);
     }
+  });
+
+  test('单个音色缺文件：整层可用，只有它置灰并显示缺什么', () => {
+    const branch = voiceMenuBranch([
+      provider({
+        voices: [
+          { id: 'klee', name: 'klee', available: true },
+          { id: 'norma', name: 'norma', available: false, reason: '缺少参考音频：refs/norma.wav' },
+        ],
+        voice: 'klee',
+      }),
+    ]);
+    const leaves = leavesOf(branch?.children);
+    const norma = leaves.find((leaf) => 'providerVoice' in leaf && leaf.providerVoice === 'norma');
+    assert.ok(norma);
+    assert.equal('disabled' in norma ? norma.disabled : undefined, true);
+    assert.match('hint' in norma ? (norma.hint ?? '') : '', /缺少参考音频/);
+    const klee = leaves.find((leaf) => 'providerVoice' in leaf && leaf.providerVoice === 'klee');
+    assert.ok(klee);
+    assert.equal('disabled' in klee ? klee.disabled : undefined, undefined, '可用的音色不受影响');
   });
 
   test('多实现：每个实现一层子菜单', () => {

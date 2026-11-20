@@ -1,9 +1,9 @@
 /**
  * 「语音」分区：语音播报卡（七个随保存写入的字段 + 音色）与语音接入卡（每个实现一张：
- * 本地 GSV 的地址与启停、云端骨架的地址与密钥）。
+ * 本地 GSV 的地址、音色包目录与启停，云端骨架的地址与密钥）。
  *
  * 两类卡写的是两套东西——音色与音量跟「保存」走，接入配置与启停立即落盘——所以只共用同一个
- * `VoiceSettings`，不互相读对方的状态。分区自己不持有状态，也不轮询。
+ * `VoiceSettings`，不互相读对方的状态。分区自己不轮询，只持有一个「导入弹窗开没开」的本地开关。
  * owns only 这一块的装配，never 拉取、轮询与提交逻辑。
  * @module dsh-fish-body/src/client/settings/voice-tab
  */
@@ -13,6 +13,7 @@ import { makeVoicePicker } from './picker/voice-picker.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit } from './ui.ts';
 import { makeVoiceCard } from './voice-card.ts';
+import { makeVoiceImportDialog, makeVoiceImportRow } from './voice-import.ts';
 import { makeVoiceProviderCard } from './voice-provider-card.ts';
 import type { VoiceSettings } from './use-voice-settings.ts';
 import type { VoiceProviderView } from '../../shared/voice-providers.ts';
@@ -41,11 +42,15 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
   const VoicePicker = makeVoicePicker({ h, useState, useEffect, useRef });
   const VoiceCard = makeVoiceCard(rt, VoicePicker);
   const VoiceProviderCard = makeVoiceProviderCard(rt);
+  const VoiceImportRow = makeVoiceImportRow(rt);
+  const VoiceImportDialog = makeVoiceImportDialog(rt);
   const { section } = makeUiKit({ h, t });
 
   return function VoiceTab(props: VoiceTabProps) {
     const { busy, voice, dirty } = props;
     const { local, forms } = voice;
+    // 导入弹窗的开合是本分区自己的界面状态：它不参与保存，也不需要活过离开分区。
+    const [importOpen, setImportOpen] = useState(false);
     return h('div', {
       className: 'dsh-pet-cfg__group',
       children: [
@@ -57,7 +62,7 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
           voiceName: voice.name,
           volume: voice.volume,
           voices: voice.voices,
-          // 本地音色（GSV）：有可切音色才出现这一格；服务没起时置灰，说明写在 hint 里。
+          // 本地音色（GSV）：有音色候选才出现这一格；缺权重/参考音频的音色也列出，选中框里置灰。
           ...(local === undefined
             ? {}
             : {
@@ -65,8 +70,11 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
                   id: choice.id,
                   name: choice.name,
                   tag: choice.tag ?? '',
+                  ...(choice.available === false ? { disabled: true } : {}),
+                  ...(choice.reason === undefined ? {} : { hint: choice.reason }),
                 })),
                 localVoice: local.voice,
+                localVoiceReason: local.voices.find((choice) => choice.id === local.voice)?.reason ?? '',
                 localAvailable: local.available,
                 localReason: local.reason ?? '',
                 localBusy: voice.voiceBusy,
@@ -101,6 +109,7 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
                     available: form.available,
                     reason: form.reason ?? '',
                     lastError: form.lastError ?? '',
+                    notes: form.notes ?? [],
                     fields: form.fields,
                     values: state.values,
                     secrets: state.secrets,
@@ -118,10 +127,29 @@ export function makeVoiceTab(rt: SettingsRuntime): FunctionComponent<VoiceTabPro
                     processMessage: state.processMessage,
                     onStart: () => voice.runProcess(form.id, 'start'),
                     onStop: () => voice.runProcess(form.id, 'stop'),
+                    // 音色导入只服务 GSV：别的实现没有「音色包目录」这个概念。
+                    // 扫描按钮同理——它清的是该实现的音色扫描缓存，重新同步目录里现有的音色。
+                    beforeActions:
+                      form.id === 'gsv'
+                        ? h(VoiceImportRow, {
+                            busy,
+                            onOpen: () => setImportOpen(true),
+                            onScanned: voice.refreshProviders,
+                          })
+                        : null,
                   });
                 }),
               ),
             ]),
+        // 导入弹窗挂在分区末尾：它是整页级的浮层，不该被卡片的裁剪层裁掉。
+        h(VoiceImportDialog, {
+          key: 'voice-import',
+          open: importOpen,
+          busy,
+          draftVoicesDir: voice.formState('gsv').values.voicesDir ?? '',
+          onClose: () => setImportOpen(false),
+          onRefresh: voice.refreshProviders,
+        }),
       ],
     });
   };

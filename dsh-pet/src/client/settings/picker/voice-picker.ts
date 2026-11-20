@@ -12,6 +12,10 @@ export interface VoiceOption {
   readonly id: string;
   readonly name: string;
   readonly tag: string;
+  /** 置灰且不可选（缺权重/缺参考音频的本地音色）；缺省 = 可选。 */
+  readonly disabled?: boolean;
+  /** 置灰原因，显示在选项行右侧。 */
+  readonly hint?: string;
 }
 
 /** 音色选择器的对外契约：一个字段一个实例。 */
@@ -49,6 +53,8 @@ export function makeVoicePicker(
         id: option.id,
         // 没有标签就不带空括号：本地音色包的 id 自己就够读（`vodyanitsa`）。
         label: option.tag ? `${option.name}（${option.tag}）` : option.name,
+        ...(option.disabled === true ? { disabled: true } : {}),
+        ...(option.hint ? { hint: option.hint } : {}),
       })),
       disabled: props.disabled,
       onChange: props.onChange,

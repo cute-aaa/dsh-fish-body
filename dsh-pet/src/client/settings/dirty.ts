@@ -61,6 +61,8 @@ export interface FormSnapshot {
   readonly pets?: readonly Pet[];
   readonly global?: Partial<GlobalSnapshot>;
   readonly hotkeys?: HotkeyMap;
+  /** 全局隐藏 / 暂停的系统级组合键（空串 = 关掉）。 */
+  readonly hideAllHotkey?: string;
   readonly sfx?: SfxConfig;
   readonly voice?: Partial<VoiceSnapshot>;
   readonly model?: Partial<ModelSnapshot>;
@@ -84,6 +86,7 @@ export function baselineFromConfig(entries: readonly ConfigEntry[], patch: MainC
   return {
     pets: entries.flatMap((entry) => entry.pets),
     global: {
+      petEnabled: patch.petEnabled,
       notificationsEnabled: patch.notificationsEnabled,
       trayEnabled: patch.trayEnabled,
       confineToScreen: patch.confineToScreen,
@@ -92,6 +95,7 @@ export function baselineFromConfig(entries: readonly ConfigEntry[], patch: MainC
       sfxVolume: patch.sfxVolume,
     },
     hotkeys: patch.hotkeys,
+    hideAllHotkey: patch.hideAllHotkey,
     sfx: patch.sfx,
     voice: {
       enabled: patch.voiceEnabled,
@@ -158,12 +162,15 @@ const TAB_PREFIXES: ReadonlyArray<readonly [string, SettingsTabId]> = [
   ['global.sfxKeepAlive', 'audio'],
   ['global.sfxVolume', 'audio'],
   ['model', 'chat'],
+  ['global.petEnabled', 'system'],
   ['global.notificationsEnabled', 'system'],
   ['global.trayEnabled', 'system'],
   // 「锁定在当前屏幕」已搬进「外观与手感」的窗口行为卡：圆点跟着控件走。
   ['global.confineToScreen', 'feel'],
   // 九个悬停键在「系统」分区的快捷键卡里改。
   ['hotkeys', 'system'],
+  // 「全局隐藏 / 暂停」的组合键也在同一张卡里（它是字符串，不塞进上面那张裸键表）。
+  ['hideAllHotkey', 'system'],
   // 看屏幕与避让整段都在「系统」分区的同一张卡里。
   ['screen', 'system'],
 ];

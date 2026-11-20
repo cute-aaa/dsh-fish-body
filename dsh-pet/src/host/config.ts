@@ -12,6 +12,7 @@ export {
   findPetInstance,
   flattenPetList,
   migrateUserConfig,
+  petsEnabled,
   readAllConfig,
   readPetConfigEntry,
 } from './config/read.ts';

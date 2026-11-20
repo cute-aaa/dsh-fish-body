@@ -11,7 +11,7 @@ import { dirname } from 'node:path';
 import { CORNER_SET, isValidPetId, PET_DISPLAY_SET, RENDERER_SET } from './constants.ts';
 import { isValidSizePercent } from '../../shared/pet-size.ts';
 import { RENDERERS } from '../../shared/config.ts';
-import { hotkeysValid, normalizeHotkeys } from '../../shared/hotkeys.ts';
+import { hotkeysValid, normalizeGlobalHotkey, normalizeHotkeys } from '../../shared/hotkeys.ts';
 import type { RenderSizes } from '../../shared/types.ts';
 import type { ConfigPaths } from './constants.ts';
 import {
@@ -152,6 +152,9 @@ export function saveUserConfig(
   }
   const ne = o.notificationsEnabled;
   if (ne !== undefined && typeof ne !== 'boolean') return null;
+  // 桌宠总开关（全局）：与 notificationsEnabled 同语义——传了必须是布尔，没传走透传保留。
+  const pe = o.petEnabled;
+  if (pe !== undefined && typeof pe !== 'boolean') return null;
   // 音效总闸三件套：与 notificationsEnabled 同语义——传了必须合法，没传走透传保留。
   // 旧键（clickSound*）仍可接受：读进来映射到新键，落盘只出新键（正文里的 bodyOwned 会把旧键删掉）。
   const se = o.sfxEnabled ?? o.clickSoundEnabled;
@@ -193,6 +196,10 @@ export function saveUserConfig(
   // 系统托盘开关（全局，仅桌面模式）：与上面几个全局布尔同语义——传了必须是布尔，没传走透传保留。
   const te = o.trayEnabled;
   if (te !== undefined && typeof te !== 'boolean') return null;
+  // 全局隐藏 / 暂停的快捷键（全局字符串）：空串 = 关掉；非空必须能解析成 accelerator。
+  // 落盘用 normalizeGlobalHotkey 归一，`cmdorctrl+shift+k` 与 `CommandOrControl+Shift+K` 只存后者。
+  const hh = o.hideAllHotkey;
+  if (hh !== undefined && !topFieldValid('hideAllHotkey', hh)) return null;
   // physics（拖拽抛掷手感，设置页「物理」区可图形化编辑）：整段校验——physicsValid 与读取侧
   // 是同一份规则（gravity/groundFriction ≥ 0、restitution ∈ [0,1]、throwPower > 0、两个布尔）。
   // 传了就按白名单写入；没传则走下面的透传保留（用户手改的值原样不动）。
@@ -247,6 +254,7 @@ export function saveUserConfig(
   // 对话历史条数）同样只在请求体真的传了时才写（未传则走下面的透传保留，不凭空造值）
   const outConfig: { pets: unknown[]; [key: string]: unknown } = { pets: out };
   if (ne !== undefined) outConfig.notificationsEnabled = ne;
+  if (pe !== undefined) outConfig.petEnabled = pe;
   if (se !== undefined) outConfig.sfxEnabled = se;
   if (sk !== undefined) outConfig.sfxKeepAlive = sk;
   if (sv !== undefined) outConfig.sfxVolume = Number(sv);
@@ -262,6 +270,7 @@ export function saveUserConfig(
   if (vte !== undefined) outConfig.voiceTodoEnabled = vte;
   if (vne !== undefined) outConfig.voiceNotifyEnabled = vne;
   if (te !== undefined) outConfig.trayEnabled = te;
+  if (hh !== undefined) outConfig.hideAllHotkey = normalizeGlobalHotkey(hh);
   if (ph !== undefined) outConfig.physics = ph;
   if (aw !== undefined) outConfig.animationWeights = cleanWeights(aw as Record<string, unknown>);
   if (fo !== undefined) outConfig.font = fo;
@@ -280,6 +289,7 @@ export function saveUserConfig(
   // 否则整包调用的调用方漏传一个字段，就会把用户既有设置悄悄抹成默认。
   const bodyOwned = new Set(['pets']);
   if (ne !== undefined) bodyOwned.add('notificationsEnabled');
+  if (pe !== undefined) bodyOwned.add('petEnabled');
   if (se !== undefined) bodyOwned.add('sfxEnabled');
   if (sk !== undefined) bodyOwned.add('sfxKeepAlive');
   if (sv !== undefined) bodyOwned.add('sfxVolume');
@@ -295,6 +305,7 @@ export function saveUserConfig(
   if (vte !== undefined) bodyOwned.add('voiceTodoEnabled');
   if (vne !== undefined) bodyOwned.add('voiceNotifyEnabled');
   if (te !== undefined) bodyOwned.add('trayEnabled');
+  if (hh !== undefined) bodyOwned.add('hideAllHotkey');
   if (ph !== undefined) bodyOwned.add('physics');
   if (aw !== undefined) bodyOwned.add('animationWeights');
   if (fo !== undefined) bodyOwned.add('font');
