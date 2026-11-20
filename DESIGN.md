@@ -1,0 +1,61 @@
+# DESIGN.md — 功能清单与变更前检查清单
+
+> 本文件是**改功能前的第一道闸**。它回答三件事：一个能力由哪些入口暴露、状态真源在哪、改它时必须守住什么。
+> 与之配套的可执行门禁：`cd dsh-pet && npm run check:design`（校验本文件与代码/契约是否还对齐，见末节）。
+> 面向用户的功能列表在 `FEATURES.md`；多工作树与测试纪律在 `AGENTS.md`。
+
+## 一、能力清单（能力 → 入口 → 状态真源 → 不变量）
+
+| 能力                                | 入口                                                                                                                                                                                                | 状态真源                                                                           | 关键不变量                                                                                                                                                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **人设 / 角色库**                   | 设置页「桌宠 → 角色卡」、右键菜单、`/persona/sources`、`/persona/scan`、`/persona/characters`、`/persona/import`、`/persona/polish`；`/persona/characters/apply`；`/persona/characters/{id}` DELETE | `data/persona-characters/<id>.json` + `pets[i].whisperPrompt` / `personaCharacter` | 应用只写目标实例；未引用实例逐字节不变；两个 AI 动作零写盘；被引用角色禁止删除                                                                                                                                                     |
+| **文档导入 / AI 润色**              | 设置页角色卡「导入文档…」、人设折叠区「AI 润色」                                                                                                                                                    | 草稿 → 用户点「应用」才落盘                                                        | 预览不写盘；取消后正文一字不变；导入上限「单份 768 KiB / 合计 768 KiB − 4 KiB」                                                                                                                                                    |
+| **渲染**（webm / layered / live2d） | 设置页「外观与手感 → 渲染卡」、右键菜单「渲染方式 / 模型」、`/pet-renderer`、`/pet-model`                                                                                                           | 配置 `pets[i].renderer` / `model` + `size` / `sizes` / `sizePercent`               | 渲染方式与模型必须在同一小节；切换后要重建窗口；模型下拉只列 `available`（行目录 + 回落）                                                                                                                                          |
+| **皮肤目录**                        | 设置页渲染卡下方三行 + `/skin/{root}/resources`、`/skin/{root}/skins`、`/skin/{root}/models`、`open-folder?which=pool-bucket-*`                                                                     | `<数据根>/skin/{layered,live2d,webm}`（用户）→ 内置 `assets/pet/<渲染方式>` 回落   | `count` 只数**本行目录**，回落单列 `fallback{count,source}`；`available` 才是下拉数据源；`dir` 必须指向用户目录                                                                                                                    |
+| **窗口行为**                        | 设置页「外观与手感 → 窗口行为卡」、右键菜单「鼠标穿透」、托盘菜单「鼠标穿透」、`/pet-click-through`                                                                                                 | 运行期 `windows.js` 的 `clickThrough` 镜像；持久化在 `pets[i].clickThrough`        | 单一出口 `setClickThrough`；**值真变化才广播**（首次登记算变化）；托盘**不存勾选**、现算；订阅方合并刷新（在飞置 again + drain）                                                                                                   |
+| **桌宠总开关 / 隐藏**               | 设置页「系统」、托盘「隐藏宠物 / 显示宠物」、全局快捷键 `hideAllHotkey`、`/pet-display`                                                                                                             | 运行期 `windows.isHidden()`；持久化 `petEnabled` / `display`                       | 托盘不自己记显隐，读运行期真值；快捷键与托盘改的是同一个状态                                                                                                                                                                       |
+| **语音：本地 GSV**                  | 设置页「声音 → 语音接入」卡、`/voice/voices`、`/voice/provider-config`、`/voice/voice-pack`                                                                                                         | `config/voice-providers.json` 的 `gsv` 段 + 音色包目录                             | 音色包目录一子目录一音色；缺权重/参考音频的音色要列出来但置灰并给原因；导入是「预检 → 逐项勾选 → 引用或复制」                                                                                                                      |
+| **语音：云端任意 TTS**              | 设置页「声音 → 云端接入」卡、`/voice/provider-config`                                                                                                                                               | `config/voice-providers.json` 的 `cloud` 段 + DSH 凭据库                           | 四轴（endpoint / auth / body / response）+ 预设只是预填；`baseURL` 三态（自带则写 / 等于旧预设官方则清空 / 手填不动）；**只有 deepseek 预设可复用宿主 `DEEPSEEK_API_KEY`**；`authStyle:none` 不必填 key；`useCloud:off` 一律可保存 |
+| **语音：播报与试听**                | 设置页语音卡（四类播报开关 / 音色 / 试听）、右键菜单「音色」、`/voice/speak`、`/voice/hear`                                                                                                         | `pets[i].whisperPrompt` 之外的播报开关 + `voice-providers.json` 音色选择           | 试听走与真实播报同一条合成链；合成缓存按「链内 origin + 文本」；付费实现不进自动回退链                                                                                                                                             |
+| **音效**                            | 设置页「声音 → 音效」、`/sfx`、`/sound`、`/sfx/ding`                                                                                                                                                | `assets/sound` / `skin/<root>-sound` / 池 `sound`                                  | 自定义 hook 文件名即时机名；总闸与逐槽开关分离                                                                                                                                                                                     |
+| **对话 / 模型**                     | 设置页「对话」、`/chat`、`/config` 的模型字段                                                                                                                                                       | 主配置 + 宿主 `agentDefaultModel`                                                  | 选模型要能回落；对话配图/动图上限按配置消费                                                                                                                                                                                        |
+| **会话鱼**                          | 设置页「会话鱼」、`/session-fish`、`/state`                                                                                                                                                         | 主配置 `sessionFish` 段 + `config/session-fish.json`                               | 播报开关在「会话鱼」分区编辑（声音页只给跳转锚点）                                                                                                                                                                                 |
+| **系统 / 维护**                     | 设置页「系统」、`/settings-backup`、`/reload`、`/plugin-restart`、`/open-folder`                                                                                                                    | 数据根 + 备份 JSON                                                                 | 导出=浏览器下载 JSON（含 kind/version）；恢复=选文件+确认；`open-folder` 的 `which` 是查询参数，未知值一律拒                                                                                                                       |
+| **数据根 / 目录布局**               | 设置页文件树 `/config/meta`、`/config`                                                                                                                                                              | `<数据根>/`（`config` `data` `cache` `runtime` `skin` `assets` …）                 | 目录字面量只在 `host/user-layout.ts` 一处；`/config/meta` 与真盘必须一致                                                                                                                                                           |
+| **桌宠即时动作**（低层）            | `/anim`（播放动画）、`/broadcast`（广播气泡）、`/bubble`、`/menu`（右键菜单项）、`/whisper`、`/work-status`、`/todos`、`/sleep`、`/wake`、`/throw`（拖拽抛掷）、`/pose`、`/position`                | 运行期窗口状态 + 配置 `position` / `fixedEnabled`                                  | 睡觉闸门只拦「打扰类」端点（白名单，不黑名单）；`/position` 写回配置的角点 id，不写像素                                                                                                                                            |
+| **桌面端桥接**                      | `/desktop`、`/lock`、`/focus-session`、`/screen`（识屏）、`/state`                                                                                                                                  | helper 进程状态 / 宿主会话                                                         | 只在桌面端可用；`/screen` 的取帧与「识屏说一句」共用同一时机表                                                                                                                                                                     |
+| **素材与选择器**                    | `/logo`、`/pet-avatar`、`/anim`、`/attachment`、`/pick-file`、`/pick-folder`、`/vendor`、`/cubism`、`/layout`、`/playback`、`/balance`、`/pet-config`、`/pet-size`、`/quit`                         | 包内 `assets/` 与数据根                                                            | 上传走 `{base64}` + 1 MiB body 上限；`/pick-file`、`/pick-folder` 只回路径不复制文件；`/pet-avatar` 落 `skin/<root>-avatar.<ext>`                                                                                                  |
+
+## 二、状态真源规则（多入口字段的通用约束）
+
+1. **一个状态一个出口**：任何「多个入口能改同一状态」的字段，写路径必须收敛到一个函数（如 `windows.setClickThrough` / `windows.setHidden`），其余入口只调用它。
+2. **出口内判变化再广播**：`prev !== value`（首次登记 `undefined` 也算变化）；同值重复设置不广播，但**仍回推渲染端**以纠正漂移。
+3. **展示端不存状态**：托盘菜单、右键菜单的勾选一律**现算**（运行期真值优先，窗口不在才回落配置）。
+4. **订阅端合并刷新**：在飞时置 `again`，结束后 drain；不要逐次重画，也不要"只补一次"（会丢最后一次变更）。
+5. **不新增并行频道**：同一件事不要第二条 IPC 通道或第二个 HTTP 端点；渲染端已有频道保持不变。
+
+## 三、变更前检查清单（改代码前逐条对）
+
+- [ ] 这次改动会不会**新增一个入口**去改已有状态？如果是 → 必须先落到单一出口，再让新入口调它（否则会重演「托盘显示反了」这类缺陷）。
+- [ ] 有没有**新增配置字段**？→ 三处必扩：`shared/types.ts`、`host/config/merge.ts`、`host/config/save.ts` 的实例白名单重建（漏一处就会被下一次保存静默丢掉）。
+- [ ] 有没有**新增 HTTP 端点或改响应形状**？→ `openapi.yaml` 双向校验（`npm run check:openapi`），并在本文件第一节与 `03-code/api-docs.md`（若走 DevFlow）登记。
+- [ ] 有没有**改失败语义**？→ 本仓业务失败是 `200 + {ok:false,reason}`，`400` 只留给非法 JSON；不要在客户端按 4xx 写断言。
+- [ ] 有没有**改渲染/皮肤目录语义**？→ `count` 只数本行目录、回落单列、下拉用 `available`；用户目录优先，内置池只回落。
+- [ ] 有没有**改云端语音四轴/预设**？→ 检查 `baseURL` 三态、手填保护、`needsKey` 是否要认 `useCloud`、以及「非 deepseek 预设不得复用宿主 key」。
+- [ ] 有没有**碰多工作树**？→ 先做 `AGENTS.md` 的「开工前三步」，确认主检出没有未合并/未提交的同面改动。
+- [ ] 改了 UI 文案？→ 8 份字典键集与占位符一致（`locales/index.test.ts`）；提示文案不能承诺行为没做到的事。
+
+## 四、可执行门禁
+
+```bash
+cd dsh-pet
+npm run check:design     # 本文件与代码/契约的对齐校验
+```
+
+它做三件事：
+
+1. **入口覆盖**：从仓库根 `openapi.yaml` 提取 `/dsh-pet-7340/<前缀>` 的全部前缀，要求本文件第一节「入口」列里都出现过（新增端点却不在 DESIGN.md 登记 → 失败）；
+2. **owner 文件存在**：第一节表格里出现的 `path/to/file.ts` 形式引用必须真实存在（文件改名/删除却忘记更新文档 → 失败）；
+3. **必备小节**：本文件必须包含「能力清单」「状态真源规则」「变更前检查清单」「可执行门禁」四节。
+
+与其它门禁一起跑（提交前）：`npm test`、`npx tsc --noEmit`、`npx tsc -p tsconfig.test.json`、`npm run lint`、`npm run format:check`、`npm run check:cycles`、`npm run check:openapi`、`npm run check:design`、`npm run test:ui`（碰 UI 时）、`npx tsdown`。

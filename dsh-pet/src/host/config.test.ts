@@ -1972,6 +1972,9 @@ describe('personaCharacter —— 多实例往返与失效引用', () => {
       '已删除的角色',
       '读侧保留失效引用，设置页才能显示「引用的角色已不存在」',
     );
+  });
+});
+
 describe('saveUserConfig —— 全局隐藏 / 暂停快捷键（hideAllHotkey）', () => {
   test('非法值整包拒绝：解析不出组合键就不落盘', () => {
     assert.equal(saveUserConfig({ pets: PETS, hideAllHotkey: 'h' }, undefined), null);

@@ -778,7 +778,8 @@ test('a changed item marks itself, not just its card', async (t) => {
   const { page } = await open(t);
   // 系统分区第一格是「系统通知」：夹具里它的基线值有定义，改动才会算未保存。
   await tab(page, 'System').click();
-  const cell = page.locator('.dsh-pet-cfg__switch').first();
+  // 按标签定位「系统通知」那一格：系统页在它前面还有「桌宠总开关」，取 .first() 会点错目标。
+  const cell = page.locator('.dsh-pet-cfg__switch', { hasText: 'System notifications' }).first();
   assert.equal(await cell.locator('.dsh-pet-cfg__dot').count(), 0, '改之前不该有圆点');
   await cell.locator('label').click();
   await page.waitForTimeout(150);
