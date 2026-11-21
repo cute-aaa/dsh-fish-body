@@ -404,6 +404,12 @@ export function createChatMemory(deps: ChatMemoryInput) {
       // 而「戴上眼镜」本来就不需要它转述。用户点名优先于模型自己写的标记。
       const requested = expressionsFromText(text, expressions);
       const finalExpressions = requested.length > 0 ? requested : (generated.expressions ?? []);
+      // 返回值带上最终生效的那批：调用方（网页端 / 桌面）据此知道这一轮换了什么，
+      // 与写进叶子的内容保持同一份，别让响应说「什么都没发生」而叶子已经挂了外观。
+      const reply =
+        finalExpressions.length === generated.expressions?.length
+          ? generated
+          : { ...generated, expressions: finalExpressions };
       const now = Date.now();
       // 用户上传的图只存不送：记忆要能还原「这一轮带过图」（聊天记录存档），但不把图本体重发给模型；
       // AI 配的图只回填名称标记（见 chat.ts 的 historyMarkersOf），同样不带图本体。
@@ -455,7 +461,13 @@ export function createChatMemory(deps: ChatMemoryInput) {
         });
       }
       // 同一份文本随返回值带出（叶子照写，不是二选一）
-      return { ok: true as const, text: generated.text, ...(generated.image ? { image: generated.image } : {}) };
+      return {
+        ok: true as const,
+        text: reply.text,
+        ...(reply.image ? { image: reply.image } : {}),
+        ...(reply.action ? { action: reply.action } : {}),
+        ...(reply.expressions && reply.expressions.length > 0 ? { expressions: reply.expressions } : {}),
+      };
     });
 
   /** 删除某只宠物的对话记忆：`ts` 缺省 = 清空全部，给了 ts = 只删命中的轮（一轮两条共享 ts，成对删）。

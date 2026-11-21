@@ -159,16 +159,19 @@ const MAX_REQUESTED_EXPRESSIONS = 3;
 export function expressionsFromText(text: string, names: readonly string[]): string[] {
   if (text.trim() === '') return [];
   if (NEGATION.test(text)) return [];
+  // 先给精确名：用户写了「单片眼镜」就只认它，不再用核心词扩散（否则「眼镜」会顺带挂上
+  // 「黑框眼镜」这类同义词，一次挂两个相近的外观看起来像 bug）。
+  const exact = names.filter((name) => text.includes(name));
+  if (exact.length > 0) return exact.slice(0, MAX_REQUESTED_EXPRESSIONS);
   const out: string[] = [];
   for (const name of names) {
     if (out.length >= MAX_REQUESTED_EXPRESSIONS) break;
-    // 精确包含 name，或包含它的「核心词」（去掉前后缀后的 2 字以上片段）。
-    if (text.includes(name)) {
-      out.push(name);
-      continue;
-    }
     const core = coreWordOf(name);
-    if (core !== '' && text.includes(core)) out.push(name);
+    // 核心词命中只采纳**第一个**并立即收手：同义词不是叠加项。
+    if (core !== '' && text.includes(core)) {
+      out.push(name);
+      break;
+    }
   }
   return out;
 }
