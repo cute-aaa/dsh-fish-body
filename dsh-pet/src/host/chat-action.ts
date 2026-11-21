@@ -32,6 +32,25 @@ export function chatActionNames(animations: unknown): string[] {
 }
 
 /**
+ * 合并「webm 动作池」与「live2d 模型清单」两套可选动作名。
+ *
+ * 两套名字对 AI 是同一回事（都是「做一个动作」）；执行端按当前渲染方式各自解析——
+ * webm 按动画名播文件，live2d 按 label 查 `motion:<组>:<序号>`（见 `render/live2d`）。
+ * 重名只保留一个：同一个动作名让 AI 说两遍没有意义。
+ *
+ * @param animations - 成品配置的 animations 段。
+ * @param live2dActions - live2d 清单里的动作 label（非 live2d 时为空）。
+ * @returns 合并后的白名单；两套都空时为空数组（等于关闭）。
+ */
+export function chatActionList(animations: unknown, live2dActions: readonly string[] = []): string[] {
+  const out = chatActionNames(animations);
+  for (const name of live2dActions) {
+    if (name !== '' && !out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
+/**
  * 动作指令：与配图指令并列附在 user 正文之后。
  *
  * 句式照配图那句写（省略主语、说「做」而不是「让宠物表演」）：模型自己就是宠物，旁白口吻它不会照做。
@@ -53,7 +72,7 @@ export function actionInstruction(names: readonly string[]): string {
  * 剥完没有正文时返回空串，由调用方决定不弹气泡。
  *
  * @param text - 模型回复原文。
- * @param names - 白名单（{@link chatActionNames}）；空名单 = 开关关闭，标记照剥但不采纳。
+ * @param names - 白名单（{@link chatActionList}）；空名单 = 开关关闭，标记照剥但不采纳。
  * @returns 剥掉标记后的正文，以及命中白名单的第一个动作名。
  */
 export function extractChatAction(text: string, names: readonly string[]): { text: string; action?: string } {
@@ -74,4 +93,48 @@ export function extractChatAction(text: string, names: readonly string[]): { tex
     .replace(/\n{2,}/g, '\n')
     .trim();
   return action === undefined ? { text: body } : { text: body, action };
+}
+
+/**
+ * 外观指令：与动作指令并列，但语义不同——外观是**挂着的状态**，不做动作。
+ *
+ * 明确写「换一次只留一个」：执行端对人设这条路径是覆盖语义（见 `render/live2d` 的
+ * `setExpression`），写成「可以挂多个」会让模型以为能叠加，从而连着写好几条标记。
+ *
+ * @param names - 可切换的外观名；空名单由调用方直接跳过。
+ */
+export function expressionInstruction(names: readonly string[]): string {
+  return (
+    '\n\n[外观] 需要换个样子给用户看时，从下列清单里挑最贴合当前语境的一个：\n' +
+    names.map((name) => '- ' + name).join('\n') +
+    '\n挑中就在回复最后另起一行写 [外观:名称]（名称原样照抄）。换外观会覆盖上一次挂的，' +
+    '所以一条回复最多写一个；不需要就完全不要写这个标记。'
+  );
+}
+
+/**
+ * 从模型回复里取外观（对话联动的解析半侧）。
+ *
+ * 与动作标记同一套规则：全部剥掉、只采纳白名单里的第一个。
+ *
+ * @param text - 模型回复原文（可已剥过动作）。
+ * @param names - 白名单（{@link Live2dCatalog.expressions}）；空名单 = 开关关闭，标记照剥但不采纳。
+ * @returns 剥掉标记后的正文，以及命中白名单的第一个外观名。
+ */
+export function extractChatExpression(text: string, names: readonly string[]): { text: string; expression?: string } {
+  const tag = /\[外观[:：]\s*([^\]\n]+?)\s*\]/g;
+  let expression: string | undefined;
+  let tagged = false;
+  const cleaned = text.replace(tag, (_tag, raw: string) => {
+    tagged = true;
+    const name = raw.trim();
+    if (expression === undefined && names.includes(name)) expression = name;
+    return '';
+  });
+  if (!tagged) return { text };
+  const body = cleaned
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+  return expression === undefined ? { text: body } : { text: body, expression };
 }

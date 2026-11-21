@@ -38,9 +38,15 @@ interface Live2dNamespace extends OverlayApi {
 
 /** 菜单动作名 → motion 组与序号（`motion:<组>:<序号>`，见 shared/menu/renderer-actions）。 */
 const MOTION_ID = /^motion:(.+):(\d+)$/;
-
 /** 菜单动作名 → 外观（`expression:<名>`）。 */
 const EXPRESSION_PREFIX = 'expression:';
+/**
+ * 人设下发的外观切换：`expression-only:<名>`，覆盖语义（先摘光再挂）。
+ *
+ * 为什么不用第二个状态叶子：人设这条链路要「先动作后外观」两拍，复用 `anim` 叶子最省，
+ * 用一个前缀区分语义即可（菜单仍走上面的可叠加 `expression:`）。
+ */
+const EXPRESSION_ONLY_PREFIX = 'expression-only:';
 
 /** 点击回应的兜底名字（模型没声明动作时退回自然运动）。 */
 const TAP_HINT = /tap|click|点击|回应|摸|戳/i;
@@ -213,6 +219,23 @@ export function createLive2dRenderer(): Renderer {
     });
   };
 
+  /**
+   * 覆盖式切换外观：先摘掉当前挂着的全部，再挂这一个（人设那条路径用）。
+   *
+   * 与 {@link toggleExpression} 的区别只在语义：菜单要「眼镜 + 兔牙同时开」，人设不能一次挂满
+   * 二十多个外观，所以它走覆盖。两条路径共用同一份 overlay 与淡入参数。
+   */
+  const replaceExpression = async (name: string): Promise<void> => {
+    overlay?.stopKind('expression');
+    const expression = expressions.get(name);
+    if (expression === undefined || overlay === null) return;
+    const json = await fetchJson(expression.file);
+    if (json === null || overlay === null) return;
+    overlay.play(name, 'expression', json, {
+      ...(expression.fadeSeconds === undefined ? {} : { fadeSeconds: expression.fadeSeconds }),
+    });
+  };
+
   const mount = async (el: HTMLElement, opts: RendererMountOptions): Promise<void> => {
     if (stage !== null) destroy();
     stage = el;
@@ -323,12 +346,25 @@ export function createLive2dRenderer(): Renderer {
     destroy,
     playAction: (name) => {
       if (model === null || cubism === null) return;
+      // 人设这条路径下发的是「覆盖语义」的外观切换：先清空再挂一个（菜单那条仍是可叠加的 toggle）。
+      if (name.startsWith(EXPRESSION_ONLY_PREFIX)) {
+        void replaceExpression(name.slice(EXPRESSION_ONLY_PREFIX.length));
+        return;
+      }
       // 菜单来自模型声明：motion / expression 的标识由 shared/menu/renderer-actions 生成，这里只拆解。
       const motion = MOTION_ID.exec(name);
       if (motion !== null) {
         const declared = motions.get(name);
         if (declared !== undefined) void playMotion(declared);
         return;
+      }
+      // 对话联动下发的是菜单文案（label，如「抚胸手打开」）：按 label 找回 `motion:<组>:<序号>`。
+      // 这样换 VTS 工程、改热键名之后仍按键名解析，历史里存的 label 不会因为序号漂移而失效。
+      for (const declared of motions.values()) {
+        if (declared.label === name) {
+          void playMotion(declared);
+          return;
+        }
       }
       if (name === MOTION_RESET) {
         overlay?.stopKind('motion');

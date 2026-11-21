@@ -11,7 +11,14 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { actionInstruction, chatActionNames, extractChatAction } from './chat-action.ts';
+import {
+  actionInstruction,
+  chatActionList,
+  chatActionNames,
+  extractChatAction,
+  extractChatExpression,
+  expressionInstruction,
+} from './chat-action.ts';
 
 /** 与 assets/config.jsonc 同形状的最小动画配置：categories 之外还有各种不该进名单的池 */
 const ANIMATIONS = {
@@ -142,5 +149,48 @@ describe('extractChatAction —— 动作标记的采纳与剥离', () => {
     const r = extractChatAction('好的\n[动作:优雅女仆舞]', []);
     assert.equal(r.action, undefined);
     assert.equal(r.text, '好的');
+  });
+});
+
+describe('chatActionList —— webm 动作池与 live2d 动作 label 合并', () => {
+  test('两套名单拼接、保持各自顺序、重名只留一个', () => {
+    const names = chatActionList({ categories: [{ id: 'a', actions: ['跳舞'] }] }, ['抬手打招呼', '跳舞', '眨眼']);
+    assert.deepEqual(names, ['跳舞', '抬手打招呼', '眨眼']);
+  });
+
+  test('没有 live2d 清单时与 chatActionNames 完全一致', () => {
+    assert.deepEqual(chatActionList(ANIMATIONS), chatActionNames(ANIMATIONS));
+    assert.deepEqual(chatActionList(ANIMATIONS, []), chatActionNames(ANIMATIONS));
+  });
+});
+
+describe('外观联动 —— 指令与解析', () => {
+  const EXPRESSIONS = ['兔牙', '单片眼镜'];
+
+  test('指令列出全部外观名，并明确「一条回复最多写一个」', () => {
+    const text = expressionInstruction(EXPRESSIONS);
+    assert.ok(text.includes('- 兔牙') && text.includes('- 单片眼镜'));
+    assert.ok(text.includes('[外观:名称]'));
+    assert.ok(text.includes('覆盖'), '必须写清覆盖语义，否则模型会连着写好几个');
+  });
+
+  test('解析：剥掉标记、只采纳白名单内第一个', () => {
+    const r = extractChatExpression('给你看个东西\n[外观:兔牙]', EXPRESSIONS);
+    assert.equal(r.text, '给你看个东西');
+    assert.equal(r.expression, '兔牙');
+  });
+
+  test('白名单外的名字：标记同样剥掉，但不采纳', () => {
+    const r = extractChatExpression('嘿嘿\n[外观:不存在的]', EXPRESSIONS);
+    assert.equal(r.text, '嘿嘿');
+    assert.equal(r.expression, undefined);
+  });
+
+  test('空名单：标记照剥不采纳；无标记时正文原样', () => {
+    assert.equal(extractChatExpression('好\n[外观:兔牙]', []).text, '好');
+    assert.equal(extractChatExpression('好\n[外观:兔牙]', []).expression, undefined);
+    const plain = extractChatExpression('没有任何标记', EXPRESSIONS);
+    assert.equal(plain.text, '没有任何标记');
+    assert.equal(plain.expression, undefined);
   });
 });

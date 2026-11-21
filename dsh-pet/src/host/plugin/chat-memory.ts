@@ -7,7 +7,8 @@
  */
 import { userPaths } from '../user-layout.ts';
 import { generateChat, type ChatMemoryMessage } from '../chat.ts';
-import { chatActionNames } from '../chat-action.ts';
+import { chatActionList } from '../chat-action.ts';
+import { live2dCatalogOf } from '../live2d-catalog.ts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { composeSystemPrompt, petPersona } from '../persona.ts';
@@ -326,8 +327,13 @@ export function createChatMemory(deps: ChatMemoryInput) {
         found.conf.chatImageEnabled === true
           ? limitPool(readMemePool(found.conf.memes, memeDirsFor(found.entry)), Number(found.conf.chatImageLimit))
           : [];
-      // 动作名单：开关开启才取（关掉 = 不注入也不解析）；名单本身为空（没配 categories）同样等于关闭。
-      const actions = found.conf.chatAnimationEnabled === true ? chatActionNames(found.conf.animations) : [];
+      // 动作名单：开关开启才取（关掉 = 不注入也不解析）；名单本身为空同样等于关闭。
+      // live2d 的动作 label 与 webm 动作池合并成同一份白名单——对 AI 都是「做一个动作」，
+      // 执行端按当前渲染方式各自解析（见 render/live2d 的 label 查找）。
+      const catalog = found.conf.chatAnimationEnabled === true ? live2dCatalogOf(userRoot, found.conf) : null;
+      const actions = catalog === null ? [] : chatActionList(found.conf.animations, catalog.actions);
+      // 外观（live2d 清单）：与动作共用同一个开关；切换是覆盖语义，见 chat-action 的指令说明。
+      const expressions = catalog === null ? [] : [...catalog.expressions];
       const mem = await readMemory();
       // 坏结构（数组/标量）按空桶重建；messages 不是数组的条目按新会话处理，避免 push 到坏对象上崩溃
       const bucket =
@@ -366,6 +372,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
         userText: patch?.userText ?? text,
         pool,
         actions,
+        expressions,
         preferred: configuredModel(found.conf, 'chatModel'),
         image,
       });
@@ -382,6 +389,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
         // 动作名与配图名同类：落盘只存名字，回放历史时由 chat.ts 以 [动作:名] 回填——
         // 否则模型记不得自己演过什么，用户说「换一个」它无从判断
         ...(generated.action ? { action: generated.action } : {}),
+        ...(generated.expression ? { expression: generated.expression } : {}),
       });
       await writeMemory(mem);
       // 第三方记忆：落盘后异步接收；不等待、失败只记日志，不能影响这一轮回复。
@@ -396,6 +404,15 @@ export function createChatMemory(deps: ChatMemoryInput) {
       if (generated.action !== undefined) {
         const record = playback.create(petId, generated.action);
         state.writePet(petId, 'anim', { name: generated.action, playbackId: record.playbackId });
+      }
+      // 外观随后写同一条 anim 叶子，前缀把它标成「覆盖语义」：渲染端见 `expression-only:` 就先清空
+      // 当前挂的全部外观再挂这一个（人设这条路径一次只留一个；右键菜单仍是可叠加的 toggle）。
+      if (generated.expression !== undefined) {
+        const record = playback.create(petId, 'expression-only:' + generated.expression);
+        state.writePet(petId, 'anim', {
+          name: 'expression-only:' + generated.expression,
+          playbackId: record.playbackId,
+        });
       }
       // 回复写进 S（与碎碎念同一个叶子：前端本来就是同一条展示链路）。
       // 该由哪一端念按这只宠物的 display 推：对话请求带的是 surface=any，本来就没有具体的一端可用。

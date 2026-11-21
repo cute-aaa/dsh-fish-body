@@ -11,7 +11,7 @@
  */
 
 import { BlockAssembler, createAssistantMessage, createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm';
-import { actionInstruction, extractChatAction } from './chat-action.ts';
+import { actionInstruction, expressionInstruction, extractChatAction, extractChatExpression } from './chat-action.ts';
 import type { PetImageRef } from './image-attachment.ts';
 import { PET_CALL_IDENTITY, noTextReason } from './llm-call.ts';
 import { supportsReasoningOff } from './llm-reasoning.ts';
@@ -22,7 +22,7 @@ import { historyStampOf } from './time-context.ts';
 
 /** 生成失败原因（与 shared/whisper.ts 的 WhisperState 失败分支同构）。 */
 export type ChatGenerateResult =
-  | { ok: true; text: string; image?: string; action?: string }
+  | { ok: true; text: string; image?: string; action?: string; expression?: string }
   | { ok: false; reason: 'provider-missing' | 'generate-error'; message?: string };
 
 /** 记忆中的一条消息：GET /chat 返回的窗口条目就是它。 */
@@ -34,8 +34,10 @@ export interface ChatMemoryMessage {
   image?: PetImageRef;
   /** 该轮 AI 配的表情包名称（不是条目对象）；回放历史时以 `[图:名称]` 回填给模型（不带图本体）。 */
   meme?: string;
-  /** 该轮 AI 表演的动作名（animations.categories 内的名字）；回放历史时以 `[动作:名称]` 回填。 */
+  /** 该轮 AI 表演的动作名（webm 动作池或 live2d 动作 label）；回放历史时以 `[动作:名称]` 回填。 */
   action?: string;
+  /** 该轮 AI 切到的外观名（live2d）；回放历史时以 `[外观:名称]` 回填。 */
+  expression?: string;
 }
 
 /** 单次生成超时（ms）：对话等 LLM 回复，60s 足够。 */
@@ -78,6 +80,8 @@ function historyMarkersOf(message: ChatMemoryMessage): string {
   if (message.role !== 'assistant') return '';
   const lines: string[] = [];
   if (typeof message.action === 'string' && message.action !== '') lines.push('[动作:' + message.action + ']');
+  if (typeof message.expression === 'string' && message.expression !== '')
+    lines.push('[外观:' + message.expression + ']');
   if (typeof message.meme === 'string' && message.meme !== '') lines.push('[图:' + message.meme + ']');
   return lines.length === 0 ? '' : '\n' + lines.join('\n');
 }
@@ -106,8 +110,10 @@ export interface ChatGenerateInput {
   readonly userText: string;
   /** 表情包候选池；空 / 缺省 = 纯文本（指令与解析都不介入）。 */
   readonly pool?: readonly MemeEntry[];
-  /** 可表演的动作名单（对话联动开关开启时传，来自 animations.categories）；空 / 缺省 = 不注入也不解析。 */
+  /** 可表演的动作名单（对话联动开关开启时传，webm 动作池 + live2d 动作 label）；空 / 缺省 = 不注入也不解析。 */
   readonly actions?: readonly string[];
+  /** 可切换的外观名（live2d 清单；空 / 缺省 = 不谈外观）。 */
+  readonly expressions?: readonly string[];
   /** 条目单独指定的模型（chatModel）；缺省 / 留空 = 只用当前对话的模型。 */
   readonly preferred?: ModelRef;
   /** 本轮附带的图片；缺省 = 纯文本请求，数据路径与加入图片前一致。 */
@@ -126,6 +132,8 @@ export async function generateChat(input: ChatGenerateInput): Promise<ChatGenera
   const pool: MemeEntry[] = [...(input.pool ?? [])];
   // 动作名单同样是「空 = 关闭」：开关关掉或 categories 没配任何动作时，指令与解析都不介入。
   const actions: string[] = [...(input.actions ?? [])];
+  // 外观名单同理；只有 live2d 且模型声明了 Expressions 时才有内容。
+  const expressions: string[] = [...(input.expressions ?? [])];
   // 候选链：配置的模型优先 → 当前对话的模型兜底（chatModel 留空时链上只有后者）
   const candidates = modelCandidates(ctx, preferred);
   if (candidates.length === 0) {
@@ -140,7 +148,7 @@ export async function generateChat(input: ChatGenerateInput): Promise<ChatGenera
   // 兜底文案与失败分支同源，避免两处字面量漂移
   let last: ChatGenerateResult = { ok: false, reason: 'generate-error', message: noTextReason(undefined) };
   for (const [i, sel] of candidates.entries()) {
-    const result = await generateWith(ctx, { llm, sel, system, history, userText, pool, actions, image });
+    const result = await generateWith(ctx, { llm, sel, system, history, userText, pool, actions, expressions, image });
     if (result.ok) return result;
     last = result;
     // 回落要留痕：配的模型没生效时能在日志里看到原因（否则「我明明配了 A，怎么还是用 B」没法查）
@@ -163,12 +171,13 @@ interface GenerateOnce {
   readonly userText: string;
   readonly pool: MemeEntry[];
   readonly actions: string[];
+  readonly expressions: string[];
   readonly image?: PetImageRef;
 }
 
 /** 用一个确定的 provider/model 跑一次对话生成（失败原样返回结构化原因，不吞）。 */
 async function generateWith(ctx: { llm?: unknown }, once: GenerateOnce): Promise<ChatGenerateResult> {
-  const { llm, sel, system, history, userText, pool, actions, image } = once;
+  const { llm, sel, system, history, userText, pool, actions, expressions, image } = once;
   // 历史 → dsh-llm 消息：user 经 createUserMessage（plugin 来源），assistant 经 createAssistantMessage
   // （provider/model 只是消息的角色载体，不涉及适配器回放）。
   // 时间前缀只加在 user 上（模型会照抄 assistant 自己那侧的格式）；配图/动作标记只加在 assistant 上。
@@ -190,11 +199,15 @@ async function generateWith(ctx: { llm?: unknown }, once: GenerateOnce): Promise
   // 无 reasoning 元数据的模型显式传 off 会被 dsh-llm 判为 UNSUPPORTED_REASONING_EFFORT，
   // 折叠成空流（表现为「模型未返回文本」）。
   const supportsOff = await supportsReasoningOff(ctx, sel.provider, sel.model);
-  // 配图 / 动作：各自的清单非空才把指令附进 user 正文（空 = 该功能关闭）。
-  // 顺序固定「配图在前、动作在后」：配图是既有行为，新增的动作排在它后面，不改既有提示词的位置。
+  // 配图 / 动作 / 外观：各自的清单非空才把指令附进 user 正文（空 = 该功能关闭）。
+  // 顺序固定「配图 → 动作 → 外观」：配图与动作是既有行为，新增的外观排在最后，不改既有提示词的位置。
   const wantImage = pool.length > 0;
   const wantAction = actions.length > 0;
-  const instruction = (wantImage ? imageInstruction(pool) : '') + (wantAction ? actionInstruction(actions) : '');
+  const wantExpression = expressions.length > 0;
+  const instruction =
+    (wantImage ? imageInstruction(pool) : '') +
+    (wantAction ? actionInstruction(actions) : '') +
+    (wantExpression ? expressionInstruction(expressions) : '');
   const content: Record<string, unknown>[] = [
     { type: 'text', text: instruction === '' ? userText : userText + instruction },
   ];
@@ -242,16 +255,20 @@ async function generateWith(ctx: { llm?: unknown }, once: GenerateOnce): Promise
     .join('')
     .trim();
   if (!text) return { ok: false, reason: 'generate-error', message: noTextReason(assembler.finish) };
-  if (!wantImage && !wantAction) return { ok: true, text };
-  // 先剥动作再剥配图：两种标记互不依赖，顺序不影响结果；动作的无效名称也会被剥（见 extractChatAction）。
+  if (!wantImage && !wantAction && !wantExpression) return { ok: true, text };
+  // 三种标记互不依赖，顺序不影响结果；无效名称也会被剥（见 extractChatAction / extractChatExpression）。
   const acted: { text: string; action?: string } = wantAction ? extractChatAction(text, actions) : { text };
-  const picked: { text: string; image?: string } = wantImage
-    ? extractChatImage(acted.text, pool)
+  const faced: { text: string; expression?: string } = wantExpression
+    ? extractChatExpression(acted.text, expressions)
     : { text: acted.text };
+  const picked: { text: string; image?: string } = wantImage
+    ? extractChatImage(faced.text, pool)
+    : { text: faced.text };
   return {
     ok: true,
     text: picked.text,
     ...(picked.image ? { image: picked.image } : {}),
     ...(acted.action ? { action: acted.action } : {}),
+    ...(faced.expression ? { expression: faced.expression } : {}),
   };
 }

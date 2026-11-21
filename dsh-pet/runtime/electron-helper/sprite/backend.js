@@ -541,6 +541,24 @@ async function mountLive2d(sprite, host, api) {
   api.playAction = (name) => {
     // 菜单动作名与浏览器端同格式（见 shared/menu/renderer-actions）：motion:<组>:<序号> / expression:<名>。
     const key = String(name);
+    // 人设下发的外观是覆盖语义：先摘光再挂一个（菜单那条仍是可叠加的 toggle）。
+    if (key.startsWith('expression-only:')) {
+      const only = key.slice('expression-only:'.length);
+      overlay.stopKind('expression');
+      const ref = api.expressionFiles.get(only);
+      if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: key, kind: 'expression', at: Date.now() };
+      if (ref === undefined) return;
+      void fetchJson(ref.file).then((json) => {
+        if (json === null || api.destroyed) return;
+        overlay.play(
+          only,
+          'expression',
+          json,
+          ref.fadeSeconds === undefined ? undefined : { fadeSeconds: ref.fadeSeconds },
+        );
+      });
+      return;
+    }
     const motion = api.motions.get(key);
     if (motion) {
       if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: key, kind: 'motion', at: Date.now() };
@@ -549,6 +567,21 @@ async function mountLive2d(sprite, host, api) {
         overlay.play(key, 'motion', json, {
           hold: motion.hold,
           fadeSeconds: motion.fadeSeconds,
+          raw: json,
+        });
+      });
+      return;
+    }
+    // 对话联动下发的是菜单文案（label，如「抚胸手打开」）：按 label 找回 motion:<组>:<序号>，
+    // 与浏览器端同一条规则（换 VTS 工程后仍按键名解析，历史里存的 label 不会失效）。
+    for (const declared of api.motions.values()) {
+      if (declared.label !== key) continue;
+      if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: key, kind: 'motion', at: Date.now() };
+      void fetchJson(declared.file).then((json) => {
+        if (json === null || api.destroyed) return;
+        overlay.play(key, 'motion', json, {
+          hold: declared.hold,
+          fadeSeconds: declared.fadeSeconds,
           raw: json,
         });
       });
