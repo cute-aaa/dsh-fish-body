@@ -18,6 +18,7 @@ import {
   extractChatAction,
   extractChatExpression,
   expressionInstruction,
+  expressionsFromText,
 } from './chat-action.ts';
 
 /** 与 assets/config.jsonc 同形状的最小动画配置：categories 之外还有各种不该进名单的池 */
@@ -161,6 +162,29 @@ describe('chatActionList —— webm 动作池与 live2d 动作 label 合并', (
   test('没有 live2d 清单时与 chatActionNames 完全一致', () => {
     assert.deepEqual(chatActionList(ANIMATIONS), chatActionNames(ANIMATIONS));
     assert.deepEqual(chatActionList(ANIMATIONS, []), chatActionNames(ANIMATIONS));
+  });
+});
+
+describe('expressionsFromText —— 用户原话里的外观指令（确定性兜底）', () => {
+  const NAMES = ['单片眼镜', '兔牙', '圈圈眼'];
+
+  test('点名就认：「戴上单片眼镜」→ 单片眼镜', () => {
+    assert.deepEqual(expressionsFromText('戴上单片眼镜给我看看', NAMES), ['单片眼镜']);
+  });
+
+  test('缩写也认：「戴个眼镜」→ 单片眼镜（核心词）', () => {
+    assert.deepEqual(expressionsFromText('戴个眼镜吧', NAMES), ['单片眼镜']);
+  });
+
+  test('否定句整句不认：「别戴眼镜」「把眼镜摘了」', () => {
+    assert.deepEqual(expressionsFromText('别戴眼镜', NAMES), []);
+    assert.deepEqual(expressionsFromText('把眼镜摘了', NAMES), []);
+  });
+
+  test('没点名就不认；最多三个', () => {
+    assert.deepEqual(expressionsFromText('今天好累', NAMES), []);
+    const many = expressionsFromText('单片眼镜 兔牙 圈圈眼 全都要', NAMES);
+    assert.ok(many.length <= 3);
   });
 });
 

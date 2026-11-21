@@ -135,9 +135,60 @@ export function expressionInstruction(names: readonly string[]): string {
 }
 
 /**
+ * 否定词：句子里出现就整句不认（「别戴眼镜」不是要戴）。
+ *
+ * 只覆盖高频说法，宁可漏认也不要反向执行——漏认时用户还有右键菜单可用。
+ */
+const NEGATION = /不要|不用|别|甭|摘|去掉|取下|拿掉|脱/;
+
+/** 一次对话最多按用户原话直挂几个外观（再多就是堆叠，不是表达）。 */
+const MAX_REQUESTED_EXPRESSIONS = 3;
+
+/**
+ * 从**用户这句话**里直接认出点名的外观（确定性兜底）。
+ *
+ * 为什么需要它：模型经常嘴上说「眼镜戴上了」却不写 `[外观:…]` 标记。用户明确点了名时，
+ * 这就是一条指令而不是需要模型转述的愿望，所以 host 直接按白名单匹配——比反复调提示词可靠。
+ *
+ * 只认肯定式：句子里带否定词（不要/别/摘/去掉/取下）时整句不认，避免「别戴眼镜」反而戴上。
+ *
+ * @param text - 用户输入原文。
+ * @param names - 当前模型的外观白名单。
+ * @returns 命中的外观名（按白名单顺序、最多 {@link MAX_REQUESTED_EXPRESSIONS} 个）。
+ */
+export function expressionsFromText(text: string, names: readonly string[]): string[] {
+  if (text.trim() === '') return [];
+  if (NEGATION.test(text)) return [];
+  const out: string[] = [];
+  for (const name of names) {
+    if (out.length >= MAX_REQUESTED_EXPRESSIONS) break;
+    // 精确包含 name，或包含它的「核心词」（去掉前后缀后的 2 字以上片段）。
+    if (text.includes(name)) {
+      out.push(name);
+      continue;
+    }
+    const core = coreWordOf(name);
+    if (core !== '' && text.includes(core)) out.push(name);
+  }
+  return out;
+}
+
+/**
+ * 外观名的核心词：中文名取去掉常见修饰前缀后的片段（「单片眼镜」→「眼镜」）。
+ *
+ * @param name - 白名单里的外观名。
+ * @returns 用于匹配的核心词；没有可用片段时返回空串。
+ */
+function coreWordOf(name: string): string {
+  const stripped = name.replace(/^(单片|黑框|红色|蓝色|白色|小|大)/, '');
+  return stripped !== name && stripped.length >= 2 ? stripped : '';
+}
+
+/**
  * 从模型回复里取外观（对话联动的解析半侧）。
  *
- * 与动作标记同一套规则：全部剥掉、只采纳白名单里的第一个。
+ * 与动作标记同一套规则：全部剥掉；但**采纳全部**命中项（外观是可叠加状态，一条回复写两个
+ * 就是要两个一起挂），同名去重。名字走 {@link matchName} 的容错匹配。
  *
  * @param text - 模型回复原文（可已剥过动作）。
  * @param names - 白名单（{@link Live2dCatalog.expressions}）；空名单 = 开关关闭，标记照剥但不采纳。

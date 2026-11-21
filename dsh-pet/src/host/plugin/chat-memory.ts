@@ -7,7 +7,7 @@
  */
 import { userPaths } from '../user-layout.ts';
 import { generateChat, type ChatMemoryMessage } from '../chat.ts';
-import { chatActionNames } from '../chat-action.ts';
+import { chatActionNames, expressionsFromText } from '../chat-action.ts';
 import { live2dCatalogOf } from '../live2d-catalog.ts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -400,6 +400,10 @@ export function createChatMemory(deps: ChatMemoryInput) {
         image,
       });
       if (!generated.ok) return generated;
+      // 用户点名了某个外观就当指令直接执行：模型经常嘴上说「眼镜戴上了」却不写标记，
+      // 而「戴上眼镜」本来就不需要它转述。用户点名优先于模型自己写的标记。
+      const requested = expressionsFromText(text, expressions);
+      const finalExpressions = requested.length > 0 ? requested : (generated.expressions ?? []);
       const now = Date.now();
       // 用户上传的图只存不送：记忆要能还原「这一轮带过图」（聊天记录存档），但不把图本体重发给模型；
       // AI 配的图只回填名称标记（见 chat.ts 的 historyMarkersOf），同样不带图本体。
@@ -412,7 +416,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
         // 动作名与配图名同类：落盘只存名字，回放历史时由 chat.ts 以 [动作:名] 回填——
         // 否则模型记不得自己演过什么，用户说「换一个」它无从判断
         ...(generated.action ? { action: generated.action } : {}),
-        ...(generated.expressions && generated.expressions.length > 0 ? { expressions: generated.expressions } : {}),
+        ...(finalExpressions.length > 0 ? { expressions: finalExpressions } : {}),
       });
       await writeMemory(mem);
       // 第三方记忆：落盘后异步接收；不等待、失败只记日志，不能影响这一轮回复。
@@ -431,8 +435,8 @@ export function createChatMemory(deps: ChatMemoryInput) {
       // 外观随后写同一条 anim 叶子，前缀标成「整批覆盖」：渲染端见 `expression-set:` 就先清空
       // 当前挂的全部外观，再把这批逐个挂上（同一条回复里的多个=一起挂；下一条回复=整批替换）。
       // 名单用 JSON 编码，名字里带冒号/引号也不会把前缀语法弄坏。
-      if (generated.expressions !== undefined && generated.expressions.length > 0) {
-        const name = 'expression-set:' + JSON.stringify(generated.expressions);
+      if (finalExpressions.length > 0) {
+        const name = 'expression-set:' + JSON.stringify(finalExpressions);
         const record = playback.create(petId, name);
         state.writePet(petId, 'anim', { name, playbackId: record.playbackId });
       }
