@@ -32,6 +32,9 @@ npm-debug.log*
 # ── 临时/备份目录 ──
 temp/
 
+# 长任务临时物（探针脚本、浏览器垫片、长等待日志；机器相关，不入仓库）
+.tmp-t2/
+
 # ── dsh-pet 设置页截图产出（DSH_PET_UI_ARTIFACTS，跑 npm run test:ui 即可重生，不入仓库）──
 dsh-pet/artifacts/
 # 早期一轮在仓库根跑截图时留下的同批产出（同一原因：可重生）
