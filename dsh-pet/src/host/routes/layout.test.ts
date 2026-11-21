@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { handleLayoutRoutes, resetMoveState } from './layout.ts';
+import { handleLayoutRoutes, resetMoveState, viaLabel } from './layout.ts';
 import { readLocations } from '../locations.ts';
 import { userPaths } from '../user-layout.ts';
 import type { PetRouteDeps } from './types.ts';
@@ -336,5 +336,44 @@ describe('POST /pick-*：A 通道（helper 系统框）的接线与三态', () =
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
+  });
+});
+
+/**
+ * 那一行日志说「由谁提供」：它不能一律写 PowerShell。
+ *
+ * macOS / Linux 上的兜底分别是 `osascript` 与 `zenity/kdialog`；把 Windows 的名字写到别的平台上，
+ * 排障时会被这句话带偏（这是本轮要修的「日志谎报平台」）。
+ */
+describe('viaLabel：按平台说人话', () => {
+  test('shell 分支三平台各不相同，且非 win32 的两条不含 PowerShell', () => {
+    assert.equal(viaLabel('shell', 'win32'), '由 PowerShell 提供');
+    assert.equal(viaLabel('shell', 'darwin'), '由 osascript 提供');
+    assert.equal(viaLabel('shell', 'linux'), '由 zenity/kdialog 提供');
+    assert.equal(viaLabel('shell', 'darwin').includes('PowerShell'), false, 'macOS 上没有 PowerShell 兜底');
+    assert.equal(viaLabel('shell', 'linux').includes('PowerShell'), false, 'Linux 上没有 PowerShell 兜底');
+  });
+
+  test('未列平台仍说人话（不谎报平台）：freebsd / android 落到「系统命令」', () => {
+    assert.equal(viaLabel('shell', 'freebsd'), '由系统命令提供');
+    assert.equal(viaLabel('shell', 'android'), '由系统命令提供');
+  });
+
+  test('native / undefined 两支一字未改（既有 /由 helper 提供/ 断言不受影响）', () => {
+    assert.equal(viaLabel('native'), '由 helper 提供');
+    assert.equal(viaLabel('native', 'darwin'), '由 helper 提供', 'native 与平台无关');
+    assert.equal(viaLabel(undefined), '来源未知');
+  });
+
+  test('默认参数走 process.platform：不传平台也能给出当前平台的短语', () => {
+    const expected =
+      process.platform === 'win32'
+        ? '由 PowerShell 提供'
+        : process.platform === 'darwin'
+          ? '由 osascript 提供'
+          : process.platform === 'linux'
+            ? '由 zenity/kdialog 提供'
+            : '由系统命令提供';
+    assert.equal(viaLabel('shell'), expected);
   });
 });

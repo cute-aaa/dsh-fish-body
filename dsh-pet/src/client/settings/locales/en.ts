@@ -418,6 +418,7 @@ export const en: Record<Key, string> = {
   voiceImportLinesTitle: 'Pick one line from a text file',
   voiceImportLinesEmpty: 'No usable text line in that file',
   voiceImportLinesFailed: 'Could not read the text file',
+  voiceImportLinesCapped: 'Showing the first {shown} lines (up to {limit} per list; the file may have more)',
   voiceImportSelectAll: 'Select all',
   voiceImportSelectNone: 'Select none',
   voiceImportOverwrite: 'Overwrite existing reference (old files are backed up)',

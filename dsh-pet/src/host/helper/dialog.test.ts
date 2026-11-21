@@ -19,6 +19,7 @@ import { after, before, describe, test } from 'node:test';
 
 import {
   createHelperDialog,
+  errorFactsOf,
   normalizeCallbackBase,
   PICK_DIALOG_BUSY_MESSAGE,
   PICK_DIALOG_CHANNEL_LOST_MESSAGE,
@@ -443,5 +444,160 @@ describe('createHelperDialog：等待无上限（时间不判失败）', () => {
     const pick = createHelperDialog({ endpoint: () => 'http://127.0.0.1:1' });
 
     assert.deepEqual(await pick({ ...request, signal: controller.signal }), { kind: 'aborted' });
+  });
+});
+
+/**
+ * `errorFactsOf`：整条 `cause` 链上的三族事实。
+ *
+ * 旧实现 `codeOf` 只返回**第一个**字符串 code，其余信息全丢；这些断言钉住「集合」语义本身，
+ * 免得下一次又有人把它简化回「取一个 code」。
+ */
+describe('errorFactsOf：整链事实', () => {
+  test('字符串 code 全收、name 也在、TypeError 被认出来', () => {
+    const facts = errorFactsOf(waitingTimeoutError({ code: 'UND_ERR_HEADERS_TIMEOUT', name: 'TimeoutError' }));
+    assert.deepEqual([...facts.codes], ['UND_ERR_HEADERS_TIMEOUT'], '内层 cause 上的 code 必须被收到');
+    assert.ok(facts.names.has('TimeoutError'), '链上的 name 要收到（`AbortSignal.timeout` 的产物靠它认族）');
+    assert.ok(facts.names.has('TypeError'), '外层 `TypeError` 的 name 也在集合里');
+    assert.equal(facts.isTypeError, true, '`TypeError` 的宽口径由它提供');
+  });
+
+  test('数字 code 不进 `codes`：`DOMException.code` 靠 name 兜', () => {
+    const facts = errorFactsOf(Object.assign(new Error('aborted'), { name: 'AbortError', code: 23 }));
+    assert.deepEqual([...facts.codes], [], '`code: 23` 是 DOMException 的数字码，不是字符串事实');
+    assert.ok(facts.names.has('AbortError'), '数字码这条路上只有 name 能说明「这是中止」');
+  });
+
+  test('防环：`cause` 指回自己也不会死循环', () => {
+    const head = new Error('head') as Error & { cause?: unknown };
+    const tail = Object.assign(new Error('tail'), { code: 'ECONNRESET' });
+    head.cause = tail;
+    (tail as unknown as { cause?: unknown }).cause = head;
+
+    const facts = errorFactsOf(head);
+    assert.deepEqual([...facts.codes], ['ECONNRESET'], '环上的事实只收一次，遍历正常结束');
+  });
+
+  test('非对象输入：三个空/false，不抛', () => {
+    for (const value of [undefined, null, 'boom', 42]) {
+      const facts = errorFactsOf(value);
+      assert.equal(facts.codes.size, 0);
+      assert.equal(facts.names.size, 0);
+      assert.equal(facts.isTypeError, false);
+    }
+  });
+});
+
+/**
+ * 错误链的**形状**：外层只是包裹，真正的事实可能在内层 `cause` 上。
+ *
+ * 旧实现（首个 code）在 a / d 两条上会认错：
+ *   - a：`ERR_UNEXPECTED` 谁也不匹配 → `unavailable` → 回落 B → helper 还活着 → **叠第二个框**；
+ *   - d：外层 `UND_ERR_HEADERS_TIMEOUT` 先被看见 → 等待类 → 没有 `signal` 时 `pendingUntilAborted(undefined)`
+ *     **永不落定** → 路由一个字节都不写 → 「点了没反应」。
+ * e 则是「整链 name 集合」带来的新不变量：中止事实可以藏在内层。
+ */
+describe('错误链形状：整链 code 集合 + 混合链按连接类', () => {
+  /** 造「外层 + `cause` 内层」的错误链，形状贴近 undici 的包裹。 */
+  function chainedError(outer: { code?: string; name?: string }, inner: { code?: string; name?: string }): Error {
+    const outerError = Object.assign(new Error('boom'), outer);
+    (outerError as unknown as { cause?: unknown }).cause = Object.assign(new Error(inner.name ?? 'inner'), inner);
+    return outerError;
+  }
+
+  test('a：外层带无关 code、内层 ECONNRESET → 连接类（今天会错判成 unavailable 去叠框）', async () => {
+    for (const alive of [true, false]) {
+      const requestImpl: HelperRequestImpl = () =>
+        Promise.reject(chainedError({ code: 'ERR_UNEXPECTED' }, { code: 'ECONNRESET' }));
+      const pick = createHelperDialog({
+        endpoint: () => 'http://127.0.0.1:1',
+        isPeerAlive: () => alive,
+        requestImpl,
+      });
+
+      assert.deepEqual(
+        await pick(request),
+        alive ? { kind: 'unsupported', message: PICK_DIALOG_CHANNEL_LOST_MESSAGE } : { kind: 'unavailable' },
+        `isPeerAlive=${String(alive)}：内层 ECONNRESET 是连接事实，不能被外层无关 code 盖住`,
+      );
+    }
+  });
+
+  test('b：外层 `TypeError` + 无关 code、内层 ECONNRESET → 连接类（重构保护，今天也绿）', async () => {
+    for (const alive of [true, false]) {
+      const requestImpl: HelperRequestImpl = () =>
+        Promise.reject(chainedError({ code: 'ERR_UNEXPECTED', name: 'TypeError' }, { code: 'ECONNRESET' }));
+      const pick = createHelperDialog({
+        endpoint: () => 'http://127.0.0.1:1',
+        isPeerAlive: () => alive,
+        requestImpl,
+      });
+
+      assert.deepEqual(
+        await pick(request),
+        alive ? { kind: 'unsupported', message: PICK_DIALOG_CHANNEL_LOST_MESSAGE } : { kind: 'unavailable' },
+        '`isConnectionError` 改成集合相交之后，`TypeError` 这条宽口径不许丢',
+      );
+    }
+  });
+
+  test('c：外层无 code、内层 UND_ERR_HEADERS_TIMEOUT → 等待类（回归保护）', async () => {
+    const controller = new AbortController();
+    const requestImpl: HelperRequestImpl = () =>
+      new Promise<Response>((_resolve, reject) => {
+        // 注入替身的计时器（测试基建）：生产代码里没有任何计时器。
+        setTimeout(() => reject(chainedError({}, { code: 'UND_ERR_HEADERS_TIMEOUT' })), 50);
+      });
+    const pick = createHelperDialog({ endpoint: () => 'http://127.0.0.1:1', requestImpl });
+
+    const pending = pick({ ...request, signal: controller.signal });
+    assert.equal(await settlesWithin(pending, 600), false, '等待类超时不是结局：继续等，只有 signal 能收尾');
+    controller.abort();
+    assert.deepEqual(await pending, { kind: 'aborted' });
+  });
+
+  test('d：混合链（外层 HEADERS_TIMEOUT + 内层 ECONNRESET）→ 连接类，绝不挂住（今天会永不落定）', async () => {
+    for (const alive of [true, false]) {
+      const requestImpl: HelperRequestImpl = () =>
+        Promise.reject(chainedError({ code: 'UND_ERR_HEADERS_TIMEOUT' }, { code: 'ECONNRESET' }));
+      const pick = createHelperDialog({
+        endpoint: () => 'http://127.0.0.1:1',
+        isPeerAlive: () => alive,
+        requestImpl,
+      });
+
+      // 故意**不传** signal：如果被算成等待类，这里会进 `pendingUntilAborted(undefined)` 永不落定。
+      const pending = pick(request);
+      assert.equal(
+        await settlesWithin(pending, 600),
+        true,
+        `isPeerAlive=${String(alive)}：混合链必须给出结局——等待类会让这条请求永远不写应答（「点了没反应」）`,
+      );
+      assert.deepEqual(
+        await pending,
+        alive ? { kind: 'unsupported', message: PICK_DIALOG_CHANNEL_LOST_MESSAGE } : { kind: 'unavailable' },
+        '同链同时出现等待类与连接类 code 时，连接事实赢',
+      );
+    }
+  });
+
+  test('e：abort 优先（内层 AbortError 压过外层 ECONNRESET；中止事实也压过等待类）', async () => {
+    // e1：外层连接类 code、内层中止 —— 整链 name 集合让中止赢（今天落成 unavailable）。
+    const connectionOuter: HelperRequestImpl = () =>
+      Promise.reject(chainedError({ code: 'ECONNRESET' }, { name: 'AbortError' }));
+    const pickOverConnection = createHelperDialog({
+      endpoint: () => 'http://127.0.0.1:1',
+      requestImpl: connectionOuter,
+    });
+    assert.deepEqual(await pickOverConnection(request), { kind: 'aborted' }, '中止事实比连接事实更硬');
+
+    // e2：外层中止、内层等待类 —— abort 排在 waiting 之前才不会被 `pendingUntilAborted` 接走。
+    // 这条是判序层一的直接落点：把 `isWaitingTimeout` 提到 `isAbortError` 之前，它会挂住而不是 `aborted`。
+    const abortOuter: HelperRequestImpl = () =>
+      Promise.reject(chainedError({ name: 'AbortError' }, { code: 'UND_ERR_HEADERS_TIMEOUT' }));
+    const pickOverWaiting = createHelperDialog({ endpoint: () => 'http://127.0.0.1:1', requestImpl: abortOuter });
+    const pending = pickOverWaiting(request);
+    assert.equal(await settlesWithin(pending, 600), true, '中止必须是结局：被等待类接走就会永远 pending');
+    assert.deepEqual(await pending, { kind: 'aborted' });
   });
 });

@@ -1814,6 +1814,114 @@ test('声音 → 导入音色：取消不动值、未勾选行不可点', async 
   );
 });
 
+/**
+ * R1 的容量契约（真 React + 真 Chromium）：37 行必须**全部**可选；顶到 500 行上限时列表头要**诚实**
+ * 说明「文件里可能还有更多」，且不许谎报总数（宿主不返回总行数）。
+ *
+ * 时序纪律：不用 `waitForTimeout` 猜，一律 `waitForFunction` 轮询候选按钮数（按钮数就是用户看到的行数）。
+ * 文案纪律：断言的是**渲染后的真实英文串**，不是 key；`capped` 提示只有一个 class、没有 `role`，
+ * 所以按文本匹配（按 role 匹配会漏）。
+ */
+const LINE_ROW_CAP = 500;
+
+/** 一份 n 行的行集（`index` 从 1 起，与宿主 `readTextLines` 同形）。 */
+const manyLines = (count) =>
+  Array.from({ length: count }, (_unused, offset) => ({ index: offset + 1, text: `line ${offset + 1}` }));
+
+/** 等候选行按钮稳定到 `count` 个（轮询 DOM，不做固定 sleep）。 */
+async function waitForLineRows(page, count) {
+  await page.waitForFunction(
+    (expected) => document.querySelectorAll('.dsh-pet-cfg__searchList button').length === expected,
+    count,
+    { timeout: 10000 },
+  );
+}
+
+test('声音 → 导入音色：37 行文件全部可选，滚到第 37 行点它 → 回填该行文本', async (t) => {
+  const { page } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    voiceImport: { scan: voiceScanFixture, pickFiles: ['/test/lines37.txt'], lineSets: [manyLines(37)] },
+  });
+  const { dialog, rows } = await openVoiceImport(page);
+  await rows.first().locator('input[type=checkbox]').click();
+  await rows.first().getByRole('button', { name: 'Pick a line…' }).click();
+
+  await waitForLineRows(page, 37);
+  const lineButtons = dialog.locator('.dsh-pet-cfg__searchList button');
+  assert.equal(await lineButtons.count(), 37, '37 行的文件必须 37 行全列出来（旧行为只有 20 行：点不到第 21 行以后）');
+
+  // 点**第 37 行**：能滚到、能点、写进去的是它自己的文本。
+  const last = lineButtons.nth(36);
+  await last.scrollIntoViewIfNeeded();
+  await last.click();
+  assert.equal(await refTextInputOf(rows.first()).inputValue(), 'line 37', '点第 37 行 → 输入框显示「line 37」');
+  assert.equal(await dialog.locator('.dsh-pet-cfg__searchList').count(), 0, '选完列表关闭');
+});
+
+test('声音 → 导入音色：1200 行只列前 500 行，列表头诚实说明被截断（不谎报总数），第 500 行仍可点', async (t) => {
+  // 桩不认 `max`，直接吐整份 1200 行——这正好覆盖「宿主忽略 max 时客户端渲染期切片」那条防御路。
+  const { page, voiceImport } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    voiceImport: { scan: voiceScanFixture, pickFiles: ['/test/lines1200.txt'], lineSets: [manyLines(1200)] },
+  });
+  const { dialog, rows } = await openVoiceImport(page);
+  await rows.first().locator('input[type=checkbox]').click();
+  await rows.first().getByRole('button', { name: 'Pick a line…' }).click();
+
+  await waitForLineRows(page, LINE_ROW_CAP);
+  const lineButtons = dialog.locator('.dsh-pet-cfg__searchList button');
+  assert.equal(await lineButtons.count(), LINE_ROW_CAP, '上限 500：宿主给 1200 行也只画 500 个按钮');
+
+  // 提示节点只有一个 class（没有 `role`）→ 按文本匹配。
+  const capped = dialog.locator('.dsh-pet-cfg__msg', { hasText: 'Showing the first 500 lines' });
+  await capped.first().waitFor();
+  const text = (await capped.first().innerText()).trim();
+  assert.equal(
+    text,
+    'Showing the first 500 lines (up to 500 per list; the file may have more)',
+    '只陈述已知事实：已列出前 500 行 + 单次上限 500 + 文件里可能还有更多',
+  );
+  assert.equal(text.includes('1200'), false, '不许谎报总数：宿主不返回 total，文案里不该出现 1200');
+  assert.equal(
+    await dialog.locator('.dsh-pet-cfg__searchList .dsh-pet-cfg__msg').count(),
+    0,
+    '提示放在列表外：`.dsh-pet-cfg__searchList button` 的语义仍是「一行候选」',
+  );
+
+  // 第 500 行仍然点得到（列表可滚），回填的是它自己的文本。
+  const last = lineButtons.nth(LINE_ROW_CAP - 1);
+  await last.scrollIntoViewIfNeeded();
+  await last.click();
+  assert.equal(await refTextInputOf(rows.first()).inputValue(), 'line 500', '滚到第 500 行点它 → 回填「line 500」');
+  assert.equal(await dialog.locator('.dsh-pet-cfg__searchList').count(), 0, '选完列表关闭');
+  assert.equal(voiceImport.lineCalls.length, 1, '只读了这一份文件');
+});
+
+test('声音 → 导入音色：未命中上限（37 行）不出现截断提示', async (t) => {
+  const { page } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    voiceImport: { scan: voiceScanFixture, pickFiles: ['/test/lines37.txt'], lineSets: [manyLines(37)] },
+  });
+  const { dialog, rows } = await openVoiceImport(page);
+  await rows.first().locator('input[type=checkbox]').click();
+  await rows.first().getByRole('button', { name: 'Pick a line…' }).click();
+
+  await waitForLineRows(page, 37);
+  assert.equal(
+    await dialog.locator('.dsh-pet-cfg__msg', { hasText: 'Showing the first' }).count(),
+    0,
+    '37 行没顶到上限：不该出现「文件里可能还有更多」这类提示（判据是 >= 500）',
+  );
+  assert.equal(
+    await dialog.locator('.dsh-pet-cfg__searchList button').count(),
+    37,
+    '列表本身就是 37 行（提示的缺席不是因为列表没渲染）',
+  );
+});
+
 test('对话 → 重新拉取模型清单：不必刷整页', async (t) => {
   const { page, models } = await open(t);
   await tab(page, 'Chat').click();

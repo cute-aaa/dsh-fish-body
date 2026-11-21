@@ -7,13 +7,21 @@
  *   3. 卡里那一段是「导入音色…」+「扫描音色」+ 结构说明（*.ckpt 与 *.pth 各占一行）；
  *      弹窗关着时不渲染任何东西，开着且音色包目录为空时要明说「先去保存」，导入按钮不可点；
  *      权重目录既能手输也能弹系统选择框——原生框弹不出来时这条路仍然通。
+ *   4. 候选行按宿主给的整份列出（上限 `LINE_ROW_LIMIT`），顶到上限时必须明说「文件里可能还有更多」，
+ *      没顶到就不许出现这句提示；请求只带既有字段（`path` + `max`）。
  */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { jsx } from 'react/jsx-runtime';
-import type { WeightImportCandidateView } from '../../shared/voice-pack.ts';
+import type { TextLineView, WeightImportCandidateView } from '../../shared/voice-pack.ts';
 import { PICK_DIRS_KEY } from './pick-dirs.ts';
-import { buildImportItems, makeVoiceImportDialog, makeVoiceImportRow, rowStateOf } from './voice-import.ts';
+import {
+  buildImportItems,
+  LINE_ROW_LIMIT,
+  makeVoiceImportDialog,
+  makeVoiceImportRow,
+  rowStateOf,
+} from './voice-import.ts';
 
 interface Node {
   tag: string;
@@ -772,5 +780,230 @@ describe('「×」清除与目录记忆', () => {
       kit.restore();
       storage.restore();
     }
+  });
+});
+
+/**
+ * 候选行的容量契约（R1）。
+ *
+ * 旧行为是三处叠加：宿主最多 500 行 → 客户端 `slice(0, 20)` → 列表虽然有 `overflow-y:auto`
+ * 却只有 20 行可滚，**用户永远点不到第 21 行**。这里钉住四件事：
+ *   1. 37 行文件必须 37 行全列出来，且**不**出现「被截断」提示；
+ *   2. 宿主把 `max` 夹到 500 时（1200 行的文件就是这个样子），渲染 500 行并明说文件里可能还有更多，
+ *      第 500 行仍然点得到、回填得到；
+ *   3. 判据是 `>=`：499 行不提示、500 行才提示（差一条就退回静默截断）；
+ *   4. 请求体里只有 `{ path, max }` 两个既有字段——本轮不动 `/voice/text-lines` 契约。
+ *
+ * 宿主不返回总行数（`openapi.yaml` 的响应也没有 `total`），所以提示只陈述已知事实：
+ * 「已列出前 {shown} 行（单次最多 {limit} 行，文件里可能还有更多）」。断言里印的是真实数字。
+ */
+describe('候选行容量：请求上限、渲染上限与截断提示', () => {
+  /** 造 n 条候选行（`index` 从 1 起，与宿主 `readTextLines` 的编号一致）。 */
+  const linesOf = (count: number): TextLineView[] =>
+    Array.from({ length: count }, (_unused, offset) => ({ index: offset + 1, text: `第 ${String(offset + 1)} 行` }));
+
+  /** 保留占位符的字典：`{shown}` / `{limit}` 替换后能读出真实数字（只断言键名证明不了替换）。 */
+  const tWithCapped = (key: string): string =>
+    key === 'voiceImportLinesCapped' ? 'voiceImportLinesCapped shown={shown} limit={limit}' : key;
+
+  /**
+   * 装配：真组件 + 假 fetch。
+   *
+   * `returned` 是宿主回的那一份行——桩**故意不看**请求里的 `max`（老宿主/桩就是这个样子），
+   * 所以「客户端渲染期再切一次」的防御也在这几条用例的覆盖范围内。
+   */
+  function harness(returned: readonly TextLineView[]) {
+    const { rt, reset } = fakeRuntime(tWithCapped);
+    const Dialog = makeVoiceImportDialog(rt);
+    const props = {
+      open: true,
+      busy: false,
+      draftVoicesDir: 'D:/AI/GSV-voices',
+      onClose: () => {},
+      onRefresh: () => {},
+    };
+    const render = (): unknown => {
+      reset();
+      return Dialog(props as never);
+    };
+    const stub = stubFetch((url) => {
+      if (url.includes('/voice/voice-pack')) return { ok: true, scan: scanFixture };
+      if (url.includes('/voice/text-lines')) return { ok: true, lines: [...returned] };
+      if (url.includes('/pick-file')) return { ok: true, path: 'D:/in/lines.txt' };
+      return { ok: false, message: '意外的请求 ' + url };
+    });
+    return { render, calls: stub.calls, restore: stub.restore };
+  }
+
+  /** 列表里的候选行按钮（复用既有 `.dsh-pet-cfg__searchRow` 选择器语义：一个按钮 = 一行）。 */
+  const searchRows = (tree: unknown): Node[] => flatten(tree).filter((node) => classOf(node).includes('__searchRow'));
+
+  /** 列表头里那句「被截断」提示的文本（没有就是 `undefined`）。 */
+  const cappedTextOf = (tree: unknown): string | undefined =>
+    flatten(tree)
+      .filter((node) => classOf(node).includes('dsh-pet-cfg__msg'))
+      .flatMap((node) => texts(node.props.children))
+      .find((text) => text.startsWith('voiceImportLinesCapped'));
+
+  /** 提示节点本身（用来断言它**不在**列表里）。 */
+  const cappedNodeOf = (tree: unknown): Node | undefined =>
+    flatten(tree).find(
+      (node) =>
+        classOf(node).includes('dsh-pet-cfg__msg') &&
+        texts(node.props.children).some((text) => text.startsWith('voiceImportLinesCapped')),
+    );
+
+  /** `klee` 那行的参考文本框当前值。 */
+  const refTextOf = (tree: unknown): unknown =>
+    nodeIn(
+      rowNodeOf(tree, 'klee'),
+      (node) => node.tag === 'input' && node.props.placeholder === 'voiceImportTextPlaceholder',
+    )?.props.value;
+
+  /** 走到「候选行列表已经打开」：读目录 → 勾选 klee → 点「选一行…」（与既有装配同一条路）。 */
+  const openLines = async (render: () => unknown): Promise<unknown> => {
+    let tree = render();
+    const rootInput = nodeIn(
+      tree,
+      (node) => node.tag === 'input' && node.props.placeholder === 'voiceImportRootPlaceholder',
+    );
+    assert.ok(rootInput, '权重目录要能直接粘贴');
+    (rootInput.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: 'D:/w' } });
+    tree = render();
+    (buttonOf(tree, 'voiceImportRootLoad')?.props.onClick as () => void)();
+    await flush();
+    tree = render();
+    const check = nodeIn(rowNodeOf(tree, 'klee'), (node) => node.tag === 'input' && node.props.type === 'checkbox');
+    (check?.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } });
+    tree = render();
+    (
+      nodeIn(rowNodeOf(tree, 'klee'), (node) => node.tag === 'button' && hasText(node, 'voiceImportPickLine'))?.props
+        .onClick as () => void
+    )();
+    await flush();
+    return render();
+  };
+
+  test('37 行：全部列出（不再只给前 20 行）、没有截断提示；点第 37 行回填并关列表', async () => {
+    const kit = harness(linesOf(37));
+    try {
+      let tree = await openLines(kit.render);
+      const rows = searchRows(tree);
+      assert.equal(rows.length, 37, '37 行的文件要 37 行全列出来：旧行为只有 20 行，用户点不到第 21 行以后');
+      assert.equal(cappedTextOf(tree), undefined, '没顶到上限就不该出现「文件里可能还有更多」这句话');
+
+      (rows[36]?.props.onClick as () => void)();
+      tree = kit.render();
+      assert.equal(refTextOf(tree), '第 37 行', '点最后一行 → 这一行的参考文本立刻回填');
+      assert.equal(searchRows(tree).length, 0, '写入后列表关闭（交互一行没改）');
+    } finally {
+      kit.restore();
+    }
+  });
+
+  test('1200 行（宿主夹到 500）：渲染 500 行 + 明说被截断；点第 500 行仍能回填', async () => {
+    // 宿主把 `max: 500` 当上限（`src/host/routes/voice-pack.ts` 的 `Math.min(500, …)`），
+    // 1200 行的文件在客户端这一侧看到的就是 500 行——正是「命中上限即视为被截断」的形状。
+    const clamped = harness(linesOf(500));
+    try {
+      let tree = await openLines(clamped.render);
+      const rows = searchRows(tree);
+      assert.equal(rows.length, 500, '宿主给多少就列多少：整份 500 行都要能点到');
+      assert.equal(
+        cappedTextOf(tree),
+        'voiceImportLinesCapped shown=500 limit=500',
+        '顶到上限时必须说明：已列出前 500 行（单次最多 500 行，文件里可能还有更多）',
+      );
+
+      const message = cappedNodeOf(tree);
+      assert.ok(message, '提示节点要真的渲染出来');
+      const list = nodeIn(tree, (node) => classOf(node).includes('__searchList'));
+      assert.ok(list, '列表容器还在');
+      assert.equal(
+        flatten(list as Node).includes(message as Node),
+        false,
+        '提示放在列表外：`.dsh-pet-cfg__searchList button` 的语义仍是「一行候选」',
+      );
+
+      (rows[499]?.props.onClick as () => void)();
+      tree = clamped.render();
+      assert.equal(refTextOf(tree), '第 500 行', '列表能滚到第 500 行，点了照样回填');
+    } finally {
+      clamped.restore();
+    }
+
+    // 宿主忽略 `max`（老宿主、或测试桩直接吐整份）时，客户端在渲染期自己切：
+    // 一条 1200 行的文件不许变成 1200 个按钮，但「文件里可能还有更多」这句话仍要说。
+    const raw = harness(linesOf(1200));
+    try {
+      const tree = await openLines(raw.render);
+      assert.equal(searchRows(tree).length, 500, '渲染期防御切片：宿主给 1200 行也只画 500 个按钮');
+      assert.equal(cappedTextOf(tree), 'voiceImportLinesCapped shown=500 limit=500', '拿到超量同样算被截断');
+    } finally {
+      raw.restore();
+    }
+  });
+
+  test('边界：499 行不提示，500 行才提示（判据是 >=，差一条就是静默截断）', async () => {
+    const under = harness(linesOf(499));
+    try {
+      const tree = await openLines(under.render);
+      assert.equal(searchRows(tree).length, 499);
+      assert.equal(cappedTextOf(tree), undefined, '499 行 = 还没顶到上限：文件确实就这么多，不该暗示还有更多');
+    } finally {
+      under.restore();
+    }
+
+    const exact = harness(linesOf(500));
+    try {
+      const tree = await openLines(exact.render);
+      assert.equal(searchRows(tree).length, 500);
+      assert.equal(
+        cappedTextOf(tree),
+        'voiceImportLinesCapped shown=500 limit=500',
+        '500 行 = 顶到上限：宿主再也给不出更多，必须说出来',
+      );
+    } finally {
+      exact.restore();
+    }
+  });
+
+  test('请求只带既有字段：`{ path, max }`，max 就是 LINE_ROW_LIMIT', async () => {
+    const kit = harness(linesOf(2));
+    try {
+      await openLines(kit.render);
+      const calls = kit.calls.filter((call) => call.url.includes('/voice/text-lines'));
+      assert.equal(calls.length, 1, '一次「选一行…」只读一次文件');
+      assert.deepEqual(
+        calls[0]?.body,
+        { path: 'D:/in/lines.txt', max: 500 },
+        '`max` 是宿主与 openapi.yaml 的既有字段：本轮不新增契约，也不带别的参数',
+      );
+    } finally {
+      kit.restore();
+    }
+  });
+
+  test('空文件：仍走「文件里没有可用的文本行」这条空态，列表不出现', async () => {
+    const kit = harness([]);
+    try {
+      const tree = await openLines(kit.render);
+      assert.equal(searchRows(tree).length, 0, '没有行就不该出现空列表');
+      const status = nodeIn(
+        tree,
+        (node) =>
+          node.props.role === 'status' && classOf(node).includes('is-err') && hasText(node, 'voiceImportLinesEmpty'),
+      );
+      assert.ok(status, '空文件要说话（原来的空态文案不变）');
+    } finally {
+      kit.restore();
+    }
+  });
+
+  test('LINE_ROW_LIMIT 必须与宿主上限同值：500（跨模块数字漂移守卫）', () => {
+    // `src/host/routes/voice-pack.ts` 把 `max` 夹到 `Math.min(500, …)`。客户端这个常量一旦调大，
+    // 宿主仍只给 500 行，`lines.length >= LINE_ROW_LIMIT` 永远不成立 → 截断提示消失 = 静默截断回归。
+    // 两个数字必须一起改，所以把「同值」写成可执行的断言。
+    assert.equal(LINE_ROW_LIMIT, 500, '改这个数之前先确认宿主上限也改了（否则截断判据失效）');
   });
 });

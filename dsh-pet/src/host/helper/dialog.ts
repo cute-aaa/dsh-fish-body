@@ -96,17 +96,60 @@ const WAITING_TIMEOUT_NAMES = new Set(['HeadersTimeoutError', 'BodyTimeoutError'
 /** 只属于「调用方真的中止了」的错误码（`node:http` 的 `AbortError.errno`）。 */
 const ABORT_ERROR_CODES = new Set(['ABORT_ERR']);
 
-/** 看一眼错误链上的 code。 */
-function codeOf(error: unknown): string {
+/**
+ * 一条错误链上的三族事实：字符串 `code` 集合、`name` 集合、链上是否出现过 `TypeError`。
+ *
+ * 为什么是**集合**而不是「链上第一个 code」：旧实现 `codeOf` 只取第一个字符串 code，于是
+ * 「外层 `ERR_UNEXPECTED`、内层 `ECONNRESET`」这种真实可达的包裹形状被认成「无关错误」→
+ * `unavailable` → 回落 B → 而 helper 还活着、框可能还在屏幕上，用户看到的是第二个框。
+ *
+ * `code` 只收**字符串**：`DOMException.code` 是数字（中止是 23），按数字认族会认错；
+ * 这类错误靠 `names.has('AbortError')` 兜。
+ */
+export interface ErrorFacts {
+  /** 整条链上的字符串 `code`（去重）。 */
+  readonly codes: ReadonlySet<string>;
+  /** 整条链上的 `name`（去重，含 `TypeError` / `TimeoutError` / `AbortError` 这些）。 */
+  readonly names: ReadonlySet<string>;
+  /** 链上任一节点是 `TypeError`（保持 `isConnectionError` 原有的宽口径）。 */
+  readonly isTypeError: boolean;
+}
+
+/**
+ * 一次遍历整条 `cause` 链，收集三族判定要用的全部事实。
+ *
+ * `seen` 防环：注入的传输替身完全可能造出自引用/环状 `cause`，遍历不能因此死循环。
+ *
+ * @param error - 传输实现抛出的任何东西（可以不是 `Error`）。
+ * @returns 三族判定的输入；非对象输入返回三个空/`false`。
+ */
+export function errorFactsOf(error: unknown): ErrorFacts {
+  const codes = new Set<string>();
+  const names = new Set<string>();
+  let isTypeError = false;
   const seen = new Set<unknown>();
   let current: unknown = error;
-  while (current && typeof current === 'object' && !seen.has(current)) {
+  while (current !== null && typeof current === 'object' && !seen.has(current)) {
     seen.add(current);
-    const code = (current as { code?: unknown }).code;
-    if (typeof code === 'string') return code;
-    current = (current as { cause?: unknown }).cause;
+    const node = current as { code?: unknown; name?: unknown; cause?: unknown };
+    if (typeof node.code === 'string') codes.add(node.code);
+    if (typeof node.name === 'string') names.add(node.name);
+    if (current instanceof TypeError) isTypeError = true;
+    current = node.cause;
   }
-  return '';
+  return { codes, names, isTypeError };
+}
+
+/**
+ * 两个集合有没有交集（`Set` 没有原生 intersects）。
+ *
+ * @param left - 候选事实集合。
+ * @param right - 某一族的取值集合。
+ * @returns 至少有一个共同值则 `true`。
+ */
+function intersects<T>(left: ReadonlySet<T>, right: ReadonlySet<T>): boolean {
+  for (const value of right) if (left.has(value)) return true;
+  return false;
 }
 
 /**
@@ -116,43 +159,56 @@ function codeOf(error: unknown): string {
  * 而别的实现可能给 `DOMException`——它不算 `Error` 的实例，所以不能只靠 instanceof；
  * 反过来，`DOMException` 的形状也意味着「`name` 是这个值」不等于「这是中止」。
  *
+ * 整条链都看：外层被 `Error` 包一层、内层才是 `AbortError` 的形状（`ECONNRESET` 外套
+ * `AbortError`）应当按中止收尾，而不是被连接族抢走。
+ *
  * 为什么**不**收 `TimeoutError`（review P2-1）：`AbortSignal.timeout(ms)` 到期投的就是
  * `name:'TimeoutError'`。把它算成 abort，这条错误就会变成 `aborted` → 路由回 `{kind:'none'}` →
  * `http-route.ts` 一个字节都不写 → 用户看到「点了没反应」。时限类错误要走
  * {@link isWaitingTimeout}（不判失败、继续等），不是「调用方已经走了」。
  *
- * @param error - 传输实现抛出的任何东西。
+ * @param facts - {@link errorFactsOf} 的结果。
  * @returns 是否要按「调用方中止」收尾。
  */
-function isAbortError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const name = (error as { name?: unknown }).name;
-  if (name === 'AbortError') return true;
-  return ABORT_ERROR_CODES.has(codeOf(error));
+function isAbortError(facts: ErrorFacts): boolean {
+  return facts.names.has('AbortError') || intersects(facts.codes, ABORT_ERROR_CODES);
 }
 
-/** 是不是连接层失败（连不上 / 断开 / 域名解析不到）。 */
-function isConnectionError(error: unknown): boolean {
-  if (error instanceof TypeError) return true;
-  return CONNECTION_ERROR_CODES.has(codeOf(error));
+/**
+ * 是不是连接层失败（连不上 / 断开 / 域名解析不到）。
+ *
+ * 集合相交而不是「首个 code」：外层无关 code 不能盖住内层的 `ECONNRESET`。
+ * `isTypeError` 这条宽口径保留——注入的传输替身常常只抛一个光秃秃的 `TypeError('fetch failed')`。
+ *
+ * @param facts - {@link errorFactsOf} 的结果。
+ * @returns 是否按连接事实处理。
+ */
+function isConnectionError(facts: ErrorFacts): boolean {
+  return facts.isTypeError || intersects(facts.codes, CONNECTION_ERROR_CODES);
 }
 
 /**
  * 是不是「等待类超时」（响应头/响应体计时器到点），而不是连接事实。
  *
  * 两种形状都要认：`code`（`node:http`/undici 风格）与 `name`（`HeadersTimeoutError` 一类），
- * 且都允许藏在 `cause` 链上。
+ * 整条链上都算。
+ *
+ * **连接反条件（层二）**：同一条链上若也出现连接类 code，就**不算**等待类——交给
+ * {@link isConnectionError}。理由是这个形状真实可达：「等响应头时对端 RST」会同时带来
+ * `UND_ERR_HEADERS_TIMEOUT`（外层）与 `ECONNRESET`（内层 `cause`）。把它算成等待类就会进
+ * `pendingUntilAborted(req.signal)`，没有 `signal` 时**永不落定** → 路由一个字节都不写 →
+ * 用户看到「点了没反应」——正是本轮要消灭的那个症状。语义上也说得通：连接事实比「客户端自己
+ * 等累了」更硬。
+ *
+ * 反条件只消费 `codes`、不看 `isTypeError`：所以「纯 `TypeError`、链上没有任何连接 code」仍是
+ * 等待类（既有三条 `TimeoutError` 形状用例保持绿），「带连接 code 的混合链」才翻到连接类。
+ *
+ * @param facts - {@link errorFactsOf} 的结果。
+ * @returns 是否要「继续等、不判失败」。
  */
-function isWaitingTimeout(error: unknown): boolean {
-  if (WAITING_TIMEOUT_CODES.has(codeOf(error))) return true;
-  const seen = new Set<unknown>();
-  let current: unknown = error;
-  while (current && typeof current === 'object' && !seen.has(current)) {
-    seen.add(current);
-    if (WAITING_TIMEOUT_NAMES.has(String((current as { name?: unknown }).name))) return true;
-    current = (current as { cause?: unknown }).cause;
-  }
-  return false;
+function isWaitingTimeout(facts: ErrorFacts): boolean {
+  if (intersects(facts.codes, CONNECTION_ERROR_CODES)) return false;
+  return intersects(facts.codes, WAITING_TIMEOUT_CODES) || intersects(facts.names, WAITING_TIMEOUT_NAMES);
 }
 
 /**
@@ -342,13 +398,17 @@ export function createHelperDialog(options: HelperDialogOptions): NativePicker {
       const payload = (await response.json().catch(() => null)) as unknown;
       return outcomeOf(payload);
     } catch (error) {
+      // 三族判定共用一次遍历的结果。判序**一字不动**：abort → waiting → connection → unavailable。
+      // 为什么等待类仍在连接类之前：这类错误常常同时是 `TypeError`（`TypeError('fetch failed')`
+      // 包着 `HeadersTimeoutError`），顺序一换就会被当成连接中断去问 `isPeerAlive`。
+      const facts = errorFactsOf(error);
       // 调用方断开（页面关掉 / 请求断开）：不写响应、不回落，交给路由回 `{kind:'none'}`。
       // 只认真正的 abort（`AbortError` / `ABORT_ERR`）；`TimeoutError` 不在这里，落到下一支继续等。
-      if (isAbortError(error)) return { kind: 'aborted' };
+      if (isAbortError(facts)) return { kind: 'aborted' };
       // 等待类超时不是关于 helper 的事实（只是「客户端自己等累了」）：不判失败、不回落——回落会叠第二个框。
-      // 必须排在连接类之前：这类错误常常同时是 `TypeError`，否则会被当成连接中断去问 isPeerAlive。
-      if (isWaitingTimeout(error)) return pendingUntilAborted(req.signal);
-      if (isConnectionError(error)) {
+      // 混合链（同时带连接类 code）已在 `isWaitingTimeout` 里被反条件挡掉，走下一支。
+      if (isWaitingTimeout(facts)) return pendingUntilAborted(req.signal);
+      if (isConnectionError(facts)) {
         // 连接中途断了，但要先问一句「helper 还活着吗」：活着说明框可能还在屏幕上，回落就是叠框。
         if (options.isPeerAlive?.() === true) return { kind: 'unsupported', message: PICK_DIALOG_CHANNEL_LOST_MESSAGE };
         return { kind: 'unavailable' };

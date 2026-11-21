@@ -397,6 +397,8 @@ export const zh = {
   voiceImportLinesTitle: '从文件选一行参考文本',
   voiceImportLinesEmpty: '文件里没有可用的文本行',
   voiceImportLinesFailed: '读取文本失败',
+  // 只陈述已知事实：宿主一次最多给 500 行且不返回总行数，所以不印「共 N 行」，只说「已列出前 N 行」。
+  voiceImportLinesCapped: '已列出前 {shown} 行（单次最多 {limit} 行，文件里可能还有更多）',
   voiceImportSelectAll: '全选',
   voiceImportSelectNone: '全不选',
   voiceImportOverwrite: '覆盖已有参考（旧文件会备份）',

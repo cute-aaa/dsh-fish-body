@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, test } from 'node:test';
 import type { PetRouteDeps } from './types.ts';
 import { handleVoicePackRoutes } from './voice-pack.ts';
+import { MAX_TEXT_LINES } from '../voice/gsv/voice-pack.ts';
 import { registerVoiceProvider, resetVoiceProviders } from '../voice/registry.ts';
 import { userPaths } from '../user-layout.ts';
 
@@ -27,6 +28,18 @@ function tempRoot(): string {
 function put(file: string, content: string | Uint8Array = 'weights'): void {
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, content);
+}
+
+/**
+ * 一份 `count` 行的纯文本（没有 `|`，整行即参考文本；布局与 `readTextLines` 的输出同形）。
+ *
+ * 用**真文件**而不是解析桩：`max` 的语义就落在「读到哪里 break」这一行上，
+ * 把读文件换成桩，等于把被测对象换成自己的假设。
+ */
+function textFixture(root: string, name: string, count: number): string {
+  const file = join(root, name);
+  put(file, Array.from({ length: count }, (_unused, offset) => `第${String(offset + 1)}行`).join('\n'));
+  return file;
 }
 
 afterEach(() => {
@@ -269,5 +282,50 @@ describe('voice/text-lines', () => {
     assert.equal(objOf(missing).reason, 'bad-request');
     const noPath = await handleVoicePackRoutes(deps(root), input('voice/text-lines', 'POST', {}));
     assert.equal(objOf(noPath).reason, 'bad-request');
+  });
+
+  // ── `max` 契约（client R1 的全部机制压在这三条上）─────────────────────────────
+  // 客户端 `voice-import.ts` 请求 `max: LINE_ROW_LIMIT`（500），宿主据此突破 `MAX_TEXT_LINES`（200）；
+  // 而客户端单测桩与 E2E 桩**都故意忽略 `max`**（它们覆盖的是「客户端渲染期防御切片」）。
+  // 所以「请求多少、宿主给多少」这条隐式约定只在这里可执行：谁把 `readTextLines` 的 `max` 吃掉，
+  // 或把 `Math.min(500, …)` 改回 200，这三条立刻红——用户侧症状正是「只能看到 200 行且没有截断提示」。
+
+  test('max: 500 → 600 行文件给正好 500 行（这是突破宿主默认 200 的唯一途径）', async () => {
+    const root = tempRoot();
+    const file = textFixture(root, 'lines600.txt', 600);
+    const result = await handleVoicePackRoutes(deps(root), input('voice/text-lines', 'POST', { path: file, max: 500 }));
+    const lines = objOf(result).lines as Array<{ index: number; text: string }>;
+    assert.equal(lines.length, 500, '请求 max=500 就必须给满 500 行；夹回 200 就是本轮要消灭的静默截断');
+    assert.equal(lines[0]?.index, 1);
+    assert.equal(lines[499]?.index, 500, '第 500 行要在（客户端要能点到它）');
+    assert.equal(lines[499]?.text, '第500行', '返回的是文件里真实的那一行，不是补出来的空行');
+    assert.equal(
+      lines.some((line) => line.index > 500),
+      false,
+      '也不能多给：客户端用「拿满 LINE_ROW_LIMIT」判断「文件里可能还有更多」',
+    );
+  });
+
+  test('不传 max → 回到宿主默认 200 行（其它调用方看到的行为不变）', async () => {
+    const root = tempRoot();
+    const file = textFixture(root, 'lines600.txt', 600);
+    const result = await handleVoicePackRoutes(deps(root), input('voice/text-lines', 'POST', { path: file }));
+    const lines = objOf(result).lines as Array<{ index: number }>;
+    assert.equal(MAX_TEXT_LINES, 200, '宿主默认值是 200：这条数字变了，客户端 500 的判据就得跟着复核');
+    assert.equal(lines.length, MAX_TEXT_LINES, '不传 max 必须落回 readTextLines 的默认参数');
+    assert.equal(lines[199]?.index, 200);
+  });
+
+  test('max: 9999 → 按宿主 clamp 到 500（上界 500 是契约，不许悄悄抬高）', async () => {
+    const root = tempRoot();
+    const file = textFixture(root, 'lines600.txt', 600);
+    const result = await handleVoicePackRoutes(
+      deps(root),
+      input('voice/text-lines', 'POST', { path: file, max: 9999 }),
+    );
+    const lines = objOf(result).lines as Array<{ index: number }>;
+    // `routes/voice-pack.ts` 的 `Math.min(500, Math.max(1, trunc(max)))`：上限 500，读码确认。
+    assert.equal(lines.length, 500, '超限请求按 500 夹：一次读盘的无界增长不能由调用方决定');
+    assert.equal(lines[499]?.index, 500);
   });
 });

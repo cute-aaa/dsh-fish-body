@@ -23,18 +23,33 @@ import { failResult, methodNotAllowed, okResult } from './result.ts';
 /** 可改位置的两项。 */
 export type MovableLocation = 'root' | 'skin';
 
+/** 平台 → 兜底命令的显示名（与 `pick-folder.ts` 的真实兜底一一对应）。 */
+const SHELL_LABEL: Readonly<Partial<Record<NodeJS.Platform, string>>> = {
+  win32: 'PowerShell',
+  darwin: 'osascript',
+  linux: 'zenity/kdialog',
+};
+
 /**
  * 选择框是哪个通道给的（只进日志，不进响应）。
  *
  * `pick-folder` 的三个结论都带 `via`：`native` = helper 的 Electron 系统对话框，`shell` = PowerShell /
- * osascript / zenity 兜底。排障时「用户说没反应」第一句要问的就是这一行。
+ * osascript / zenity 兜底。排障时「用户说没反应」第一句要问的就是这一行——所以 `shell` 分支必须说清
+ * **这台机器**上真正跑的是哪个命令，而不是一律写 PowerShell（macOS / Linux 上那句话是假话）。
+ *
+ * 导出只为可测（与 `normalizeCallbackBase` 同一先例）：三个平台的文案不该靠改 `process.platform` 去验。
  *
  * @param via - 结论来源；除旧测试桩外总是有值。
+ * @param platform - 当前平台；默认取 `process.platform`（调用点不需要传）。
  * @returns 中文短语，用于拼日志。
  */
-function viaLabel(via: 'native' | 'shell' | undefined): string {
+export function viaLabel(via: 'native' | 'shell' | undefined, platform: NodeJS.Platform = process.platform): string {
   if (via === 'native') return '由 helper 提供';
-  if (via === 'shell') return '由 PowerShell 提供';
+  if (via === 'shell') {
+    const shell = SHELL_LABEL[platform];
+    // 未列平台（freebsd / aix / android…）仍是人话，且不谎报平台。
+    return shell === undefined ? '由系统命令提供' : `由 ${shell} 提供`;
+  }
   return '来源未知';
 }
 

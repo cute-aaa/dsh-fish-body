@@ -420,6 +420,8 @@ export const ja: Record<Key, string> = {
   voiceImportLinesTitle: 'テキストファイルから参照テキストを1行選ぶ',
   voiceImportLinesEmpty: '使える行がありませんでした',
   voiceImportLinesFailed: 'テキストの読み込みに失敗しました',
+  voiceImportLinesCapped:
+    '先頭 {shown} 行のみ表示（一度に最大 {limit} 行、ファイルにはさらに行がある可能性があります）',
   voiceImportSelectAll: 'すべて選択',
   voiceImportSelectNone: '選択を解除',
   voiceImportOverwrite: '既存の参照を上書き（旧ファイルはバックアップ）',

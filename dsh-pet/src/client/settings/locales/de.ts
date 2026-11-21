@@ -420,6 +420,8 @@ export const de: Record<Key, string> = {
   voiceImportLinesTitle: 'Eine Zeile aus einer Textdatei wählen',
   voiceImportLinesEmpty: 'Keine brauchbare Zeile in der Datei',
   voiceImportLinesFailed: 'Textdatei konnte nicht gelesen werden',
+  voiceImportLinesCapped:
+    'Es werden die ersten {shown} Zeilen angezeigt (max. {limit} pro Liste; die Datei kann mehr enthalten)',
   voiceImportSelectAll: 'Alle auswählen',
   voiceImportSelectNone: 'Auswahl aufheben',
   voiceImportOverwrite: 'Vorhandenes Referenzaudio überschreiben (alte Dateien werden gesichert)',

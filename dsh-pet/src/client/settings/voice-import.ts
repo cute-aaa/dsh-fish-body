@@ -59,6 +59,17 @@ const AUDIO_EXTS: readonly string[] = ['.wav', '.mp3', '.flac', '.ogg', '.m4a'];
 /** 参考文本候选文件扩展名。 */
 const TEXT_EXTS: readonly string[] = ['.txt', '.list'];
 
+/**
+ * 一次最多列多少候选行——既是要向宿主索取的量，也是「拿满了就说明文件里可能还有更多」的判据。
+ *
+ * **这个数不许大于宿主的上限**：`src/host/routes/voice-pack.ts` 把请求里的 `max` 夹到
+ * `Math.min(500, …)`，宿主读文件时命中 `MAX_TEXT_LINES` 也从 500 这一档收手。若这里写成
+ * 800，宿主仍只给 500 行，而客户端「`lines.length >= LINE_ROW_LIMIT` 即视为被截断」永远不成立
+ * → 用户又看不到「已列出前 N 行」，等于悄悄退回今天的静默截断。两个数字必须一起改。
+ * `voice-import.test.ts` 里有一条 `LINE_ROW_LIMIT === 500` 的漂移断言钉住这件事。
+ */
+export const LINE_ROW_LIMIT = 500;
+
 /** 一行在界面里的编辑态。 */
 export interface ImportRowState {
   readonly checked: boolean;
@@ -385,12 +396,15 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
             return;
           }
           rememberPickDir('refText', outcome.path, 'file', storage);
-          void postJson('/voice/text-lines', { path: outcome.path }, t('voiceImportLinesFailed'))
+          // `max` 是宿主与 `openapi.yaml` 的既有字段（不是本轮新加的契约），要多少就以它为上限要。
+          void postJson('/voice/text-lines', { path: outcome.path, max: LINE_ROW_LIMIT }, t('voiceImportLinesFailed'))
             .then((result) => {
               const parsed = readTextLines(result);
               if (parsed.length === 0) throw new Error(t('voiceImportLinesEmpty'));
               // 目标行与候选行一次写入：列表里点哪一行都能读到同一个 id。
-              setLinePick({ id, lines: parsed.slice(0, 20) });
+              // 存宿主返回的整份（不再在这里切 20 行）：切多少由渲染期按 LINE_ROW_LIMIT 决定，
+              // 这样「拿到满额」这个事实还能用来判断要不要告诉用户被截断。
+              setLinePick({ id, lines: parsed });
             })
             .catch(fail);
         },
@@ -647,6 +661,12 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
       });
     };
 
+    // 候选行是宿主返回的整份（按 LINE_ROW_LIMIT 要的），渲染前再切一次是防御：
+    // 宿主若忽略 `max`（老版本/桩），也不至于一次塞几千个按钮进 DOM。
+    // `capped` 只在「拿到的行数已经顶到上限」时成立——那时文件里可能还有更多，必须说出来。
+    const shown = linePick === null ? [] : linePick.lines.slice(0, LINE_ROW_LIMIT);
+    const capped = linePick !== null && linePick.lines.length >= LINE_ROW_LIMIT;
+
     return h('div', {
       className: 'dsh-pet-cfg__mask',
       onClick: () => {
@@ -814,9 +834,19 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
                 className: 'dsh-pet-cfg__section',
                 children: [
                   h('div', { className: 'dsh-pet-cfg__msg', children: t('voiceImportLinesTitle') }),
+                  // 被截断的提示放在列表**外**：`.dsh-pet-cfg__searchList button` 这条选择器
+                  // 在测试与设置页里都表示「一行候选」，别让一句提示挤进那个语义里。
+                  capped
+                    ? h('div', {
+                        className: 'dsh-pet-cfg__msg',
+                        children: t('voiceImportLinesCapped')
+                          .replace('{shown}', String(shown.length))
+                          .replace('{limit}', String(LINE_ROW_LIMIT)),
+                      })
+                    : null,
                   h('div', {
                     className: 'dsh-pet-cfg__searchList',
-                    children: linePick.lines.map((line: TextLineView) =>
+                    children: shown.map((line: TextLineView) =>
                       h('button', {
                         key: `${line.index}`,
                         type: 'button',

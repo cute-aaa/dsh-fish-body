@@ -421,6 +421,7 @@ export const ru: Record<Key, string> = {
   voiceImportLinesTitle: 'Выберите строку из текстового файла',
   voiceImportLinesEmpty: 'В файле нет подходящих строк',
   voiceImportLinesFailed: 'Не удалось прочитать текстовый файл',
+  voiceImportLinesCapped: 'Показаны первые {shown} строк (не более {limit} за список; в файле может быть больше)',
   voiceImportSelectAll: 'Выбрать все',
   voiceImportSelectNone: 'Снять выбор',
   voiceImportOverwrite: 'Перезаписать опорное аудио (старые файлы в бэкап)',

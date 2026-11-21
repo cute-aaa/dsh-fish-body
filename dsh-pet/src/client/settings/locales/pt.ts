@@ -420,6 +420,7 @@ export const pt: Record<Key, string> = {
   voiceImportLinesTitle: 'Escolha uma linha de um arquivo de texto',
   voiceImportLinesEmpty: 'Nenhuma linha utilizável nesse arquivo',
   voiceImportLinesFailed: 'Não foi possível ler o arquivo de texto',
+  voiceImportLinesCapped: 'Mostrando as {shown} primeiras linhas (máx. {limit} por lista; o arquivo pode ter mais)',
   voiceImportSelectAll: 'Selecionar tudo',
   voiceImportSelectNone: 'Limpar seleção',
   voiceImportOverwrite: 'Substituir o áudio de referência (arquivos antigos vão para backup)',

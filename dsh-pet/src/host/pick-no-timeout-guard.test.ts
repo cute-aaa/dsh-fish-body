@@ -20,6 +20,10 @@
  *      它们与 `TimeoutError` 那条错误路径叠加后的可观察结果就是「点了没反应」，所以必须在源码层拦住。
  *      作用域是 {@link PICK_SOURCES} 四个文件而不是单盯 `dialog.ts`：B 通道侧（`pick-folder.ts`）造一个
  *      时限再作为 `signal` 传进 A 通道，到点的可观察结果一模一样（`aborted` → 路由 `{kind:'none'}`）。
+ *   4b. `AbortSignal.timeout(` 与三条静态形态规则（`globalThis['set'+'Timeout']`、`AbortSignal['time'+'out']`、
+ *      `(0, setTimeout)`）还扩到 {@link ROUTE_FILES}（`src/host/routes/**` 目录枚举）：routes 是 pick 链路的
+ *      **上游调用方**——在路由里造一个时限再作为 `signal` 传下来，到点同样是 `aborted`。
+ *      请求选项 `timeout:` **不**扩到 routes（`routes/` 里没有 `http.request`，写上只会扩大未来的误伤面）。
  *   5. 白名单只有两条，都限定「落在哪个函数里、最多几次」：
  *      - `pick-folder.ts` 的 `setInterval` 排障心跳（`unref` 过、回调只写日志；另有专用用例断言
  *        它不调用 `finish`/`resolve`/`reject`；600s 间隔 > 上限，走 `exceedsIntervalCap` 显式豁免）；
@@ -41,16 +45,28 @@
  * 而 `timeoutMs` / `WAITING_TIMEOUT_CODES` / `'HeadersTimeoutError'` 这些标识量与字符串都不会被它命中
  * （`\btimeout` 后面必须是可选空白加冒号；`TimeoutError` 首字母大写也匹配不到）。
  *
- * 已知边界：剥注释是「字符串感知」的字符扫描，不是完整 JS 词法器；正则字面量里若出现引号，
- * 归属判定可能变粗——但判据是「有没有这个符号」，不会因此漏掉真实计时器。
- * 同理挡不住**算出来的**名字：`globalThis['set' + 'Timeout']`、`(0, eval)('setTimeout')`、
- * `AbortSignal['time' + 'out']` 这类拼接一律穿透（要拦住它们得换成 AST/词法级扫描，或引入依赖）。
- * 规则拦的是「正常会写出来的形态」——包括 `= globalThis.setTimeout` 这种成员取值，与既有守卫口径一致。
+ * 已知边界（**这是可执行的事实，不是免责声明**）：剥注释是「字符串感知」的字符扫描，不是完整 JS 词法器；
+ * 正则字面量里若出现引号，归属判定可能变粗——但判据是「有没有这个符号」，不会因此漏掉真实计时器。
+ *
+ * 一处**实测**的失步（2026-11 复现）：`pick-folder.ts` 的 `replace(/'/g, "''")`（第 295 行附近）让扫描器
+ * 从第 296 行起一直以为自己在字符串里 → 那之后的行内注释**不会被剥掉**。方向是**误报**（字符串内容原样
+ * 参与匹配，真实代码里的 `setInterval(` 照样命中，不会漏计时器），后果是「在文件尾部写一句带
+ * `setInterval(` 的注释」会被判违规。修它要引入正则字面量识别（≈ 词法级扫描），本轮不做，只把事实写清。
+ *
+ * 静态拼接/逗号转手规则（`globalBracketTimer` / `abortSignalBracketTimer` / `commaIndirection`）：
+ *   **拦得住**——单行内纯字面量的任意切分（`globalThis['set' + 'Timeout']`、`AbortSignal['time' + 'out']`）、
+ *   逗号转手（`(0, setTimeout)` / `(0, AbortSignal.timeout)`）、成员取值别名（既有的 `timerAlias`）。
+ *   **拦不住**（负向用例 `globalThis['set' + name](…)` 把这一条写成可执行的，防止有人以为它全知）：
+ *     ① 任何变量参与的拼接与模板串插值（`` globalThis[`set${'Timeout'}`] ``）；
+ *     ② 更远的间接（`Reflect.get(globalThis, 'setTimeout')`、`eval`、`new Function`）；
+ *     ③ 跨行拼接；④ 运行时改写全局（`Object.defineProperty`）。
+ *   要拦住这些得上 AST/词法级扫描或引入依赖，本轮刻意不做（守卫要在没有 `node_modules` 的极端情况下
+ *   也能说清「为什么红」）。规则拦的是「正常会写出来的形态」——包括 `= globalThis.setTimeout` 这种成员取值。
  * 失败信息一律指向可执行的下一步，而不是「assert 失败」。
  * @module dsh-fish-body/src/host/pick-no-timeout-guard.test
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -59,28 +75,81 @@ import { fileURLToPath } from 'node:url';
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 /**
+ * 一处被守的扫描面：文件 + 它剥离注释后必须仍存在的锚点 + 为什么它属于这条不变量。
+ *
+ * `reason` 不是注释而是**数据**：它进失败信息，也被用例断言（非空、够长）——
+ * 免得有人复制一条空理由就把一个新文件塞进扫描面。
+ */
+interface PickSource {
+  /** 相对包根。 */
+  readonly file: string;
+  /** 剥离注释后必须仍存在的符号（防止文件被挪走/清空时静默全绿）。 */
+  readonly anchor: string;
+  /** 为什么它属于这条不变量（给人看，也进失败信息）。 */
+  readonly reason: string;
+}
+
+/**
  * 被守的四个源码文件（相对包根）：B 通道宿主、A 通道客户端、helper 侧对话框、helper 协议桥。
  *
  * 少一个都算守卫失效——这四处合起来才是「点一次选择…」的整条链路。
+ * {@link PICK_FILES} 与 {@link ANCHORS} 都从这里派生（单一真源），不再出现「数组改了一处、
+ * `ANCHORS` 忘了同步」这种半改。
  */
-const PICK_SOURCES = [
-  'src/host/pick-folder.ts',
-  'src/host/helper/dialog.ts',
-  'runtime/electron-helper/main/dialog.js',
-  'runtime/electron-helper/main/bridge.js',
-] as const;
+const PICK_SOURCES: readonly PickSource[] = [
+  {
+    file: 'src/host/pick-folder.ts',
+    anchor: 'pickPathOnce',
+    reason: 'B 通道宿主：自己 spawn 兜底命令、自己决定结局；在这里造时限＝到点判失败',
+  },
+  {
+    file: 'src/host/helper/dialog.ts',
+    anchor: 'createHelperDialog',
+    reason: 'A 通道客户端：唯一允许的等待出口是 req.signal；任何计时器都是 P1-1 的 300s 悬崖回归',
+  },
+  {
+    file: 'runtime/electron-helper/main/dialog.js',
+    anchor: 'showOpenDialog',
+    reason: 'helper 侧真正弹框处：加 timeout 会让框自己消失，用户以为没点到',
+  },
+  {
+    file: 'runtime/electron-helper/main/bridge.js',
+    anchor: 'handlePick',
+    reason: 'helper 协议桥：/pick 意图的唯一通道，同族路径（上一轮实测绕过点就在这类「同一件事的第二段」）',
+  },
+];
+
+/** 四个 pick 文件（`rule.files` 与用例都用它，别再单独维护一份字符串数组）。 */
+const PICK_FILES: readonly string[] = PICK_SOURCES.map((item) => item.file);
+
+/** 锚点表：由 {@link PICK_SOURCES} 派生。 */
+const ANCHORS: Readonly<Record<string, string>> = Object.fromEntries(
+  PICK_SOURCES.map((item) => [item.file, item.anchor]),
+);
 
 /**
- * 每个文件剥离注释后**必须仍然存在**的锚点：防止「文件被挪走 / 被清空」时守卫静默变成全绿。
+ * pick 链路的**上游调用方**面：`src/host/routes/` 里先在请求上造一个时限、再作为 `signal` 传下来，
+ * 到点的可观察结果与在 pick 文件里造时限完全一样（`aborted` → 路由 `{kind:'none'}`，一个字节都不写）。
  *
- * 取值都是该文件独有的真实符号（不是注释里的措辞）。
+ * 用**目录枚举**而不是硬编码清单：新增 `routes/pick-xxx.ts` 自动进面——这正是「漏登记就红」的机制。
+ * 排除 `*.test.ts`：测试夹具里造一个带时限的 signal 用来模拟「上游传下来」是合法写法，
+ * 生产代码才是「造时限」的地方。
  */
-const ANCHORS: Readonly<Record<string, string>> = {
-  'src/host/pick-folder.ts': 'pickPathOnce',
-  'src/host/helper/dialog.ts': 'createHelperDialog',
-  'runtime/electron-helper/main/dialog.js': 'showOpenDialog',
-  'runtime/electron-helper/main/bridge.js': 'handlePick',
-};
+const ROUTE_SURFACE = {
+  dir: 'src/host/routes',
+  include: /\.ts$/,
+  exclude: /\.test\.ts$/,
+  reason: 'routes 是 pick 链路的上游调用方；只挂 `AbortSignal.timeout(` 与三条静态形态规则',
+} as const;
+
+/**
+ * `src/host/routes/**` 的生产文件（相对包根）。
+ *
+ * 目录被改名/清空时它会变空 → 那三条规则「0 命中」就成了假绿，所以另有规模与必含文件断言。
+ */
+const ROUTE_FILES: readonly string[] = readdirSync(resolve(PACKAGE_ROOT, ROUTE_SURFACE.dir))
+  .filter((name) => ROUTE_SURFACE.include.test(name) && !ROUTE_SURFACE.exclude.test(name))
+  .map((name) => `${ROUTE_SURFACE.dir}/${name}`);
 
 /** 一条扫描规则：`id` 用于白名单引用，`source` 是正则源码（每次现编，避免 `lastIndex` 状态泄漏）。 */
 interface Rule {
@@ -94,6 +163,65 @@ interface Rule {
   readonly files?: readonly string[];
   /** 间隔上限（毫秒）：只有「命中片段里取得到数字实参」时才会比较。 */
   readonly intervalCapMs?: number;
+  /**
+   * 命中后还要过一遍的过滤器：入参是第一个捕获组。缺省 = 直接算命中。
+   *
+   * 为什么需要它：像 `globalThis[X]` 这种形态，只有把 `X` 求值出来才知道是不是计时器；
+   * 把「求值」放进规则里的小谓词，比在扫描主流程里堆特判更不容易漏。
+   */
+  readonly when?: (group: string) => boolean;
+}
+
+/** 方括号里拼出来之后算「计时器」的名字（`globalThis['set' + 'Timeout']` 求值后与它比）。 */
+const TIMER_NAMES: ReadonlySet<string> = new Set(['setTimeout', 'setInterval', 'setImmediate']);
+
+/**
+ * 把「纯字符串字面量用 `+` 连接」的表达式求值；别的形状一律 `undefined`（**不猜**）。
+ *
+ * 认什么：`'set' + 'Timeout'`、`"set"+"Interval"`、`'setTi' + 'meout'`（任意切分都行——求的是**值**不是形状）。
+ * 不认什么：任何变量/成员/调用参与（`'set' + name`）、模板串、跨行拼接——负向用例钉住这三类必须**不**红。
+ *
+ * @param expression - 方括号里的原始文本（或合成样本）。
+ * @returns 拼出来的字符串；认不出时 `undefined`。
+ */
+function staticStringOf(expression: string): string | undefined {
+  const text = expression.trim();
+  if (text === '') return undefined;
+  const parts: string[] = [];
+  let index = 0;
+  while (index < text.length) {
+    while (index < text.length && /\s/.test(text[index] ?? '')) index += 1;
+    if (index >= text.length) break;
+    const quote = text[index];
+    if (quote !== '"' && quote !== "'") return undefined;
+    index += 1;
+    let value = '';
+    let closed = false;
+    while (index < text.length) {
+      const ch = text[index] ?? '';
+      if (ch === '\\') {
+        // 只处理最常见的两种转义；其它按字面量字符算（判据是「拼出来是不是计时器名」，不是严格 JSON 解析）。
+        const next = text[index + 1] ?? '';
+        value += next === 'n' ? '\n' : next === 't' ? '\t' : next;
+        index += 2;
+        continue;
+      }
+      if (ch === quote) {
+        index += 1;
+        closed = true;
+        break;
+      }
+      value += ch;
+      index += 1;
+    }
+    if (!closed) return undefined;
+    parts.push(value);
+    while (index < text.length && /\s/.test(text[index] ?? '')) index += 1;
+    if (index >= text.length) break;
+    if (text[index] !== '+') return undefined;
+    index += 1;
+  }
+  return parts.length === 0 ? undefined : parts.join('');
 }
 
 /** 判失败的计时器符号。顺序即报告顺序。 */
@@ -125,17 +253,19 @@ const RULES: readonly Rule[] = [
     id: 'abortSignalTimeout',
     source: 'AbortSignal\\s*\\.\\s*timeout\\b',
     what: 'AbortSignal.timeout（给等待加时限＝重新引入「到点就判失败」，P2-2）',
-    // 本仓 voice/**、vision.ts 等 16 处是正当用法（长耗时推理必须有时限）；pick 链路相反，只盯四个 pick 文件。
+    // 本仓 voice/**、vision.ts 等 16 处是正当用法（长耗时推理必须有时限）；pick 链路相反，只盯 pick 文件。
     // 四个文件而不是 `dialog.ts`（review P3-1）：在 `pick-folder.ts` 造时限再作为 signal 传进 A 通道，
     // 到点同样是 `aborted` → `{kind:'none'}`（用户「点了没反应」），所以扫描面就是整条链路。
-    files: PICK_SOURCES,
+    // 扩到 routes（T5-5）：routes 是上游调用方——在那里造时限再作为 signal 传下来，结果一模一样。
+    files: [...PICK_FILES, ...ROUTE_FILES],
   },
   {
     id: 'requestTimeoutOption',
     source: '\\btimeout\\s*:',
     what: '请求选项里的 timeout（`node:http` 的 timeout 会按时间掐断等待，P2-2）',
     // 同上：四个 pick 文件剥注释后 0 命中；`timeoutMs` / `TimeoutError` 这类标识量与错误名不会被它命中。
-    files: PICK_SOURCES,
+    // **不**扩到 routes：`routes/` 里没有 `http.request`，写上只会扩大未来的误伤面（需求 D3 / 未决问题 3）。
+    files: PICK_FILES,
   },
   {
     id: 'setInterval',
@@ -147,6 +277,27 @@ const RULES: readonly Rule[] = [
     id: 'timerAlias',
     source: '(?:const|let|var)\\s+[A-Za-z_$][\\w$]*\\s*=\\s*(?:globalThis\\s*\\.\\s*)?(?:setTimeout|setInterval)\\b',
     what: '计时器别名赋值（`const d = setTimeout` / `= globalThis.setTimeout` 这类转手）',
+  },
+  {
+    id: 'globalBracketTimer',
+    source: '\\b(?:globalThis|window|self)\\s*\\[([^\\]\\n]{1,160})\\]',
+    what: 'globalThis["set" + "Timeout"] 这类方括号取计时器（换个写法就绕过了 `setTimeout(` 的检测）',
+    files: [...PICK_FILES, ...ROUTE_FILES],
+    when: (group) => TIMER_NAMES.has(staticStringOf(group) ?? ''),
+  },
+  {
+    id: 'abortSignalBracketTimer',
+    source: '\\bAbortSignal\\s*\\[([^\\]\\n]{1,160})\\]',
+    what: "AbortSignal['time' + 'out']（换个写法就能给等待加时限）",
+    files: [...PICK_FILES, ...ROUTE_FILES],
+    when: (group) => staticStringOf(group) === 'timeout',
+  },
+  {
+    id: 'commaIndirection',
+    source:
+      '\\(\\s*(?:0|void\\s+0)\\s*,\\s*(?:globalThis\\s*\\.\\s*)?(?:setTimeout|setInterval|AbortSignal\\s*\\.\\s*timeout)\\b',
+    what: '(0, setTimeout) / (0, AbortSignal.timeout) 这类逗号转手（取的是全局引用，绕过裸名检测）',
+    files: [...PICK_FILES, ...ROUTE_FILES],
   },
 ];
 
@@ -327,20 +478,158 @@ function snippetOf(code: string, at: number): string {
 }
 
 /**
- * 从命中片段里取「最后一个数字实参」当作间隔。
+ * 取一个调用实参里的**最后一段**（顶层逗号切分）。
  *
- * 只认字面量（`180000` / `1_000`）：标识量（如 `PICK_WAIT_HEARTBEAT_MS`）取不到值就返回
- * `undefined`，规则退回基础形态判定——不猜常量的值，也不因为猜不到就放行。
+ * 为什么不能只按 `,` 切：回调里带逗号（`setInterval(() => log(a, b), 60000)`）、对象/数组实参、
+ * 箭头函数体里的逗号都会被误切成多段，于是「最后一个数字」可能来自别处。
+ * 这里按 `()` / `[]` / `{}` 深度与字符串（`'` `"` `` ` ``，含转义）一起感知，只在**深度 1** 的逗号处切。
+ *
+ * @param callText - 从调用名开始的片段（{@link Finding.snippet}）。
+ * @returns 最后一段实参文本；括号不配对时 `undefined`。
+ */
+function lastArgumentOf(callText: string): string | undefined {
+  const open = callText.indexOf('(');
+  if (open < 0) return undefined;
+  let depth = 0;
+  let quote: string | undefined;
+  let lastComma = open;
+  for (let index = open; index < callText.length; index++) {
+    const ch = callText[index] ?? '';
+    if (quote !== undefined) {
+      if (ch === '\\') {
+        index += 1;
+        continue;
+      }
+      if (ch === quote) quote = undefined;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      quote = ch;
+      continue;
+    }
+    if (ch === '(' || ch === '[' || ch === '{') depth += 1;
+    else if (ch === ')' || ch === ']' || ch === '}') {
+      depth -= 1;
+      if (depth === 0) return callText.slice(lastComma + 1, index).trim();
+    } else if (ch === ',' && depth === 1) lastComma = index;
+  }
+  return undefined;
+}
+
+/**
+ * 把一段「纯数值表达式」求值：四则 + 括号 + 数字字面量，别的一律 `undefined`（**不猜**）。
+ *
+ * 认什么：`180000`、`180_000`、`1e5`、`1.8e5`、`0x2BF20`、`0b…`、`0o…`、`60 * 1000`、`2 * 60_000`、
+ * `180000 / 3`、`(60) * 1000`、`-` 前缀。
+ * 不认什么（写在这里，免得下次有人以为它能算一切）：标识量（`PICK_WAIT_HEARTBEAT_MS`）、模板串、
+ * 函数调用（`Math.max(…)`）、`**`、`??`、跨行拼接后带注释的实参——这些返回 `undefined`，
+ * 调用处退回「基础形态判定」（`setInterval(` 照样红，只是不做上限比较）。
+ *
+ * 有了它，「白名单里把心跳写成 `1e5`」这种改法才不会再蒙混过去：`overCapOf` 现在给得出数值。
+ *
+ * @param expression - 待求值的表达式文本。
+ * @returns 数值；认不出、除零、非有限值都返回 `undefined`。
+ */
+function numericValueOf(expression: string): number | undefined {
+  const text = expression.trim();
+  if (text === '') return undefined;
+  let index = 0;
+
+  /** 跳过空白。 */
+  function skip(): void {
+    while (index < text.length && /\s/.test(text[index] ?? '')) index += 1;
+  }
+
+  /** 数字字面量（十进制/下划线/0x/0b/0o/小数/指数）。 */
+  function parseNumber(): number | undefined {
+    skip();
+    const match =
+      /^(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(?:\d[\d_]*(?:\.[\d_]*)?|\.[\d_]+)(?:[eE][+-]?\d+)?)/.exec(
+        text.slice(index),
+      );
+    if (match === null) return undefined;
+    index += match[0].length;
+    const value = Number(match[0].replace(/_/g, ''));
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  function parseExpr(): number | undefined {
+    let left = parseTerm();
+    if (left === undefined) return undefined;
+    for (;;) {
+      skip();
+      const op = text[index];
+      if (op !== '+' && op !== '-') return left;
+      index += 1;
+      const right = parseTerm();
+      if (right === undefined) return undefined;
+      left = op === '+' ? left + right : left - right;
+      if (!Number.isFinite(left)) return undefined;
+    }
+  }
+
+  function parseTerm(): number | undefined {
+    let left = parseUnary();
+    if (left === undefined) return undefined;
+    for (;;) {
+      skip();
+      const op = text[index];
+      if (op !== '*' && op !== '/') return left;
+      index += 1;
+      const right = parseUnary();
+      if (right === undefined) return undefined;
+      // 除零不猜：宁可退回基础形态判定，也不把 Infinity 当成「间隔」。
+      if (op === '/' && right === 0) return undefined;
+      left = op === '*' ? left * right : left / right;
+      if (!Number.isFinite(left)) return undefined;
+    }
+  }
+
+  function parseUnary(): number | undefined {
+    skip();
+    if (text[index] === '-') {
+      index += 1;
+      const value = parseUnary();
+      return value === undefined ? undefined : -value;
+    }
+    if (text[index] === '+') {
+      index += 1;
+      return parseUnary();
+    }
+    return parsePrimary();
+  }
+
+  function parsePrimary(): number | undefined {
+    skip();
+    if (text[index] === '(') {
+      index += 1;
+      const inner = parseExpr();
+      skip();
+      if (inner === undefined || text[index] !== ')') return undefined;
+      index += 1;
+      return inner;
+    }
+    return parseNumber();
+  }
+
+  const value = parseExpr();
+  skip();
+  // 必须整段吃干净：`180000 + foo` 这种半截表达式不能只读前半截就当数。
+  return value !== undefined && index === text.length ? value : undefined;
+}
+
+/**
+ * 从命中片段里取「最后一个实参」当作间隔。
+ *
+ * 取不到数字（标识量、模板串、调用、除零…）就返回 `undefined`，规则退回基础形态判定——
+ * 不猜常量的值，也不因为猜不到就放行。
  *
  * @param snippet - {@link Finding.snippet}。
  * @returns 毫秒数；取不到时 `undefined`。
  */
 function intervalOf(snippet: string): number | undefined {
-  const matches = [...snippet.matchAll(/,\s*([\d][\d_]*)\s*\)/g)];
-  const raw = matches[matches.length - 1]?.[1];
-  if (raw === undefined) return undefined;
-  const value = Number(raw.replace(/_/g, ''));
-  return Number.isFinite(value) ? value : undefined;
+  const last = lastArgumentOf(snippet);
+  return last === undefined ? undefined : numericValueOf(last);
 }
 
 /**
@@ -358,6 +647,8 @@ function scanText(source: string, file: string): Finding[] {
     // 规则可以只盯某几个文件（例如 `\bfetch\b` 只对 A 通道客户端生效）。
     if (rule.files !== undefined && !rule.files.includes(file)) continue;
     for (const match of code.matchAll(new RegExp(rule.source, 'g'))) {
+      // 形态对上了还要过一遍语义过滤（例如方括号里拼出来的是不是 `setTimeout`）。
+      if (rule.when !== undefined && !rule.when(match[1] ?? '')) continue;
       const at = match.index;
       const line = code.slice(0, at).split('\n').length;
       findings.push({
@@ -374,20 +665,24 @@ function scanText(source: string, file: string): Finding[] {
 }
 
 /**
- * 读一个被守文件并扫描；顺带断言锚点还在（文件挪走/清空时立刻红，而不是「0 命中 = 通过」）。
+ * 读一个被守文件并扫描。
+ *
+ * 四个 pick 文件有锚点断言（文件挪走/清空时立刻红，而不是「0 命中 = 通过」）；
+ * `routes/` 的文件没有锚点，靠 {@link ROUTE_FILES} 的规模断言兜底。
  *
  * @param file - 相对包根的路径。
  * @returns 该文件的全部命中。
  */
 function scanFile(file: string): Finding[] {
   const source = readFileSync(resolve(PACKAGE_ROOT, file), 'utf8');
-  const code = stripComments(source);
   const anchor = ANCHORS[file];
-  assert.ok(
-    anchor !== undefined && code.includes(anchor),
-    `${file} 里找不到锚点 ${String(anchor)}：守卫扫描的对象可能已经错位（文件被挪走/被清空），` +
-      '在修正 ANCHORS 之前，这条守卫生效与否都是未知的',
-  );
+  if (anchor !== undefined) {
+    assert.ok(
+      stripComments(source).includes(anchor),
+      `${file} 里找不到锚点 ${anchor}：守卫扫描的对象可能已经错位（文件被挪走/被清空），` +
+        '在修正 ANCHORS 之前，这条守卫生效与否都是未知的',
+    );
+  }
   return scanText(source, file);
 }
 
@@ -472,10 +767,10 @@ function callTextOf(code: string, name: string): string | undefined {
 }
 
 test('源码扫描：四个 pick 文件里没有「以时间为条件判失败」的路径', (t) => {
-  const findings = PICK_SOURCES.flatMap((file) => scanFile(file));
+  const findings = PICK_FILES.flatMap((file) => scanFile(file));
   const unexplained = unexplainedOf(findings);
   t.diagnostic(
-    `扫描 ${String(PICK_SOURCES.length)} 个 pick 文件：${String(findings.length)} 处计时器符号命中，` +
+    `扫描 ${String(PICK_FILES.length)} 个 pick 文件：${String(findings.length)} 处计时器符号命中，` +
       `${String(findings.length - unexplained.length)} 处被白名单覆盖，${String(unexplained.length)} 处违规`,
   );
   assert.deepEqual(
@@ -546,34 +841,54 @@ test('白名单：bridge.js 的 45s 兜底只能待在 bridgeRequest，不得进
   );
 });
 
-test('扩面后的零误伤：四个 pick 文件里 `AbortSignal.timeout` / `timeout:` 的当前命中数都是 0', (t) => {
-  // review P3-1 的收口前提：把两条时限规则从 `dialog.ts` 扩到四个 pick 文件时，**今天必须一处都不命中**，
-  // 否则「扩面」会立刻变成「既有代码被判违规」。这条断言把那个前提钉在测试里：将来谁在这四个文件里
-  // 真的加了时限，红的就是它（而不是等宽限期过去后由人回忆「当初扩面有没有误伤」）。
-  const counts = PICK_SOURCES.map((file) => {
+test('扩面后的零误伤：pick 四个文件 + routes 生产文件的时限/形态规则命中数都是 0', (t) => {
+  // review P3-1 的收口前提（本轮扩到 routes 后同口径）：把规则扩面时，**今天必须一处都不命中**，
+  // 否则「扩面」会立刻变成「既有代码被判违规」。这条断言把那个前提钉在测试里：将来谁在这两面
+  // 真的加了时限/转手，红的就是它（而不是等宽限期过去后由人回忆「当初扩面有没有误伤」）。
+  const surface = [...PICK_FILES, ...ROUTE_FILES];
+  const counts = surface.map((file) => {
     const findings = scanFile(file);
+    const count = (id: string): number => findings.filter((finding) => finding.rule.id === id).length;
     return {
       file,
-      abortSignalTimeout: findings.filter((finding) => finding.rule.id === 'abortSignalTimeout').length,
-      requestTimeoutOption: findings.filter((finding) => finding.rule.id === 'requestTimeoutOption').length,
+      abortSignalTimeout: count('abortSignalTimeout'),
+      globalBracketTimer: count('globalBracketTimer'),
+      abortSignalBracketTimer: count('abortSignalBracketTimer'),
+      commaIndirection: count('commaIndirection'),
+      requestTimeoutOption: count('requestTimeoutOption'),
     };
   });
+  const total = counts.reduce(
+    (sum, entry) =>
+      sum +
+      entry.abortSignalTimeout +
+      entry.globalBracketTimer +
+      entry.abortSignalBracketTimer +
+      entry.commaIndirection +
+      entry.requestTimeoutOption,
+    0,
+  );
   t.diagnostic(
-    `时限规则命中：${counts
-      .map(
-        (entry) =>
-          `${entry.file} abortSignalTimeout=${String(entry.abortSignalTimeout)} requestTimeoutOption=${String(
-            entry.requestTimeoutOption,
-          )}`,
-      )
-      .join('；')}`,
+    `扫描面 ${String(surface.length)} 个文件（pick=${String(PICK_FILES.length)} / routes=${String(
+      ROUTE_FILES.length,
+    )}）：四条时限/形态规则 + requestTimeoutOption 合计命中 ${String(total)}`,
   );
   for (const entry of counts) {
-    assert.equal(
-      entry.abortSignalTimeout,
-      0,
-      `${entry.file} 出现了 \`AbortSignal.timeout(\`：给 pick 等待加时限＝「到点就判失败」（P2-2 / P3-1）`,
-    );
+    for (const [id, value] of [
+      ['abortSignalTimeout', entry.abortSignalTimeout],
+      ['globalBracketTimer', entry.globalBracketTimer],
+      ['abortSignalBracketTimer', entry.abortSignalBracketTimer],
+      ['commaIndirection', entry.commaIndirection],
+    ] as const) {
+      assert.equal(
+        value,
+        0,
+        `${entry.file} 出现 ${id}：给 pick 等待加时限（或换个写法取计时器）＝「到点就判失败」（P2-2 / P3-1）`,
+      );
+    }
+  }
+  // `timeout:` 只挂 pick 面（routes 里没有 `http.request`）：pick 面今日 0 命中。
+  for (const entry of counts.filter((item) => PICK_FILES.includes(item.file))) {
     assert.equal(
       entry.requestTimeoutOption,
       0,
@@ -664,7 +979,7 @@ test('守卫自身有效（新规则）：setInterval 超上限 / 计时器别�
   // ④ 「给等待加时限」的两种写法：`AbortSignal.timeout(…)` 与请求选项里的 `timeout:`（review P2-2 / P3-1）。
   //    作用域是全部四个 pick 文件：**每个文件各一条合成样本**都必须红，否则「在 B 通道侧造时限再传下去」
   //    这条路径会整个漏过去（review P3-1 实测：范围只写 `dialog.ts` 时，写进 `pick-folder.ts` 仍 5/5 全绿）。
-  for (const file of PICK_SOURCES) {
+  for (const file of PICK_FILES) {
     const timedIds = scanText(
       [
         'const deadline = AbortSignal.timeout(300000);',
@@ -685,7 +1000,7 @@ test('守卫自身有效（新规则）：setInterval 超上限 / 计时器别�
   assert.deepEqual(
     scanText('const deadline = AbortSignal.timeout(300000);', 'src/host/voice/gsv/client.ts').map(describeOf),
     [],
-    '时限规则只盯 `PICK_SOURCES` 那四个文件：voice/** 的 16 处 `AbortSignal.timeout` 不是 pick 链路',
+    '时限规则只盯 `PICK_FILES` 与 `ROUTE_FILES`：voice/** 的 16 处 `AbortSignal.timeout` 不是 pick 链路',
   );
 
   // 注释里的提及仍不算违规（剥注释必须先发生）。
@@ -702,5 +1017,158 @@ test('守卫自身有效（新规则）：setInterval 超上限 / 计时器别�
     ).map(describeOf),
     [],
     '注释里的提及不算违规：说明文字不是运行路径（剥注释失效才会红）',
+  );
+});
+
+test('intervalOf：数值求值覆盖十进制/下划线/0x/0b/0o/指数/小数与四则，**断言解值**', () => {
+  // 为什么必须断言解值：`180_000` 在旧正则下本来就能红，「只断言红」证明不了修复；
+  // 旧实现的真实缺口是 `1e5` / `1.8e5` / `0x2BF20` / `60 * 1000` 解不出数——
+  // `overCapOf` 给不出数值，于是「允许一个 10 万毫秒定时器」与「允许一个心跳」在白名单里长得一样。
+  const cases: readonly (readonly [string, number])[] = [
+    ['setInterval(cb, 180000)', 180_000],
+    ['setInterval(cb, 180_000)', 180_000],
+    ['setInterval(cb, 1e5)', 100_000],
+    ['setInterval(cb, 1.8e5)', 180_000],
+    ['setInterval(cb, 0x2BF20)', 180_000],
+    ['setInterval(cb, 0b10101)', 21],
+    ['setInterval(cb, 0o17)', 15],
+    ['setInterval(cb, 60 * 1000)', 60_000],
+    ['setInterval(cb, 2 * 60_000)', 120_000],
+    ['setInterval(cb, 180000 / 3)', 60_000],
+    ['setInterval(cb, (60) * 1000)', 60_000],
+    ['setInterval(cb, -1000)', -1_000],
+  ];
+  for (const [snippet, expected] of cases) {
+    assert.equal(
+      intervalOf(snippet),
+      expected,
+      `${snippet} 应当解出 ${String(expected)}（解不出数，上限比较就退化成「白名单说放行就放行」）`,
+    );
+  }
+
+  // 认不出的形状：返回 undefined → 调用处退回基础形态判定（`setInterval(` 照样红，只是不做上限比较）。
+  const opaque = [
+    'setInterval(cb, PICK_WAIT_HEARTBEAT_MS)',
+    'setInterval(cb, `60000`)',
+    'setInterval(cb, Math.max(60000, 1))',
+    'setInterval(cb, 1000 / 0)',
+    'setInterval(cb, 60000 + foo)',
+    'setInterval(cb, 1e999)',
+  ];
+  for (const snippet of opaque) {
+    assert.equal(intervalOf(snippet), undefined, `${snippet}：认不出就该返回 undefined，不许猜`);
+  }
+
+  // 顶层逗号切分：回调里带逗号、对象/数组实参都不能把「最后一段」切错。
+  assert.equal(intervalOf('setInterval(() => log(a, b), 60000)'), 60_000, '回调里的逗号不许把间隔切丢');
+  assert.equal(intervalOf('setInterval(() => run({ a: 1, b: 2 }, [3, 4]), 45000)'), 45_000, '对象/数组实参同理');
+  assert.equal(intervalOf('setInterval(() => undefined, 1)'), 1, '最短的那一种也要认');
+});
+
+test('overCapOf：五种「换个写法」的 60s 以上间隔都给得出数值并判超上限', () => {
+  const cases: readonly (readonly [string, number])[] = [
+    ['setInterval(() => log.warn("tick"), 1e5)', 100_000],
+    ['setInterval(() => log.warn("tick"), 1.8e5)', 180_000],
+    ['setInterval(() => log.warn("tick"), 0x2BF20)', 180_000],
+    ['setInterval(() => log.warn("tick"), 180_000)', 180_000],
+    ['setInterval(() => log.warn("tick"), 60 * 1000)', 60_000],
+  ];
+  for (const [source, expected] of cases) {
+    const finding = scanText(source, 'src/host/pick-folder.ts').find((item) => item.rule.id === 'setInterval');
+    assert.ok(finding !== undefined, `${source}：setInterval 没被抓到，守卫对「塞回一个定时器」失效`);
+    assert.equal(intervalOf(finding.snippet), expected, `${source} 的间隔解值`);
+    // 上限是 60s：正好等于上限的 `60 * 1000` 不超；其余四种都必须判超。
+    assert.equal(
+      overCapOf(finding),
+      expected > 60_000 ? expected : undefined,
+      `${source}：超过 60s 上限必须判出来（否则白名单里写 1e5 也能静默通过）`,
+    );
+  }
+});
+
+test('三条静态形态规则：方括号取计时器 / AbortSignal 方括号 / 逗号转手都会红', () => {
+  const samples: readonly (readonly [string, string])[] = [
+    ["globalThis['set' + 'Timeout'](() => undefined, 1);", 'globalBracketTimer'],
+    ['globalThis["set" + "Interval"](() => undefined, 1);', 'globalBracketTimer'],
+    ["globalThis['setTi' + 'meout'](() => undefined, 1);", 'globalBracketTimer'],
+    ["window['set' + 'Timeout'](() => undefined, 1);", 'globalBracketTimer'],
+    ["AbortSignal['time' + 'out'](300000);", 'abortSignalBracketTimer'],
+    ['(0, setTimeout)(() => undefined, 180000);', 'commaIndirection'],
+    ['(0, AbortSignal.timeout)(300000);', 'commaIndirection'],
+  ];
+  for (const [source, id] of samples) {
+    const ids = scanText(source, 'src/host/pick-folder.ts').map((finding) => finding.rule.id);
+    assert.ok(ids.includes(id), `${source} 必须命中 ${id}：任意切分/逗号转手都是「换个写法就能绕过」的口子`);
+  }
+
+  // 负向边界：这四类**拦不住**，写成可执行的，防止下一轮有人误以为这条规则全知。
+  // 文件头的「已知边界」段与本用例是同一份事实的两处表达，改一处必须改另一处。
+  const boundaries = [
+    // ① 变量参与拼接
+    "globalThis['set' + name](() => undefined, 1);",
+    // ② 模板串插值
+    'globalThis[`set${"Timeout"}`](() => undefined, 1);',
+    // ③ 跨行拼接
+    "globalThis['set' +\n  'Timeout'](() => undefined, 1);",
+    // ④ 更远的间接
+    'Reflect.get(globalThis, "setTimeout")(() => undefined, 1);',
+  ];
+  for (const source of boundaries) {
+    assert.deepEqual(
+      scanText(source, 'src/host/pick-folder.ts').map(describeOf),
+      [],
+      `${source}：已知边界（变量/模板串/跨行/反射），规则拦不住；这是诚实记录，不是回归`,
+    );
+  }
+});
+
+test('routes 面：`src/host/routes/layout.ts` 里出现 `AbortSignal.timeout(` 必须红', () => {
+  // routes 是 pick 链路的上游调用方：在路由里造时限再作为 signal 传下来，到点同样是 `aborted`
+  // → 路由 `{kind:'none'}` → 一个字节都不写（用户「点了没反应」）。
+  const ids = scanText('const deadline = AbortSignal.timeout(300000);', 'src/host/routes/layout.ts').map(
+    (finding) => finding.rule.id,
+  );
+  assert.ok(ids.includes('abortSignalTimeout'), 'routes 面必须能抓住 `AbortSignal.timeout(`：这就是扩面的意义');
+  // 同一批新规则也在 routes 面上生效（三条形态规则与 `AbortSignal.timeout` 同面）。
+  const forms = scanText(
+    ["globalThis['set' + 'Timeout'](() => undefined, 1);", '(0, setTimeout)(() => undefined, 180000);'].join('\n'),
+    'src/host/routes/state.ts',
+  ).map((finding) => finding.rule.id);
+  assert.ok(forms.includes('globalBracketTimer'), 'routes 面：方括号取计时器也要红');
+  assert.ok(forms.includes('commaIndirection'), 'routes 面：逗号转手也要红');
+});
+
+test('扫描面自身完整性：pick-*.ts 全登记、reason 非空够长、ROUTE_FILES 规模与必含文件', () => {
+  // 防「漏登记就静默全绿」：`src/host/` 下新增一个 `pick-file.ts`，这条立刻红。
+  const unregistered = readdirSync(resolve(PACKAGE_ROOT, 'src/host'))
+    .filter((name) => /^pick-.*\.ts$/.test(name) && !name.endsWith('.test.ts'))
+    .map((name) => `src/host/${name}`)
+    .filter((file) => !PICK_FILES.includes(file));
+  assert.deepEqual(
+    unregistered,
+    [],
+    `这些 pick 源文件没登记进 PICK_SOURCES，等于不在守卫面上：${unregistered.join('、')}`,
+  );
+
+  for (const source of PICK_SOURCES) {
+    assert.ok(
+      source.reason.trim().length >= 12,
+      `${source.file} 的 reason 太短（≥12 字符）：写清「为什么它属于这条不变量」，别拿空串应付`,
+    );
+  }
+  assert.equal(
+    new Set(PICK_FILES).size,
+    PICK_SOURCES.length,
+    '同一个文件登记两次＝有一条被静默吞掉（白名单与失败信息会指错地方）',
+  );
+
+  // 防假绿：目录改名/清空后 `ROUTE_FILES` 会变空，那三条规则的「0 命中」就毫无意义。
+  assert.ok(
+    ROUTE_FILES.length >= 20,
+    `routes 扫描面只剩 ${String(ROUTE_FILES.length)} 个文件：目录被改名/清空时规则会静默全绿`,
+  );
+  assert.ok(
+    ROUTE_FILES.includes('src/host/routes/layout.ts'),
+    'routes 面必须含 `layout.ts`（`/pick-folder`、`/pick-file` 就在里面）',
   );
 });
