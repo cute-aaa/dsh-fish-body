@@ -157,7 +157,8 @@ Object.assign(PetSprite.prototype, {
 
   /** keepFacing = 调用方已显式指定朝向：跳过下面「文字类动画点播前强制朝左」的镜像修正，显式值优先。 */
   onMenuAction(leaf, keepFacing, fromHost) {
-    this.closeMenu();
+    // 预览类项（外观 / 动作）点完不关菜单，才能连着试几个；见 shared/menu/types 的 keepOpen。
+    if (!leaf || leaf.keepOpen !== true) this.closeMenu();
     if (!leaf || typeof leaf !== 'object') return;
     // 睡觉：打扰类动作在点击这一刻就拒绝——弹一句台词，什么都不执行。持锁时让路（锁=控制权交给第三方）。
     // 对话弹窗、待办面板、点播动画都是渲染端行为，宿主闸门拦不到；两端用同一份放行判定。

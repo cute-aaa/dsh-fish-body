@@ -168,16 +168,29 @@ export function createOverlay(
     // 外观：解析 exp3 后每帧重写，不建队列——运行库的表达式是一次性的，挂不住。
     if (kind === 'expression') {
       const parsed = parseExp3(json);
-      // 一行诊断：外观「看起来没生效」时，第一件要确认的就是 exp3 到底写了哪些参数
-      // （空 Parameters = 这份外观本身是空的，不是我们没挂上）。每次挂载打一行，不是每帧。
+      // 一行诊断：外观「看起来没生效」时，先看 exp3 写了哪些参数、以及它们**当前值**是多少。
+      // 当前值已经是目标值（例如 key9 默认就是 1）时，Add 上去等于没变化——那不是没写进去，
+      // 是这份外观对这只模型本身没有可见效果。每次挂载打一行，不是每帧。
+      const model = core();
+      const detail = parsed.parameters
+        .map((p) => {
+          const base = model?.getParameterValueById?.(p.id);
+          return (
+            p.id +
+            '(' +
+            (typeof base === 'number' && Number.isFinite(base) ? String(base) : '?') +
+            '+' +
+            String(p.value) +
+            ')'
+          );
+        })
+        .join(',');
       console.log(
         '[fish-body] 外观挂载 ' +
           key +
           ' params=' +
           String(parsed.parameters.length) +
-          (parsed.parameters.length === 0
-            ? '（这份 exp3 没有 Parameters，挂上也不会变）'
-            : '(' + parsed.parameters.map((p) => p.id + '+' + String(p.value)).join(',') + ')'),
+          (parsed.parameters.length === 0 ? '（这份 exp3 没有 Parameters，挂上也不会变）' : '(' + detail + ')'),
       );
       entries.set(key, {
         kind,

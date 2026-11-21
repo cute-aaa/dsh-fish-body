@@ -196,8 +196,8 @@ describe('rendererActionTree —— 动作树形状', () => {
       {
         label: '动作',
         children: [
-          { label: '眨个眼', action: 'renderer-action', rendererAction: 'blink' },
-          { label: '张个嘴', action: 'renderer-action', rendererAction: 'mouth' },
+          { label: '眨个眼', action: 'renderer-action', rendererAction: 'blink', keepOpen: true },
+          { label: '张个嘴', action: 'renderer-action', rendererAction: 'mouth', keepOpen: true },
         ],
       },
     ]);
@@ -221,11 +221,15 @@ describe('rendererActionTree —— 动作树形状', () => {
         children: [
           {
             label: 'TapBody',
-            children: [{ label: 'TapBody', action: 'renderer-action', rendererAction: 'motion:TapBody:0' }],
+            children: [
+              { label: 'TapBody', action: 'renderer-action', rendererAction: 'motion:TapBody:0', keepOpen: true },
+            ],
           },
           {
             label: 'TapHead',
-            children: [{ label: 'TapHead', action: 'renderer-action', rendererAction: 'motion:TapHead:0' }],
+            children: [
+              { label: 'TapHead', action: 'renderer-action', rendererAction: 'motion:TapHead:0', keepOpen: true },
+            ],
           },
         ],
       },
@@ -238,8 +242,8 @@ describe('rendererActionTree —— 动作树形状', () => {
       {
         label: '动作',
         children: [
-          { label: '眨个眼', action: 'renderer-action', rendererAction: 'blink' },
-          { label: '恢复默认动作', action: 'renderer-action', rendererAction: 'motion-reset' },
+          { label: '眨个眼', action: 'renderer-action', rendererAction: 'blink', keepOpen: true },
+          { label: '恢复默认动作', action: 'renderer-action', rendererAction: 'motion-reset', keepOpen: true },
         ],
       },
     ]);
@@ -258,8 +262,8 @@ describe('actionMenuTree —— 按渲染方式选树', () => {
       {
         label: '动作',
         children: [
-          { label: '待机', children: [{ label: '待机呼吸', anim: '待机呼吸' }] },
-          { label: '点击回应', children: [{ label: '点击回应-开心', anim: '点击回应-开心' }] },
+          { label: '待机', children: [{ label: '待机呼吸', anim: '待机呼吸', keepOpen: true }] },
+          { label: '点击回应', children: [{ label: '点击回应-开心', anim: '点击回应-开心', keepOpen: true }] },
         ],
       },
     ]);
@@ -271,8 +275,8 @@ describe('actionMenuTree —— 按渲染方式选树', () => {
       {
         label: '动作',
         children: [
-          { label: '摸摸头', action: 'renderer-action', rendererAction: 'pat' },
-          { label: '摇尾巴', action: 'renderer-action', rendererAction: 'wag' },
+          { label: '摸摸头', action: 'renderer-action', rendererAction: 'pat', keepOpen: true },
+          { label: '摇尾巴', action: 'renderer-action', rendererAction: 'wag', keepOpen: true },
         ],
       },
     ]);

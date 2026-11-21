@@ -181,6 +181,49 @@ function mount(tree: MenuNode[]): { root: FakeEl; actions: MenuLeaf[]; closed: (
   return { root, actions, closed: () => !doc.body.contains(root) };
 }
 
+describe('mountContextMenu —— keepOpen（预览类项点完不关菜单）', () => {
+  test('keepOpen 的项点完菜单还在，动作照常派发', () => {
+    const items: MenuNode[] = [
+      { label: '抚胸手打开', action: 'renderer-action', rendererAction: 'motion:1:0', keepOpen: true },
+    ];
+    const { root, actions, closed } = mount(items);
+    const target = root.find(
+      (el) => el.className.includes('dsh-pet-menu-item') && el.children.some((c) => c.textContent === '抚胸手打开'),
+    ) as FakeEl;
+    target.emit('click');
+    assert.equal(actions.length, 1, '动作照常派发');
+    assert.equal(closed(), false, '预览类项不该关菜单（否则每试一个都要重新右键展开）');
+    // 再点一次仍然派发：菜单还在，方便连续比较
+    target.emit('click');
+    assert.equal(actions.length, 2);
+  });
+
+  test('toggle 项就地翻转 ✓（真值下次打开菜单以树为准）', () => {
+    const items: MenuNode[] = [
+      { label: '兔牙', action: 'renderer-action', rendererAction: 'expression:兔牙', keepOpen: true, toggle: true },
+    ];
+    const { root, closed } = mount(items);
+    const label = root.find((el) => el.className === 'dsh-pet-menu-label') as FakeEl;
+    assert.equal(label.textContent, '兔牙');
+    label.parent?.emit('click');
+    assert.equal(label.textContent, '兔牙 ✓', '点一下要就地打勾');
+    assert.equal(closed(), false);
+    label.parent?.emit('click');
+    assert.equal(label.textContent, '兔牙', '再点一下要把勾抹掉');
+  });
+
+  test('keepOpen 但没有 toggle 的项（如「恢复默认外观」）不动 label', () => {
+    const items: MenuNode[] = [
+      { label: '恢复默认外观', action: 'renderer-action', rendererAction: 'expression-reset', keepOpen: true },
+    ];
+    const { root, closed } = mount(items);
+    const label = root.find((el) => el.className === 'dsh-pet-menu-label') as FakeEl;
+    label.parent?.emit('click');
+    assert.equal(label.textContent, '恢复默认外观', '复位项不该给自己打勾');
+    assert.equal(closed(), false);
+  });
+});
+
 describe('mountContextMenu —— 叶子与分支', () => {
   test('点叶子：派发一次并关闭菜单', () => {
     const items: MenuNode[] = [{ label: '待机呼吸', anim: 'idle' }];

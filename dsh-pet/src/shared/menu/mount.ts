@@ -16,6 +16,22 @@ function isSliderNode(n: MenuNode): n is MenuSlider {
   return 'slider' in n;
 }
 
+/** 打勾后缀（`外观` 子菜单用 label 末尾的它表示「当前挂着」）。 */
+const CHECK = ' ✓';
+
+/**
+ * 就地翻转一个开关项的勾。
+ *
+ * 为什么是「就地翻转」而不是重建菜单：菜单一直开着就不会按后端真值重建，而关掉重开等于
+ * 把「不消失」的收益抹掉。所以这里只翻转视觉，下一次打开菜单仍以树里的真值为准。
+ *
+ * @param label - 该项的文字节点（末尾带 ` ✓` 表示已挂）。
+ */
+function toggleCheck(label: HTMLElement): void {
+  const text = label.textContent ?? '';
+  label.textContent = text.endsWith(CHECK) ? text.slice(0, -CHECK.length) : text + CHECK;
+}
+
 /** 挂载一个系统风格右键菜单（级联子菜单）到 document.body，位置为视口坐标。
  *  结构：根容器零尺寸，每级面板平级挂载、按触发项屏幕位置贴边定位（优先父面板右侧，
  *  放不下翻到父面板左侧，且不与任何已展开面板重叠）。
@@ -187,7 +203,9 @@ export function mountContextMenu(opts: {
           item.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            close();
+            // 预览类项（外观 / 动作）点完不关菜单：连着点几下比较才方便。见 MenuLeaf.keepOpen。
+            if (node.keepOpen !== true) close();
+            else if (node.toggle === true) toggleCheck(label);
             onAction(node);
           });
         }

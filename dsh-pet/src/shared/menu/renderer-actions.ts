@@ -236,7 +236,8 @@ export function model3Expressions(raw: unknown): string[] {
 /** 动作组 → 一层叶子；空白标签与空组在这里统一剔掉。 */
 function leafOf(action: RendererAction): MenuLeaf | null {
   if (action.label.trim() === '' || action.name.trim() === '') return null;
-  return { label: action.label, action: 'renderer-action', rendererAction: action.name };
+  // keepOpen：动作用来预览，点完菜单不消失才能连着试几个。
+  return { label: action.label, action: 'renderer-action', rendererAction: action.name, keepOpen: true };
 }
 
 /**
@@ -261,7 +262,7 @@ export function rendererActionTree(groups: readonly RendererActionGroup[], reset
   const children: MenuNode[] =
     filled.length === 1 ? filled[0].leaves : filled.map((group) => ({ label: group.label, children: group.leaves }));
   if (resetAction !== undefined) {
-    children.push({ label: '恢复默认动作', action: 'renderer-action', rendererAction: resetAction });
+    children.push({ label: '恢复默认动作', action: 'renderer-action', rendererAction: resetAction, keepOpen: true });
   }
   return [{ label: '动作', children }];
 }

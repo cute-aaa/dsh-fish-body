@@ -216,9 +216,12 @@ export const accessoryMenuBranch = (
     label: on.has(name) ? `${name} ✓` : name,
     action: 'renderer-action',
     rendererAction: 'expression:' + name,
+    // 外观是「点了立刻能看出来」的开关：菜单不关，勾就地把 ✓ 翻过去（真值下次打开以树为准）。
+    keepOpen: true,
+    toggle: true,
   }));
   const label = resetLabel !== undefined && resetLabel.trim() !== '' ? resetLabel.trim() : '恢复默认外观';
-  children.push({ label, action: 'renderer-action', rendererAction: EXPRESSION_RESET });
+  children.push({ label, action: 'renderer-action', rendererAction: EXPRESSION_RESET, keepOpen: true });
   return { label: '外观', children };
 };
 
@@ -320,7 +323,7 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 /** 把动画名包成叶子。 */
-export const leaf = (anim: string): MenuLeaf => ({ label: anim, anim });
+export const leaf = (anim: string): MenuLeaf => ({ label: anim, anim, keepOpen: true });
 
 /** 由成品 animations 配置推导菜单树：一级「动作」→ 二级分类 → 三级动画名；空池与空分类自动省略。 */
 export function buildMenuTree(animations: Animations): MenuNode[] {
