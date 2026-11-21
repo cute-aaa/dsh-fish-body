@@ -339,6 +339,20 @@ export function createChatMemory(deps: ChatMemoryInput) {
         catalog !== null ? [...catalog.actions] : animationOn ? chatActionNames(found.conf.animations) : [];
       // 外观（live2d 清单）：与动作共用同一个开关；切换是整批覆盖语义，见 chat-action 的指令说明。
       const expressions = catalog === null ? [] : [...catalog.expressions];
+      // 一行诊断：注入了什么名单（数量与首项）。名单为空是「人设不表演」的唯一可见原因，
+      // 而它取决于渲染方式、模型文件与开关三件事，不打印就只能靠猜。
+      log.info(
+        '[fish-body] 对话表演清单 pet=' +
+          found.pet.id +
+          ' renderer=' +
+          String(found.conf.renderer) +
+          ' actions=' +
+          String(actions.length) +
+          (actions[0] === undefined ? '' : '(' + actions[0] + ')') +
+          ' expressions=' +
+          String(expressions.length) +
+          (expressions[0] === undefined ? '' : '(' + expressions[0] + ')'),
+      );
       const mem = await readMemory();
       // 坏结构（数组/标量）按空桶重建；messages 不是数组的条目按新会话处理，避免 push 到坏对象上崩溃
       const bucket =
