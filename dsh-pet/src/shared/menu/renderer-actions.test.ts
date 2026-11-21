@@ -11,6 +11,7 @@ import {
   actionMenuTree,
   model3ActionGroups,
   model3ExpressionRefs,
+  model3ExpressionReset,
   model3Expressions,
   model3Motions,
   rendererActionTree,
@@ -139,13 +140,36 @@ describe('model3Motions / model3ExpressionRefs —— 点哪个文件、定格�
     );
   });
 
-  test('外观表带文件；缺 Name / File 的跳过', () => {
+  test('外观表带文件与淡入；缺 Name / File 的跳过', () => {
     assert.deepEqual(
       model3ExpressionRefs({
-        FileReferences: { Expressions: [{ Name: '单片眼镜', File: 'Exp3/a.exp3.json' }, { Name: '' }] },
+        FileReferences: {
+          Expressions: [
+            { Name: '单片眼镜', File: 'Exp3/a.exp3.json' },
+            { Name: '脸红', File: 'Exp3/b.exp3.json', FadeSecondsAmount: 0.5 },
+            { Name: '' },
+          ],
+        },
       }),
-      [{ name: '单片眼镜', file: 'Exp3/a.exp3.json' }],
+      [
+        { name: '单片眼镜', file: 'Exp3/a.exp3.json', fadeSeconds: undefined },
+        { name: '脸红', file: 'Exp3/b.exp3.json', fadeSeconds: 0.5 },
+      ],
     );
+  });
+
+  test('复位外观文案来自清单的 ExpressionReset；没有或坏了给 null', () => {
+    assert.equal(
+      model3ExpressionReset({ FileReferences: { ExpressionReset: { Name: '关掉全部外观' } } }),
+      '关掉全部外观',
+    );
+    assert.equal(
+      model3ExpressionReset({ FileReferences: { ExpressionReset: { Name: '  关掉全部外观  ' } } }),
+      '关掉全部外观',
+    );
+    assert.equal(model3ExpressionReset({ FileReferences: {} }), null);
+    assert.equal(model3ExpressionReset({ FileReferences: { ExpressionReset: { Name: 3 } } }), null);
+    assert.equal(model3ExpressionReset(null), null);
   });
 });
 

@@ -31,6 +31,7 @@ export {
   actionMenuTree,
   model3ActionGroups,
   model3ExpressionRefs,
+  model3ExpressionReset,
   model3Expressions,
   model3Motions,
   rendererActionTree,

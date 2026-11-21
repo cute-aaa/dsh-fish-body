@@ -111,6 +111,8 @@ export interface Renderer {
   listActionGroups?(): readonly RendererActionGroup[];
   /** 可切换的外观/配件清单（live2d 的 Expressions）；不支持返回空数组或不实现。 */
   listExpressions?(): readonly string[];
+  /** 复位外观那一项的文案（live2d 从 VTS 的 `RemoveAllExpressions` 热键转来）；没有时返回 undefined。 */
+  expressionResetLabel?(): string | undefined;
   /** 当前挂着的外观/配件名（可同时挂多个，见 shared/menu/tree 的 accessoryMenuBranch）。 */
   activeExpressions?(): readonly string[];
   /** 皮肤自带的音效覆盖（layered 的 manifest.sfx）；不支持的返回 undefined。 */

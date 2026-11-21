@@ -29,12 +29,21 @@ export interface VtubeExpression {
   readonly name: string;
   /** 相对模型目录的 exp3 文件。 */
   readonly file: string;
+  /** 淡入秒数（`FadeSecondsAmount`）；没写为 undefined。 */
+  readonly fadeSeconds: number | undefined;
 }
 
 /** 一次解析的结果。 */
 export interface VtubeHotkeys {
   readonly motions: readonly VtubeMotion[];
   readonly expressions: readonly VtubeExpression[];
+  /**
+   * `Action: RemoveAllExpressions` 的热键名（VTube 里「一键关掉全部外观」那颗按钮）。
+   *
+   * 本插件的外观层自己实现（可同时挂多个），等价入口是菜单末尾那一条复位项；拿到名字就把它
+   * 当作那条的文案，用户在 VTS 里排好的叫法因此能延续过来。没有该热键时为 null。
+   */
+  readonly resetExpressions: string | null;
 }
 
 /** 动作文件的候选目录（VTube 用 `Animation`，Cubism 模板常用 `Motions`）。 */
@@ -44,7 +53,7 @@ const MOTION_DIRS = ['Animation', 'Motions', 'motions', 'motion'];
 const EXPRESSION_DIRS = ['Exp3', 'Expressions', 'expressions', 'expression'];
 
 /** 什么也没有。 */
-const EMPTY: VtubeHotkeys = { motions: [], expressions: [] };
+const EMPTY: VtubeHotkeys = { motions: [], expressions: [], resetExpressions: null };
 
 /** 容错取对象。 */
 function obj(value: unknown): Record<string, unknown> | undefined {
@@ -88,13 +97,19 @@ export function parseVtubeHotkeys(raw: unknown, dir?: string): VtubeHotkeys {
   if (!Array.isArray(hotkeys)) return EMPTY;
   const motions: VtubeMotion[] = [];
   const expressions: VtubeExpression[] = [];
+  let resetExpressions: string | null = null;
   for (const item of hotkeys) {
     const hotkey = obj(item);
     if (hotkey === undefined) continue;
     const name = typeof hotkey.Name === 'string' ? hotkey.Name.trim() : '';
     const file = typeof hotkey.File === 'string' ? hotkey.File.trim() : '';
-    if (name === '' || file === '') continue;
     const action = hotkey.Action;
+    // 复位热键没有 File（它不指向素材），名字单独取，别被下面那条「name/file 都必须有」挡掉。
+    if (action === 'RemoveAllExpressions') {
+      if (name !== '' && resetExpressions === null) resetExpressions = name;
+      continue;
+    }
+    if (name === '' || file === '') continue;
     if (action === 'TriggerAnimation') {
       // 没有目录信息时按 VTube 的约定猜 `Animation/`。
       const rel = dir === undefined ? 'Animation/' + file : locate(dir, file, MOTION_DIRS.concat(''));
@@ -110,11 +125,11 @@ export function parseVtubeHotkeys(raw: unknown, dir?: string): VtubeHotkeys {
     if (action === 'ToggleExpression') {
       const rel = dir === undefined ? 'Exp3/' + file : locate(dir, file, EXPRESSION_DIRS.concat(''));
       if (rel === null) continue;
-      expressions.push({ name, file: rel });
+      expressions.push({ name, file: rel, fadeSeconds: optionalNumber(hotkey.FadeSecondsAmount) });
     }
-    // 其余热键（RemoveAllExpressions / 移动模型 / 道具…）不是素材，跳过。
+    // 其余热键（移动模型 / 道具…）不是素材，跳过。
   }
-  return { motions, expressions };
+  return { motions, expressions, resetExpressions };
 }
 
 /**

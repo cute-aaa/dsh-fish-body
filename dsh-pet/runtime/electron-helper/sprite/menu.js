@@ -93,12 +93,14 @@ Object.assign(PetSprite.prototype, {
     // 点下去只写 voice-providers.json，不重建窗口；下一句合成时 provider 自己切权重。
     const voiceBranch = S.voiceMenuBranch(this.voiceProviders || []);
     if (voiceBranch) tools.push(voiceBranch);
-    // 外观（live2d）：外观是挂着的状态，可同时挂多个；勾表示当前挂着它，末尾另有「恢复默认外观」
+    // 外观（live2d）：外观是挂着的状态，可同时挂多个；勾表示当前挂着它，末尾另有复位项
+    // （文案优先取 VTS 的 RemoveAllExpressions 热键名，没有就回落到内置的「恢复默认外观」）。
     if (this.renderer === 'live2d') {
       const api = this.backend;
       const accessory = S.accessoryMenuBranch(
         api && api.expressions ? api.expressions : [],
         api && api.activeExpressions ? api.activeExpressions() : [],
+        api && api.expressionResetLabel ? api.expressionResetLabel() : undefined,
       );
       if (accessory) tools.push(accessory);
     }

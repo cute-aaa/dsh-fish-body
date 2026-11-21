@@ -18,6 +18,7 @@ import { hiddenDrawableIndexesOf } from '../../../shared/live2d-fixes.ts';
 import {
   model3ActionGroups,
   model3ExpressionRefs,
+  model3ExpressionReset,
   model3Motions,
   type Model3Expression,
   type Model3Motion,
@@ -144,6 +145,8 @@ export function createLive2dRenderer(): Renderer {
   let motions = new Map<string, Model3Motion>();
   /** 外观表：外观名 → exp3 文件。 */
   let expressions = new Map<string, Model3Expression>();
+  /** 复位外观那一项的文案（来自 VTS 的 RemoveAllExpressions 热键）；模型没声明时为 null。 */
+  let expressionReset: string | null = null;
   /** 动作/外观文件缓存：同一条点第二次不必再发请求。 */
   const files = new Map<string, unknown>();
   /** 叠加层（mount 后就绪）：动作与外观各成一层，可同时挂多个。 */
@@ -198,7 +201,10 @@ export function createLive2dRenderer(): Renderer {
     if (expression === undefined || overlay === null) return;
     const json = await fetchJson(expression.file);
     if (json === null || overlay === null) return;
-    overlay.toggle(name, 'expression', json);
+    overlay.toggle(name, 'expression', json, {
+      // VTS 的 FadeSecondsAmount：外观是硬切还是淡入就看这一个数。
+      ...(expression.fadeSeconds === undefined ? {} : { fadeSeconds: expression.fadeSeconds }),
+    });
   };
 
   const mount = async (el: HTMLElement, opts: RendererMountOptions): Promise<void> => {
@@ -220,6 +226,7 @@ export function createLive2dRenderer(): Renderer {
     actionGroups = model3ActionGroups(raw);
     motions = new Map(model3Motions(raw).map((motion) => [motion.action, motion]));
     expressions = new Map(model3ExpressionRefs(raw).map((expression) => [expression.name, expression]));
+    expressionReset = model3ExpressionReset(raw);
     if (destroyed) return;
 
     const pixi = pixiGlobal();
@@ -360,6 +367,7 @@ export function createLive2dRenderer(): Renderer {
     hitTest: () => undefined, // model3.json 未声明 HitAreas 时无命中区。
     listActionGroups: () => actionGroups,
     listExpressions: () => [...expressions.keys()],
+    expressionResetLabel: () => (expressionReset === null ? undefined : expressionReset),
     activeExpressions: () => overlay?.active('expression') ?? [],
     get ready() {
       return ready;

@@ -436,6 +436,7 @@ async function mountLive2d(sprite, host, api) {
   api.expressions = [];
   api.motions = new Map();
   api.expressionFiles = new Map();
+  api.expressionReset = null;
   let settings = null;
   try {
     const settingsRes = await fetch(skinUrlOf(root, chosen));
@@ -443,8 +444,9 @@ async function mountLive2d(sprite, host, api) {
       settings = await settingsRes.json();
       api.actionGroups = window.PetShared.model3ActionGroups(settings);
       for (const motion of window.PetShared.model3Motions(settings)) api.motions.set(motion.action, motion);
-      for (const item of window.PetShared.model3ExpressionRefs(settings)) api.expressionFiles.set(item.name, item.file);
+      for (const item of window.PetShared.model3ExpressionRefs(settings)) api.expressionFiles.set(item.name, item);
       api.expressions = [...api.expressionFiles.keys()];
+      api.expressionReset = window.PetShared.model3ExpressionReset(settings);
     }
   } catch {
     // 读不到模型清单只影响动作菜单，画面照常；下一行起不再提这事。
@@ -503,6 +505,8 @@ async function mountLive2d(sprite, host, api) {
   const ticker = () => overlay.tick();
   model.internalModel.on('beforeModelUpdate', ticker);
   api.activeExpressions = () => overlay.active('expression');
+  // 复位项文案（VTS 的 RemoveAllExpressions 热键名）；模型没声明时返回 undefined，菜单回落内置文案。
+  api.expressionResetLabel = () => (api.expressionReset === null ? undefined : api.expressionReset);
   // 量一次内容顶：方形画布的头顶在舞台顶以上，气泡贴着它才不会盖脸（见 shared/bubble-anchor）。
   app.renderer.render(app.stage);
   {
@@ -555,13 +559,19 @@ async function mountLive2d(sprite, host, api) {
     }
     if (key.startsWith('expression:')) {
       const expression = key.slice('expression:'.length);
-      const file = api.expressionFiles.get(expression);
+      const ref = api.expressionFiles.get(expression);
       if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: key, kind: 'expression', at: Date.now() };
-      if (file === undefined) return;
-      void fetchJson(file).then((json) => {
+      if (ref === undefined) return;
+      void fetchJson(ref.file).then((json) => {
         if (json === null || api.destroyed) return;
         // 外观是开关：挂着就摘、没挂就挂——所以「外观」菜单可以同时勾好几个。
-        overlay.toggle(expression, 'expression', json);
+        // 淡入取模型清单里的 FadeSecondsAmount（VTS 热键转来的），与网页端同一口径。
+        overlay.toggle(
+          expression,
+          'expression',
+          json,
+          ref.fadeSeconds === undefined ? undefined : { fadeSeconds: ref.fadeSeconds },
+        );
       });
       return;
     }

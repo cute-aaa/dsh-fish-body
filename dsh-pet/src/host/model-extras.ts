@@ -183,14 +183,30 @@ export function mergeModelExtras(modelFile: string, raw: unknown): unknown {
     const usedExpressions = new Set<string>();
     if (hotkeys.expressions.length > 0) {
       for (const expression of hotkeys.expressions) {
-        expressions.push({ Name: expression.name, File: expression.file });
+        expressions.push({
+          Name: expression.name,
+          File: expression.file,
+          // 非标准字段：Cubism 运行库忽略，叠加层据此做淡入（VTS 的 FadeSecondsAmount）。
+          ...(expression.fadeSeconds === undefined ? {} : { FadeSecondsAmount: expression.fadeSeconds }),
+        });
         usedExpressions.add(expression.file);
       }
     }
     mergeScannedExpressions(expressions, dir, usedExpressions);
     if (expressions.length > 0) nextRefs.Expressions = expressions;
   }
-  if (nextRefs.Motions === refs.Motions && nextRefs.Expressions === refs.Expressions) return raw;
+  // 复位热键（RemoveAllExpressions）没有素材，转成一个非标准字段交给前端改菜单文案
+  // （Cubism 忽略未知键）；没有热键就不写，前端回落内置文案。
+  if (hotkeys.resetExpressions !== null) {
+    nextRefs.ExpressionReset = { Name: hotkeys.resetExpressions };
+  }
+  if (
+    nextRefs.Motions === refs.Motions &&
+    nextRefs.Expressions === refs.Expressions &&
+    nextRefs.ExpressionReset === refs.ExpressionReset
+  ) {
+    return raw;
+  }
   return { ...root, FileReferences: nextRefs };
 }
 

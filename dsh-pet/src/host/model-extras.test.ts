@@ -143,6 +143,28 @@ describe('mergeModelExtras —— VTube Studio 工程优先', () => {
     assert.equal(motions[0]?.Duration, 1.133);
     assert.equal(motions[1]?.StopsOnLastFrame, undefined, '不定格就不写这个字段');
     assert.deepEqual(merged.FileReferences.Expressions, [{ Name: '单片眼镜', File: 'Exp3/单片眼镜.exp3.json' }]);
+    assert.deepEqual(
+      (merged.FileReferences as { ExpressionReset?: unknown }).ExpressionReset,
+      { Name: '清空表情' },
+      '复位热键转成非标准字段，前端拿它当外观菜单末项的文案',
+    );
+  });
+
+  test('外观热键的 FadeSecondsAmount 透传到清单条目（叠加层据此淡入）', () => {
+    const file = makeModel([], ['Exp3']);
+    writeVtube(file, [
+      { Name: '脸红', Action: 'ToggleExpression', File: '单片眼镜.exp3.json', FadeSecondsAmount: 0.5 },
+      { Name: '硬切的那个', Action: 'ToggleExpression', File: '单片眼镜.exp3.json' },
+    ]);
+    const merged = mergeModelExtras(file, { FileReferences: {} }) as {
+      FileReferences: { Expressions: Array<Record<string, unknown>> };
+    };
+    assert.deepEqual(merged.FileReferences.Expressions[0], {
+      Name: '脸红',
+      File: 'Exp3/单片眼镜.exp3.json',
+      FadeSecondsAmount: 0.5,
+    });
+    assert.equal(merged.FileReferences.Expressions[1]?.FadeSecondsAmount, undefined, '没写就不造字段');
   });
 
   test('热键表没给出素材时回落到目录扫描（Cubism 导出流程删掉 .vtube.json 也照常可用）', () => {

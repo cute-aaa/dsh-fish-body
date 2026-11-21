@@ -476,10 +476,12 @@ export function createCardEntry(rt: CardEntryRuntime) {
           : rendererNow === 'live2d'
             ? modelMenuBranch(modelsRef.current, cfgRef.current.model, modelItemsRef.current)
             : null;
-      // 外观：live2d 的 Expressions（单片眼镜、尾巴开关…），可同时挂多个，打勾表示当前挂着它
+      // 外观：live2d 的 Expressions（单片眼镜、尾巴开关…），可同时挂多个，打勾表示当前挂着它；
+      // 复位项文案优先用 VTS 的 RemoveAllExpressions 热键名（没有就回落到内置的「恢复默认外观」）。
       const accessory = accessoryMenuBranch(
         live.current.ownAnim?.listExpressions?.() ?? [],
         live.current.ownAnim?.activeExpressions?.() ?? [],
+        live.current.ownAnim?.expressionResetLabel?.(),
       );
       // 大小：改当前渲染方式的画框宽度（写 pets[].sizes[renderer]），另一套素材的尺寸不受影响。
       const sizeBranch = sizeMenuBranch(renderSizeOf(cfgRef.current), cfgRef.current.size);

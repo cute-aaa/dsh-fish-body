@@ -217,6 +217,17 @@ describe('skinMenuBranch / accessoryMenuBranch —— 皮肤与外观（按渲�
     assert.equal(accessoryMenuBranch([], []), null);
   });
 
+  test('复位项文案可用 VTS 热键名覆盖；空白名回落内置文案', () => {
+    const named = accessoryMenuBranch(['单片眼镜'], [], '关掉全部外观');
+    assert.deepEqual(
+      named?.children.map((leaf) => leaf.label),
+      ['单片眼镜', '关掉全部外观'],
+    );
+    assert.equal((named?.children[1] as MenuLeaf).rendererAction, EXPRESSION_RESET, '只换文案，动作仍是复位');
+    const blank = accessoryMenuBranch(['单片眼镜'], [], '   ');
+    assert.equal((blank?.children[1] as MenuLeaf).label, '恢复默认外观');
+  });
+
   test('外观可同时挂多个：勾不只一个（眼镜 + 脸红 + 兔牙一起开）', () => {
     const branch = accessoryMenuBranch(['黑框眼镜', '脸红', '兔牙'], ['黑框眼镜', '兔牙']);
     const shown = branch?.children.map((leaf) => leaf.label) ?? [];

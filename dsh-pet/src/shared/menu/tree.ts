@@ -201,9 +201,15 @@ export const sizeMenuBranch = (current: number, base: number): MenuBranch => {
  *
  * @param names - 外观名（模型清单的 `Expressions[].Name`）。
  * @param active - 当前挂着的外观名；空数组表示一个都没挂。
+ * @param resetLabel - 复位项的文案；缺省「恢复默认外观」。VTS 工程带 `RemoveAllExpressions`
+ *   热键时传它的名字，让菜单与用户在原工具里看到的叫法一致。
  * @returns 子菜单；没有外观时返回 null（菜单里不出现空的外观）。
  */
-export const accessoryMenuBranch = (names: readonly string[], active?: readonly string[]): MenuBranch | null => {
+export const accessoryMenuBranch = (
+  names: readonly string[],
+  active?: readonly string[],
+  resetLabel?: string,
+): MenuBranch | null => {
   if (names.length === 0) return null;
   const on = new Set(active ?? []);
   const children: MenuLeaf[] = names.map((name) => ({
@@ -211,7 +217,8 @@ export const accessoryMenuBranch = (names: readonly string[], active?: readonly 
     action: 'renderer-action',
     rendererAction: 'expression:' + name,
   }));
-  children.push({ label: '恢复默认外观', action: 'renderer-action', rendererAction: EXPRESSION_RESET });
+  const label = resetLabel !== undefined && resetLabel.trim() !== '' ? resetLabel.trim() : '恢复默认外观';
+  children.push({ label, action: 'renderer-action', rendererAction: EXPRESSION_RESET });
   return { label: '外观', children };
 };
 

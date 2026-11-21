@@ -53,15 +53,16 @@ describe('parseVtubeHotkeys —— 热键 → 动作/外观', () => {
     assert.deepEqual(parsed.motions, [
       { name: '抚胸手打开', file: 'Animation/举手.motion3.json', fadeSeconds: 0.2, hold: true },
     ]);
-    assert.deepEqual(parsed.expressions, [{ name: '脸红', file: 'Exp3/脸红.exp3.json' }]);
+    assert.deepEqual(parsed.expressions, [{ name: '脸红', file: 'Exp3/脸红.exp3.json', fadeSeconds: 0.5 }]);
+    assert.equal(parsed.resetExpressions, null);
   });
 
-  test('非素材热键被跳过（移除表情 / 移动模型 / 道具）', () => {
+  test('RemoveAllExpressions 收下名字（复位项文案用它），其余非素材热键仍跳过', () => {
     const dir = makeDir({ animation: ['a.motion3.json'] });
     const parsed = parseVtubeHotkeys(
       {
         Hotkeys: [
-          hotkey({ Name: '移除所有按键', Action: 'RemoveAllExpressions', File: '' }),
+          hotkey({ Name: '关掉全部外观', Action: 'RemoveAllExpressions', File: '' }),
           hotkey({ Name: '移动模型', Action: 'MoveModel', File: '' }),
           hotkey({ Name: '真的动作' }),
         ],
@@ -71,6 +72,18 @@ describe('parseVtubeHotkeys —— 热键 → 动作/外观', () => {
     assert.equal(parsed.motions.length, 1);
     assert.equal(parsed.motions[0]?.name, '真的动作');
     assert.equal(parsed.expressions.length, 0);
+    assert.equal(parsed.resetExpressions, '关掉全部外观');
+  });
+
+  test('多条 RemoveAllExpressions 只取第一条，空名不算', () => {
+    const parsed = parseVtubeHotkeys({
+      Hotkeys: [
+        { Name: '', Action: 'RemoveAllExpressions' },
+        { Name: '第一颗', Action: 'RemoveAllExpressions' },
+        { Name: '第二颗', Action: 'RemoveAllExpressions' },
+      ],
+    });
+    assert.equal(parsed.resetExpressions, '第一颗');
   });
 
   test('磁盘上没有这份文件的热键整条丢弃（不留下点不动的菜单项）', () => {
@@ -99,7 +112,7 @@ describe('parseVtubeHotkeys —— 热键 → 动作/外观', () => {
 
   test('坏结构一律给空结果，不抛异常', () => {
     for (const raw of [null, {}, { Hotkeys: 'nope' }, { Hotkeys: [null, 3, {}] }]) {
-      assert.deepEqual(parseVtubeHotkeys(raw, undefined), { motions: [], expressions: [] });
+      assert.deepEqual(parseVtubeHotkeys(raw, undefined), { motions: [], expressions: [], resetExpressions: null });
     }
   });
 });
@@ -109,7 +122,7 @@ describe('vtubeFileOf / readVtubeHotkeys —— 从模型清单定位热键表',
     const dir = makeDir({ animation: ['a.motion3.json'] });
     const modelFile = join(dir, '大肥鱼.model3.json');
     assert.equal(vtubeFileOf(modelFile), join(dir, '大肥鱼.vtube.json'));
-    assert.deepEqual(readVtubeHotkeys(modelFile), { motions: [], expressions: [] });
+    assert.deepEqual(readVtubeHotkeys(modelFile), { motions: [], expressions: [], resetExpressions: null });
   });
 
   test('读得到热键表时按目录探测文件', () => {
@@ -129,6 +142,6 @@ describe('vtubeFileOf / readVtubeHotkeys —— 从模型清单定位热键表',
     const dir = makeDir({});
     const modelFile = join(dir, '大肥鱼.model3.json');
     writeFileSync(join(dir, '大肥鱼.vtube.json'), '{ 坏掉');
-    assert.deepEqual(readVtubeHotkeys(modelFile), { motions: [], expressions: [] });
+    assert.deepEqual(readVtubeHotkeys(modelFile), { motions: [], expressions: [], resetExpressions: null });
   });
 });

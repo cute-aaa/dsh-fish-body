@@ -116,6 +116,8 @@ export interface Model3Expression {
   readonly name: string;
   /** 相对模型清单的 exp3 文件。 */
   readonly file: string;
+  /** 淡入秒数（清单里的非标准 `FadeSecondsAmount`，由宿主按 VTS 热键补）；没写为 undefined。 */
+  readonly fadeSeconds: number | undefined;
 }
 
 /**
@@ -133,9 +135,24 @@ export function model3ExpressionRefs(raw: unknown): Model3Expression[] {
     const name = entry?.Name;
     const file = entry?.File;
     if (typeof name !== 'string' || name === '' || typeof file !== 'string' || file === '') continue;
-    out.push({ name, file });
+    out.push({ name, file, fadeSeconds: optionalNumber(entry?.FadeSecondsAmount) });
   }
   return out;
+}
+
+/**
+ * model3.json → 复位外观那一项的文案（宿主从 VTS 的 `RemoveAllExpressions` 热键转来）。
+ *
+ * 外观是挂着状态的叠加层，「恢复默认外观」是本插件自己的等价入口（见 `accessoryMenuBranch`）；
+ * 拿到 VTS 里排好的叫法就用它，让用户在 VTS 与这里的菜单名对得上。
+ *
+ * @param raw - 模型清单原始值。
+ * @returns 文案；模型没声明（或无该热键）时为 null。
+ */
+export function model3ExpressionReset(raw: unknown): string | null {
+  const field = obj(obj(obj(raw)?.FileReferences)?.ExpressionReset);
+  const name = field?.Name;
+  return typeof name === 'string' && name.trim() !== '' ? name.trim() : null;
 }
 
 /**
