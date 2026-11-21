@@ -6,11 +6,13 @@
  * `shared-core.js` 与这两个文件依次加载进同一个 vm 上下文，于是 `reachLimits` 用的是**打包后的真身**，
  * 桩只提供 `VIEW` / `WORK_AREAS` / `CONFIG` 与一点 DOM。
  *
- * 钉住三件事：
+ * 钉住四件事：
  *   1. 非钳制（Windows / macOS）平台：`area` 原点必须是 0——`this.pos` 是 VIEW 相对坐标，
  *      写 `VIEW.x` 会把这层偏移再算一次（副屏在左时右边界提前一个屏宽，正是审阅报告的 1558）；
  *   2. 钳制（X11）平台：`area` 取本体中心所在那块屏的工作区；
- *   3. 松手落位过同一份界限——界外松手不许把位置留在界外，否则下次按下会被夹回（看着像倒抽）。
+ *   3. 松手落位过同一份界限——界外松手不许把位置留在界外，否则下次按下会被夹回（看着像倒抽）；
+ *   4. `onPointerMove` 的阻力只改「拖的过程」：界内一比一、界外逐轴按共享曲线压住，
+ *      曲线与 `S.rubberband` 不在本文件里重写（用最小复算逐位对照）。
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -107,6 +109,9 @@ function makeSprite(Sprite, o = {}) {
     syncInputBusy() {},
     setTip() {},
     playOnce() {},
+    // onPointerMove 的两条真实现分支：内侧音效 hook 与拖拽动画池（空数组 = 不换动画，睡姿与常态都走这里）
+    playHookSfx() {},
+    animations: { drag: [], idle: [] },
     startThrow() {},
     position() {},
     reportWindow() {},
@@ -197,6 +202,69 @@ test('onPointerUp：拖到界外松手，落点留在界限内（下次按下不
   assert.ok(landX <= maxX + 0.5, '落点不许留在界外：' + landX);
   assert.ok(Math.abs(landX - maxX) < 1.5, '越界松手应夹到右边界，实际 ' + landX);
   assert.ok(Math.abs(landY - 200) < 1.5, '纵向本来在界内，不该被动过：' + landY);
+});
+
+test('onPointerMove：界内一比一，越界后逐轴呈阻力（不是硬夹）', () => {
+  const { Sprite, S } = makeHarness({ clamped: false });
+  const sprite = makeSprite(Sprite);
+  sprite.reachInset = () => ({ ...REACH_100 });
+  const limits = sprite.dragLimits();
+  assert.equal(S.RUBBER_C, 0.55, '阻力系数是共享常量，浏览器侧与桌面侧同一份');
+  const dimX = limits.maxX - limits.minX;
+  const dimY = limits.maxY - limits.minY;
+  /** 与实现独立的最小复算：bound + over·dim·c/(dim + c·over)（越界越多、增量越小，上界 c·dim）。 */
+  const expectBanded = (raw, min, max) => {
+    const dim = max - min;
+    if (raw > max) return max + ((raw - max) * dim * S.RUBBER_C) / (dim + S.RUBBER_C * (raw - max));
+    if (raw < min) return min - ((min - raw) * dim * S.RUBBER_C) / (dim + S.RUBBER_C * (min - raw));
+    return raw;
+  };
+  const move = (dx, dy) => sprite.onPointerMove({ screenX: dx, screenY: dy, clientX: dx, clientY: dy });
+  sprite.dragState = { active: true, dragging: true, sx: 0, sy: 0, petX: 700, petY: 200 };
+
+  // ① 界内：目标位置就是指针位移，一比一跟随（阻力不许影响界内手感）
+  move(100, 50);
+  assert.deepEqual({ ...sprite.dragTarget }, { x: 800, y: 250 });
+
+  // ② 越右界：位移被压住，落在「界限之外、原始目标之内」，且与曲线逐位相等
+  move(3300, 50); // 原始目标 x = 700 + 3300 = 4000，超出 maxX 522
+  const rawX = 4000;
+  assert.ok(sprite.dragTarget.x > limits.maxX, '越界后仍继续跟手（只是越拖越沉），不是就地夹死');
+  assert.ok(sprite.dragTarget.x < rawX, '但又必须落后于指针，否则等于没阻力');
+  assert.equal(sprite.dragTarget.x, expectBanded(rawX, limits.minX, limits.maxX));
+  assert.equal(sprite.dragTarget.y, 250, '未越界的那一轴不受另一轴影响');
+
+  // ③ 越左界：对称
+  move(-2700, 50); // 原始目标 x = −2000，低于 minX 1900
+  assert.ok(sprite.dragTarget.x < limits.minX);
+  assert.ok(sprite.dragTarget.x > -2000);
+  assert.equal(sprite.dragTarget.x, expectBanded(-2000, limits.minX, limits.maxX));
+
+  // ④ 越下界：纵向同一套曲线（上下左右四个方向只差一组界限）
+  move(100, 2000); // 原始目标 y = 2200，超出 maxY 1580
+  assert.equal(sprite.dragTarget.y, expectBanded(2200, limits.minY, limits.maxY));
+  assert.ok(dimX > 0 && dimY > 0, '界限区间必须非退化：' + dimX + '/' + dimY);
+});
+
+test('onPointerMove：未过阈值不动位置，越过阈值才立项并只响一次音效 hook', () => {
+  const { Sprite, S } = makeHarness({ clamped: false });
+  const hooks = [];
+  const sprite = makeSprite(Sprite, { playHookSfx: (name) => hooks.push(name) });
+  sprite.reachInset = () => ({ ...REACH_100 });
+  sprite.dragState = { active: true, dragging: false, sx: 0, sy: 0, petX: 700, petY: 200 };
+
+  // 阈值以内：手指抖一下不该把宠物挪走（点击与拖拽的分界）
+  sprite.onPointerMove({ screenX: S.DRAG_THRESHOLD / 2, screenY: 0, clientX: 0, clientY: 0 });
+  assert.equal(sprite.dragTarget, undefined, '未过阈值不许写拖拽目标');
+  assert.deepEqual(hooks, []);
+
+  sprite.onPointerMove({ screenX: S.DRAG_THRESHOLD * 2, screenY: 0, clientX: 0, clientY: 0 });
+  assert.equal(sprite.dragState.dragging, true, '越过阈值即进入拖拽');
+  assert.deepEqual(hooks, ['drag'], '拖拽成立只响一次 hook-drag（后续 pointermove 不重复）');
+  assert.deepEqual({ ...sprite.dragTarget }, { x: 700 + S.DRAG_THRESHOLD * 2, y: 200 });
+
+  sprite.onPointerMove({ screenX: S.DRAG_THRESHOLD * 3, screenY: 0, clientX: 0, clientY: 0 });
+  assert.deepEqual(hooks, ['drag'], '第二次 move 不再触发音效');
 });
 
 test('源码守卫：界限收口到 dragLimits()，不再把 VIEW.x 当 area 原点', () => {

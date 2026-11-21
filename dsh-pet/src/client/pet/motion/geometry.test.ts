@@ -6,6 +6,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { HIT_BOX, MIN_REACHABLE_PX } from '../../../shared/constants.ts';
+import { reachLimits } from '../../../shared/motion.ts';
 import { bodyPixelBox, rubberband } from '../../../shared/physics.ts';
 import {
   boxToRatio,
@@ -237,4 +238,44 @@ describe('reachableLimits —— 与 clampReachableBox 同源', () => {
     assert.ok(rubberband(limits.maxX + 200, limits.minX, limits.maxX) > limits.maxX);
     assert.ok(rubberband(limits.minX - 200, limits.minX, limits.maxX) < limits.minX);
   });
+});
+
+describe('跨表面同源 —— 浏览器 reachableLimits 与桌面 Helper 的 reachLimits 是同一套数', () => {
+  /**
+   * 两侧各写了一套界限：浏览器在 `geometry.ts::reachableLimits`（用 bodyPixelBox 的**边**），
+   * Helper 在 `window-fit.js::reachInset` + `shared/motion.ts::reachLimits`（用命中区相对盒原点的量）。
+   * 两份公式各自演进就会在「拖到边缘」时表现出不同手感，而这只在真机上看得到——这里把数钉住。
+   *
+   * 输入侧唯一的共同底座是 `shared/body-box.ts::bodyBoxPx`：`sprite.js` 的 hitRect 就是
+   * `{x: box.x, y: bottomPad + box.y, w, h}`，`bodyPixelBox` 的四个边正是同一组值。
+   * 本用例把帮手的 reachInset 按 sprite.js 的写法从这些边还原出来，因此比的是两侧**公式**；
+   * hitRect 与 bodyPixelBox 的一致性由同一份 bodyBoxPx 保证（不在本用例的断言范围）。
+   */
+  const cases: Array<{ size: number; bottomPad: number; renderer: 'webm' | 'layered' }> = [
+    // 462px（默认尺寸）的脚底垫：size × 9/16 × (CANVAS_H − FEET_Y) / CANVAS_H ≈ 36.4
+    { size: 462, bottomPad: 36.4, renderer: 'webm' },
+    { size: 640, bottomPad: 42, renderer: 'layered' },
+    { size: 300, bottomPad: 0, renderer: 'webm' },
+  ];
+
+  for (const c of cases) {
+    test(`${c.renderer} ${c.size}px：四边界限逐位相等`, () => {
+      const box = bodyPixelBox({ x: 0, y: 0, size: c.size, bottomPad: c.bottomPad, renderer: c.renderer });
+      const winH = (c.size * 9) / 16 + c.bottomPad;
+      // sprite.js::reachInset：left/right 按命中区左右边与本体宽算，top/bottom 按另一条边与精灵总高算
+      const helper = reachLimits({
+        area: { x: 0, y: 0, width: viewport.width, height: viewport.height },
+        bodyWidth: c.size,
+        bodyHeight: winH,
+        reach: {
+          left: box.right - MIN_REACHABLE_PX,
+          right: c.size - box.left - MIN_REACHABLE_PX,
+          top: box.bottom - MIN_REACHABLE_PX,
+          bottom: winH - box.top - MIN_REACHABLE_PX,
+        },
+      });
+      const browser = reachableLimits(viewport, { size: c.size, bottomPad: c.bottomPad, renderer: c.renderer });
+      assert.deepEqual({ ...browser }, helper, '两侧口径分叉：同一只宠物会有两套拖拽边界');
+    });
+  }
 });
