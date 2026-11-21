@@ -6,16 +6,23 @@
  * 第一个立刻被掐掉，待机也跟着没了。VTube 的用法恰恰相反：热键动作叠在待机之上，
  * 「举手」「竖手指」「狗尾巴草」三种姿态还能同时保持。
  *
- * 做法：每条叠加物一个独立队列，在 `internalModel` 的 `beforeModelUpdate` 里依次推进。
- * 那个钩子在 `model.update()` 之前、`loadParameters()` 之前，所以写入只影响本帧，
+ * 做法：动作每条一个独立队列，在 `internalModel` 的 `beforeModelUpdate` 里依次推进。
+ * 那个钩子紧贴 `coreModel.update()`、之后才是 `loadParameters()`，所以写入只影响本帧，
  * 不会把姿态污染成下一帧的基准。
+ *
+ * **外观不是动作**：`CubismExpressionMotion` 是一次性的（淡入 → 淡出 → 结束），外观却是
+ * VTube 语义的开关状态，所以这里自己解析 exp3 并把参数**每帧重写**，直到被摘掉为止。
+ * 直接用运行库的结果是「牙齿闪一下就没了」——用户报的「兔牙没生效」就是这个。
  * @module dsh-fish-body/src/client/pet/render/live2d/overlay
  */
+import { parseExp3, type Exp3Parameter } from '../../../../shared/live2d-exp3.ts';
 import { parseMotion3, type MotionFinalValue } from '../../../../shared/live2d-motion3.ts';
 
 /** 叠加层要写的模型能力（CubismModel 的子集）。 */
 export interface OverlayCoreModel {
   setParameterValueById(id: string, value: number, weight?: number): void;
+  /** 读当前值：`Add` / `Multiply` 要按「当前值」算目标，缺了它就从 0 / 1 起算。 */
+  getParameterValueById?(id: string): number;
   setPartOpacityById?(id: string, value: number): void;
 }
 
@@ -38,7 +45,6 @@ export interface OverlayQueue {
 /** cubism4 UMD 里叠加层用到的构造入口（都挂在 `PIXI.live2d` 上）。 */
 export interface OverlayApi {
   readonly CubismMotion: { create(json: unknown): OverlayMotion };
-  readonly CubismExpressionMotion: { create(json: unknown): OverlayMotion };
   readonly CubismMotionQueueManager: new () => OverlayQueue;
 }
 
@@ -79,9 +85,15 @@ const MAX_LAYERS = 8;
 /** 一条叠加物。 */
 interface Entry {
   readonly kind: OverlayKind;
-  readonly queue: OverlayQueue;
+  /** 动作队列；外观没有队列（它每帧重写参数，不靠时间轴推进）。 */
+  readonly queue: OverlayQueue | null;
   /** 定格姿态（只有 `hold` 的动作有）。 */
   readonly finals: readonly MotionFinalValue[] | null;
+  /** 外观要每帧写的参数（只有 `expression` 有）。 */
+  readonly params: readonly Exp3Parameter[] | null;
+  /** 外观淡入的起点与时长（秒）：挂着期间只淡入一次，之后恒为满权重。 */
+  readonly startedAt: number;
+  readonly fadeIn: number;
   /** 本条已播完：之后每帧只写定格姿态。 */
   done: boolean;
 }
@@ -109,11 +121,34 @@ export function createOverlay(
     }
   };
 
+  /**
+   * 把一组外观参数按当前权重写进模型。
+   *
+   * 混合方式自己算而不是交给 `setParameterValueById` 的 weight：那个 weight 是「向目标值插值」，
+   * 对 `Add` / `Multiply` 来说等价于把目标值按比例缩放，只有当基准是 0 / 1 时才对——
+   * VTube 的 `key*` 参数正好是这种，但别的模型未必，所以按当前值算目标更稳。
+   *
+   * @param model - 当前 coreModel。
+   * @param params - exp3 解析出来的参数表。
+   * @param weight - 0~1（淡入进度）；1 = 完全生效。
+   */
+  const applyParams = (model: OverlayCoreModel, params: readonly Exp3Parameter[], weight: number): void => {
+    const w = Math.max(0, Math.min(1, weight));
+    for (const item of params) {
+      const current = model.getParameterValueById?.(item.id);
+      const base = typeof current === 'number' && Number.isFinite(current) ? current : undefined;
+      if (item.blend === 'Multiply')
+        model.setParameterValueById(item.id, base === undefined ? item.value : base * item.value, w);
+      else if (item.blend === 'Overwrite') model.setParameterValueById(item.id, item.value, w);
+      else model.setParameterValueById(item.id, base === undefined ? item.value : base + item.value, w);
+    }
+  };
+
   /** 超上限时淘汰同类里最早的那条（Map 保插入顺序）。 */
   const evict = (kind: OverlayKind): void => {
     for (const [key, entry] of entries) {
       if (entry.kind !== kind) continue;
-      entry.queue.stopAllMotions();
+      entry.queue?.stopAllMotions();
       entries.delete(key);
       return;
     }
@@ -122,29 +157,41 @@ export function createOverlay(
   const stop = (key: string): void => {
     const entry = entries.get(key);
     if (entry === undefined) return;
-    entry.queue.stopAllMotions();
+    entry.queue?.stopAllMotions();
     entries.delete(key);
   };
 
   const play = (key: string, kind: OverlayKind, json: unknown, options: OverlayPlayOptions = {}): void => {
     stop(key);
     if (entries.size >= MAX_LAYERS) evict(kind);
+    const now = nowMs() / 1000;
+    // 外观：解析 exp3 后每帧重写，不建队列——运行库的表达式是一次性的，挂不住。
+    if (kind === 'expression') {
+      const parsed = parseExp3(json);
+      entries.set(key, {
+        kind,
+        queue: null,
+        finals: null,
+        params: parsed.parameters,
+        startedAt: now,
+        fadeIn: options.fadeSeconds === undefined ? parsed.fadeIn : options.fadeSeconds,
+        done: false,
+      });
+      return;
+    }
     const queue = new api.CubismMotionQueueManager();
     // 事件回调空实现：动作文件带 UserData 时运行库会无条件调用它，缺了直接抛异常。
     queue.setEventCallback?.(() => {});
-    const motion = kind === 'expression' ? api.CubismExpressionMotion.create(json) : api.CubismMotion.create(json);
-    if (kind === 'motion') {
-      // 文件里的 Loop 是给「待机循环」用的；热键动作一律播一遍，否则手臂会反复来回抖。
-      motion.setIsLoop?.(false);
-    }
+    const motion = api.CubismMotion.create(json);
+    // 文件里的 Loop 是给「待机循环」用的；热键动作一律播一遍，否则手臂会反复来回抖。
+    motion.setIsLoop?.(false);
     if (options.fadeSeconds !== undefined && Number.isFinite(options.fadeSeconds)) {
       motion.setFadeInTime?.(options.fadeSeconds);
       motion.setFadeOutTime?.(options.fadeSeconds);
     }
-    queue.startMotion(motion, false, nowMs() / 1000);
-    const finals =
-      kind === 'motion' && options.hold === true && options.raw !== undefined ? parseMotion3(options.raw).finals : null;
-    entries.set(key, { kind, queue, finals, done: false });
+    queue.startMotion(motion, false, now);
+    const finals = options.hold === true && options.raw !== undefined ? parseMotion3(options.raw).finals : null;
+    entries.set(key, { kind, queue, finals, params: null, startedAt: now, fadeIn: 0, done: false });
   };
 
   const tick = (): void => {
@@ -156,7 +203,15 @@ export function createOverlay(
       if (entry.done && entry.finals !== null) applyFinals(model, entry.finals);
     }
     for (const [key, entry] of entries) {
-      if (entry.done) continue;
+      // 外观：挂着就一直写（这就是「开关状态」的全部实现），淡入只跑一次。
+      if (entry.kind === 'expression') {
+        if (entry.params !== null && entry.params.length > 0) {
+          const weight = entry.fadeIn <= 0 ? 1 : (nowSeconds - entry.startedAt) / entry.fadeIn;
+          applyParams(model, entry.params, weight);
+        }
+        continue;
+      }
+      if (entry.queue === null || entry.done) continue;
       entry.queue.doUpdateMotion(model, nowSeconds);
       if (!entry.queue.isFinished()) continue;
       if (entry.finals !== null) entry.done = true;

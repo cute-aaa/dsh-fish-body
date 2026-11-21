@@ -81,12 +81,6 @@ function makeApi() {
     CubismMotion: {
       create: () => makeFakeMotion(),
     },
-    CubismExpressionMotion: {
-      create: () => ({
-        setFadeInTime: () => {},
-        setFadeOutTime: () => {},
-      }),
-    },
     CubismMotionQueueManager: class {
       constructor() {
         const queue = new FakeQueue();
@@ -276,5 +270,135 @@ describe('createOverlay —— 外观开关与上限', () => {
       queues.every((queue) => queue.stopped),
       '每条队列都要停',
     );
+  });
+});
+
+/** 记快照参数写入（id / 目标值 / 权重），并给一条「当前值」的读回能力。 */
+function makeExpCore(current: Record<string, number> = {}) {
+  const writes: Array<{ id: string; value: number; weight: number | undefined }> = [];
+  return {
+    writes,
+    model: {
+      getParameterValueById: (id: string) => current[id] ?? 0,
+      setParameterValueById: (id: string, value: number, weight?: number) => writes.push({ id, value, weight }),
+    },
+  };
+}
+
+/** 一份「兔牙」外观：写 key9 = 1（Add）——真实 exp3 的形状。 */
+const teethJson = {
+  Type: 'Live2D Expression',
+  Parameters: [{ Id: 'key9', Value: 1, Blend: 'Add' }],
+};
+
+describe('createOverlay —— 外观是常驻状态（不是一次性动作）', () => {
+  test('挂上之后每帧都写：不会「闪一下就没了」', () => {
+    // 历史缺陷：外观用运行库的 CubismExpressionMotion，它播完 isFinished → 我们把它出队，
+    // 参数回归默认值，用户看到的是「兔牙闪一下」= 报「没生效」。
+    const { api } = makeApi();
+    const core = makeExpCore();
+    const overlay = createOverlay(
+      api,
+      () => core.model,
+      () => 1000,
+    );
+    overlay.play('兔牙', 'expression', teethJson, { fadeSeconds: 0 });
+    for (let i = 0; i < 5; i++) overlay.tick();
+    assert.deepEqual(overlay.active('expression'), ['兔牙'], '外观不会自己掉');
+    assert.equal(core.writes.filter((w) => w.id === 'key9').length, 5, '每帧都要重写（loadParameters 每帧还原）');
+    assert.ok(
+      core.writes.every((w) => w.value === 1 && w.weight === 1),
+      'Add 且基准 0 → 目标 1、满权重',
+    );
+  });
+
+  test('淡入进度作为权重下发；fadeSeconds = 0 立刻满权重', () => {
+    const { api } = makeApi();
+    const core = makeExpCore();
+    let now = 1000;
+    const overlay = createOverlay(
+      api,
+      () => core.model,
+      () => now,
+    );
+    overlay.play('兔牙', 'expression', teethJson, { fadeSeconds: 1 });
+    overlay.tick(); // t=0 → 权重 0
+    now = 1500;
+    overlay.tick(); // t=0.5s → 权重 0.5
+    now = 2500;
+    overlay.tick(); // t=1.5s → 权重夹到 1
+    assert.deepEqual(
+      core.writes.map((w) => w.weight),
+      [0, 0.5, 1],
+    );
+  });
+
+  test('Add 在非零基准上叠加；Multiply 按当前值相乘；Overwrite 直接覆盖', () => {
+    const { api } = makeApi();
+    const core = makeExpCore({ key9: 0.4, key7: 0.5, key12: 0.3 });
+    const overlay = createOverlay(
+      api,
+      () => core.model,
+      () => 1000,
+    );
+    overlay.play(
+      '混合',
+      'expression',
+      {
+        Parameters: [
+          { Id: 'key9', Value: 1, Blend: 'Add' },
+          { Id: 'key7', Value: 0.2, Blend: 'Multiply' },
+          { Id: 'key12', Value: 1, Blend: 'Overwrite' },
+        ],
+      },
+      { fadeSeconds: 0 },
+    );
+    overlay.tick();
+    const byId = (id: string) => core.writes.find((w) => w.id === id);
+    assert.equal(byId('key9')?.value, 1.4, 'Add = 当前值 + 目标值');
+    assert.equal(byId('key7')?.value, 0.1, 'Multiply = 当前值 × 目标值');
+    assert.equal(byId('key12')?.value, 1, 'Overwrite = 目标值');
+  });
+
+  test('摘掉之后不再写（参数回归模型自己的值）', () => {
+    const { api } = makeApi();
+    const core = makeExpCore();
+    const overlay = createOverlay(
+      api,
+      () => core.model,
+      () => 1000,
+    );
+    overlay.play('兔牙', 'expression', teethJson, { fadeSeconds: 0 });
+    overlay.tick();
+    overlay.stop('兔牙');
+    const before = core.writes.length;
+    overlay.tick();
+    assert.equal(core.writes.length, before, '摘掉后不该再写参数');
+  });
+
+  test('空 exp3（没有 Parameters）挂着也不报错、不写参数', () => {
+    const { api } = makeApi();
+    const core = makeExpCore();
+    const overlay = createOverlay(
+      api,
+      () => core.model,
+      () => 1000,
+    );
+    overlay.play('空外观', 'expression', { Parameters: [] });
+    assert.doesNotThrow(() => overlay.tick());
+    assert.equal(core.writes.length, 0);
+    assert.deepEqual(overlay.active('expression'), ['空外观']);
+  });
+
+  test('外观不建动作队列（运行库的表达式一次性，挂不住）', () => {
+    const { api, queues } = makeApi();
+    const core = makeExpCore();
+    const overlay = createOverlay(
+      api,
+      () => core.model,
+      () => 1000,
+    );
+    overlay.play('兔牙', 'expression', teethJson);
+    assert.equal(queues.length, 0, '外观不该占用动作队列');
   });
 });
