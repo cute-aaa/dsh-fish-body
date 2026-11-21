@@ -89,24 +89,20 @@ function createOverlay(api, core) {
     // 外观：解析 exp3 后每帧重写，不建队列——运行库的表达式是一次性的，挂不住。
     if (kind === 'expression') {
       const parsed = S.parseExp3(json);
-      // 一行诊断：先看 exp3 写了哪些参数、它们当前值是多少（当前值已等于目标值时，Add 等于没变化）。
+      // 一行诊断：先看 exp3 写了哪些参数、当前值多少、以及写下去能读回多少。
+      // 读回值不等于目标值 = 这条参数被模型钳住了（min=max，或压根没有受它影响的绘制）。
       const model = core();
+      const show = (v) => (typeof v === 'number' && Number.isFinite(v) ? String(Math.round(v * 1000) / 1000) : '?');
       const detail = parsed.parameters
         .map((p) => {
+          // 只读不回写：帧外写参数会与正在跑的帧抢参数，也会污染测试对写入次数的断言。
           let base;
           try {
             base = model && typeof model.getParameterValueById === 'function' ? model.getParameterValueById(p.id) : NaN;
           } catch {
             base = NaN;
           }
-          return (
-            p.id +
-            '(' +
-            (typeof base === 'number' && Number.isFinite(base) ? String(base) : '?') +
-            '+' +
-            String(p.value) +
-            ')'
-          );
+          return p.id + '(基' + show(base) + '+' + String(p.value) + ')';
         })
         .join(',');
       console.log(

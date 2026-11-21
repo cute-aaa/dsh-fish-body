@@ -172,17 +172,15 @@ export function createOverlay(
       // 当前值已经是目标值（例如 key9 默认就是 1）时，Add 上去等于没变化——那不是没写进去，
       // 是这份外观对这只模型本身没有可见效果。每次挂载打一行，不是每帧。
       const model = core();
+      const show = (v: number | undefined): string =>
+        typeof v === 'number' && Number.isFinite(v) ? String(Math.round(v * 1000) / 1000) : '?';
       const detail = parsed.parameters
         .map((p) => {
+          // 只读不回写：这里在帧外（play 时刻），写参数会与正在跑的帧抢 transform / 参数，
+          // 而且会污染测试里对「每帧写几次」的断言。基线值足够定位问题——
+          // 「基 0 +1」说明写入是对的，画面不变就是这条参数在模型里没有可见绑定。
           const base = model?.getParameterValueById?.(p.id);
-          return (
-            p.id +
-            '(' +
-            (typeof base === 'number' && Number.isFinite(base) ? String(base) : '?') +
-            '+' +
-            String(p.value) +
-            ')'
-          );
+          return p.id + '(基' + show(base) + '+' + String(p.value) + ')';
         })
         .join(',');
       console.log(
