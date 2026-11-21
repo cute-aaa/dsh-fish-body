@@ -141,7 +141,7 @@ export function model3ExpressionRefs(raw: unknown): Model3Expression[] {
 }
 
 /**
- * model3.json → 复位外观那一项的文案（宿主从 VTS 的 `RemoveAllExpressions` 热键转来）。
+ * model3 清单 → 复位外观那一项的文案（宿主从 VTS 的 `RemoveAllExpressions` 热键转来）。
  *
  * 外观是挂着状态的叠加层，「恢复默认外观」是本插件自己的等价入口（见 `accessoryMenuBranch`）；
  * 拿到 VTS 里排好的叫法就用它，让用户在 VTS 与这里的菜单名对得上。
@@ -153,6 +153,24 @@ export function model3ExpressionReset(raw: unknown): string | null {
   const field = obj(obj(obj(raw)?.FileReferences)?.ExpressionReset);
   const name = field?.Name;
   return typeof name === 'string' && name.trim() !== '' ? name.trim() : null;
+}
+
+/**
+ * 把清单里的 `File`（相对**模型目录**）解析成相对**素材根**的路径。
+ *
+ * 为什么必须有这一步：池里的模型在 `<根>/live2d/<模型目录>/`，而 `Motions[].File` 写的是
+ * `Animation/x.motion3.json`——直接拿它拼素材根会 404，症状是「右键动作/外观点下去什么都不播」。
+ * 模型清单自己就在素材根下的相对路径里（`<池>/models` 的返回值），取它的目录部分做前缀即可。
+ *
+ * 两端共用（浏览器 `render/live2d` 与桌面 `sprite/backend`），避免一边修一边漏。
+ *
+ * @param modelPath - 模型清单相对素材根的路径（如 `deepseek-live2d-skin/大肥鱼.model3.json`）。
+ * @param rel - 清单里某条资源的 `File`（如 `Animation/x.motion3.json`）。
+ * @returns 相对素材根的路径；`modelPath` 没有目录部分时原样返回 `rel`。
+ */
+export function resolveModelFile(modelPath: string, rel: string): string {
+  const cut = modelPath.lastIndexOf('/');
+  return cut < 0 ? rel : modelPath.slice(0, cut) + '/' + rel;
 }
 
 /**

@@ -15,6 +15,7 @@ import {
   model3Expressions,
   model3Motions,
   rendererActionTree,
+  resolveModelFile,
   skinMenuGroups,
 } from './renderer-actions.ts';
 import type { Animations } from '../types.ts';
@@ -170,6 +171,21 @@ describe('model3Motions / model3ExpressionRefs —— 点哪个文件、定格�
     assert.equal(model3ExpressionReset({ FileReferences: {} }), null);
     assert.equal(model3ExpressionReset({ FileReferences: { ExpressionReset: { Name: 3 } } }), null);
     assert.equal(model3ExpressionReset(null), null);
+  });
+
+  test('资源 File 相对模型目录解析：池里模型要补上目录前缀', () => {
+    // 守卫「右键动作/外观点下去什么都不播」：清单 File 相对模型目录，取文件走的是
+    // 相对素材根的 URL，缺了模型目录就是 404。
+    assert.equal(
+      resolveModelFile('deepseek-live2d-skin/大肥鱼.model3.json', 'Animation/举手.motion3.json'),
+      'deepseek-live2d-skin/Animation/举手.motion3.json',
+    );
+    assert.equal(
+      resolveModelFile('deepseek-live2d-skin/大肥鱼.model3.json', 'Exp3/兔牙.exp3.json'),
+      'deepseek-live2d-skin/Exp3/兔牙.exp3.json',
+    );
+    // 模型就在素材根下：不加前缀，也不出现前导斜杠。
+    assert.equal(resolveModelFile('大肥鱼.model3.json', 'Animation/x.motion3.json'), 'Animation/x.motion3.json');
   });
 });
 

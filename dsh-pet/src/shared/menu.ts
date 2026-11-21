@@ -35,6 +35,7 @@ export {
   model3Expressions,
   model3Motions,
   rendererActionTree,
+  resolveModelFile,
   skinMenuGroups,
 } from './menu/renderer-actions.ts';
 export { buildMemeBranch, groupMemes, memeThumbUrl } from './menu/memes.ts';

@@ -20,6 +20,7 @@ import {
   model3ExpressionRefs,
   model3ExpressionReset,
   model3Motions,
+  resolveModelFile,
   type Model3Expression,
   type Model3Motion,
   type RendererActionGroup,
@@ -147,7 +148,9 @@ export function createLive2dRenderer(): Renderer {
   let expressions = new Map<string, Model3Expression>();
   /** 复位外观那一项的文案（来自 VTS 的 RemoveAllExpressions 热键）；模型没声明时为 null。 */
   let expressionReset: string | null = null;
-  /** 动作/外观文件缓存：同一条点第二次不必再发请求。 */
+  /** 当前模型的相对路径（`<池>/models` 的返回值）；动作/外观的 File 靠它定目录。 */
+  let modelPath = '';
+  /** 动作/外观文件缓存：同一条点第二次不必再发请求（键是相对素材根的完整路径）。 */
   const files = new Map<string, unknown>();
   /** 叠加层（mount 后就绪）：动作与外观各成一层，可同时挂多个。 */
   let overlay: Overlay | null = null;
@@ -161,13 +164,16 @@ export function createLive2dRenderer(): Renderer {
 
   /** 取一份动作/外观 JSON（带缓存）。 */
   const fetchJson = async (rel: string): Promise<unknown> => {
-    const hit = files.get(rel);
+    // 清单里的 `File` 是**相对模型目录**的（`Animation/x.motion3.json`），不是相对素材根：
+    // 池里的模型在 `<根>/live2d/<模型目录>/`，直接拿 rel 拼会 404（点了菜单什么都不播）。
+    const full = resolveModelFile(modelPath, rel);
+    const hit = files.get(full);
     if (hit !== undefined) return hit;
     try {
-      const res = await fetch(skinUrl(root, rel));
+      const res = await fetch(skinUrl(root, full));
       if (!res.ok) return null;
       const json = (await res.json()) as unknown;
-      files.set(rel, json);
+      files.set(full, json);
       return json;
     } catch {
       return null;
@@ -222,6 +228,8 @@ export function createLive2dRenderer(): Renderer {
     const chosen = configured !== undefined && models.includes(configured) ? configured : models[0];
     if (chosen === undefined) throw new Error('皮肤目录没有 .model3.json：' + root);
     if (destroyed) return;
+    // 动作/外观的 File 相对模型目录解析（池里模型在 `<根>/live2d/<目录>/`）。
+    modelPath = chosen;
     const raw = await loadModelJson(root, chosen);
     actionGroups = model3ActionGroups(raw);
     motions = new Map(model3Motions(raw).map((motion) => [motion.action, motion]));
@@ -290,6 +298,7 @@ export function createLive2dRenderer(): Renderer {
     motions = new Map();
     expressions = new Map();
     files.clear();
+    modelPath = '';
     if (app !== null) {
       app.destroy(true, { children: true, texture: true, baseTexture: true });
       app = null;

@@ -517,16 +517,21 @@ async function mountLive2d(sprite, host, api) {
     );
   }
 
-  /** 动作/外观文件缓存：同一条点第二次不必再发请求。 */
+  /** 当前模型的相对路径（`<池>/models` 的返回值）；动作/外观的 File 靠它定目录。 */
+  const modelPath = chosen;
+  /** 动作/外观文件缓存：同一条点第二次不必再发请求（键是相对素材根的完整路径）。 */
   const files = new Map();
   /** 取一份动作/外观 JSON（带缓存；失败返回 null，菜单点了没反应但不炸）。 */
   async function fetchJson(rel) {
-    if (files.has(rel)) return files.get(rel);
+    // 清单里的 File 相对**模型目录**（`Animation/x.motion3.json`），不是相对素材根——
+    // 池里模型在 `<根>/live2d/<模型目录>/`，直接拼 rel 会 404（点了菜单什么都不播）。
+    const full = window.PetShared.resolveModelFile(modelPath, rel);
+    if (files.has(full)) return files.get(full);
     try {
-      const res = await fetch(skinUrlOf(root, rel));
+      const res = await fetch(skinUrlOf(root, full));
       if (!res.ok) return null;
       const json = await res.json();
-      files.set(rel, json);
+      files.set(full, json);
       return json;
     } catch {
       return null;
