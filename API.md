@@ -120,18 +120,18 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 
 ## 九、语音
 
-| 接口                                                | 功能                                                                                                                                                                 |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /dsh-pet-7340/voice/speak`                    | 合成并返回音频：`{ text, voice?, rate? }`；同一输入命中缓存，队列最多排 3 个                                                                                         |
-| `POST /dsh-pet-7340/voice/hear`                     | 识别音频回文字：`{ audio }`，16kHz/单声道/PCM16 WAV 的 base64                                                                                                        |
-| `GET /dsh-pet-7340/voice/voices`                    | 可用音色列表 + 合成链状态；前端拿它渲染选择器，不要硬编码 id                                                                                                         |
-| `GET /dsh-pet-7340/voice/provider-config?provider=` | 读一个实现的接入配置：`values`（普通项）+ `secrets`（密钥**配没配**，值从不回传）                                                                                    |
-| `POST /dsh-pet-7340/voice/provider-config`          | 写接入配置：`{ provider, patch, clear? }`；普通项进 `voice-providers.json`，密钥项进 DSH 凭据库；声明了 `options` 的字段只收候选值之一                               |
-| `POST /dsh-pet-7340/voice/provider-voice`           | 切某个实现的音色：`{ provider, voice }`，立即落盘（不是「保存」的一部分）；列出来但置灰的音色（缺权重/参考音频）拒收                                                 |
-| `POST /dsh-pet-7340/voice/voice-pack`               | 音色导入：`{ mode, root? , items? }`；`weights` 选一次权重根、返回逐行候选（零写入），`plan` 整批只读预检，`apply` 批量落盘（权重按 `hardlink`/`copy` 放）并重扫一次 |
-| `POST /dsh-pet-7340/voice/rescan`                   | 丢缓存重扫音色清单：`{ provider? }`，缺省扫全部第三方实现；回 `ready` / `total` / `notes`（设置页「扫描音色」按钮）                                                  |
-| `POST /dsh-pet-7340/voice/text-lines`               | 读一个文本文件里的候选行：`.list` 取第 4 列，其余取整行（供「从文本文件选一行」）                                                                                    |
-| `POST /dsh-pet-7340/pick-file`                      | 弹系统「选择文件」框：`{ title?, start?, extensions? }`；结果与 `pick-folder` 同形                                                                                   |
+| 接口                                                | 功能                                                                                                                                                                                                                                   |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /dsh-pet-7340/voice/speak`                    | 合成并返回音频：`{ text, voice?, rate? }`；同一输入命中缓存，队列最多排 3 个                                                                                                                                                           |
+| `POST /dsh-pet-7340/voice/hear`                     | 识别音频回文字：`{ audio }`，16kHz/单声道/PCM16 WAV 的 base64                                                                                                                                                                          |
+| `GET /dsh-pet-7340/voice/voices`                    | 可用音色列表 + 合成链状态；前端拿它渲染选择器，不要硬编码 id                                                                                                                                                                           |
+| `GET /dsh-pet-7340/voice/provider-config?provider=` | 读一个实现的接入配置：`values`（普通项）+ `secrets`（密钥**配没配**，值从不回传）                                                                                                                                                      |
+| `POST /dsh-pet-7340/voice/provider-config`          | 写接入配置：`{ provider, patch, clear? }`；普通项进 `voice-providers.json`，密钥项进 DSH 凭据库；声明了 `options` 的字段只收候选值之一                                                                                                 |
+| `POST /dsh-pet-7340/voice/provider-voice`           | 切某个实现的音色：`{ provider, voice }`，立即落盘（不是「保存」的一部分）；列出来但置灰的音色（缺权重/参考音频）拒收                                                                                                                   |
+| `POST /dsh-pet-7340/voice/voice-pack`               | 音色导入：`{ mode, root? , items? }`；`weights` 选一次权重根、返回逐行候选（零写入），`plan` 整批只读预检，`apply` 批量落盘（权重按 `hardlink`/`copy` 放）并重扫一次                                                                   |
+| `POST /dsh-pet-7340/voice/rescan`                   | 丢缓存重扫音色清单：`{ provider? }`，缺省扫全部第三方实现；回 `ready` / `total` / `notes`（设置页「扫描音色」按钮）                                                                                                                    |
+| `POST /dsh-pet-7340/voice/text-lines`               | 读一个文本文件里的候选行：`{ path, max? }`；`.list` 取第 4 列，其余取整行，跳过空行，最多返回 `max` 行（1–500，缺省 200）；回 `lines[]`（`{index, text}`，1 起始行号），超限由客户端自行提示「可能还有更多」（供「从文本文件选一行」） |
+| `POST /dsh-pet-7340/pick-file`                      | 弹系统「选择文件」框：`{ title?, start?, extensions? }`；结果与 `pick-folder` 同形                                                                                                                                                     |
 
 合成链是「注册的**免费**第三方在前、内置 edge 收尾」，任一环失败就**静默**落到下一环（用户只会听到换了嗓子）。
 **按量计费的实现不进这条链**（`billable`）：被「可用」自动选中等于替用户花钱。它只在用户打开自己的付费开关
@@ -296,7 +296,7 @@ DeepSeek 密钥**（否则把 baseURL 指到陌生服务，就等于把宿主的
 
 完整字段与状态机见 [`openapi.yaml`](openapi.yaml)。
 
-## 十二、人设来源与角色库
+## 十三、人设来源与角色库
 
 人设的模型是「**角色库 + 勾选应用**」：来源只负责产出角色，角色进全局角色库
 （`<数据根>/data/persona-characters/*.json`，一角色一个文件，可直接拷走）；宠物**引用**角色
