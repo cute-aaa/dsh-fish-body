@@ -55,6 +55,7 @@ export type ChatMemoryInput = {
   Pick<HostSetup, 'log'> &
   Pick<HostSetup, 'memeDirsFor'> &
   Pick<HostSetup, 'playback'> &
+  Pick<HostSetup, 'poolRoots'> &
   Pick<HostSetup, 'state'> &
   Pick<HostSetup, 'userRoot'>;
 
@@ -62,7 +63,7 @@ export type ChatMemoryInput = {
  * 创建对话与记忆。
  */
 export function createChatMemory(deps: ChatMemoryInput) {
-  const { ctx, configPaths, log, memeDirsFor, playback, state, userRoot } = deps;
+  const { ctx, configPaths, log, memeDirsFor, playback, poolRoots, state, userRoot } = deps;
   // 命令「当前桌宠」（/pet 选择、/chat 使用）：全局单值不分会话；进程内内存，重启回默认第一只
   let activePetId = '';
 
@@ -330,7 +331,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
       // 动作名单：开关开启才取（关掉 = 不注入也不解析）；名单本身为空同样等于关闭。
       // live2d 的动作 label 与 webm 动作池合并成同一份白名单——对 AI 都是「做一个动作」，
       // 执行端按当前渲染方式各自解析（见 render/live2d 的 label 查找）。
-      const catalog = found.conf.chatAnimationEnabled === true ? live2dCatalogOf(userRoot, found.conf) : null;
+      const catalog = found.conf.chatAnimationEnabled === true ? live2dCatalogOf(poolRoots(), found.conf) : null;
       const actions = catalog === null ? [] : chatActionList(found.conf.animations, catalog.actions);
       // 外观（live2d 清单）：与动作共用同一个开关；切换是覆盖语义，见 chat-action 的指令说明。
       const expressions = catalog === null ? [] : [...catalog.expressions];
@@ -389,7 +390,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
         // 动作名与配图名同类：落盘只存名字，回放历史时由 chat.ts 以 [动作:名] 回填——
         // 否则模型记不得自己演过什么，用户说「换一个」它无从判断
         ...(generated.action ? { action: generated.action } : {}),
-        ...(generated.expression ? { expression: generated.expression } : {}),
+        ...(generated.expressions && generated.expressions.length > 0 ? { expressions: generated.expressions } : {}),
       });
       await writeMemory(mem);
       // 第三方记忆：落盘后异步接收；不等待、失败只记日志，不能影响这一轮回复。
@@ -405,14 +406,13 @@ export function createChatMemory(deps: ChatMemoryInput) {
         const record = playback.create(petId, generated.action);
         state.writePet(petId, 'anim', { name: generated.action, playbackId: record.playbackId });
       }
-      // 外观随后写同一条 anim 叶子，前缀把它标成「覆盖语义」：渲染端见 `expression-only:` 就先清空
-      // 当前挂的全部外观再挂这一个（人设这条路径一次只留一个；右键菜单仍是可叠加的 toggle）。
-      if (generated.expression !== undefined) {
-        const record = playback.create(petId, 'expression-only:' + generated.expression);
-        state.writePet(petId, 'anim', {
-          name: 'expression-only:' + generated.expression,
-          playbackId: record.playbackId,
-        });
+      // 外观随后写同一条 anim 叶子，前缀标成「整批覆盖」：渲染端见 `expression-set:` 就先清空
+      // 当前挂的全部外观，再把这批逐个挂上（同一条回复里的多个=一起挂；下一条回复=整批替换）。
+      // 名单用 JSON 编码，名字里带冒号/引号也不会把前缀语法弄坏。
+      if (generated.expressions !== undefined && generated.expressions.length > 0) {
+        const name = 'expression-set:' + JSON.stringify(generated.expressions);
+        const record = playback.create(petId, name);
+        state.writePet(petId, 'anim', { name, playbackId: record.playbackId });
       }
       // 回复写进 S（与碎碎念同一个叶子：前端本来就是同一条展示链路）。
       // 该由哪一端念按这只宠物的 display 推：对话请求带的是 surface=any，本来就没有具体的一端可用。

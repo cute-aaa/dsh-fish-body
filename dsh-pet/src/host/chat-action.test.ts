@@ -167,30 +167,32 @@ describe('chatActionList —— webm 动作池与 live2d 动作 label 合并', (
 describe('外观联动 —— 指令与解析', () => {
   const EXPRESSIONS = ['兔牙', '单片眼镜'];
 
-  test('指令列出全部外观名，并明确「一条回复最多写一个」', () => {
+  test('指令列出全部外观名，并写清「同回复可多个、下次整批覆盖」', () => {
     const text = expressionInstruction(EXPRESSIONS);
     assert.ok(text.includes('- 兔牙') && text.includes('- 单片眼镜'));
     assert.ok(text.includes('[外观:名称]'));
-    assert.ok(text.includes('覆盖'), '必须写清覆盖语义，否则模型会连着写好几个');
+    assert.ok(text.includes('一起挂上'), '要说明同一回复可写多个');
+    assert.ok(text.includes('下一次换外观会把上一次挂的全部摘掉'), '要说明下一次是整批替换');
   });
 
-  test('解析：剥掉标记、只采纳白名单内第一个', () => {
-    const r = extractChatExpression('给你看个东西\n[外观:兔牙]', EXPRESSIONS);
+  test('解析：剥掉标记、采纳白名单内**全部**名字（一次可挂多个）', () => {
+    const r = extractChatExpression('给你看个东西\n[外观:兔牙]\n[外观:单片眼镜]', EXPRESSIONS);
     assert.equal(r.text, '给你看个东西');
-    assert.equal(r.expression, '兔牙');
+    assert.deepEqual(r.expressions, ['兔牙', '单片眼镜']);
   });
 
-  test('白名单外的名字：标记同样剥掉，但不采纳', () => {
-    const r = extractChatExpression('嘿嘿\n[外观:不存在的]', EXPRESSIONS);
-    assert.equal(r.text, '嘿嘿');
-    assert.equal(r.expression, undefined);
+  test('同名重复只留第一个；白名单外的名字剥掉但不采纳', () => {
+    const r = extractChatExpression('[外观:兔牙]\n[外观:兔牙]\n[外观:不存在的]', EXPRESSIONS);
+    assert.deepEqual(r.expressions, ['兔牙']);
+    assert.equal(r.text, '');
   });
 
   test('空名单：标记照剥不采纳；无标记时正文原样', () => {
-    assert.equal(extractChatExpression('好\n[外观:兔牙]', []).text, '好');
-    assert.equal(extractChatExpression('好\n[外观:兔牙]', []).expression, undefined);
+    const empty = extractChatExpression('好\n[外观:兔牙]', []);
+    assert.equal(empty.text, '好');
+    assert.deepEqual(empty.expressions, []);
     const plain = extractChatExpression('没有任何标记', EXPRESSIONS);
     assert.equal(plain.text, '没有任何标记');
-    assert.equal(plain.expression, undefined);
+    assert.deepEqual(plain.expressions, []);
   });
 });

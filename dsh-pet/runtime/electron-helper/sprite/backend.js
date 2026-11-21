@@ -541,22 +541,31 @@ async function mountLive2d(sprite, host, api) {
   api.playAction = (name) => {
     // 菜单动作名与浏览器端同格式（见 shared/menu/renderer-actions）：motion:<组>:<序号> / expression:<名>。
     const key = String(name);
-    // 人设下发的外观是覆盖语义：先摘光再挂一个（菜单那条仍是可叠加的 toggle）。
-    if (key.startsWith('expression-only:')) {
-      const only = key.slice('expression-only:'.length);
+    // 人设下发的外观是整批覆盖：先摘光，再把这批逐个挂上（菜单那条仍是可叠加的 toggle）。
+    if (key.startsWith('expression-set:')) {
+      let list = [];
+      try {
+        const parsed = JSON.parse(key.slice('expression-set:'.length));
+        if (Array.isArray(parsed)) list = parsed.filter((item) => typeof item === 'string');
+      } catch {
+        return;
+      }
       overlay.stopKind('expression');
-      const ref = api.expressionFiles.get(only);
-      if (window.__dshPetDebug) window.__dshPetDebug.lastGesture = { name: key, kind: 'expression', at: Date.now() };
-      if (ref === undefined) return;
-      void fetchJson(ref.file).then((json) => {
-        if (json === null || api.destroyed) return;
-        overlay.play(
-          only,
-          'expression',
-          json,
-          ref.fadeSeconds === undefined ? undefined : { fadeSeconds: ref.fadeSeconds },
-        );
-      });
+      if (window.__dshPetDebug)
+        window.__dshPetDebug.lastGesture = { name: key, kind: 'expression-set', at: Date.now() };
+      for (const only of list) {
+        const ref = api.expressionFiles.get(only);
+        if (ref === undefined) continue;
+        void fetchJson(ref.file).then((json) => {
+          if (json === null || api.destroyed) return;
+          overlay.play(
+            only,
+            'expression',
+            json,
+            ref.fadeSeconds === undefined ? undefined : { fadeSeconds: ref.fadeSeconds },
+          );
+        });
+      }
       return;
     }
     const motion = api.motions.get(key);

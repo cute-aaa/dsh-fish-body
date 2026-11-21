@@ -98,17 +98,17 @@ export function extractChatAction(text: string, names: readonly string[]): { tex
 /**
  * 外观指令：与动作指令并列，但语义不同——外观是**挂着的状态**，不做动作。
  *
- * 明确写「换一次只留一个」：执行端对人设这条路径是覆盖语义（见 `render/live2d` 的
- * `setExpression`），写成「可以挂多个」会让模型以为能叠加，从而连着写好几条标记。
+ * 明确写「同一回复可写多个、下次才覆盖」：执行端对人设这条路径是**覆盖整批**语义
+ * （见 `render/live2d` 的 `replaceExpressions`），写成「一次只留一个」会让模型不敢表达组合。
  *
  * @param names - 可切换的外观名；空名单由调用方直接跳过。
  */
 export function expressionInstruction(names: readonly string[]): string {
   return (
-    '\n\n[外观] 需要换个样子给用户看时，从下列清单里挑最贴合当前语境的一个：\n' +
+    '\n\n[外观] 需要换个样子给用户看时，从下列清单里挑最贴合当前语境的：\n' +
     names.map((name) => '- ' + name).join('\n') +
-    '\n挑中就在回复最后另起一行写 [外观:名称]（名称原样照抄）。换外观会覆盖上一次挂的，' +
-    '所以一条回复最多写一个；不需要就完全不要写这个标记。'
+    '\n挑中就在回复最后另起一行写 [外观:名称]（名称原样照抄）。同一条回复可以写多个（会一起挂上），' +
+    '但下一次换外观会把上一次挂的全部摘掉，所以别堆太多；不需要就完全不要写这个标记。'
   );
 }
 
@@ -119,22 +119,23 @@ export function expressionInstruction(names: readonly string[]): string {
  *
  * @param text - 模型回复原文（可已剥过动作）。
  * @param names - 白名单（{@link Live2dCatalog.expressions}）；空名单 = 开关关闭，标记照剥但不采纳。
- * @returns 剥掉标记后的正文，以及命中白名单的第一个外观名。
+ * @returns 剥掉标记后的正文，以及命中白名单的外观名（保持书写顺序、同名去重）。
  */
-export function extractChatExpression(text: string, names: readonly string[]): { text: string; expression?: string } {
+export function extractChatExpression(text: string, names: readonly string[]): { text: string; expressions: string[] } {
   const tag = /\[外观[:：]\s*([^\]\n]+?)\s*\]/g;
-  let expression: string | undefined;
+  const expressions: string[] = [];
   let tagged = false;
   const cleaned = text.replace(tag, (_tag, raw: string) => {
     tagged = true;
     const name = raw.trim();
-    if (expression === undefined && names.includes(name)) expression = name;
+    // 采纳**全部**命中项：外观是叠加状态，一条回复写两个就是要两个一起挂。
+    if (names.includes(name) && !expressions.includes(name)) expressions.push(name);
     return '';
   });
-  if (!tagged) return { text };
+  if (!tagged) return { text, expressions };
   const body = cleaned
     .replace(/[ \t]+$/gm, '')
     .replace(/\n{2,}/g, '\n')
     .trim();
-  return expression === undefined ? { text: body } : { text: body, expression };
+  return { text: body, expressions };
 }

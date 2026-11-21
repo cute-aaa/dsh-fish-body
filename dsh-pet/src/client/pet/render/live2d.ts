@@ -41,12 +41,13 @@ const MOTION_ID = /^motion:(.+):(\d+)$/;
 /** 菜单动作名 → 外观（`expression:<名>`）。 */
 const EXPRESSION_PREFIX = 'expression:';
 /**
- * 人设下发的外观切换：`expression-only:<名>`，覆盖语义（先摘光再挂）。
+ * 人设下发的外观切换：`expression-set:<JSON 数组>`，整批覆盖语义（先摘光再逐个挂）。
  *
- * 为什么不用第二个状态叶子：人设这条链路要「先动作后外观」两拍，复用 `anim` 叶子最省，
- * 用一个前缀区分语义即可（菜单仍走上面的可叠加 `expression:`）。
+ * 为什么不是第二个状态叶子：人设这条链路要「先动作后外观」两拍，复用 `anim` 叶子最省，
+ * 用一个前缀区分语义即可（菜单仍走上面的可叠加 `expression:`）。名字进 JSON 编码，
+ * 带冒号/引号也不会把前缀语法弄坏。
  */
-const EXPRESSION_ONLY_PREFIX = 'expression-only:';
+const EXPRESSION_SET_PREFIX = 'expression-set:';
 
 /** 点击回应的兜底名字（模型没声明动作时退回自然运动）。 */
 const TAP_HINT = /tap|click|点击|回应|摸|戳/i;
@@ -220,20 +221,34 @@ export function createLive2dRenderer(): Renderer {
   };
 
   /**
-   * 覆盖式切换外观：先摘掉当前挂着的全部，再挂这一个（人设那条路径用）。
+   * 整批覆盖式切换外观：先摘掉当前挂着的全部，再把这一批逐个挂上（人设那条路径用）。
    *
-   * 与 {@link toggleExpression} 的区别只在语义：菜单要「眼镜 + 兔牙同时开」，人设不能一次挂满
-   * 二十多个外观，所以它走覆盖。两条路径共用同一份 overlay 与淡入参数。
+   * 与 {@link toggleExpression} 的区别只在语义：菜单要「眼镜 + 兔牙同时开」且能单独摘掉一个；
+   * 人设每次换外观是一整批（同一条回复里的多个一起挂，下一条回复整批替换）。
+   * 两条路径共用同一份 overlay 与淡入参数。
+   *
+   * @param payload - `expression-set:` 之后的 JSON 数组文本（坏 JSON 当作空名单）。
    */
-  const replaceExpression = async (name: string): Promise<void> => {
+  const replaceExpressions = async (payload: string): Promise<void> => {
+    let names: string[] = [];
+    try {
+      const parsed: unknown = JSON.parse(payload);
+      if (Array.isArray(parsed)) names = parsed.filter((item): item is string => typeof item === 'string');
+    } catch {
+      return;
+    }
     overlay?.stopKind('expression');
-    const expression = expressions.get(name);
-    if (expression === undefined || overlay === null) return;
-    const json = await fetchJson(expression.file);
-    if (json === null || overlay === null) return;
-    overlay.play(name, 'expression', json, {
-      ...(expression.fadeSeconds === undefined ? {} : { fadeSeconds: expression.fadeSeconds }),
-    });
+    if (overlay === null) return;
+    const active = overlay;
+    for (const name of names) {
+      const expression = expressions.get(name);
+      if (expression === undefined) continue;
+      const json = await fetchJson(expression.file);
+      if (json === null || overlay !== active) return;
+      active.play(name, 'expression', json, {
+        ...(expression.fadeSeconds === undefined ? {} : { fadeSeconds: expression.fadeSeconds }),
+      });
+    }
   };
 
   const mount = async (el: HTMLElement, opts: RendererMountOptions): Promise<void> => {
@@ -346,9 +361,9 @@ export function createLive2dRenderer(): Renderer {
     destroy,
     playAction: (name) => {
       if (model === null || cubism === null) return;
-      // 人设这条路径下发的是「覆盖语义」的外观切换：先清空再挂一个（菜单那条仍是可叠加的 toggle）。
-      if (name.startsWith(EXPRESSION_ONLY_PREFIX)) {
-        void replaceExpression(name.slice(EXPRESSION_ONLY_PREFIX.length));
+      // 人设这条路径下发的是「整批覆盖」的外观切换：先清空再逐个挂（菜单那条仍是可叠加的 toggle）。
+      if (name.startsWith(EXPRESSION_SET_PREFIX)) {
+        void replaceExpressions(name.slice(EXPRESSION_SET_PREFIX.length));
         return;
       }
       // 菜单来自模型声明：motion / expression 的标识由 shared/menu/renderer-actions 生成，这里只拆解。

@@ -14,7 +14,6 @@ import { join } from 'node:path';
 import { POOL_LAYER_DIR } from '../shared/pool.ts';
 import { model3ExpressionRefs, model3Motions } from '../shared/menu/renderer-actions.ts';
 import { mergeModelExtras } from './model-extras.ts';
-import { resolvePoolRoots } from './pool/resolve.ts';
 
 /** 一份可表演清单：动作取菜单文案（label），外观取名字。 */
 export interface Live2dCatalog {
@@ -57,16 +56,16 @@ function findModelFile(roots: readonly string[], model: string): string | undefi
 /**
  * 算当前宠物的可表演清单。
  *
- * @param userRoot - 本插件的用户数据根（池根相对它解析）。
- * @param conf - 该宠物的成品配置（读 `renderer` / `model` / `assets`）。
+ * @param roots - 素材根的有序表（**与池路由同一条根序**：用户 `skin/` 在前、内置池在后）。
+ *   传错根序的后果是「模型在用户皮肤目录里、这里却只找内置池」→ 空清单 → AI 永远不表演。
+ * @param conf - 该宠物的成品配置（读 `renderer` / `model`）。
  * @returns 动作与外观名；不是 live2d、没选模型或读不出来时为空清单。
  */
-export function live2dCatalogOf(userRoot: string, conf: unknown): Live2dCatalog {
+export function live2dCatalogOf(roots: readonly string[], conf: unknown): Live2dCatalog {
   const entry = obj(conf);
   if (entry === undefined || entry.renderer !== 'live2d') return EMPTY;
   const model = typeof entry.model === 'string' ? entry.model : '';
   if (model.trim() === '') return EMPTY;
-  const roots = resolvePoolRoots(userRoot, entry.assets);
   const file = findModelFile(roots, model);
   if (file === undefined) return EMPTY;
   let raw: unknown;

@@ -82,6 +82,8 @@ function createMemory(
     memeDirsFor: () => (memeDir === undefined ? [] : [memeDir]),
     // 播放回执表只用到 create：编号带宠物与动作名，测试据此断言写进叶子的是哪一个动作
     playback: { create: (petId: string, name: string) => ({ playbackId: 'pb-' + petId + '-' + name }) },
+    // 表演清单读盘用：桩里给空根序（live2d 清单因此为空，不注入动作/外观指令）
+    poolRoots: () => [],
     state: {
       writePet: (petId: string, leaf: string, data: Record<string, unknown>) => {
         collect?.writes?.push(petId + '.' + leaf);

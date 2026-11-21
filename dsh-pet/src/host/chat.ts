@@ -22,7 +22,7 @@ import { historyStampOf } from './time-context.ts';
 
 /** 生成失败原因（与 shared/whisper.ts 的 WhisperState 失败分支同构）。 */
 export type ChatGenerateResult =
-  | { ok: true; text: string; image?: string; action?: string; expression?: string }
+  | { ok: true; text: string; image?: string; action?: string; expressions?: string[] }
   | { ok: false; reason: 'provider-missing' | 'generate-error'; message?: string };
 
 /** 记忆中的一条消息：GET /chat 返回的窗口条目就是它。 */
@@ -36,8 +36,8 @@ export interface ChatMemoryMessage {
   meme?: string;
   /** 该轮 AI 表演的动作名（webm 动作池或 live2d 动作 label）；回放历史时以 `[动作:名称]` 回填。 */
   action?: string;
-  /** 该轮 AI 切到的外观名（live2d）；回放历史时以 `[外观:名称]` 回填。 */
-  expression?: string;
+  /** 该轮 AI 挂上的外观名（live2d，可多个）；回放历史时逐个以 `[外观:名称]` 回填。 */
+  expressions?: readonly string[];
 }
 
 /** 单次生成超时（ms）：对话等 LLM 回复，60s 足够。 */
@@ -80,8 +80,9 @@ function historyMarkersOf(message: ChatMemoryMessage): string {
   if (message.role !== 'assistant') return '';
   const lines: string[] = [];
   if (typeof message.action === 'string' && message.action !== '') lines.push('[动作:' + message.action + ']');
-  if (typeof message.expression === 'string' && message.expression !== '')
-    lines.push('[外观:' + message.expression + ']');
+  for (const expression of message.expressions ?? []) {
+    if (expression !== '') lines.push('[外观:' + expression + ']');
+  }
   if (typeof message.meme === 'string' && message.meme !== '') lines.push('[图:' + message.meme + ']');
   return lines.length === 0 ? '' : '\n' + lines.join('\n');
 }
@@ -258,9 +259,9 @@ async function generateWith(ctx: { llm?: unknown }, once: GenerateOnce): Promise
   if (!wantImage && !wantAction && !wantExpression) return { ok: true, text };
   // 三种标记互不依赖，顺序不影响结果；无效名称也会被剥（见 extractChatAction / extractChatExpression）。
   const acted: { text: string; action?: string } = wantAction ? extractChatAction(text, actions) : { text };
-  const faced: { text: string; expression?: string } = wantExpression
+  const faced: { text: string; expressions: string[] } = wantExpression
     ? extractChatExpression(acted.text, expressions)
-    : { text: acted.text };
+    : { text: acted.text, expressions: [] };
   const picked: { text: string; image?: string } = wantImage
     ? extractChatImage(faced.text, pool)
     : { text: faced.text };
@@ -269,6 +270,6 @@ async function generateWith(ctx: { llm?: unknown }, once: GenerateOnce): Promise
     text: picked.text,
     ...(picked.image ? { image: picked.image } : {}),
     ...(acted.action ? { action: acted.action } : {}),
-    ...(faced.expression ? { expression: faced.expression } : {}),
+    ...(faced.expressions.length > 0 ? { expressions: faced.expressions } : {}),
   };
 }
