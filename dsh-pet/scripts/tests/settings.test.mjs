@@ -567,13 +567,17 @@ test('config save errors: write failures keep edits visible and allow a retry', 
   await size.fill('320');
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await page
-    .getByText(
-      'Failed to save config. Check the server connection, configuration directory write permissions and server log.',
-      { exact: true },
-    )
+    .getByText('Save failed: the plugin did not respond. Make sure it is still running, then click Save again.', {
+      exact: true,
+    })
     .first()
     .waitFor();
-  assert.equal(await page.getByText('Failed to load config', { exact: true }).count(), 0);
+  assert.equal(
+    await page
+      .getByText('Could not load the config — check the plugin is running, then retry', { exact: true })
+      .count(),
+    0,
+  );
   assert.equal(await size.inputValue(), '320');
   await apply(page);
   assert.equal(writes[1].pets[0].size, 320);
@@ -586,7 +590,7 @@ test('config save errors: validation failures explain the rejected configuration
   });
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await page
-    .getByText('Failed to save config: invalid configuration. Check the values and try again.', { exact: true })
+    .getByText('Save rejected: the config is invalid. Fix the values you changed, then save again.', { exact: true })
     .first()
     .waitFor();
 });
@@ -595,10 +599,9 @@ test('config save errors: network failures display a save error and release the 
   const { page } = await open(t, { put: (route) => route.abort('failed') });
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await page
-    .getByText(
-      'Failed to save config. Check the server connection, configuration directory write permissions and server log.',
-      { exact: true },
-    )
+    .getByText('Save failed: the plugin did not respond. Make sure it is still running, then click Save again.', {
+      exact: true,
+    })
     .first()
     .waitFor();
   assert.equal(await page.getByRole('button', { name: 'Apply', exact: true }).isEnabled(), true);
@@ -791,6 +794,45 @@ test('switch knob sits on the far side of the track when checked (reduced motion
       Math.abs(after - before) >= 10,
       `切换一次，圆点要换到另一侧（${reducedMotion}: ${before}px → ${after}px）`,
     );
+  }
+});
+
+test('keyboard focus draws the shared focus ring on buttons', async (t) => {
+  // 焦点环从「每处各拼一串 box-shadow」收敛到 `var(--pet-focus-ring)`，这里按用户真实路径走查：
+  // 只用 Tab 走到按钮上（键盘焦点才算 :focus-visible），再读计算样式看那一圈颜色有没有画出来。
+  const { page } = await open(t);
+  let className = '';
+  for (let i = 0; i < 60; i++) {
+    await page.keyboard.press('Tab');
+    className = String(
+      await page.evaluate(() => {
+        const el = document.activeElement;
+        return el === null ? '' : String(el.className ?? el.tagName);
+      }),
+    );
+    if (className.includes('dsh-pet-cfg__btn')) break;
+  }
+  assert.match(className, /dsh-pet-cfg__btn/, `Tab 走查应该能到达按钮，最后停在：${className || '(无)'}`);
+  const shadow = await page.evaluate(() => getComputedStyle(document.activeElement).boxShadow);
+  assert.match(String(shadow), /36, 94, 234/, `焦点环应画出令牌里的主色（fixture #245eea）：${shadow}`);
+});
+
+test('pointer press shrinks buttons by the shared press scale', async (t) => {
+  // 按下反馈统一取 `var(--pet-press)`（scale(.98) / 80ms）。按住不放读计算样式，
+  // 松手前先把指针移开，避免这一按变成一次真实点击（那是别的用例的地盘）。
+  const { page } = await open(t);
+  const button = page.locator('.dsh-pet-cfg__btn:not(:disabled)').first();
+  const box = await button.boundingBox();
+  assert.ok(box !== null, '设置页应该至少有一个可用按钮');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  try {
+    await page.waitForTimeout(200); // 过渡 80ms 走完，读到的是终值
+    const transform = await button.evaluate((el) => getComputedStyle(el).transform);
+    assert.match(String(transform), /^matrix\(0\.98, 0, 0, 0\.98/, `按下应缩到 0.98：${transform}`);
+  } finally {
+    await page.mouse.move(4, 4);
+    await page.mouse.up();
   }
 });
 
@@ -1042,9 +1084,9 @@ test('system → files & folders: move the skin folder, see progress, then get a
   assert.deepEqual(await page.evaluate(() => null), null);
   await page.getByText(/Moved to \/test\/moved-skin/).waitFor();
   assert.deepEqual(harness.movePosts, [{ which: 'skin', path: '/test/moved-skin' }]);
-  // 结论行给出「重启插件后生效」+ 一个立即重启按钮。
-  assert.equal(await page.getByText('Takes effect after a plugin restart', { exact: true }).count(), 1);
-  await page.getByRole('button', { name: 'Restart now', exact: true }).click();
+  // 结论行给出「已搬到新位置，重启插件后生效」+ 一个立即重启按钮。
+  assert.equal(await page.getByText('Moved — restart the plugin to use the new location', { exact: true }).count(), 1);
+  await page.getByRole('button', { name: 'Restart the plugin now', exact: true }).click();
   await page.waitForFunction(() => true);
   assert.ok(harness.restarts.length >= 1, '重启按钮应当真的打了 /plugin-restart');
 });
@@ -1619,7 +1661,7 @@ test('需重启的设置在改动后给出提示，保存后底部栏可一键�
 
   // 点立即重启：先保存（这一下没有新改动，但按钮走的是同一条 saveAll），再打 /plugin-restart。
   const before = writes.length;
-  await bar.getByRole('button', { name: 'Restart now', exact: true }).click();
+  await bar.getByRole('button', { name: 'Restart the plugin now', exact: true }).click();
   await page.getByText(/HMR is unavailable/, { exact: false }).waitFor();
   assert.equal(restarts.length, 1, '立即重启要真的打 /plugin-restart');
   assert.ok(writes.length >= before, '重启前会先保存');

@@ -6,6 +6,7 @@
  * 内联样式写不出 `:hover` / `:focus`，所以面板统一走这份 CSS。
  * @module dsh-fish-body/src/client/chat/styles
  */
+import { injectUiTokens } from '../../shared/motion-tokens.ts';
 import { PANEL_CSS } from './panel-css.ts';
 
 /** 样式标签的归属标记；同一 key 只注入一次。 */
@@ -24,6 +25,8 @@ let styleTag: HTMLStyleElement | undefined;
  */
 export function injectPanelCss(): () => void {
   if (typeof document === 'undefined') return () => {};
+  // 令牌层是页面级常量，三个表面共用；它不随面板卸载移除，所以不参与下面的引用计数。
+  injectUiTokens();
   mountedCount += 1;
   if (styleTag === undefined) {
     const tag = document.createElement('style');

@@ -5,10 +5,20 @@
  * 与 styles.ts 分开是因为这里是纯字符串：改样式时 diff 只落在这里。
  * @module dsh-fish-body/src/client/chat/panel-css
  */
+import { TIP_BASE_CSS } from '../../shared/tooltip.ts';
 import { px, SIZE } from './metrics.ts';
 
-/** 面板样式（选择器前缀 `pet-chat`，避免与 DSH 或其它插件撞名）。 */
-export const PANEL_CSS = `
+/**
+ * 面板样式（选择器前缀 `pet-chat`，避免与 DSH 或其它插件撞名）。
+ *
+ * 开头拼的是提示气泡的基类（`.pet-tip-base`）：气泡节点挂在 `body` 上，它的定位方式、初始透明与
+ * 显隐过渡都在 `shared/tooltip` 的基类里，`.pet-chat-tip` 只剩字号与最大宽。因此**凡拼接本常量的页面
+ * 都在那一刻自带气泡定位**——独立模式设置页的 `/standalone-ai/settings.css` 只拿这一份样式，
+ * 缺了基类气泡就会掉进正常文档流、首次悬停后常驻页面（它不经过宠物页/桌面 Helper 的注入路径）。
+ * 顺序固定：基类在前，本表面样式在后（后者覆盖外观，前者提供布局）。
+ */
+export const PANEL_CSS = `${TIP_BASE_CSS}
+
 .pet-chat {
   display: flex;
   flex-direction: column;
@@ -35,8 +45,20 @@ export const PANEL_CSS = `
   padding: ${px(SIZE.tabPadY)} ${px(SIZE.tabPadX)};
   font: var(--dsw-font-xxs-12);
   cursor: pointer;
-  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out),
-    color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  transition: background var(--pet-dur-fast) var(--pet-ease),
+    color var(--pet-dur-fast) var(--pet-ease),
+    transform var(--pet-press-dur) var(--pet-ease);
+}
+
+/* 键盘可达：焦点环走跨表面令牌，与设置页同一圈颜色；按下给一档内缩，和设置页按钮同手感 */
+.pet-chat-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--pet-focus-ring);
+}
+
+/* 禁用态不匹配 :active 是浏览器的既有行为，但显式写 :not(:disabled) 才和 .pet-chat-send 同一口径 */
+.pet-chat-tab:active:not(:disabled) {
+  transform: var(--pet-press);
 }
 
 .pet-chat-tab:hover {
@@ -64,7 +86,7 @@ export const PANEL_CSS = `
   display: grid;
   grid-template-rows: 0fr;
   flex: 0 0 auto;
-  transition: grid-template-rows var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  transition: grid-template-rows var(--pet-dur-fast) var(--pet-ease);
 }
 
 .pet-chat-persona.is-open {
@@ -124,7 +146,7 @@ export const PANEL_CSS = `
   padding: ${px(SIZE.toolPadY)} ${px(SIZE.tabPadX)};
   font: var(--dsw-font-xxs-12);
   cursor: pointer;
-  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  transition: background var(--pet-dur-fast) var(--pet-ease);
 }
 
 .pet-chat-danger:hover {
@@ -154,6 +176,17 @@ export const PANEL_CSS = `
   padding: ${px(SIZE.toolPadY)} ${px(SIZE.toolPadX)};
   font: var(--dsw-font-xxs-12);
   cursor: pointer;
+  transition: background var(--pet-dur-fast) var(--pet-ease),
+    transform var(--pet-press-dur) var(--pet-ease);
+}
+
+.pet-chat-tool:focus-visible {
+  outline: none;
+  box-shadow: var(--pet-focus-ring);
+}
+
+.pet-chat-tool:active:not(:disabled) {
+  transform: var(--pet-press);
 }
 
 .pet-chat-tool:hover:not(:disabled) {
@@ -195,7 +228,7 @@ export const PANEL_CSS = `
   padding: ${px(SIZE.pillPadY)} ${px(SIZE.tabPadX)};
   font: var(--dsw-font-xxs-12);
   cursor: pointer;
-  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  transition: background var(--pet-dur-fast) var(--pet-ease);
 }
 
 .pet-chat-older-btn:hover {
@@ -240,7 +273,7 @@ export const PANEL_CSS = `
   padding: ${px(SIZE.gapTight)} ${px(SIZE.gapWide)};
   border-radius: var(--dsw-radius-md);
   cursor: pointer;
-  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  transition: background var(--pet-dur-fast) var(--pet-ease);
 }
 
 .pet-chat-round.is-selecting:hover {
@@ -363,8 +396,8 @@ export const PANEL_CSS = `
   cursor: pointer;
   opacity: 0.55;
   transition:
-    opacity 0.15s,
-    color 0.15s;
+    opacity var(--pet-dur),
+    color var(--pet-dur);
 }
 
 .pet-chat-speak:hover,
@@ -447,7 +480,7 @@ export const PANEL_CSS = `
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-xl);
   background: var(--dsw-specific-input-major);
-  transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  transition: border-color var(--pet-dur-fast) var(--pet-ease);
 }
 
 .pet-chat-composer:focus-within {
@@ -512,7 +545,17 @@ export const PANEL_CSS = `
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
   user-select: none;
-  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  transition: background var(--pet-dur-fast) var(--pet-ease),
+    transform var(--pet-press-dur) var(--pet-ease);
+}
+
+.pet-chat-attach:focus-visible {
+  outline: none;
+  box-shadow: var(--pet-focus-ring);
+}
+
+.pet-chat-attach:active {
+  transform: var(--pet-press);
 }
 
 .pet-chat-attach:hover {
@@ -538,8 +581,19 @@ export const PANEL_CSS = `
   background: var(--dsw-alias-button-info-fill);
   color: var(--dsw-alias-label-primary-foreground);
   cursor: pointer;
-  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out),
-    opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  transition: background var(--pet-dur-fast) var(--pet-ease),
+    opacity var(--pet-dur-fast) var(--pet-ease),
+    transform var(--pet-press-dur) var(--pet-ease);
+}
+
+/* 圆形按钮不用 outline：outline 是方的，压在圆钮上像套了个框；box-shadow 跟着圆角走。 */
+.pet-chat-send:focus-visible {
+  outline: none;
+  box-shadow: var(--pet-focus-ring);
+}
+
+.pet-chat-send:active:not(:disabled) {
+  transform: var(--pet-press);
 }
 
 .pet-chat-send:hover:not(:disabled) {
@@ -571,9 +625,9 @@ export const PANEL_CSS = `
 }
 
 /* 悬浮提示气泡：挂在 body 上按光标定位（见 ./tooltip），不在 .pet-chat 里，
-   所以字体与颜色全部自带——气泡是深色底，两种主题下都靠白字与背景的对比度读。 */
+   所以字体与颜色全部自带——气泡是深色底，两种主题下都靠白字与背景的对比度读。
+   定位、初始透明、显隐与过渡在 shared/tooltip 的基类（pet-tip-base）里；这里只留面板的差异项。 */
 .pet-chat-tip {
-  position: fixed;
   z-index: 2147483000;
   max-width: ${px(SIZE.tipMaxW)};
   padding: ${px(SIZE.tipPadY)} ${px(SIZE.tipPadX)};
@@ -584,12 +638,23 @@ export const PANEL_CSS = `
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
-.pet-chat-tip.is-on {
-  opacity: 1;
+/* 减少动效：只压过渡，**不压** animation——pet-chat-spin 是「正在生成」的状态反馈，
+   压掉就变成「看上去卡住」。面板里的位移（卷帘 / 气泡出现）也是同样的道理：过渡已经 1ms，本来就不会动。 */
+@media (prefers-reduced-motion: reduce) {
+  .pet-chat *,
+  .pet-chat *::before,
+  .pet-chat *::after {
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
+/* 高对比度：宠物的气泡原本只靠底色区分，系统要求更高对比时补一圈描边（提问侧不动，避免两侧都在抢眼）。 */
+@media (prefers-contrast: more) {
+  .pet-chat-msg.is-pet .pet-chat-bubble {
+    border: 1px solid var(--dsw-alias-border-l3);
+  }
 }
 `;

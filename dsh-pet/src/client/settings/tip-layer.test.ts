@@ -136,9 +136,9 @@ function hover(target: unknown, x = 100, y = 100): { target: unknown; clientX: n
   return { target, clientX: x, clientY: y };
 }
 
-/** 当前挂在 body 上的气泡。 */
+/** 当前挂在 body 上的气泡（class 里带 pet-cfg-tip 那一个；基类 pet-tip-base 也在同一串里）。 */
 function bubbles(doc: FakeDocument): FakeEl[] {
-  return doc.body.children.filter((el) => el.attrs.get('class') === 'pet-cfg-tip');
+  return doc.body.children.filter((el) => (el.attrs.get('class') ?? '').split(' ').includes('pet-cfg-tip'));
 }
 
 describe('attachTipLayer —— 说明气泡', () => {
@@ -149,6 +149,7 @@ describe('attachTipLayer —— 说明气泡', () => {
       doc.fire('pointerover', hover(fakeTrigger('对话配图张数上限的说明')));
       const bubble = bubbles(doc);
       assert.equal(bubble.length, 1, '气泡应该挂在 body 上（设置页内容区是滚动容器，挂在里面会被裁掉）');
+      assert.equal(bubble[0].attrs.get('class'), 'pet-tip-base pet-cfg-tip', '基类提供定位与显隐，本类提供外观');
       assert.equal(bubble[0].attrs.get('role'), 'tooltip');
       assert.equal(bubble[0].textContent, '对话配图张数上限的说明');
       assert.equal(bubble[0].classList.contains('is-on'), true);
@@ -247,6 +248,23 @@ describe('attachTipLayer —— 说明气泡', () => {
     }
   });
 
+  test('滚动/按下收起后，同一元素再进入仍会重新出气泡（收起通知回流到记账）', () => {
+    const { doc, restore } = withFakeDom();
+    const detach = attachTipLayer();
+    try {
+      const trigger = fakeTrigger('说明');
+      doc.fire('pointerover', hover(trigger));
+      doc.fire('scroll', {});
+      assert.equal(bubbles(doc)[0].classList.contains('is-on'), false);
+      // 在同一元素内再派发（没有 pointerout）：记账没被作废的话，这里会被「同一元素」判据挡掉、气泡不再出现
+      doc.fire('pointerover', hover(trigger));
+      assert.equal(bubbles(doc)[0].classList.contains('is-on'), true);
+    } finally {
+      detach();
+      restore();
+    }
+  });
+
   test('同一触发元素内重复派发：只摆一次，不重复换位', () => {
     const { doc, restore } = withFakeDom();
     const detach = attachTipLayer();
@@ -263,16 +281,20 @@ describe('attachTipLayer —— 说明气泡', () => {
 });
 
 describe('attachTipLayer —— 安装与拆除', () => {
-  test('装上即有监听，拆掉后监听与气泡都不剩', () => {
+  test('装上只挂「谁触发」两条监听；收起监听由共享控制器单出口登记，拆掉后一条不剩', () => {
     const { doc, restore } = withFakeDom();
     const detach = attachTipLayer();
     try {
       assert.equal(doc.count('pointerover'), 1);
       assert.equal(doc.count('pointerout'), 1);
-      assert.equal(doc.count('pointerdown'), 1);
-      assert.equal(doc.count('scroll'), 1);
+      // 页面侧不再挂 scroll/pointerdown：收起由 shared/tooltip 的控制器负责，同一事件只有一次 hide
+      assert.equal(doc.count('pointerdown'), 0);
+      assert.equal(doc.count('scroll'), 0);
 
       doc.fire('pointerover', hover(fakeTrigger('说明')));
+      assert.equal(doc.count('scroll'), 1, '气泡建出来后收起监听由控制器挂且只挂一份');
+      assert.equal(doc.count('pointerdown'), 1);
+
       detach();
       assert.equal(bubbles(doc).length, 0, '气泡应该从 body 上摘掉');
       for (const type of ['pointerover', 'pointerout', 'pointerdown', 'scroll']) {
@@ -306,6 +328,36 @@ describe('attachTipLayer —— 安装与拆除', () => {
       assert.equal(bubbles(doc).length, 1);
     } finally {
       second();
+      restore();
+    }
+  });
+
+  test('aria-description 契约不变：气泡不碰触发元素的 ARIA 属性', () => {
+    const { doc, restore } = withFakeDom();
+    const detach = attachTipLayer();
+    try {
+      // data-tip 是视觉说明，aria-description 是可读名；气泡只读 data-tip，绝不回写触发元素。
+      const attrs = new Map<string, string>([
+        ['data-tip', '说明'],
+        ['aria-description', '同一句话的可读名'],
+      ]);
+      interface Node {
+        getAttribute: (name: string) => string | null;
+        closest: (selector: string) => Node | null;
+        setAttribute: (name: string, value: string) => void;
+        removeAttribute: (name: string) => void;
+      }
+      const node: Node = {
+        getAttribute: (name) => attrs.get(name) ?? null,
+        closest: () => node,
+        setAttribute: (name, value) => void attrs.set(name, value),
+        removeAttribute: (name) => void attrs.delete(name),
+      };
+      doc.fire('pointerover', hover(node));
+      assert.equal(attrs.get('aria-description'), '同一句话的可读名');
+      assert.equal(attrs.get('data-tip'), '说明');
+    } finally {
+      detach();
       restore();
     }
   });

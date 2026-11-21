@@ -181,9 +181,9 @@ function injectAssets() {
   const menuStyle = document.createElement('style');
   menuStyle.textContent = S.MENU_CSS;
   document.head.appendChild(menuStyle);
-  // 悬浮提示样式（与浏览器注入同一份 TOOLTIP_CSS，取代命中层上的原生 title 提示）
+  // 悬浮提示样式（与浏览器注入同一份 TIP_BASE_CSS + TOOLTIP_CSS，取代命中层上的原生 title 提示）
   const tipStyle = document.createElement('style');
-  tipStyle.textContent = S.TOOLTIP_CSS;
+  tipStyle.textContent = S.TIP_BASE_CSS + '\n' + S.TOOLTIP_CSS;
   document.head.appendChild(tipStyle);
 }
 

@@ -128,8 +128,14 @@ Object.assign(PetSprite.prototype, {
     const now = performance.now();
     this.dragTrail.push({ t: now, x: toLocal(e.screenX), y: toLocal(e.screenY) });
     this.dragTrail = S.trimTrail(this.dragTrail, now);
-    // 弹簧目标 = 按下时的宠物位置 + 指针屏幕增量（窗口怎么动都不影响坐标），由 rAF 逐帧追赶
-    this.dragTarget = { x: d.petX + dx, y: d.petY + dy };
+    // 弹簧目标 = 按下时的宠物位置 + 指针屏幕增量（窗口怎么动都不影响坐标），由 rAF 逐帧追赶。
+    // 越过可用界限时逐轴呈阻力（越拖越沉）：界限来自 dragLimits()，与 fitWindow 的松手夹取同一条公式、
+    // 同一份 area、同一坐标系（VIEW 相对，见 window-fit.js::reachArea），因此松手不会跳。
+    const limits = this.dragLimits();
+    this.dragTarget = {
+      x: S.rubberband(d.petX + dx, limits.minX, limits.maxX),
+      y: S.rubberband(d.petY + dy, limits.minY, limits.maxY),
+    };
     this.startDragFollow();
   },
 
@@ -223,8 +229,12 @@ Object.assign(PetSprite.prototype, {
           );
           this.startThrow(px, py, vel.vx, vel.vy);
         } else {
-          // customPos 语义 = 宠物中心的比例（position() 用 rx*W - halfW 还原左上角），松手无边界夹取
-          this.customPos = { rx: (px + this.halfW) / VIEW.w, ry: (py + this.halfH) / VIEW.h };
+          // 松手落位也过同一份界限（clampBodyToArea）：橡皮筋允许拖到界外显示，但落点必须落在
+          // 「松手夹取的界限」内，否则位置停在界外——下次按下的第一个 pointermove 会把它夹回来，
+          // 看着像宠物向界内倒抽一段。
+          const land = this.clampBodyToArea(px, py);
+          // customPos 语义 = 宠物中心的比例（position() 用 rx*W - halfW 还原左上角）
+          this.customPos = { rx: (land.x + this.halfW) / VIEW.w, ry: (land.y + this.halfH) / VIEW.h };
           this.position();
           // 释放后的最终窗口位置：冒烟断言「释放不位移」用
           window.__dshPetDebug.lastDragRelease = { x: this.pos.x, y: this.pos.y };

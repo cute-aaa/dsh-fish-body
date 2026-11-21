@@ -5,7 +5,7 @@
  * @module dsh-fish-body/src/client/pet/card/drag
  */
 import { createDrag, type Drag, type DragCard } from '../motion/drag.ts';
-import { boxToRatio, clampReachableBox } from '../motion/geometry.ts';
+import { boxToRatio, clampReachableBox, reachableLimits } from '../motion/geometry.ts';
 import { playPetHook, playPetSlot } from '../sfx.ts';
 import type { CardLive } from './live.ts';
 import type { CardMotion } from './motion.ts';
@@ -98,6 +98,12 @@ export function createCardDrag(rt: CardDragRuntime) {
         setTipOn,
         root,
         box: () => motion.box(),
+        // 拖拽阻力用的界限：与 commitPlace 的夹取同一份算法（同一视口、同一命中区），
+        // 否则「拖到边缘有阻力」之后松手仍会跳一下。
+        dragLimits: () => {
+          const metrics = motion.metrics();
+          return reachableLimits({ width: window.innerWidth, height: window.innerHeight }, metrics);
+        },
         setBox: (box) => motion.setBox(box),
         commitPlace: (box) => {
           const metrics = motion.metrics();

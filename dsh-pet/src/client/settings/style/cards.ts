@@ -10,13 +10,13 @@
 /** 卡片层样式：卡片 → 卡头 → 小节 → 栅格 → 列表 → 折叠 → 头像 → 底部栏 → 弹窗。 */
 export const CARDS_CSS = [
   // 分区容器：卡片的纵向节奏由这里给，卡片自己不再带外边距。
-  '.dsh-pet-cfg__panel{display:flex;flex-direction:column;gap:var(--pcg-gap);min-width:0;animation:pcg-enter var(--pcg-dur) var(--pcg-ease)}',
+  '.dsh-pet-cfg__panel{display:flex;flex-direction:column;gap:var(--pcg-gap);min-width:0;animation:pcg-enter var(--pet-dur) var(--pet-ease)}',
   // 多卡分区包一层的容器：display:contents 让它不出盒子，子卡直接吃上面的纵向 flex。
   '.dsh-pet-cfg__group{display:contents}',
 
   '.dsh-pet-cfg__card{display:flex;flex-direction:column;gap:12px;padding:var(--pcg-pad-y) var(--pcg-pad-x);border:1px solid var(--dsw-alias-settings-card-stroke,var(--dsw-alias-border-l2));border-radius:var(--pcg-radius);background:var(--dsw-alias-settings-card-fill,transparent);min-width:0}',
   '.dsh-pet-cfg__cardHead{display:flex;align-items:center;gap:6px;min-height:20px;min-width:0}',
-  '.dsh-pet-cfg__cardTitle{font-size:var(--pcg-fs-title);font-weight:500;line-height:20px;color:var(--dsw-alias-label-primary);min-width:0}',
+  '.dsh-pet-cfg__cardTitle{font-size:var(--pcg-fs-title);letter-spacing:var(--pet-tracking-title);font-weight:500;line-height:20px;color:var(--dsw-alias-label-primary);min-width:0}',
   // 卡头右侧动作（打开文件夹 / 删除这只）。标题与问号保持左对齐，动作贴右。
   '.dsh-pet-cfg__cardActions{display:flex;align-items:center;gap:6px;margin-left:auto;flex:none}',
 
@@ -45,7 +45,7 @@ export const CARDS_CSS = [
 
   // 卡片正文里的说明：11–12px 三级色，最多三行，用来替掉过去每个字段挂一个问号的做法。
   '.dsh-pet-cfg__note{margin:0;font-size:var(--pcg-fs-label);line-height:18px;color:var(--dsw-alias-label-tertiary)}',
-  '.dsh-pet-cfg__note.is-tight{font-size:var(--pcg-fs-meta);line-height:16px}',
+  '.dsh-pet-cfg__note.is-tight{font-size:var(--pcg-fs-meta);letter-spacing:var(--pet-tracking-meta);line-height:16px}',
   // 「需重启插件后生效」：与普通说明同尺寸，但换成主色——
   // 它说的是「你现在看到的还不是最终效果」，压成三级灰会被当成又一条可以忽略的提示。
   '.dsh-pet-cfg__note.is-restart{color:var(--dsw-alias-state-business-primary)}',
@@ -68,25 +68,25 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__avatarPick{position:relative;display:block;border-radius:var(--pcg-radius)}',
   // 键盘可达：input 铺满整块且透明（display:none 会让它不可聚焦）；焦点与悬浮一样出遮罩。
   '.dsh-pet-cfg__avatarPick:focus-within{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}',
-  '.dsh-pet-cfg__avatarMask{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:var(--pcg-radius);background:var(--dsw-alias-bg-mask-2);color:var(--dsw-static-neutral-00);font-size:var(--pcg-fs-label);line-height:1;opacity:0;transition:opacity var(--pcg-dur-fast);pointer-events:none}',
+  '.dsh-pet-cfg__avatarMask{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:var(--pcg-radius);background:var(--dsw-alias-bg-mask-2);color:var(--dsw-static-neutral-00);font-size:var(--pcg-fs-label);line-height:1;opacity:0;transition:opacity var(--pet-dur-fast);pointer-events:none}',
   '.dsh-pet-cfg__avatarPick:hover .dsh-pet-cfg__avatarMask,.dsh-pet-cfg__avatarPick:focus-within .dsh-pet-cfg__avatarMask,.dsh-pet-cfg__avatarMask.is-busy{opacity:1}',
   '.dsh-pet-cfg__file{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}',
 
   // 折叠卡：标题行常驻，正文收进裁剪层。高度过渡走 grid-template-rows 的 0fr→1fr，不猜 max-height。
   '.dsh-pet-cfg__card.is-fold{gap:0}',
   '.dsh-pet-cfg__foldToggle{display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0;min-height:20px;padding:0;border:none;border-radius:4px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;outline:none}',
-  '.dsh-pet-cfg__foldToggle:focus-visible{box-shadow:0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}',
+  '.dsh-pet-cfg__foldToggle:focus-visible{box-shadow:var(--pet-focus-ring)}',
   // 箭头用小三角而不是字符：不依赖字体、缩进也不受行高影响。
-  '.dsh-pet-cfg__chevron{flex:none;margin-left:auto;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;color:var(--dsw-alias-label-tertiary);transition:transform var(--pcg-dur-fast) var(--pcg-ease)}',
+  '.dsh-pet-cfg__chevron{flex:none;margin-left:auto;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;color:var(--dsw-alias-label-tertiary);transition:transform var(--pet-dur-fast) var(--pet-ease)}',
   '.dsh-pet-cfg__chevron.is-open{transform:rotate(180deg)}',
-  '.dsh-pet-cfg__fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--pcg-dur) var(--pcg-ease)}',
+  '.dsh-pet-cfg__fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--pet-dur) var(--pet-ease)}',
   '.dsh-pet-cfg__card.is-open .dsh-pet-cfg__fold{grid-template-rows:1fr}',
   '.dsh-pet-cfg__foldClip{min-height:0;overflow:hidden}',
   '.dsh-pet-cfg__foldBody{display:flex;flex-direction:column;gap:10px;padding-top:10px}',
 
   // 列表行（音效槽 / hook）：一行一件事，主体在上、元信息收进折叠。
   '.dsh-pet-cfg__rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 12px;min-width:0}',
-  '.dsh-pet-cfg__row{display:flex;flex-direction:column;gap:2px;min-width:0;padding:5px 8px;border-radius:var(--pcg-radius-sm);transition:background var(--pcg-dur-fast) var(--pcg-ease)}',
+  '.dsh-pet-cfg__row{display:flex;flex-direction:column;gap:2px;min-width:0;padding:5px 8px;border-radius:var(--pcg-radius-sm);transition:background var(--pet-dur-fast) var(--pet-ease)}',
   '@media (hover:hover){.dsh-pet-cfg__row:hover{background:var(--dsw-alias-interactive-bg-hover)}}',
   '.dsh-pet-cfg__rowMain{display:flex;align-items:center;gap:6px;min-width:0}',
   // 行内右侧聚成一簇：来源徽标 + 动作贴右，两者相邻。过去动作靠 margin-left:auto 单独贴边，
@@ -96,8 +96,8 @@ export const CARDS_CSS = [
   // 状态徽标：未匹配 / 已登记 / 内置触发点这类「一句话事实」。
   '.dsh-pet-cfg__badge{flex:none;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);font-size:10px;line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}',
   '.dsh-pet-cfg__badge.is-warn{border-color:var(--dsw-alias-state-warn-secondary);color:var(--dsw-alias-state-warn-label)}',
-  '.dsh-pet-cfg__rowMeta{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;min-width:0;font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary)}',
-  '.dsh-pet-cfg__mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;user-select:text}',
+  '.dsh-pet-cfg__rowMeta{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;min-width:0;font-size:var(--pcg-fs-meta);letter-spacing:var(--pet-tracking-meta);line-height:16px;color:var(--dsw-alias-label-tertiary)}',
+  '.dsh-pet-cfg__mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-meta);letter-spacing:var(--pet-tracking-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;user-select:text}',
   '.dsh-pet-cfg__hookRow{display:flex;align-items:center;gap:6px;min-width:0;padding:5px 8px;border-radius:var(--pcg-radius-sm)}',
 
   // 会话鱼预览：媒体框 + 一行尺寸/皮肤说明。媒体框沿用 `.dsh-session-fish-preview`（与浮层同一套外观），
@@ -127,7 +127,7 @@ export const CARDS_CSS = [
   // 名字可选中复制：排障时用户要能直接把 logs.txt 的路径贴出来。
   '.dsh-pet-cfg__treeName{grid-column:2;color:var(--dsw-alias-label-primary);font-weight:400;white-space:nowrap;user-select:text}',
   // 说明：次要色、小半档，长度不受限（换行而不是省略号）。
-  '.dsh-pet-cfg__treeDesc{grid-column:3;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:var(--pcg-fs-meta);line-height:16px;word-break:break-word}',
+  '.dsh-pet-cfg__treeDesc{grid-column:3;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:var(--pcg-fs-meta);letter-spacing:var(--pet-tracking-meta);line-height:16px;word-break:break-word}',
   '.dsh-pet-cfg__treeRow>.dsh-pet-cfg__folderBtn{grid-column:4;justify-self:start}',
   // 还没产生的目录降一级：与「有东西」区分开，避免用户去找不存在的文件夹。
   '.dsh-pet-cfg__treeRow.is-missing .dsh-pet-cfg__treeName{color:var(--dsw-alias-label-tertiary)}',
@@ -138,7 +138,7 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__treeRow.is-root .dsh-pet-cfg__treeDesc{grid-column:2}',
   '.dsh-pet-cfg__treeRow.is-root>.dsh-pet-cfg__folderBtn{grid-column:3}',
   // 只读参考那一组的徽标：只靠描边与字色区分，不上底色（一列徽标涂色会盖过目录名）。
-  '.dsh-pet-cfg__treeBadge{grid-column:4;justify-self:start;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);font-size:var(--pcg-fs-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}',
+  '.dsh-pet-cfg__treeBadge{grid-column:4;justify-self:start;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-pill);font-size:var(--pcg-fs-meta);letter-spacing:var(--pet-tracking-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}',
 
   // 快捷键的键帽：看着像一颗键，点一下进捕获态。等宽字体 + 固定最小宽度，改绑后整列不会跳。
   '.dsh-pet-cfg__keycap{min-width:64px;padding:2px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--pcg-radius-sm);background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-primary);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-meta);line-height:18px;cursor:pointer;white-space:nowrap}',
@@ -178,9 +178,9 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__banner.is-err{border-color:var(--dsw-alias-state-error-secondary);color:var(--dsw-alias-state-error-primary)}',
 
   // 确认弹窗：遮罩 + 居中卡片；入场只动透明度与 6px 位移。
-  '.dsh-pet-cfg__mask{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:var(--dsw-alias-bg-mask-2);animation:pcg-fade var(--pcg-dur-fast) ease}',
-  '.dsh-pet-cfg__dialog{display:flex;flex-direction:column;gap:12px;width:360px;max-width:calc(100vw - 40px);padding:16px 18px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--pcg-radius);background:var(--dsw-alias-bg-layer-1);box-shadow:var(--dsw-elevation-prominent);animation:pcg-enter var(--pcg-dur) var(--pcg-ease)}',
-  '.dsh-pet-cfg__dialogTitle{font-size:var(--pcg-fs-title);font-weight:500;line-height:20px;color:var(--dsw-alias-label-primary)}',
+  '.dsh-pet-cfg__mask{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:var(--dsw-alias-bg-mask-2);animation:pcg-fade var(--pet-dur-fast) var(--pet-ease)}',
+  '.dsh-pet-cfg__dialog{display:flex;flex-direction:column;gap:12px;width:360px;max-width:calc(100vw - 40px);padding:16px 18px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--pcg-radius);background:var(--dsw-alias-bg-layer-1);box-shadow:var(--dsw-elevation-prominent);animation:pcg-enter var(--pet-dur) var(--pet-ease)}',
+  '.dsh-pet-cfg__dialogTitle{font-size:var(--pcg-fs-title);letter-spacing:var(--pet-tracking-title);font-weight:500;line-height:20px;color:var(--dsw-alias-label-primary)}',
   '.dsh-pet-cfg__dialogBody{font-size:var(--pcg-fs-body);line-height:20px;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}',
   '.dsh-pet-cfg__dialogActions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}',
   // 导入音色弹窗比确认框宽：六格表单（权重 / 另一侧 / 参考音频 / 文本 / id / 目标）在 360px 会挤成一条缝。
@@ -216,4 +216,7 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__bar{gap:6px}',
   '.dsh-pet-cfg__bar .dsh-pet-cfg__btn{flex:1 1 auto}',
   '}',
+  // 高对比度偏好：卡片边界是本页唯一的分组信号，系统要求更高对比时把它升到 L3。
+  // 不加深色底、不改字色——那会把整页变成另一套配色，与宿主的对比度档位互相打架。
+  '@media (prefers-contrast: more){.dsh-pet-cfg__card{border-color:var(--dsw-alias-border-l3)}}',
 ].join('\n');

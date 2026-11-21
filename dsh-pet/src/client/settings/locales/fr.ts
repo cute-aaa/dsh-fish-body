@@ -200,8 +200,8 @@ export const fr: Record<Key, string> = {
   fsLocationAgain: 'Choisir a nouveau',
   fsLocationMoving: 'Deplacement vers {to}',
   fsLocationDone: 'Deplace vers {to}',
-  fsLocationNeedsRestart: 'Effectif apres un redemarrage du plugin',
-  fsLocationRestart: 'Redemarrer',
+  fsLocationNeedsRestart: 'Déplacé : redémarrez le plugin pour utiliser le nouvel emplacement',
+  fsLocationRestart: 'Redémarrer le plugin',
   fsLocationFailed: "Le deplacement n'a pas abouti : {reason}",
   fsLocationBusy: 'Le deplacement precedent est encore en cours — reessayez ensuite.',
   fsLocationUnsupported: 'Cette machine ne peut pas ouvrir de selecteur de dossier ; saisissez le chemin.',
@@ -218,20 +218,21 @@ export const fr: Record<Key, string> = {
   fsRuntimeMirror: 'miroir {host}',
   fsRuntimeHint:
     "Les fenetres de bureau en ont besoin. S'il manque, le plugin le telecharge automatiquement ; vous pouvez aussi pointer vers une copie existante.",
-  fsRuntimeNeedTitle: 'Runtime Electron requis',
+  fsRuntimeNeedTitle: 'Les fenêtres de bureau ont besoin du runtime Electron',
   fsRuntimeNeedBody:
-    'Les fenetres de bureau fonctionnent avec Electron. Le telechargement a demarre automatiquement (environ 350 Mo via un miroir adapte a la Chine) ; si vous avez deja une copie locale, pointez le plugin dessus.',
+    'Les fenêtres de bureau fonctionnent avec Electron. Le téléchargement a démarré automatiquement (environ 350 Mo via un miroir adapté à la Chine) ; si une copie existe déjà sur cette machine, indiquez ce dossier au plugin.',
   fsRuntimeNeedFailed: 'Le telechargement automatique a echoue : {reason}',
   fsRuntimeNeedDeleted:
     'Le runtime Electron installe a disparu (peut-etre supprime a la main) : les fenetres de bureau ne peuvent pas demarrer.',
   fsRuntimeNeedKnow: 'Compris',
-  fsRuntimeRetry: 'Relancer le telechargement',
+  fsRuntimeRetry: 'Relancer le téléchargement du runtime',
 
   saved: 'Enregistré — les compagnons sont à jour immédiatement.',
-  loadError: 'Échec du chargement de la configuration',
+  loadError: 'Impossible de charger la configuration : vérifiez que le plugin tourne, puis réessayez',
   saveError:
-    "Échec de l'enregistrement de la configuration. Vérifiez la connexion au serveur, les droits d'écriture du dossier de configuration et le journal du serveur.",
-  saveInvalid: "Échec de l'enregistrement : configuration invalide. Vérifiez les valeurs et réessayez.",
+    "Échec de l'enregistrement : le plugin n'a pas répondu. Vérifiez qu'il tourne encore, puis cliquez de nouveau sur Enregistrer.",
+  saveInvalid:
+    'Échec de l’enregistrement : la configuration est invalide. Corrigez les valeurs modifiées, puis réessayez.',
   loading: 'Chargement de la configuration…',
   retry: 'Réessayer',
   invalid: "Vérifiez votre saisie : la taille doit être positive ; les marges peuvent être n'importe quel nombre.",

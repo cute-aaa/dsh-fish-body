@@ -43,7 +43,7 @@ export const ja: Record<Key, string> = {
   composerImageAlt: '送信する画像',
   speakGenerate: '音声を生成しています…',
   speakPlaying: '再生中',
-  speakFailed: '再生に失敗しました。クリックで再試行',
+  speakFailed: 'この一文を再生できませんでした。クリックで再生し直します',
   speakPlay: 'このメッセージを再生',
   speakAction: 'アクションを再生：{name}',
   imageOpen: 'クリックして拡大表示',

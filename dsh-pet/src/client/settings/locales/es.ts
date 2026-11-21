@@ -201,8 +201,8 @@ export const es: Record<Key, string> = {
   fsLocationAgain: 'Elegir otra vez',
   fsLocationMoving: 'Moviendo a {to}',
   fsLocationDone: 'Movido a {to}',
-  fsLocationNeedsRestart: 'Se aplica tras reiniciar el plugin',
-  fsLocationRestart: 'Reiniciar ahora',
+  fsLocationNeedsRestart: 'Ya está en la nueva ubicación: reinicia el plugin para que se aplique',
+  fsLocationRestart: 'Reiniciar el plugin ahora',
   fsLocationFailed: 'La mudanza no termino: {reason}',
   fsLocationBusy: 'La mudanza anterior sigue en curso; intentalo cuando acabe.',
   fsLocationUnsupported: 'Esta maquina no puede abrir un selector de carpetas; escribe la ruta.',
@@ -219,20 +219,20 @@ export const es: Record<Key, string> = {
   fsRuntimeMirror: 'espejo {host}',
   fsRuntimeHint:
     'Las ventanas de escritorio lo necesitan. Si falta, el plugin lo descarga solo; tambien puedes apuntarlo a una copia que ya tengas.',
-  fsRuntimeNeedTitle: 'Se necesita el runtime de Electron',
+  fsRuntimeNeedTitle: 'Las ventanas de escritorio necesitan el runtime de Electron',
   fsRuntimeNeedBody:
-    'Las ventanas de escritorio funcionan con Electron. La descarga ya empezo automaticamente (unos 350 MB desde un espejo adaptado a China); si ya tienes una copia local, indica esa carpeta.',
+    'Las ventanas de escritorio funcionan con Electron. La descarga ya empezó automáticamente (unos 350 MB desde un espejo adaptado a China); si ya tienes una copia local, indica esa carpeta.',
   fsRuntimeNeedFailed: 'La descarga automatica fallo: {reason}',
   fsRuntimeNeedDeleted:
     'El runtime de Electron instalado desaparecio (quizas borrado a mano); por eso las ventanas de escritorio no arrancan.',
   fsRuntimeNeedKnow: 'Entendido',
-  fsRuntimeRetry: 'Reintentar descarga',
+  fsRuntimeRetry: 'Descargar el runtime de nuevo',
 
   saved: 'Guardado: las mascotas se actualizaron al instante.',
-  loadError: 'No se pudo cargar la configuración',
-  saveError:
-    'No se pudo guardar la configuración. Revisa la conexión con el servidor, los permisos de escritura del directorio de configuración y el registro del servidor.',
-  saveInvalid: 'No se pudo guardar la configuración: el contenido no es válido. Revísalo e inténtalo de nuevo.',
+  loadError: 'No se pudo cargar la configuración: comprueba que el plugin siga en marcha y pulsa «Reintentar»',
+  saveError: 'No se pudo guardar: el plugin no respondió. Comprueba que siga en marcha y vuelve a guardar.',
+  saveInvalid:
+    'No se pudo guardar: la configuración no es válida. Corrige los valores que cambiaste y vuelve a guardar.',
   loading: 'Cargando configuración…',
   retry: 'Reintentar',
   invalid: 'Revisa los datos: el tamaño debe ser positivo; los márgenes pueden ser cualquier número.',

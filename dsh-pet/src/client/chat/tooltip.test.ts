@@ -123,9 +123,9 @@ function withFakeDom(): { doc: FakeDocument; win: FakeWindow; restore: () => voi
   };
 }
 
-/** 当前挂在 body 上的气泡（按 class 认，不依赖下标）。 */
+/** 当前挂在 body 上的气泡（class 里带 TIP_CLASS 那一个；基类 pet-tip-base 也在同一串里）。 */
 function tips(doc: FakeDocument): FakeEl[] {
-  return doc.body.children.filter((el) => el.attrs.get('class') === TIP_CLASS);
+  return doc.body.children.filter((el) => (el.attrs.get('class') ?? '').split(' ').includes(TIP_CLASS));
 }
 
 afterEach(() => {
@@ -141,6 +141,7 @@ describe('tipAttrs —— 悬停时的 body 层气泡', () => {
 
       const bubble = tips(doc);
       assert.equal(bubble.length, 1, '气泡应该挂在 body 上（列表是滚动容器，挂在里面会被裁掉）');
+      assert.equal(bubble[0].attrs.get('class'), 'pet-tip-base ' + TIP_CLASS, '基类提供定位与显隐，本类提供外观');
       assert.equal(bubble[0].attrs.get('role'), 'tooltip');
       assert.equal(bubble[0].textContent, '播放这句');
       assert.equal(bubble[0].classList.contains('is-on'), true);
@@ -204,10 +205,11 @@ describe('tipAttrs —— 悬停时的 body 层气泡', () => {
   });
 
   test('滚动或被按下：气泡立刻收起（fixed 定位不会跟着内容走，留着就错位）', () => {
-    const { doc, win, restore } = withFakeDom();
+    const { doc, restore } = withFakeDom();
     try {
       tipAttrs('播放这句').onMouseEnter({ clientX: 100, clientY: 100 });
-      win.fire('scroll');
+      // 收起监听由共享控制器挂在 document 上（capture）：元素自身的滚动不冒泡，只有捕获收得到。
+      doc.fire('scroll');
       assert.equal(tips(doc)[0].classList.contains('is-on'), false);
 
       tipAttrs('播放这句').onMouseEnter({ clientX: 100, clientY: 100 });
@@ -226,20 +228,20 @@ describe('tipAttrs —— 悬停时的 body 层气泡', () => {
 
 describe('disposeTip —— 卸载回收', () => {
   test('摘掉气泡与全局监听，之后重新悬停能再建一个', () => {
-    const { doc, win, restore } = withFakeDom();
+    const { doc, restore } = withFakeDom();
     try {
       tipAttrs('播放这句').onMouseEnter({ clientX: 100, clientY: 100 });
-      assert.equal(win.count('scroll'), 1);
+      assert.equal(doc.count('scroll'), 1);
       assert.equal(doc.count('pointerdown'), 1);
 
       disposeTip();
       assert.equal(tips(doc).length, 0, '气泡应该从 body 上摘掉');
-      assert.equal(win.count('scroll'), 0);
+      assert.equal(doc.count('scroll'), 0);
       assert.equal(doc.count('pointerdown'), 0);
 
       tipAttrs('播放这句').onMouseEnter({ clientX: 100, clientY: 100 });
       assert.equal(tips(doc).length, 1, '卸载只是回收，不是停用');
-      assert.equal(win.count('scroll'), 1, '监听不能重复叠加');
+      assert.equal(doc.count('scroll'), 1, '监听不能重复叠加');
     } finally {
       restore();
     }

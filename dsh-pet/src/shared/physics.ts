@@ -62,5 +62,6 @@ export {
   trimTrail,
 } from './physics/release.ts';
 export { softClampSpeed, springStep } from './physics/spring.ts';
+export { RUBBER_C, rubberband } from './physics/rubberband.ts';
 export { bodyPixelBox, collidePet, overlapPush, rectsOverlap } from './physics/collide.ts';
 export type { PetCollider, PetCollisionSlot } from './physics/collide.ts';

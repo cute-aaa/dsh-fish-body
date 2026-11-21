@@ -88,6 +88,44 @@ export function boxToRatio(box: BoxPoint, viewport: Viewport, half: HalfSize): C
 }
 
 /**
+ * 越界摆放的可用界限（与 viewport 同坐标系，px）。
+ *
+ * 拖拽阻力（`shared/physics/rubberband`）与松手夹取（{@link clampReachableBox}）都用它：
+ * 阻力只改变「拖的过程」，松手仍按这条界限夹取，两者不同源就会在松手瞬间跳一下。
+ */
+export interface BoxLimits {
+  /** 盒左上角可到的最小 x。 */
+  minX: number;
+  /** 盒左上角可到的最大 x。 */
+  maxX: number;
+  /** 盒左上角可到的最小 y。 */
+  minY: number;
+  /** 盒左上角可到的最大 y。 */
+  maxY: number;
+}
+
+/**
+ * 算出越界摆放的界限：命中区至少还可见 {@link MIN_REACHABLE_PX}，其余部分可以挂出视口。
+ *
+ * @param viewport - 视口尺寸。
+ * @param body - 命中区的三个输入：宠物宽度、舞台脚垫与渲染方式。
+ * @returns 两个轴的闭区间（px）。
+ */
+export function reachableLimits(
+  viewport: Viewport,
+  body: { size: number; bottomPad: number; renderer?: RendererKind | undefined },
+): BoxLimits {
+  // 命中区相对盒原点的偏移直接问 bodyPixelBox：本文件不重复命中框的比例换算。
+  const inset = bodyPixelBox({ x: 0, y: 0, size: body.size, bottomPad: body.bottomPad, renderer: body.renderer });
+  return {
+    minX: MIN_REACHABLE_PX - inset.right,
+    maxX: viewport.width - inset.left - MIN_REACHABLE_PX,
+    minY: MIN_REACHABLE_PX - inset.bottom,
+    maxY: viewport.height - inset.top - MIN_REACHABLE_PX,
+  };
+}
+
+/**
  * 把越界摆放的盒子收到「命中区至少还可见 {@link MIN_REACHABLE_PX}」。
  *
  * 只压单轴的一侧，不要求完整可见：宠物仍能挂在边缘，只是不会整只消失。
@@ -102,16 +140,11 @@ export function clampReachableBox(
   viewport: Viewport,
   body: { size: number; bottomPad: number; renderer?: RendererKind | undefined },
 ): BoxPoint {
-  // 命中区相对盒原点的偏移直接问 bodyPixelBox：本文件不重复命中框的比例换算。
-  const inset = bodyPixelBox({ x: 0, y: 0, size: body.size, bottomPad: body.bottomPad, renderer: body.renderer });
-  const minX = MIN_REACHABLE_PX - inset.right;
-  const maxX = viewport.width - inset.left - MIN_REACHABLE_PX;
-  const minY = MIN_REACHABLE_PX - inset.bottom;
-  const maxY = viewport.height - inset.top - MIN_REACHABLE_PX;
+  const limits = reachableLimits(viewport, body);
   const height = (body.size * 9) / 16;
   return {
-    x: clampAxis(box.x, minX, maxX, (viewport.width - body.size) / 2),
-    y: clampAxis(box.y, minY, maxY, (viewport.height - height) / 2),
+    x: clampAxis(box.x, limits.minX, limits.maxX, (viewport.width - body.size) / 2),
+    y: clampAxis(box.y, limits.minY, limits.maxY, (viewport.height - height) / 2),
   };
 }
 

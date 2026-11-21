@@ -6,7 +6,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { HIT_BOX, MIN_REACHABLE_PX } from '../../../shared/constants.ts';
-import { bodyPixelBox } from '../../../shared/physics.ts';
+import { bodyPixelBox, rubberband } from '../../../shared/physics.ts';
 import {
   boxToRatio,
   centerToBox,
@@ -15,6 +15,7 @@ import {
   petHitStyle,
   petRootStyle,
   petStageStyle,
+  reachableLimits,
 } from './geometry.ts';
 
 const viewport = { width: 1280, height: 800 };
@@ -200,5 +201,40 @@ describe('clampReachableBox —— 越界摆放的可见下限', () => {
     const seen = visible(box);
     assert.ok(Math.abs(seen.w - MIN_REACHABLE_PX) < 1e-9, `可见宽应为 ${MIN_REACHABLE_PX}`);
     assert.ok(Math.abs(seen.h - MIN_REACHABLE_PX) < 1e-9, `可见高应为 ${MIN_REACHABLE_PX}`);
+  });
+});
+
+describe('reachableLimits —— 与 clampReachableBox 同源', () => {
+  const size = 462;
+  const { bottomPad } = derivePetMetrics(size);
+  const limits = reachableLimits(viewport, { size, bottomPad });
+  const arms = [
+    { x: -5000, y: 200 },
+    { x: 5000, y: 200 },
+    { x: 200, y: -5000 },
+    { x: 200, y: 5000 },
+    { x: 400, y: 300 },
+  ];
+
+  test('同一输入下，夹取结果就是按 limits 夹取（拖拽阻力与松手夹取不会各算一套）', () => {
+    for (const box of arms) {
+      const clamped = clampReachableBox(box, viewport, { size, bottomPad });
+      assert.equal(clamped.x, Math.min(Math.max(box.x, limits.minX), limits.maxX), `x：${JSON.stringify(box)}`);
+      assert.equal(clamped.y, Math.min(Math.max(box.y, limits.minY), limits.maxY), `y：${JSON.stringify(box)}`);
+    }
+  });
+
+  test('阻力曲线在界限处恒等：合法落点一个像素都不改', () => {
+    for (const value of [limits.minX, (limits.minX + limits.maxX) / 2, limits.maxX]) {
+      assert.equal(rubberband(value, limits.minX, limits.maxX), value);
+    }
+    for (const value of [limits.minY, (limits.minY + limits.maxY) / 2, limits.maxY]) {
+      assert.equal(rubberband(value, limits.minY, limits.maxY), value);
+    }
+  });
+
+  test('越界仍有落点：阻力不会把盒子锁在界限上（留给松手夹取收口）', () => {
+    assert.ok(rubberband(limits.maxX + 200, limits.minX, limits.maxX) > limits.maxX);
+    assert.ok(rubberband(limits.minX - 200, limits.minX, limits.maxX) < limits.minX);
   });
 });

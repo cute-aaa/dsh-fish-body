@@ -7,6 +7,18 @@
  */
 'use strict';
 
+/**
+ * 单轴钳制：`max < min`（本体比工作区还大）时贴住起点，与 shared/motion.js 的 clampAxis 同口径。
+ *
+ * @param {number} want - 期望值。
+ * @param {number} min - 下界。
+ * @param {number} max - 上界。
+ * @returns {number} 夹进 `[min, max]` 的值（退化区间取 `min`）。
+ */
+function clampBodyAxis(want, min, max) {
+  return Math.min(Math.max(want, min), Math.max(min, max));
+}
+
 Object.assign(PetSprite.prototype, {
   /**
    * 越界允许量：命中区至少留 MIN_REACHABLE_PX 在屏幕内，其余部分可以挂到屏幕外。
@@ -21,6 +33,45 @@ Object.assign(PetSprite.prototype, {
       right: this.size - hit.x - keep,
       top: hit.y + hit.h - keep,
       bottom: this.winH - hit.y - keep,
+    };
+  },
+
+  /**
+   * 拖拽与落位用的工作区：**与 `this.pos` 同坐标系**（VIEW 相对）。
+   *
+   * VIEW 与 WORK_AREAS 本身就是视口相对矩形（constants.js 的 applyDeskGeometry 已按 −VIEW.x/−VIEW.y 平移），
+   * `this.pos` 也是相对 VIEW 的（position() 按比例还原、sendBounds 取 fit.x + offsetX）。所以非钳制平台
+   * 的「整块视口就是可用范围」必须写成原点 0，不能写 VIEW.x：副屏在左时 VIEW.x = −1920，会把这层偏移
+   * 再算一次，右边界提前一个屏宽——宠物刚过中线就撞进高阻力区，右侧那块屏拖不过去。
+   */
+  reachArea() {
+    if (CONFIG.isWindowClampedToWorkArea) {
+      const area = S.resolveRect(WORK_AREAS, this.pos.x + this.halfW, this.pos.y + this.halfH);
+      if (area) return area;
+    }
+    return { x: 0, y: 0, width: VIEW.w, height: VIEW.h };
+  },
+
+  /**
+   * 拖拽界限：与松手夹取（fitWindow → fitWindowInArea → reachLimits）同一条公式、同一份 area。
+   * 阻力只改「拖的过程」，落点由同一条界限决定，两者不一致就会在松手瞬间跳一下。
+   */
+  dragLimits() {
+    return S.reachLimits({
+      area: this.reachArea(),
+      bodyWidth: this.size,
+      // 纵向是「精灵总高」（含脚底透明垫），与 fitWindow 的 bodyHeight 同基准
+      bodyHeight: this.winH,
+      reach: this.reachInset(),
+    });
+  },
+
+  /** 把本体左上角夹进 {@link PetSprite#dragLimits}：界外松手不许把位置留在界外（下次按下会被夹回 = 倒抽）。 */
+  clampBodyToArea(x, y) {
+    const limits = this.dragLimits();
+    return {
+      x: clampBodyAxis(x, limits.minX, limits.maxX),
+      y: clampBodyAxis(y, limits.minY, limits.maxY),
     };
   },
 

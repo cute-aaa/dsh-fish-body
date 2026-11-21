@@ -89,15 +89,21 @@ function withFakeDom(): { doc: FakeDocument; restore: () => void } {
 }
 
 describe('injectSettingsCss —— 设置页样式注入', () => {
-  test('首次注入：head 里出现一个带 dsh-pet 标记的 style，且两族类名都在', () => {
+  /** 按去重标记取那一个 style：令牌层也在 head 里，不能按下标认。 */
+  function styleOf(doc: FakeDocument, pluginCss: string): El {
+    const found = doc.head.children.find((el) => el.attrs.get('data-plugin-css') === pluginCss);
+    assert.ok(found !== undefined, '没有找到 ' + pluginCss);
+    return found;
+  }
+
+  test('首次注入：head 里出现令牌层与设置页两份 style，两族类名都在', () => {
     const { doc, restore } = withFakeDom();
     try {
       injectSettingsCss();
-      assert.equal(doc.head.children.length, 1, '应只注入一个 style');
-      const [tag] = doc.head.children;
+      assert.equal(doc.head.children.length, 2, '令牌层 + 设置页各一份');
+      const tag = styleOf(doc, 'dsh-pet/settings.css');
       assert.equal(tag.tag, 'style');
       assert.equal(tag.dataset.plugin, 'dsh-pet');
-      assert.equal(tag.dataset.pluginCss, 'dsh-pet/settings.css');
       assert.ok(tag.textContent.includes('.dsh-pet-mp__trigger'), '模型选择器的样式必须在');
       assert.ok(tag.textContent.includes('.dsh-pet-cfg__inp'), '配置卡片表单的样式必须在');
       assert.ok(tag.textContent.includes('.dsh-pet-cfg__bar{'), '底部操作栏必须贴底常显');
@@ -115,13 +121,53 @@ describe('injectSettingsCss —— 设置页样式注入', () => {
     }
   });
 
+  test('动效不再由本页定义：pcg-dur / pcg-ease 已删，改用跨表面令牌', () => {
+    const { doc, restore } = withFakeDom();
+    try {
+      injectSettingsCss();
+      const tag = styleOf(doc, 'dsh-pet/settings.css');
+      assert.equal(tag.textContent.includes('--pcg-dur'), false, '时长档应只剩 --pet-dur-*');
+      assert.equal(tag.textContent.includes('--pcg-ease'), false, '缓动应只剩 --pet-ease');
+      assert.ok(tag.textContent.includes('var(--pet-dur-fast)'), '过渡要真的用上令牌');
+      assert.ok(tag.textContent.includes('var(--pet-ease)'), '缓动要真的用上令牌');
+    } finally {
+      restore();
+    }
+  });
+
+  test('焦点环只有一个出口：六处都写 var(--pet-focus-ring)，没有内联拼串', () => {
+    const { doc, restore } = withFakeDom();
+    try {
+      injectSettingsCss();
+      const tag = styleOf(doc, 'dsh-pet/settings.css');
+      assert.ok(tag.textContent.includes('box-shadow:var(--pet-focus-ring)'), '焦点环走令牌');
+      assert.equal(tag.textContent.includes('0 0 0 2px var(--dsw-focus-ring-color'), false, '内联副本应全部收敛到令牌');
+    } finally {
+      restore();
+    }
+  });
+
+  test('高对比度档：卡片边界升到 L3', () => {
+    const { doc, restore } = withFakeDom();
+    try {
+      injectSettingsCss();
+      const tag = styleOf(doc, 'dsh-pet/settings.css');
+      assert.match(
+        tag.textContent,
+        /@media \(prefers-contrast: more\)\{\.dsh-pet-cfg__card\{border-color:var\(--dsw-alias-border-l3\)\}\}/,
+      );
+    } finally {
+      restore();
+    }
+  });
+
   test('重复注入：第二、三次调用都不再插入 style', () => {
     const { doc, restore } = withFakeDom();
     try {
       injectSettingsCss();
       injectSettingsCss();
       injectSettingsCss();
-      assert.equal(doc.head.children.length, 1, '去重标记失效会重复插入，样式规则成倍堆积');
+      assert.equal(doc.head.children.length, 2, '去重标记失效会重复插入，样式规则成倍堆积');
     } finally {
       restore();
     }

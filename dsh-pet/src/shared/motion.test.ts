@@ -6,7 +6,7 @@
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { anchorPixel, fitWindowInArea } from './motion.ts';
+import { anchorPixel, fitWindowInArea, reachLimits } from './motion.ts';
 
 /** 实测窗口尺寸：左右余量 0.5×size，上余量取气泡/待办面板高度的最大值。 */
 const WINDOW = { width: 880, height: 782 };
@@ -122,5 +122,44 @@ describe('fitWindowInArea —— 与角落定位拼起来的端到端落点', ()
     const fit = fitOf(body.x, body.y, { area: AREA });
     assert.equal(fit.x + fit.offsetX, 1456, '右：1920 − 440 − 24 = 1456');
     assert.equal(fit.y + fit.offsetY, 782.5, '底：1040 − 247.5 − 10 = 782.5');
+  });
+});
+
+describe('reachLimits —— 与 fitWindowInArea 同源', () => {
+  /** 与实现同口径的单轴夹取：区间反向时贴住起点。 */
+  const clamp = (want: number, min: number, max: number): number => Math.min(Math.max(want, min), Math.max(min, max));
+
+  const limitsOf = (reach?: { left: number; right: number; top: number; bottom: number }) =>
+    reachLimits({ area: AREA, bodyWidth: BODY.width, bodyHeight: BODY.height, reach });
+
+  test('不给 reach：四条界限就是工作区四边减本体尺寸（缺省不放宽）', () => {
+    assert.deepEqual(limitsOf(), {
+      minX: AREA.x,
+      maxX: AREA.width - BODY.width,
+      minY: AREA.y,
+      maxY: AREA.height - BODY.height,
+    });
+  });
+
+  test('给 reach：界限按越界允许量外扩', () => {
+    const reach = { left: 144, right: 144, top: 30, bottom: 60 };
+    assert.deepEqual(limitsOf(reach), {
+      minX: AREA.x - 144,
+      maxX: AREA.width - BODY.width + 144,
+      minY: AREA.y - 30,
+      maxY: AREA.height - BODY.height + 60,
+    });
+  });
+
+  test('同一份输入下，松手落点 = 界限夹取（阻力与夹取不会各算一套）', () => {
+    const reach = { left: 144, right: 144, top: 30, bottom: 60 };
+    const limits = limitsOf(reach);
+    for (const bodyX of [-500, 0, 700, 5000]) {
+      for (const bodyY of [-500, 0, 400, 5000]) {
+        const fit = fitOf(bodyX, bodyY, { area: AREA, reach });
+        assert.equal(fit.x + fit.offsetX, clamp(bodyX, limits.minX, limits.maxX), `x：bodyX=${bodyX}`);
+        assert.equal(fit.y + fit.offsetY, clamp(bodyY, limits.minY, limits.maxY), `y：bodyY=${bodyY}`);
+      }
+    }
   });
 });

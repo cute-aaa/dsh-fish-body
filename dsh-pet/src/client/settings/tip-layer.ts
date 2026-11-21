@@ -1,15 +1,17 @@
 /**
  * 设置页的悬浮说明气泡：把 `data-tip` 的悬停从 CSS 伪元素改成挂在 body 的单例气泡。
  *
- * 伪元素只能锚在触发元素上，右列与贴顶的说明会被窗口边缘或滚动容器裁掉；这里改用
- * `tooltipPlacement` 按光标摆位，越界先翻边、仍越界就夹回视口，两个方向都不会丢字。
+ * 伪元素只能锚在触发元素上，右列与贴顶的说明会被窗口边缘或滚动容器裁掉；这里用
+ * `shared/tooltip` 的共享控制器按光标摆位，越界先翻边、仍越界就夹回视口，两个方向都不会丢字。
  * 触发元素仍是 `data-tip` 属性（见 ./ui），本模块用事件委托统一接管，不逐个挂监听。
  * 全局状态只有一份监听与一个气泡：`attachTipLayer()` 装、它返回的函数拆，重复装返回同一份。
+ * 节点构造、尺寸实测、收起与「滚动/按下即收」的监听都在共享控制器里（与对话面板同一份实现），
+ * 本模块只管「谁触发、说什么」；收起后控制器回调回来作废本模块的记账，页面侧不再另挂同样的监听。
  * @module dsh-fish-body/src/client/settings/tip-layer
  */
-import { tooltipPlacement } from '../../shared/tooltip.ts';
+import { createTipBubble, type TipBubble } from '../../shared/tooltip.ts';
 
-/** 气泡 class，外观在 ./css。 */
+/** 气泡 class，外观在 ./css（定位与显隐在 shared/tooltip 的基类里）。 */
 const TIP_CLASS = 'pet-cfg-tip';
 
 /** 触发元素的属性名：选择器与取值都从它派生，改名只改一处。 */
@@ -36,8 +38,8 @@ interface HoverEvent {
   clientY: number;
 }
 
-/** 唯一的那个气泡；悬停很频繁，反复建删会让气泡闪。 */
-let bubble: HTMLDivElement | undefined;
+/** 唯一的那个气泡（共享控制器）；悬停很频繁，反复建删会让气泡闪。 */
+let bubble: TipBubble | undefined;
 
 /** 当前挂着气泡的触发元素，用于跳过「在同一元素内移动」的重复派发。 */
 let current: TipTrigger | undefined;
@@ -45,21 +47,20 @@ let current: TipTrigger | undefined;
 /** 这一层的解除函数；`undefined` 表示没装。 */
 let detach: (() => void) | undefined;
 
-/** 收起气泡：元素留着复用，只摘显隐。 */
-function hideTip(): void {
-  bubble?.classList.remove('is-on');
+/** 作废「当前元素」记账：气泡已被收起（含滚动/按下），同一元素再进入时应该重新出气泡。 */
+function forgetCurrent(): void {
   current = undefined;
 }
 
-/** 取气泡元素，没有就建一个挂到 body——挂在设置页里会被滚动容器裁掉。 */
-function ensureTip(): HTMLDivElement {
-  if (bubble !== undefined && bubble.parentNode === document.body) return bubble;
-  const el = document.createElement('div');
-  el.setAttribute('class', TIP_CLASS);
-  el.setAttribute('role', 'tooltip');
-  document.body.appendChild(el);
-  bubble = el;
-  return el;
+/** 收起气泡：元素留着复用，只摘显隐（`current` 由控制器的收起回调作废）。 */
+function hideTip(): void {
+  bubble?.hide();
+}
+
+/** 取共享控制器，第一次用时就地建；收起通知回流到本模块的记账。 */
+function tip(): TipBubble {
+  bubble ??= createTipBubble({ className: TIP_CLASS, gapPx: TIP_GAP_PX, onHide: forgetCurrent });
+  return bubble;
 }
 
 /** 从事件目标往上找触发元素；不在说明元素上时返回 `undefined`。 */
@@ -76,20 +77,7 @@ function triggerOf(node: EventTarget | null): TipTrigger | undefined {
  * @param cursor - 光标位置（视口坐标）。
  */
 function showTip(text: string, cursor: { x: number; y: number }): void {
-  const el = ensureTip();
-  el.textContent = text;
-  // 先归零再量：位置不定时量到的仍是真实宽高，不归零会按上一处坐标判断翻边
-  el.style.left = '0px';
-  el.style.top = '0px';
-  const placed = tooltipPlacement(
-    cursor,
-    { w: el.offsetWidth, h: el.offsetHeight },
-    { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight },
-    TIP_GAP_PX,
-  );
-  el.style.left = placed.x + 'px';
-  el.style.top = placed.y + 'px';
-  el.classList.add('is-on');
+  tip().show(text, cursor);
 }
 
 /** 光标进入触发元素：换一条说明就重摆，同一元素内移动不动。 */
@@ -119,17 +107,15 @@ export function attachTipLayer(): () => void {
   if (detach !== undefined) return detach;
   // 监听目标当场捕获：拆的时候全局可能已经不在（宿主换页、测试拆环境），不能回头再读 window
   const root = document;
+  // 只有「谁触发、说什么」两条归本模块；滚动/按下即收由共享控制器自己挂在 document 上（单出口），
+  // 它收起后经 onHide 回调作废 current，不需要页面再挂一份同样的监听。
   root.addEventListener('pointerover', onOver);
   root.addEventListener('pointerout', onOut);
-  root.addEventListener('pointerdown', hideTip);
-  // 滚动时气泡会僵在原地：capture 才能收听到设置页内容区自身的滚动
-  root.addEventListener('scroll', hideTip, true);
   detach = () => {
     root.removeEventListener('pointerover', onOver);
     root.removeEventListener('pointerout', onOut);
-    root.removeEventListener('pointerdown', hideTip);
-    root.removeEventListener('scroll', hideTip, true);
-    bubble?.remove();
+    // 控制器自己挂在 document 上的收起监听与节点一并回收
+    bubble?.dispose();
     bubble = undefined;
     current = undefined;
     detach = undefined;

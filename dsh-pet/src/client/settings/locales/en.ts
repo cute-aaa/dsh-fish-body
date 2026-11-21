@@ -197,8 +197,8 @@ export const en: Record<Key, string> = {
   fsLocationAgain: 'Choose again',
   fsLocationMoving: 'Moving to {to}',
   fsLocationDone: 'Moved to {to}',
-  fsLocationNeedsRestart: 'Takes effect after a plugin restart',
-  fsLocationRestart: 'Restart now',
+  fsLocationNeedsRestart: 'Moved — restart the plugin to use the new location',
+  fsLocationRestart: 'Restart the plugin now',
   fsLocationFailed: 'Move did not finish: {reason}',
   fsLocationBusy: 'The previous move is still running — try again once it finishes.',
   fsLocationUnsupported: 'This machine cannot show a system folder picker; type the path instead.',
@@ -215,20 +215,19 @@ export const en: Record<Key, string> = {
   fsRuntimeMirror: 'mirror {host}',
   fsRuntimeHint:
     'Desktop windows need it. When it is missing the plugin downloads it automatically; you can also point it at a copy you already have.',
-  fsRuntimeNeedTitle: 'Electron runtime needed',
+  fsRuntimeNeedTitle: 'Desktop windows need the Electron runtime',
   fsRuntimeNeedBody:
-    'Desktop windows run on Electron. The plugin has started downloading it automatically (about 350 MB, from a China-friendly mirror); if you already have a copy on this machine, point the plugin at it instead.',
+    'Desktop windows run on Electron. The plugin already started downloading it (about 350 MB via a China-friendly mirror); if this machine already has a copy, point the plugin at that folder instead.',
   fsRuntimeNeedFailed: 'The automatic download failed: {reason}',
   fsRuntimeNeedDeleted:
     'The installed Electron runtime is gone (it may have been deleted by hand), so desktop windows cannot start right now.',
   fsRuntimeNeedKnow: 'Got it',
-  fsRuntimeRetry: 'Retry download',
+  fsRuntimeRetry: 'Download the runtime again',
 
   saved: 'Saved — the pets updated instantly.',
-  loadError: 'Failed to load config',
-  saveError:
-    'Failed to save config. Check the server connection, configuration directory write permissions and server log.',
-  saveInvalid: 'Failed to save config: invalid configuration. Check the values and try again.',
+  loadError: 'Could not load the config — check the plugin is running, then retry',
+  saveError: 'Save failed: the plugin did not respond. Make sure it is still running, then click Save again.',
+  saveInvalid: 'Save rejected: the config is invalid. Fix the values you changed, then save again.',
   loading: 'Loading config…',
   retry: 'Retry',
   invalid: 'Check your input: size must be positive; margins can be any number.',

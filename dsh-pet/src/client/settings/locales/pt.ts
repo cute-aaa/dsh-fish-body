@@ -198,8 +198,8 @@ export const pt: Record<Key, string> = {
   fsLocationAgain: 'Escolher de novo',
   fsLocationMoving: 'Movendo para {to}',
   fsLocationDone: 'Movido para {to}',
-  fsLocationNeedsRestart: 'Passa a valer apos reiniciar o plugin',
-  fsLocationRestart: 'Reiniciar agora',
+  fsLocationNeedsRestart: 'Já está na nova pasta: reinicie o plugin para valer',
+  fsLocationRestart: 'Reiniciar o plugin agora',
   fsLocationFailed: 'A movimentacao nao terminou: {reason}',
   fsLocationBusy: 'A movimentacao anterior ainda esta rodando; tente depois.',
   fsLocationUnsupported: 'Esta maquina nao abre seletor de pastas; digite o caminho.',
@@ -216,20 +216,19 @@ export const pt: Record<Key, string> = {
   fsRuntimeMirror: 'espelho {host}',
   fsRuntimeHint:
     'As janelas de desktop precisam dele. Se faltar, o plugin baixa sozinho; voce tambem pode apontar para uma copia que ja tenha.',
-  fsRuntimeNeedTitle: 'Runtime do Electron necessario',
+  fsRuntimeNeedTitle: 'As janelas de desktop precisam do runtime do Electron',
   fsRuntimeNeedBody:
-    'As janelas de desktop rodam em Electron. O download ja comecou automaticamente (cerca de 350 MB por um espelho amigavel para a China); se ja tiver uma copia local, aponte para ela.',
+    'As janelas de desktop rodam em Electron. O download já começou automaticamente (cerca de 350 MB por um espelho amigável para a China); se já houver uma cópia nesta máquina, aponte o plugin para essa pasta.',
   fsRuntimeNeedFailed: 'O download automatico falhou: {reason}',
   fsRuntimeNeedDeleted:
     'O runtime do Electron instalado sumiu (talvez apagado a mao); por isso as janelas de desktop nao abrem.',
   fsRuntimeNeedKnow: 'Entendi',
-  fsRuntimeRetry: 'Tentar o download de novo',
+  fsRuntimeRetry: 'Baixar o runtime de novo',
 
   saved: 'Salvo — os pets atualizaram na hora.',
-  loadError: 'Falha ao carregar a configuração',
-  saveError:
-    'Falha ao salvar a configuração. Verifique a conexão com o servidor, a permissão de escrita na pasta de configuração e o log do servidor.',
-  saveInvalid: 'Falha ao salvar a configuração: conteúdo inválido. Revise os valores e tente de novo.',
+  loadError: 'Não foi possível carregar a configuração: confira se o plugin está rodando e tente de novo',
+  saveError: 'Falha ao salvar: o plugin não respondeu. Confira se ele ainda está rodando e salve de novo.',
+  saveInvalid: 'Salvamento recusado: a configuração é inválida. Corrija os valores alterados e salve de novo.',
   loading: 'Carregando configuração…',
   retry: 'Tentar de novo',
   invalid: 'Revise os valores: o tamanho precisa ser positivo; as margens podem ser qualquer número.',

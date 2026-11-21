@@ -252,9 +252,10 @@ Object.assign(PetSprite.prototype, {
       e.preventDefault();
       this.toggleBalanceDetail();
     });
-    // 悬浮提示：this.el 内的绝对定位浮层，位置与翻边由 renderTip 决定，样式走 shared 的 TOOLTIP_CSS。
+    // 悬浮提示：this.el 内的绝对定位浮层，位置与翻边由 renderTip 决定。
+    // 定位/初始透明/过渡走 shared 的基类（TIP_BASE_CSS），本类只给宠物侧外观（TOOLTIP_CSS）。
     this.tip = document.createElement('div');
-    this.tip.className = S.TOOLTIP_CLASS;
+    this.tip.className = S.TOOLTIP_CLASS + ' ' + S.TIP_BASE_CLASS;
     this.tip.setAttribute('aria-hidden', 'true');
 
     stage.appendChild(this.hit);

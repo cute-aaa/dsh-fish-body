@@ -1,11 +1,14 @@
 /**
- * 设置页样式表与注入入口：三段拼成一份（尺度 `./style/tokens`、控件 `./style/controls`、容器 `./style/cards`）。
+ * 设置页样式表与注入入口：令牌层（`shared/motion-tokens`）先落地，再拼三段自有样式
+ * （尺度 `./style/tokens`、控件 `./style/controls`、容器 `./style/cards`）。
  *
  * 为什么拆三段而不是一个大字符串：三者变化原因不同——调间距字号只动 tokens，换控件外观只动 controls，
  * 重排卡片与栅格只动 cards；本文件只负责「按顺序拼好并注入一次」。
+ * 跨表面的时长 / 缓动 / 焦点环 / 字号档不在本页定义（见 `shared/motion-tokens`），注入设置页时顺手带上。
  * 注入按 `data-plugin-css` 去重，同一页面重复渲染设置页不会长第二份样式；没有 document 时静默返回。
  * @module dsh-fish-body/src/client/settings/css
  */
+import { injectUiTokens } from '../../shared/motion-tokens.ts';
 import { CARDS_CSS } from './style/cards.ts';
 import { CONTROLS_CSS } from './style/controls.ts';
 import { TOKENS_CSS } from './style/tokens.ts';
@@ -19,6 +22,8 @@ const settingsCssTag = 'dsh-pet/settings.css';
 /** 把设置页样式注入 `document.head`：幂等，且没有 document（SSR 或单测）时直接返回。 */
 export function injectSettingsCss(): void {
   if (typeof document === 'undefined') return;
+  // 令牌层是页面级常量，三个表面共用；先注入它，本页的字号别名才解析得出值。
+  injectUiTokens();
   if (document.querySelector('style[data-plugin-css="' + settingsCssTag + '"]') !== null) return;
   const tag = document.createElement('style');
   tag.dataset.plugin = 'dsh-pet';

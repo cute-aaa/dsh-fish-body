@@ -6,7 +6,7 @@
  */
 import { ROUTE_PATH } from '../../shared/constants.ts';
 import { MENU_CSS } from '../../shared/menu.ts';
-import { TOOLTIP_CSS } from '../../shared/tooltip.ts';
+import { TIP_BASE_CSS, TOOLTIP_CSS } from '../../shared/tooltip.ts';
 
 /** 宠物页面样式表。 */
 const PET_CSS = [
@@ -26,7 +26,8 @@ const PET_CSS = [
   '@media (prefers-reduced-motion: reduce){.dsh-pet-video{transition:none}}',
   // 统一右键菜单样式，与桌面注入同一份。
   MENU_CSS,
-  // 悬浮提示样式，与桌面注入同一份。
+  // 悬浮提示样式，与桌面注入同一份（基类放定位与显隐，本类放宠物侧的外观）。
+  TIP_BASE_CSS,
   TOOLTIP_CSS,
 ].join('\n');
 

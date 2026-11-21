@@ -197,8 +197,8 @@ export const ja: Record<Key, string> = {
   fsLocationAgain: '選び直す',
   fsLocationMoving: '{to} へ移動中',
   fsLocationDone: '{to} へ移動しました',
-  fsLocationNeedsRestart: 'プラグイン再起動後に有効',
-  fsLocationRestart: '今すぐ再起動',
+  fsLocationNeedsRestart: '新しい場所に移動しました。プラグインを再起動すると有効になります',
+  fsLocationRestart: 'プラグインを今すぐ再起動',
   fsLocationFailed: '移動が完了しませんでした：{reason}',
   fsLocationBusy: '前回の移動がまだ実行中です。終わってからもう一度どうぞ。',
   fsLocationUnsupported: 'この環境ではシステムのフォルダー選択を開けません。パスを直接入力してください。',
@@ -215,19 +215,20 @@ export const ja: Record<Key, string> = {
   fsRuntimeMirror: 'ミラー {host}',
   fsRuntimeHint:
     'デスクトップウィンドウに必要です。見つからないときは自動でダウンロードします。すでに手元にある場合はそのフォルダーを指定できます。',
-  fsRuntimeNeedTitle: 'Electron ランタイムが必要です',
+  fsRuntimeNeedTitle: 'デスクトップウィンドウには Electron ランタイムが必要です',
   fsRuntimeNeedBody:
-    'デスクトップウィンドウは Electron 上で動きます。自動ダウンロードを開始しました（約 350 MB、中国向けミラー）。すでに手元にある場合はそのフォルダーを指定できます。',
+    'デスクトップウィンドウは Electron 上で動きます。自動ダウンロードはすでに開始済みです（約 350 MB、中国向けミラー）。すでに手元にある場合はそのフォルダーを指定してください。',
   fsRuntimeNeedFailed: '自動ダウンロードに失敗しました：{reason}',
   fsRuntimeNeedDeleted:
     'インストール済みの Electron ランタイムが見つかりません（手動で削除された可能性）。デスクトップウィンドウを開けません。',
   fsRuntimeNeedKnow: '了解',
-  fsRuntimeRetry: 'ダウンロードを再試行',
+  fsRuntimeRetry: 'ランタイムを再ダウンロード',
 
   saved: '保存しました。ペットにすぐ反映されました。',
-  loadError: '設定の読み込みに失敗しました',
-  saveError: '設定の保存に失敗しました。サーバー接続、設定ディレクトリの書き込み権限、サーバーログを確認してください。',
-  saveInvalid: '設定の保存に失敗しました：設定内容が無効です。確認してから再試行してください。',
+  loadError: '設定を読み込めませんでした。プラグインが起動しているか確認し、「再試行」を押してください',
+  saveError:
+    '保存できませんでした：プラグインから応答がありません。起動しているか確認して、もう一度「保存」を押してください。',
+  saveInvalid: '保存できませんでした：設定内容が不正です。変更した項目を直してから、もう一度保存してください。',
   loading: '設定を読み込み中…',
   retry: '再試行',
   invalid: '入力を確認してください：サイズは正の数、余白は任意の数値です。',

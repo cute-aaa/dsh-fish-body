@@ -6,7 +6,7 @@
  * 鼠标松开兜底也在这里：指针捕获被浏览器提前丢掉时，window 上的 mouseup 走同一套收尾。
  * @module dsh-fish-body/src/client/pet/motion/drag
  */
-import { trimTrail, type DragSample } from '../../../shared/physics.ts';
+import { rubberband, trimTrail, type DragSample } from '../../../shared/physics.ts';
 import { pick } from '../../../shared/pickers.ts';
 import { clickScore, mountScorePopup, SCORE_MIN_SPEED, spawnScoreBurst } from '../../../shared/score-popup.ts';
 import { DRAG_THRESHOLD, SLINGSHOT_DOUBLE_MS } from '../../../shared/constants.ts';
@@ -107,6 +107,8 @@ export interface DragCard {
   root: () => HTMLDivElement | null;
   /** 当前包围盒位置。 */
   box: () => BoxPoint | null;
+  /** 拖拽的可用界限：与松手夹取同源（`geometry.reachableLimits`），拖拽越过它时逐轴呈阻力。 */
+  dragLimits: () => { minX: number; maxX: number; minY: number; maxY: number };
   /** 写回包围盒位置。 */
   setBox: (box: BoxPoint) => void;
   /** 原地放下：提交夹取后的归一化中心。 */
@@ -333,7 +335,12 @@ export function createDrag(card: () => DragCard): Drag {
     const now = performance.now();
     trail = trimTrail([...trail, { t: now, x: e.clientX, y: e.clientY }], now);
     // 弹簧目标是包围盒左上角，跟随循环逐帧追赶。
-    follow.aim({ x: e.clientX - press.offX - c.halfW, y: e.clientY - press.offY - c.halfH });
+    // 越过可用界限时逐轴呈阻力（越拖越沉），松手仍由 commitPlace 按同一份界限夹取，两者不会各算一套。
+    const limits = c.dragLimits();
+    follow.aim({
+      x: rubberband(e.clientX - press.offX - c.halfW, limits.minX, limits.maxX),
+      y: rubberband(e.clientY - press.offY - c.halfH, limits.minY, limits.maxY),
+    });
     const rootEl = c.root();
     if (rootEl) follow.start(rootEl);
   };

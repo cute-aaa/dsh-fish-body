@@ -198,8 +198,8 @@ export const de: Record<Key, string> = {
   fsLocationAgain: 'Neu waehlen',
   fsLocationMoving: 'Verschiebe nach {to}',
   fsLocationDone: 'Verschoben nach {to}',
-  fsLocationNeedsRestart: 'Wirkt nach einem Plugin-Neustart',
-  fsLocationRestart: 'Jetzt neu starten',
+  fsLocationNeedsRestart: 'Verschoben: Plugin neu starten, damit der neue Ort gilt',
+  fsLocationRestart: 'Plugin jetzt neu starten',
   fsLocationFailed: 'Verschieben nicht abgeschlossen: {reason}',
   fsLocationBusy: 'Der letzte Vorgang laeuft noch — bitte danach erneut versuchen.',
   fsLocationUnsupported: 'Dieser Rechner kann keinen System-Ordnerdialog zeigen; bitte den Pfad eintippen.',
@@ -216,20 +216,22 @@ export const de: Record<Key, string> = {
   fsRuntimeMirror: 'Mirror {host}',
   fsRuntimeHint:
     'Desktop-Fenster brauchen sie. Fehlt sie, laedt das Plugin sie automatisch; du kannst auch auf eine vorhandene Kopie zeigen.',
-  fsRuntimeNeedTitle: 'Electron-Laufzeit erforderlich',
+  fsRuntimeNeedTitle: 'Desktop-Fenster brauchen die Electron-Laufzeit',
   fsRuntimeNeedBody:
-    'Desktop-Fenster laufen auf Electron. Der Download laeuft bereits automatisch (etwa 350 MB ueber einen China-freundlichen Mirror); liegt schon eine Kopie auf dem Rechner, kannst du darauf zeigen.',
+    'Desktop-Fenster laufen auf Electron. Der Download läuft bereits automatisch (etwa 350 MB über einen China-freundlichen Mirror); liegt auf diesem Rechner schon eine Kopie, zeige das Plugin auf diesen Ordner.',
   fsRuntimeNeedFailed: 'Der automatische Download ist fehlgeschlagen: {reason}',
   fsRuntimeNeedDeleted:
     'Die installierte Electron-Laufzeit ist verschwunden (vielleicht manuell geloescht) — Desktop-Fenster starten deshalb gerade nicht.',
   fsRuntimeNeedKnow: 'Verstanden',
-  fsRuntimeRetry: 'Download wiederholen',
+  fsRuntimeRetry: 'Laufzeit erneut herunterladen',
 
   saved: 'Gespeichert – die Pets gelten sofort.',
-  loadError: 'Konfiguration konnte nicht geladen werden',
+  loadError:
+    'Konfiguration konnte nicht geladen werden: prüfe, ob das Plugin läuft, und klicke dann auf „Erneut versuchen“',
   saveError:
-    'Konfiguration konnte nicht gespeichert werden. Bitte Serververbindung, Schreibrechte im Konfigurationsverzeichnis und Serverprotokoll prüfen.',
-  saveInvalid: 'Konfiguration konnte nicht gespeichert werden: Inhalt ungültig. Bitte prüfen und erneut versuchen.',
+    'Speichern fehlgeschlagen: das Plugin hat nicht geantwortet. Prüfe, ob es noch läuft, und speichere erneut.',
+  saveInvalid:
+    'Speichern abgelehnt: die Konfiguration ist ungültig. Korrigiere die geänderten Werte und speichere erneut.',
   loading: 'Konfiguration wird geladen…',
   retry: 'Erneut versuchen',
   invalid: 'Bitte Eingaben prüfen: Größe muss positiv sein, Ränder dürfen beliebige Zahlen sein.',

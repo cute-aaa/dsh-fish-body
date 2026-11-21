@@ -113,6 +113,46 @@ export interface ReachInset {
   bottom: number;
 }
 
+/** 本体盒在某一轴上的可用界限（与 area 同坐标系，px）。 */
+export interface ReachLimits {
+  /** 本体左上角可到的最小值。 */
+  minX: number;
+  /** 本体左上角可到的最大值。 */
+  maxX: number;
+  /** 本体左上角可到的最小值。 */
+  minY: number;
+  /** 本体左上角可到的最大值。 */
+  maxY: number;
+}
+
+/**
+ * 本体盒的可用界限：工作区再外扩 reach。
+ *
+ * @remarks
+ * 松手夹取（{@link fitWindowInArea}）与拖拽阻力（边界橡皮筋）必须用同一份界限：
+ * 阻力只改变「拖的过程」，松手仍按这条界限夹取，两者不一致就会在松手瞬间跳一下。
+ * @param o - 工作区、本体盒尺寸与越界允许量。
+ * @returns 两轴的闭区间；`reach` 缺省表示本体完全留在工作区内。
+ */
+export const reachLimits = (o: {
+  /** 本体所在屏的工作区。 */
+  area: Rect;
+  /** 本体盒宽，决定本体能摆到哪。 */
+  bodyWidth: number;
+  /** 本体盒高（含脚底透明垫，与窗口高度同基准） */
+  bodyHeight: number;
+  /** 越界允许量；缺省 0。 */
+  reach?: ReachInset | undefined;
+}): ReachLimits => {
+  const reach = o.reach ?? { left: 0, right: 0, top: 0, bottom: 0 };
+  return {
+    minX: o.area.x - reach.left,
+    maxX: rectRight(o.area) - o.bodyWidth + reach.right,
+    minY: o.area.y - reach.top,
+    maxY: rectBottom(o.area) - o.bodyHeight + reach.bottom,
+  };
+};
+
 /** 单轴钳制：窗口比工作区还大（max < min）时贴住起点，与窗口管理器的行为一致。 */
 const clampAxis = (want: number, min: number, max: number): number => Math.min(Math.max(want, min), Math.max(min, max));
 
@@ -149,10 +189,16 @@ export const fitWindowInArea = (o: {
   const wantY = o.bodyY - o.insetY;
   if (!o.area) return { x: wantX, y: wantY, offsetX: o.insetX, offsetY: o.insetY };
   const area = o.area;
-  const reach = o.reach ?? { left: 0, right: 0, top: 0, bottom: 0 };
-  // 本体能摆到哪：工作区再外扩 reach。越界那截由窗口裁掉，命中区仍留一角可点
-  const bodyX = clampAxis(o.bodyX, area.x - reach.left, rectRight(area) - o.bodyWidth + reach.right);
-  const bodyY = clampAxis(o.bodyY, area.y - reach.top, rectBottom(area) - o.bodyHeight + reach.bottom);
+  // 本体能摆到哪：工作区再外扩 reach。越界那截由窗口裁掉，命中区仍留一角可点。
+  // 界限与拖拽阻力同源（reachLimits）：阻力只改「拖的过程」，松手仍按这条界限夹取。
+  const limits = reachLimits({
+    area,
+    bodyWidth: o.bodyWidth,
+    bodyHeight: o.bodyHeight,
+    reach: o.reach,
+  });
+  const bodyX = clampAxis(o.bodyX, limits.minX, limits.maxX);
+  const bodyY = clampAxis(o.bodyY, limits.minY, limits.maxY);
   // 窗口只跟着本体走，但被系统钳在工作区内；差出来的那截就是本体在窗口内的偏移
   const x = clampAxis(bodyX - o.insetX, area.x, rectRight(area) - o.width);
   const y = clampAxis(bodyY - o.insetY, area.y, rectBottom(area) - o.height);

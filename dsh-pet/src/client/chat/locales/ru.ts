@@ -43,7 +43,7 @@ export const ru: Record<Key, string> = {
   composerImageAlt: 'Изображение к отправке',
   speakGenerate: 'Создание речи…',
   speakPlaying: 'Воспроизведение',
-  speakFailed: 'Не удалось воспроизвести, нажмите для повтора',
+  speakFailed: 'Эту фразу не удалось воспроизвести — нажмите, чтобы повторить',
   speakPlay: 'Воспроизвести это сообщение',
   speakAction: 'Воспроизвести действие: {name}',
   imageOpen: 'Нажмите, чтобы увеличить',

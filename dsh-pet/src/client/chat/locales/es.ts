@@ -43,7 +43,7 @@ export const es: Record<Key, string> = {
   composerImageAlt: 'Imagen para enviar',
   speakGenerate: 'Generando voz…',
   speakPlaying: 'Reproduciendo',
-  speakFailed: 'Error de reproducción, clic para reintentar',
+  speakFailed: 'No se pudo reproducir esta frase: haz clic para intentarlo otra vez',
   speakPlay: 'Reproducir este mensaje',
   speakAction: 'Reproducir acción: {name}',
   imageOpen: 'Haz clic para ampliar',

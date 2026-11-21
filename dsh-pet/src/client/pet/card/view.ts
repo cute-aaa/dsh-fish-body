@@ -6,7 +6,7 @@
  * 不变量：命中区在 stage 内，气泡与提示是根节点的直接子节点——三者的定位都相对根节点。
  * @module dsh-fish-body/src/client/pet/card/view
  */
-import { TOOLTIP_CLASS } from '../../../shared/tooltip.ts';
+import { TIP_BASE_CLASS, TOOLTIP_CLASS } from '../../../shared/tooltip.ts';
 import type { CSSProperties, ReactNode } from 'react';
 import type * as ReactNS from 'react';
 import type { jsx } from 'react/jsx-runtime';
@@ -112,10 +112,11 @@ export function makeCardView(rt: { h: typeof jsx }) {
           ],
         }),
         // 悬浮提示常驻只切 class，挂卸节点吃不到淡入过渡；坐标由 placeTip 直接写 style。
-        // pointer-events:none 见 TOOLTIP_CSS，否则会挡住命中区导致 enter/leave 闪烁。
+        // 基类给定位与显隐（TIP_BASE_CSS），本类只给宠物侧外观；pointer-events:none 在基类里，
+        // 否则会挡住命中区导致 enter/leave 闪烁。
         h('div', {
           ref: props.tipRef,
-          className: TOOLTIP_CLASS + (props.tipOn ? ' is-on' : ''),
+          className: TIP_BASE_CLASS + ' ' + TOOLTIP_CLASS + (props.tipOn ? ' is-on' : ''),
           'aria-hidden': 'true',
           children: props.name,
         }),

@@ -107,6 +107,15 @@ function withFakeFrames() {
     advance(ms: number): void {
       now += ms;
     },
+    /** 跑若干帧：`requestAnimationFrame` 的回调会自己续帧，这里按 16ms 一拍推进。 */
+    flush(count = 1, ms = 16): void {
+      for (let i = 0; i < count; i++) {
+        now += ms;
+        const batch = pending;
+        pending = [];
+        for (const entry of batch) entry.cb();
+      }
+    },
     get queued(): number {
       return pending.length;
     },
@@ -178,6 +187,8 @@ function harness(extra: Partial<DragCard> = {}) {
     setTipOn: (on) => calls.tipOn.push(on),
     root: () => el as unknown as HTMLDivElement,
     box: () => box,
+    // 默认给一份「一个 1280×800 视口、盒 200 宽」的界限；要测阻力就在 extra 里换一份更窄的。
+    dragLimits: () => ({ minX: 0, maxX: 1280 - 200, minY: 0, maxY: 800 - 112.5 }),
     setBox: (next) => {
       box = next;
     },
@@ -436,6 +447,52 @@ describe('createDrag —— 按压已结束时松手', () => {
       frames.restore();
       win.restore();
       mouseEvent.restore();
+    }
+  });
+});
+
+describe('createDrag —— 边界阻力', () => {
+  /** 阻力终点：`bound + over*dim*c/(dim + c*over)`（与 shared/physics/rubberband 同一条曲线）。 */
+  const resisted = (over: number, dim: number, c = 0.55): number => (over * dim * c) / (dim + c * over);
+
+  test('越界拖拽：目标位移被阻力收窄，松手落点贴住阻力终点（不跳）', () => {
+    const frames = withFakeFrames();
+    try {
+      // 界限收紧到 [0,500]：指针从 500 拖到 900（+400），原始目标 = 400 + 400 = 800，已越界。
+      const { drag, el, calls } = harness({ dragLimits: () => ({ minX: 0, maxX: 500, minY: 0, maxY: 687.5 }) });
+      drag.onPointerDown(pointer(el, 500, 350));
+      frames.advance(50);
+      drag.onPointerMove(pointer(el, 900, 350));
+      frames.flush(90); // 弹簧收敛到目标（过阻尼，~30 帧就到）
+      frames.advance(400); // 停顿够久，松手走「原地放下」
+      drag.onPointerUp(pointer(el, 900, 350));
+
+      const placed = calls.places[calls.places.length - 1]!;
+      assert.equal(calls.places.length, 1);
+      assert.ok(placed.x > 500, `仍要越过界限（否则就成硬夹取了）：${placed.x}`);
+      assert.ok(placed.x < 800, `必须比指针原始目标更近：${placed.x} < 800`);
+      const expected = 500 + resisted(300, 500);
+      assert.ok(Math.abs(placed.x - expected) < 1, `落点应贴住阻力终点 ${expected.toFixed(2)}：${placed.x}`);
+      assert.ok(Math.abs(placed.y - 300) < 1, `未越界的那一轴不受影响：${placed.y}`);
+    } finally {
+      frames.restore();
+    }
+  });
+
+  test('界限内拖拽：逐位等于指针目标（阻力不影响正常拖动）', () => {
+    const frames = withFakeFrames();
+    try {
+      const { drag, el, calls } = harness({ dragLimits: () => ({ minX: 0, maxX: 500, minY: 0, maxY: 687.5 }) });
+      drag.onPointerDown(pointer(el, 500, 350));
+      frames.advance(50);
+      drag.onPointerMove(pointer(el, 560, 350)); // 目标 460，仍在 [0,500]
+      frames.flush(90);
+      frames.advance(400);
+      drag.onPointerUp(pointer(el, 560, 350));
+      const placed = calls.places[calls.places.length - 1]!;
+      assert.ok(Math.abs(placed.x - 460) < 1, `界限内应一比一跟手：${placed.x}`);
+    } finally {
+      frames.restore();
     }
   });
 });

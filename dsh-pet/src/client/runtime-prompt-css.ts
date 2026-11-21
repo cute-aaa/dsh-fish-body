@@ -26,6 +26,11 @@ const RUNTIME_PROMPT_CSS = [
   '.dsh-pet-rp__btn:disabled{opacity:.5;cursor:default}',
   '.dsh-pet-rp__btn.is-primary{background:var(--dsw-alias-state-business-primary);border-color:transparent;color:#fff}',
   '@media (prefers-reduced-motion: reduce){.dsh-pet-rp__fill{transition:none}.dsh-pet-rp__btn{transition:none}.dsh-pet-rp__btn:active{transform:none}}',
+  // 减少透明：窗口起不来时用户最需要读清这张卡，毛玻璃只会把背后的内容揉进来。
+  // 去 blur 的同时把底色从 42% 提到 72%——只去 blur 会让遮罩变成一张几乎透明的膜，对比度反而更差。
+  '@media (prefers-reduced-transparency: reduce){.dsh-pet-rp__mask{backdrop-filter:none;background:color-mix(in srgb, var(--dsw-alias-bg-base,#000) 72%, transparent)}}',
+  // 高对比度：卡片描边是本弹窗唯一的边界信号，系统要求更高对比时升到 L3。
+  '@media (prefers-contrast: more){.dsh-pet-rp{border-color:var(--dsw-alias-border-l3)}}',
 ].join('\n');
 
 /** 把弹窗样式注入 `document.head`：幂等，且没有 document（SSR / 单测）时直接返回。 */

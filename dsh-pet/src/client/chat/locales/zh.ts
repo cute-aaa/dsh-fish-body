@@ -41,7 +41,7 @@ export const zh = {
   composerImageAlt: '待发送的图片',
   speakGenerate: '正在生成语音…',
   speakPlaying: '正在播放',
-  speakFailed: '播放失败，点击重试',
+  speakFailed: '这句没播出来，点一下重播',
   speakPlay: '播放这句',
   speakAction: '播放动作：{name}',
   imageOpen: '点开看大图',
