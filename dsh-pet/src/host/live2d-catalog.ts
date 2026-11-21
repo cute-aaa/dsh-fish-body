@@ -56,14 +56,19 @@ function findModelFile(roots: readonly string[], model: string): string | undefi
 /**
  * 算当前宠物的可表演清单。
  *
+ * 返回 `null` 与「空清单」是两件事，调用方必须分开处理：
+ * - `null`：**不是 live2d**（webm / layered）——动作走 `animations.categories` 那套老口径；
+ * - `{actions:[],expressions:[]}`：是 live2d 但模型没选/读不出来——这条链路现在没有可播的东西，
+ *   不能回落到 webm 动作池（那些名字 live2d 播不出来，给了只会让 AI 挑中一个点了没反应的动作）。
+ *
  * @param roots - 素材根的有序表（**与池路由同一条根序**：用户 `skin/` 在前、内置池在后）。
  *   传错根序的后果是「模型在用户皮肤目录里、这里却只找内置池」→ 空清单 → AI 永远不表演。
  * @param conf - 该宠物的成品配置（读 `renderer` / `model`）。
- * @returns 动作与外观名；不是 live2d、没选模型或读不出来时为空清单。
+ * @returns 清单；不是 live2d 时返回 null。
  */
-export function live2dCatalogOf(roots: readonly string[], conf: unknown): Live2dCatalog {
+export function live2dCatalogOf(roots: readonly string[], conf: unknown): Live2dCatalog | null {
   const entry = obj(conf);
-  if (entry === undefined || entry.renderer !== 'live2d') return EMPTY;
+  if (entry === undefined || entry.renderer !== 'live2d') return null;
   const model = typeof entry.model === 'string' ? entry.model : '';
   if (model.trim() === '') return EMPTY;
   const file = findModelFile(roots, model);

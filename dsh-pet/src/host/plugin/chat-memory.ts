@@ -7,7 +7,7 @@
  */
 import { userPaths } from '../user-layout.ts';
 import { generateChat, type ChatMemoryMessage } from '../chat.ts';
-import { chatActionList } from '../chat-action.ts';
+import { chatActionNames } from '../chat-action.ts';
 import { live2dCatalogOf } from '../live2d-catalog.ts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -328,12 +328,16 @@ export function createChatMemory(deps: ChatMemoryInput) {
         found.conf.chatImageEnabled === true
           ? limitPool(readMemePool(found.conf.memes, memeDirsFor(found.entry)), Number(found.conf.chatImageLimit))
           : [];
-      // 动作名单：开关开启才取（关掉 = 不注入也不解析）；名单本身为空同样等于关闭。
-      // live2d 的动作 label 与 webm 动作池合并成同一份白名单——对 AI 都是「做一个动作」，
-      // 执行端按当前渲染方式各自解析（见 render/live2d 的 label 查找）。
-      const catalog = found.conf.chatAnimationEnabled === true ? live2dCatalogOf(poolRoots(), found.conf) : null;
-      const actions = catalog === null ? [] : chatActionList(found.conf.animations, catalog.actions);
-      // 外观（live2d 清单）：与动作共用同一个开关；切换是覆盖语义，见 chat-action 的指令说明。
+      // 动作名单：按渲染方式二选一，**不混用**——
+      //   live2d（catalog 非 null）：只给模型清单里的动作 label。webm 动作名对 live2d 播不出来
+      //           （会回退 Idle），混进来只会让模型挑中一个点了没反应的名字（真实故障形态）。
+      //   webm/layered（catalog 为 null）：仍用 animations.categories（原口径不变）。
+      // 开关关闭时两套都为空 = 不注入也不解析。
+      const animationOn = found.conf.chatAnimationEnabled === true;
+      const catalog = animationOn ? live2dCatalogOf(poolRoots(), found.conf) : null;
+      const actions =
+        catalog !== null ? [...catalog.actions] : animationOn ? chatActionNames(found.conf.animations) : [];
+      // 外观（live2d 清单）：与动作共用同一个开关；切换是整批覆盖语义，见 chat-action 的指令说明。
       const expressions = catalog === null ? [] : [...catalog.expressions];
       const mem = await readMemory();
       // 坏结构（数组/标量）按空桶重建；messages 不是数组的条目按新会话处理，避免 push 到坏对象上崩溃

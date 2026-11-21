@@ -66,16 +66,16 @@ describe('live2dCatalogOf —— 模型清单 → 可表演清单', () => {
   test('VTS 工程：热键补全后的动作 label 与外观都进清单', () => {
     const userRoot = makeRoot(true);
     const catalog = live2dCatalogOf(rootsOf(userRoot), live2dConf('demo-skin/demo.model3.json'));
+    assert.ok(catalog !== null, 'live2d 宠物必须给出清单（null 表示不是 live2d）');
     assert.deepEqual(catalog.actions, ['抬手打招呼'], 'label 取热键名，不是文件名');
     assert.deepEqual(catalog.expressions, ['兔牙']);
   });
 
-  test('不是 live2d / 没选模型 / 模型不存在：一律空清单', () => {
+  test('不是 live2d 返回 null（调用方回落到 webm 动作池）；是 live2d 但没选模型给空清单', () => {
     const userRoot = makeRoot(true);
-    assert.deepEqual(live2dCatalogOf(rootsOf(userRoot), { renderer: 'webm', model: 'x' }), {
-      actions: [],
-      expressions: [],
-    });
+    assert.equal(live2dCatalogOf(rootsOf(userRoot), { renderer: 'webm', model: 'x' }), null);
+    assert.equal(live2dCatalogOf(rootsOf(userRoot), null), null);
+    assert.equal(live2dCatalogOf(rootsOf(userRoot), 'nope'), null);
     assert.deepEqual(live2dCatalogOf(rootsOf(userRoot), live2dConf('')), { actions: [], expressions: [] });
     assert.deepEqual(live2dCatalogOf(rootsOf(userRoot), live2dConf('nope/none.model3.json')), {
       actions: [],
@@ -111,6 +111,7 @@ describe('live2dCatalogOf —— 模型清单 → 可表演清单', () => {
       }),
     );
     const catalog = live2dCatalogOf(rootsOf(userRoot), live2dConf('user-skin/user.model3.json'));
+    assert.ok(catalog !== null);
     assert.deepEqual(catalog.actions, ['挥手打招呼']);
   });
 
@@ -122,7 +123,7 @@ describe('live2dCatalogOf —— 模型清单 → 可表演清单', () => {
       actions: [],
       expressions: [],
     });
-    assert.deepEqual(live2dCatalogOf(rootsOf(userRoot), null), { actions: [], expressions: [] });
-    assert.deepEqual(live2dCatalogOf(rootsOf(userRoot), 'nope'), { actions: [], expressions: [] });
+    assert.deepEqual(live2dCatalogOf(rootsOf(userRoot), null), null);
+    assert.deepEqual(live2dCatalogOf(rootsOf(userRoot), 'nope'), null);
   });
 });
