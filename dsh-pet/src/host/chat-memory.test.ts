@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { createChatMemory, type ChatMemoryInput } from './plugin/chat-memory.ts';
+import { AppearanceStore } from './appearance.ts';
 import { userPaths } from './user-layout.ts';
 import type { ChatMemoryMessage } from './chat.ts';
 import type { ConfigPaths } from './config.ts';
@@ -84,6 +85,8 @@ function createMemory(
     playback: { create: (petId: string, name: string) => ({ playbackId: 'pb-' + petId + '-' + name }) },
     // 表演清单读盘用：桩里给空根序（live2d 清单因此为空，不注入动作/外观指令）
     poolRoots: () => [],
+    // 外观真值（渲染端上报的快照表）：测试里用内存实例，不给窗口就等同于「画面还没上报过」
+    appearance: new AppearanceStore(),
     state: {
       writePet: (petId: string, leaf: string, data: Record<string, unknown>) => {
         collect?.writes?.push(petId + '.' + leaf);

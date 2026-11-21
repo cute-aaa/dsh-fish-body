@@ -119,7 +119,7 @@ Object.assign(PetSprite.prototype, {
         this.front = this.front === 0 ? 1 : 0;
         this.pending = null;
         this.playback = playbackId || null;
-        el.style.transform = this.facing === 'right' ? 'scaleX(-1)' : '';
+        el.style.transform = this.mirrorCss();
         // 点击 Q 弹：等新动画就位后才压（压的是新点击动画的首帧，与浏览器一致）
         if (this.pendingSquash) {
           this.pendingSquash = false;
@@ -312,7 +312,12 @@ Object.assign(PetSprite.prototype, {
     const roll = Math.random();
     // 宠物固定：掷骰时把「转向 / 移动」两档权重按 0 算，随机链不再让宠物自己翻朝向或走开；
     // 菜单点播与 /anim 不走这里，不受影响。
-    const k = S.rollKind(roll, animationWeights, { fixed: this.pet.fixedEnabled });
+    // turn 对非 webm 渲染同样按 0 算：转向素材是 webm 文件，live2d/layered 没有，
+    // 掷中它只会播一段不存在的动画再把朝向翻过去（用户看到的是「角色时不时水平翻转」）。
+    const k = S.rollKind(roll, animationWeights, {
+      fixed: this.pet.fixedEnabled,
+      turn: this.renderer === 'webm',
+    });
     let next;
     if (k === 'idle') {
       next = S.pick(animations.idle, this.anim);
@@ -404,7 +409,9 @@ Object.assign(PetSprite.prototype, {
       if (animations.idle.length) this.playOnce(S.pick(animations.idle, this.anim));
       return;
     }
-    if (animations.turn.includes(this.anim)) {
+    // 朝向翻转只对 webm 成立：转向素材是 webm 动画，播完才该翻面。画布后端（live2d/layered）
+    // 没有转向素材，翻面只会留下一面镜像——那正是「时不时水平翻转」的另一半。
+    if (this.renderer === 'webm' && animations.turn.includes(this.anim)) {
       const next = this.facing === 'left' ? 'right' : 'left';
       this.facing = next; // 立即同步：翻转后的 pickNext 用新朝向过滤 noMirror
     }

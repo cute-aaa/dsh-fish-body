@@ -81,14 +81,23 @@ export interface RollOptions {
   /** 宠物固定（pets[].fixedEnabled）：turn 与 move 两档权重按 0 算，份额自然归入 action。
    *  不做归一化——idle 的绝对概率原样不动，实现最简，idle=0 的退化配置也自然。 */
   fixed?: boolean;
+  /**
+   * 是否允许掷出 turn 档（缺省 true）。
+   *
+   * 转向动画是 webm 素材，live2d / layered 没有：对这两种渲染方式传 false，否则随机链会
+   * 「播一段不存在的转向动画 → 翻朝向」，画面表现就是角色时不时水平翻转（它没有对应的动作可看）。
+   * 关掉后 turn 的区间消失，落在那段的 roll 顺延给下一档（move；move 也被 fixed 按 0 时就是 action）。
+   */
+  turn?: boolean;
 }
 
 /** 按权重掷骰：roll ∈ [0,1) → 下一个动画类别。
  *  (idle + turn + move) / 100 是这三档的占比之和，剩余概率归入 action。
  *  opts.fixed 为真时 turn / move 权重按 0 算，只可能返回 idle 或 action。
+ *  opts.turn 为 false 时 turn 权重按 0 算（画布渲染没有转向素材，区间顺延给下一档）。
  *  两端共用本函数，随机链行为严格一致。 */
 export const rollKind = (roll: number, w: Weights, opts?: RollOptions): RollKind => {
-  const turn = opts?.fixed ? 0 : w.turn;
+  const turn = opts?.fixed || opts?.turn === false ? 0 : w.turn;
   const move = opts?.fixed ? 0 : w.move;
   const topEnd = (w.idle + turn + move) / 100;
   if (roll < w.idle / 100) return 'idle';

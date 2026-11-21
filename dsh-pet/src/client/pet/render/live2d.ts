@@ -13,6 +13,7 @@
 import type * as PIXI from 'pixi.js';
 import type { Live2DModel } from 'pixi-live2d-display/cubism4';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
+import { postAction } from '../../../shared/state.ts';
 import { bubbleAnchorY } from '../../../shared/bubble-anchor.ts';
 import { hiddenDrawableIndexesOf } from '../../../shared/live2d-fixes.ts';
 import {
@@ -168,6 +169,10 @@ export function createLive2dRenderer(): Renderer {
   let ready = false;
   let destroyed = false;
   let size = 0;
+  /** 本卡对应的宠物 id（上报「当前挂着什么」用）；挂载时从动画源取。 */
+  let petId = '';
+  /** 临时外观的到点摘回定时器；换下一批时先撤掉，否则旧定时器会把新的一批也摘光。 */
+  let ttlTimer: number | null = null;
 
   /** 取一份动作/外观 JSON（带缓存）。 */
   const fetchJson = async (rel: string): Promise<unknown> => {
@@ -206,6 +211,8 @@ export function createLive2dRenderer(): Renderer {
       ...(motion.fadeSeconds === undefined ? {} : { fadeSeconds: motion.fadeSeconds }),
       raw: json,
     });
+    // 动作名用 label（提示词里的清单就是 label）：宿主据此让角色知道自己刚演了哪一段。
+    reportAppearance(motion.label);
   };
 
   /** 切换一条外观（挂着就摘，没挂就挂）。 */
@@ -218,28 +225,39 @@ export function createLive2dRenderer(): Renderer {
       // VTS 的 FadeSecondsAmount：外观是硬切还是淡入就看这一个数。
       ...(expression.fadeSeconds === undefined ? {} : { fadeSeconds: expression.fadeSeconds }),
     });
+    reportAppearance();
   };
 
   /**
-   * 整批覆盖式切换外观：先摘掉当前挂着的全部，再把这一批逐个挂上（人设那条路径用）。
+   * 上报「此刻画面挂着什么」。
+   *
+   * 宿主看不见画面：外观有两个入口（对话下发、右键菜单本地切换）外加临时到点自动摘，
+   * 只有渲染端知道真值。宿主拿它去让角色知道「你现在是什么样子」（见 host/appearance）。
+   * 失败不打扰用户——这是内部同步，丢一拍下一拍还会再报。
+   *
+   * @param action - 刚播的动作名（label）；不是动作引起的变化就不传。
+   */
+  const reportAppearance = (action?: string): void => {
+    if (petId === '' || destroyed) return;
+    void postAction(ROUTE_PATH + '/appearance/report?pet=' + encodeURIComponent(petId), {
+      expressions: [...(overlay?.active('expression') ?? [])],
+      ...(action === undefined ? {} : { action }),
+    });
+  };
+
+  /**
+   * 把一批外观挂上：先摘光当前挂着的，再逐个挂（人设那条路径的「整批覆盖」语义）。
    *
    * 与 {@link toggleExpression} 的区别只在语义：菜单要「眼镜 + 兔牙同时开」且能单独摘掉一个；
    * 人设每次换外观是一整批（同一条回复里的多个一起挂，下一条回复整批替换）。
-   * 两条路径共用同一份 overlay 与淡入参数。
+   * 临时外观到点摘回上一批时也走这里。
    *
-   * @param payload - `expression-set:` 之后的 JSON 数组文本（坏 JSON 当作空名单）。
+   * @param names - 要挂的外观名（对不上清单的静默跳过）。
    */
-  const replaceExpressions = async (payload: string): Promise<void> => {
-    let names: string[] = [];
-    try {
-      const parsed: unknown = JSON.parse(payload);
-      if (Array.isArray(parsed)) names = parsed.filter((item): item is string => typeof item === 'string');
-    } catch {
-      return;
-    }
-    overlay?.stopKind('expression');
-    if (overlay === null) return;
+  const applyExpressions = async (names: readonly string[]): Promise<void> => {
     const active = overlay;
+    if (active === null) return;
+    active.stopKind('expression');
     for (const name of names) {
       const expression = expressions.get(name);
       if (expression === undefined) continue;
@@ -251,11 +269,50 @@ export function createLive2dRenderer(): Renderer {
     }
   };
 
+  /**
+   * 人设下发的外观切换。
+   *
+   * 载荷两种形态：`["兔牙"]` = 一直挂着；`{"names":["兔牙"],"ttlMs":20000}` = 只挂一会儿，
+   * 到点摘回**换之前**那一批（不是摘成空——临时臭美完应当回到原来的样子）。
+   *
+   * @param payload - `expression-set:` 之后的 JSON 文本（坏 JSON 当作空名单，不抛）。
+   */
+  const replaceExpressions = async (payload: string): Promise<void> => {
+    let names: string[] = [];
+    let ttlMs: number | undefined;
+    try {
+      const parsed: unknown = JSON.parse(payload);
+      if (Array.isArray(parsed)) {
+        names = parsed.filter((item): item is string => typeof item === 'string');
+      } else if (parsed !== null && typeof parsed === 'object') {
+        const o = parsed as { names?: unknown; ttlMs?: unknown };
+        if (Array.isArray(o.names)) names = o.names.filter((item): item is string => typeof item === 'string');
+        if (typeof o.ttlMs === 'number' && Number.isFinite(o.ttlMs) && o.ttlMs > 0) ttlMs = o.ttlMs;
+      }
+    } catch {
+      return;
+    }
+    const before = [...(overlay?.active('expression') ?? [])];
+    // 新的一批来了就撤掉旧定时器：否则旧的到点会把刚换上的这批一起摘掉（连着两次临时外观必现）。
+    if (ttlTimer !== null) {
+      window.clearTimeout(ttlTimer);
+      ttlTimer = null;
+    }
+    await applyExpressions(names);
+    reportAppearance();
+    if (ttlMs === undefined) return;
+    ttlTimer = window.setTimeout(() => {
+      ttlTimer = null;
+      void applyExpressions(before).then(() => reportAppearance());
+    }, ttlMs);
+  };
+
   const mount = async (el: HTMLElement, opts: RendererMountOptions): Promise<void> => {
     if (stage !== null) destroy();
     stage = el;
     size = opts.size;
     root = opts.assetRoot;
+    petId = opts.source.cfg().id;
     anchorSink = opts.source.onVisualAnchor ?? null;
     cubism = await ensureLive2dRuntime();
     if (destroyed) return;
@@ -326,6 +383,12 @@ export function createLive2dRenderer(): Renderer {
 
   const destroy = (): void => {
     destroyed = true;
+    // 临时外观的定时器跟着实例走：不撤掉的话它在卡片卸掉之后还会再挂一次（挂到空 overlay 上）。
+    if (ttlTimer !== null) {
+      window.clearTimeout(ttlTimer);
+      ttlTimer = null;
+    }
+    petId = '';
     if (model !== null && ticker !== null) model.internalModel.off('beforeModelUpdate', ticker);
     ticker = null;
     overlay?.destroy();

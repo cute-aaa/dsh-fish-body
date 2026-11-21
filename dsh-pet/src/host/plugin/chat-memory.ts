@@ -7,7 +7,14 @@
  */
 import { userPaths } from '../user-layout.ts';
 import { generateChat, type ChatMemoryMessage } from '../chat.ts';
-import { chatActionNames, expressionsFromText } from '../chat-action.ts';
+import {
+  actionFromText,
+  chatActionNames,
+  expressionsFromText,
+  mergeExpressionsIntent,
+  type ExpressionIntent,
+} from '../chat-action.ts';
+import type { AppearanceStore } from '../appearance.ts';
 import { live2dCatalogOf } from '../live2d-catalog.ts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -57,13 +64,35 @@ export type ChatMemoryInput = {
   Pick<HostSetup, 'playback'> &
   Pick<HostSetup, 'poolRoots'> &
   Pick<HostSetup, 'state'> &
-  Pick<HostSetup, 'userRoot'>;
+  Pick<HostSetup, 'userRoot'> & {
+    /** 外观/动作的当前状态（渲染端上报的真值）：提示词里的「你现在挂着什么」读它。 */
+    appearance: AppearanceStore;
+  };
+
+/** 这一份意图是否真的动了外观：三个「改法」全空就什么都不做（保持当前挂着的那批）。 */
+function touchedIntent(intent: ExpressionIntent): boolean {
+  return intent.reset || intent.names.length > 0 || intent.remove.length > 0;
+}
+
+/**
+ * 外观指令的叶子名：`expression-set:` + JSON。
+ *
+ * 一直挂着的编码成数组（`["兔牙"]`），带临时时长的编码成 `{"names":[…],"ttlMs":20000}`——
+ * 数组形态是既有语法，渲染端两种都认；这样「临时」不需要第二个叶子或第二条前缀。
+ *
+ * @param names - 结算后的完整名单（空数组 = 摘光）。
+ * @param ttlMs - 临时时长（ms）；缺省 = 一直挂着。
+ * @returns 写进 `pets.<id>.anim` 的 name。
+ */
+function expressionLeafOf(names: readonly string[], ttlMs?: number): string {
+  return 'expression-set:' + JSON.stringify(ttlMs === undefined ? names : { names, ttlMs });
+}
 
 /**
  * 创建对话与记忆。
  */
 export function createChatMemory(deps: ChatMemoryInput) {
-  const { ctx, configPaths, log, memeDirsFor, playback, poolRoots, state, userRoot } = deps;
+  const { appearance, ctx, configPaths, log, memeDirsFor, playback, poolRoots, state, userRoot } = deps;
   // 命令「当前桌宠」（/pet 选择、/chat 使用）：全局单值不分会话；进程内内存，重启回默认第一只
   let activePetId = '';
 
@@ -311,7 +340,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
     text: string,
     image?: PetImageRef,
   ): Promise<
-    | { ok: true; text: string; image?: string }
+    | { ok: true; text: string; image?: string; action?: string; expressions?: readonly string[] }
     | { ok: false; reason: 'provider-missing' | 'generate-error' | 'unknown-pet'; message?: string }
   > =>
     withMemoryLock(async () => {
@@ -388,6 +417,9 @@ export function createChatMemory(deps: ChatMemoryInput) {
         userText: text,
       });
       // 模型：条目配置的 chatModel 优先（留空 = 不指定）；生成侧失败会回落到当前对话的模型重试一次
+      // worn：此刻真的挂着什么（渲染端上报）。没有它，模型只能从历史里翻 `[外观:…]` 去猜，
+      // 「把刚才那个摘了」「再加一个」这类话就只能瞎编。
+      const worn = appearance.get(petId);
       const generated = await generateChat({
         ctx,
         system: patch?.system ?? system,
@@ -396,20 +428,24 @@ export function createChatMemory(deps: ChatMemoryInput) {
         pool,
         actions,
         expressions,
+        worn: {
+          expressions: worn?.expressions ?? [],
+          ...(worn?.action === undefined ? {} : { action: worn.action }),
+        },
         preferred: configuredModel(found.conf, 'chatModel'),
         image,
       });
       if (!generated.ok) return generated;
       // 用户点名了某个外观就当指令直接执行：模型经常嘴上说「眼镜戴上了」却不写标记，
       // 而「戴上眼镜」本来就不需要它转述。用户点名优先于模型自己写的标记。
-      const requested = expressionsFromText(text, expressions);
-      const finalExpressions = requested.length > 0 ? requested : (generated.expressions ?? []);
-      // 返回值带上最终生效的那批：调用方（网页端 / 桌面）据此知道这一轮换了什么，
-      // 与写进叶子的内容保持同一份，别让响应说「什么都没发生」而叶子已经挂了外观。
-      const reply =
-        finalExpressions.length === generated.expressions?.length
-          ? generated
-          : { ...generated, expressions: finalExpressions };
+      // 两条来源都归一成同一份意图（多写 / 叠加 / 摘单个 / 整批摘光 / 临时），结算规则见 mergeExpressionsIntent。
+      const said = expressionsFromText(text, expressions);
+      const intent = touchedIntent(said) ? said : generated.expression;
+      const current = [...(worn?.expressions ?? [])];
+      const finalExpressions = intent === undefined ? current : mergeExpressionsIntent(current, intent);
+      // 动作同理：模型没写标记、但用户点名了某个动作时，这本来就是一条指令。
+      // 动作是瞬时事件（播完就没了），所以不做「当前动作」结算，只在没别的时候补上这一条。
+      const action = generated.action ?? actionFromText(text, actions);
       const now = Date.now();
       // 用户上传的图只存不送：记忆要能还原「这一轮带过图」（聊天记录存档），但不把图本体重发给模型；
       // AI 配的图只回填名称标记（见 chat.ts 的 historyMarkersOf），同样不带图本体。
@@ -421,8 +457,8 @@ export function createChatMemory(deps: ChatMemoryInput) {
         ...(generated.image ? { meme: generated.image } : {}),
         // 动作名与配图名同类：落盘只存名字，回放历史时由 chat.ts 以 [动作:名] 回填——
         // 否则模型记不得自己演过什么，用户说「换一个」它无从判断
-        ...(generated.action ? { action: generated.action } : {}),
-        ...(finalExpressions.length > 0 ? { expressions: finalExpressions } : {}),
+        ...(action ? { action } : {}),
+        ...(intent === undefined ? {} : { expressions: finalExpressions }),
       });
       await writeMemory(mem);
       // 第三方记忆：落盘后异步接收；不等待、失败只记日志，不能影响这一轮回复。
@@ -430,21 +466,41 @@ export function createChatMemory(deps: ChatMemoryInput) {
         userText: text,
         replyText: generated.text,
         ts: now,
-        ...(generated.action !== undefined ? { action: generated.action } : {}),
+        ...(action !== undefined ? { action } : {}),
         ...(generated.image !== undefined ? { image: generated.image } : {}),
       });
       // 动作先写：与 POST /anim 同一条写回链路（记录 + anim 叶子），渲染端据此播放并回报执。
-      if (generated.action !== undefined) {
-        const record = playback.create(petId, generated.action);
-        state.writePet(petId, 'anim', { name: generated.action, playbackId: record.playbackId });
+      if (action !== undefined) {
+        const record = playback.create(petId, action);
+        state.writePet(petId, 'anim', { name: action, playbackId: record.playbackId });
       }
       // 外观随后写同一条 anim 叶子，前缀标成「整批覆盖」：渲染端见 `expression-set:` 就先清空
       // 当前挂的全部外观，再把这批逐个挂上（同一条回复里的多个=一起挂；下一条回复=整批替换）。
-      // 名单用 JSON 编码，名字里带冒号/引号也不会把前缀语法弄坏。
-      if (finalExpressions.length > 0) {
-        const name = 'expression-set:' + JSON.stringify(finalExpressions);
+      // 名单用 JSON 编码，名字里带冒号/引号也不会把前缀语法弄坏；带临时时长时编码成对象，
+      // 渲染端到点自己摘回上一批（见 render/live2d 的 replaceExpressions）。
+      if (intent !== undefined) {
+        const name = expressionLeafOf(finalExpressions, intent.ttlMs);
         const record = playback.create(petId, name);
         state.writePet(petId, 'anim', { name, playbackId: record.playbackId });
+      }
+      // 记账：这一刻画面**该**是什么。渲染端随后会上报真实结果（菜单切换、临时到点摘掉都在那边），
+      // 上报值覆盖这里——这里写的意义是「渲染端没起来/还没上报时，下一轮提示词也有个真值可用」。
+      appearance.set(petId, {
+        expressions: finalExpressions,
+        ...(action === undefined ? {} : { action }),
+      });
+      // 一行结算日志：外观是最容易「看起来没生效」的一条链路（名单空 / 名字对不上 / 意图被否定词吃掉），
+      // 「从什么换成什么」不打印就只能靠猜。
+      if (intent !== undefined) {
+        log.info(
+          '[fish-body] 外观结算 pet=' +
+            petId +
+            ' ' +
+            (current.length === 0 ? '空' : current.join('、')) +
+            ' → ' +
+            (finalExpressions.length === 0 ? '空' : finalExpressions.join('、')) +
+            (intent.ttlMs === undefined ? '' : '（临时 ' + String(intent.ttlMs) + 'ms）'),
+        );
       }
       // 回复写进 S（与碎碎念同一个叶子：前端本来就是同一条展示链路）。
       // 该由哪一端念按这只宠物的 display 推：对话请求带的是 surface=any，本来就没有具体的一端可用。
@@ -456,17 +512,19 @@ export function createChatMemory(deps: ChatMemoryInput) {
           text: generated.text,
           ...(generated.image ? { image: generated.image } : {}),
           // 带动作时显式关掉碎碎念动画：气泡照弹，但不把刚点播的动作顶掉
-          ...(generated.action !== undefined ? { anim: false } : {}),
+          ...(action !== undefined ? { anim: false } : {}),
           ...(replyVoiceTo ? { voiceTo: replyVoiceTo } : {}),
         });
       }
-      // 同一份文本随返回值带出（叶子照写，不是二选一）
+      // 同一份文本随返回值带出（叶子照写，不是二选一）。
+      // 外观带回**最终挂着的那一批**：调用方（网页端 / 桌面）据此知道这一轮换了什么，
+      // 与写进叶子的内容保持同一份，别让响应说「什么都没发生」而叶子已经挂了外观。
       return {
         ok: true as const,
-        text: reply.text,
-        ...(reply.image ? { image: reply.image } : {}),
-        ...(reply.action ? { action: reply.action } : {}),
-        ...(reply.expressions && reply.expressions.length > 0 ? { expressions: reply.expressions } : {}),
+        text: generated.text,
+        ...(generated.image ? { image: generated.image } : {}),
+        ...(action ? { action } : {}),
+        ...(intent === undefined ? {} : { expressions: finalExpressions }),
       };
     });
 

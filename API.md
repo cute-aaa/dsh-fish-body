@@ -61,6 +61,8 @@ dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由
 | `GET /dsh-pet-7340/playback/{id}`         | **播放回执**：查那次点播的真实状态；带 `?wait=&timeout=` 可挂起等待                                                                                                            |
 | `POST /dsh-pet-7340/playback/{id}/report` | 渲染端上报播放状态（**内部通道**，第三方不用调）                                                                                                                               |
 | `POST /dsh-pet-7340/pose/report?pet=`     | 桌面渲染端上报实况（**内部通道**，第三方不用调）                                                                                                                               |
+| `GET /dsh-pet-7340/appearance?pet=`       | **读此刻挂着的外观与上一段动作**：`reported: false` = 画面侧还没上报过（与「什么都没戴」不同）；`chatAnimationEnabled` 时这段就是人设「知道自己戴着什么」的来源                 |
+| `POST /dsh-pet-7340/appearance/report?pet=` | 渲染端上报当前外观（**内部通道**，第三方不用调）：`expressions` 是**全量**名单（空数组 = 摘光），`action` 可选 |
 | `POST /dsh-pet-7340/position?pet=`        | **位置控制**（需锁）：挪到归一化坐标，`mode` = 直接/弹簧/直线；不碰动画。额外回**夹取后**的 `x`/`y`                                                                            |
 | `POST /dsh-pet-7340/throw?pet=`           | **原生抛掷**（需锁）：给桌宠一个初速度让它飞出去（`angle` 度、`power` 倍率）                                                                                                   |
 | `POST /dsh-pet-7340/sleep?pet=`           | **让它睡下**：从 `animations.sleep` 里挑一整套（开始/循环/起来）写进 `pets.<id>.sleep`；睡着期间自动来源与手动触发一律拒绝（持锁时让路）；没配睡觉动画回 `no-sleep-animations` |

@@ -283,12 +283,18 @@ Object.assign(PetSprite.prototype, {
     this.startThrow(this.pos.x, this.pos.y, vx, vy);
   },
 
-  /** Q 弹挤压：前台视频垂直压扁（贴地锚定再回弹），曲线在 shared。depth = 下压幅度
-   *  （点击固定 0.55，落地按冲击速度动态取）；reduce-motion 时跳过。 */
+  /**
+   * Q 弹挤压：前台视频垂直压扁（贴地锚定再回弹），曲线在 shared。depth = 下压幅度
+   *  （点击固定 0.55，落地按冲击速度动态取）；reduce-motion 时跳过。
+   *
+   * 镜像一律经 {@link PetSprite#mirrorCss}：live2d 不镜像（它没有转向素材），
+   * 否则点一下就顺手把模型翻过去，看起来就是「随机水平翻转」。
+   */
   startSquash(el, depth = S.SQ_SQUASH) {
     if (!el) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const token = ++this.squashToken;
+    const mirror = this.mirrorCss();
     if (this.squashRef !== null) cancelAnimationFrame(this.squashRef);
     const origin = el.style.transformOrigin;
     el.style.transformOrigin = 'bottom';
@@ -297,14 +303,14 @@ Object.assign(PetSprite.prototype, {
       if (this.squashToken !== token) return;
       const u = Math.min((performance.now() - t0) / S.SQ_DURATION_MS, 1);
       const scale = S.squashScale(u, depth);
-      el.style.transform = (this.facing === 'right' ? 'scaleX(-1) ' : '') + 'scaleY(' + scale + ')';
+      el.style.transform = (mirror === '' ? '' : mirror + ' ') + 'scaleY(' + scale + ')';
       if (u < 1) {
         this.squashRef = requestAnimationFrame(step);
       } else {
         this.squashRef = null;
         el.style.transformOrigin = origin;
         // 恢复纯镜像（若期间 switchTo 重置过 transform，也以镜像为准）
-        el.style.transform = this.facing === 'right' ? 'scaleX(-1)' : '';
+        el.style.transform = mirror;
       }
     };
     this.squashRef = requestAnimationFrame(step);

@@ -7,6 +7,7 @@
  * @module dsh-fish-body/src/host/routes/types
  */
 import type { ChatMemoryMessage } from '../chat.ts';
+import type { AppearanceStore } from '../appearance.ts';
 import type { ConfigPaths } from '../config.ts';
 import type { RouteResult } from '../http.ts';
 import type { PetImageRef } from '../image-attachment.ts';
@@ -177,6 +178,8 @@ export interface PetRouteDeps {
   readonly openDir: (path: string) => void;
   /** 姿态上报存储。 */
   readonly pose: PoseStore;
+  /** 外观/动作的当前状态（渲染端上报，见 `POST /appearance/report`）。 */
+  readonly appearance: AppearanceStore;
   /** 软取宿主可选服务（缺失返回 undefined）。 */
   readonly optionalService: (name: string) => unknown;
   /** 用户动画目录。 */

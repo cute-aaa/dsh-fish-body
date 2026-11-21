@@ -11,7 +11,14 @@
  */
 
 import { BlockAssembler, createAssistantMessage, createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm';
-import { actionInstruction, expressionInstruction, extractChatAction, extractChatExpression } from './chat-action.ts';
+import {
+  actionInstruction,
+  currentStateInstruction,
+  expressionInstruction,
+  extractChatAction,
+  extractChatExpression,
+  type ExpressionIntent,
+} from './chat-action.ts';
 import type { PetImageRef } from './image-attachment.ts';
 import { PET_CALL_IDENTITY, noTextReason } from './llm-call.ts';
 import { supportsReasoningOff } from './llm-reasoning.ts';
@@ -22,7 +29,14 @@ import { historyStampOf } from './time-context.ts';
 
 /** 生成失败原因（与 shared/whisper.ts 的 WhisperState 失败分支同构）。 */
 export type ChatGenerateResult =
-  | { ok: true; text: string; image?: string; action?: string; expressions?: string[] }
+  | {
+      ok: true;
+      text: string;
+      image?: string;
+      action?: string;
+      /** 解析出来的外观意图（多写 / 叠加 / 摘掉 / 临时）；合并当前状态与落盘由调用方做。 */
+      expression?: ExpressionIntent;
+    }
   | { ok: false; reason: 'provider-missing' | 'generate-error'; message?: string };
 
 /** 记忆中的一条消息：GET /chat 返回的窗口条目就是它。 */
@@ -115,6 +129,8 @@ export interface ChatGenerateInput {
   readonly actions?: readonly string[];
   /** 可切换的外观名（live2d 清单；空 / 缺省 = 不谈外观）。 */
   readonly expressions?: readonly string[];
+  /** 角色此刻挂着的外观与上一段动作（渲染端上报的真值）；缺省 = 不提这一句。 */
+  readonly worn?: { readonly expressions?: readonly string[]; readonly action?: string };
   /** 条目单独指定的模型（chatModel）；缺省 / 留空 = 只用当前对话的模型。 */
   readonly preferred?: ModelRef;
   /** 本轮附带的图片；缺省 = 纯文本请求，数据路径与加入图片前一致。 */
@@ -128,7 +144,7 @@ export interface ChatGenerateInput {
  * @returns 回复文本（+ 命中池内的配图名），或结构化失败（provider 缺失 / 生成错误）。
  */
 export async function generateChat(input: ChatGenerateInput): Promise<ChatGenerateResult> {
-  const { ctx, system, history, userText, preferred, image } = input;
+  const { ctx, system, history, userText, preferred, image, worn } = input;
   // 表情包侧的读池 / 校验函数按可变数组签名；这里复制一份，避免把调用方数组的引用往下传
   const pool: MemeEntry[] = [...(input.pool ?? [])];
   // 动作名单同样是「空 = 关闭」：开关关掉或 categories 没配任何动作时，指令与解析都不介入。
@@ -149,7 +165,18 @@ export async function generateChat(input: ChatGenerateInput): Promise<ChatGenera
   // 兜底文案与失败分支同源，避免两处字面量漂移
   let last: ChatGenerateResult = { ok: false, reason: 'generate-error', message: noTextReason(undefined) };
   for (const [i, sel] of candidates.entries()) {
-    const result = await generateWith(ctx, { llm, sel, system, history, userText, pool, actions, expressions, image });
+    const result = await generateWith(ctx, {
+      llm,
+      sel,
+      system,
+      history,
+      userText,
+      pool,
+      actions,
+      expressions,
+      ...(worn === undefined ? {} : { worn }),
+      image,
+    });
     if (result.ok) return result;
     last = result;
     // 回落要留痕：配的模型没生效时能在日志里看到原因（否则「我明明配了 A，怎么还是用 B」没法查）
@@ -173,12 +200,13 @@ interface GenerateOnce {
   readonly pool: MemeEntry[];
   readonly actions: string[];
   readonly expressions: string[];
+  readonly worn?: { readonly expressions?: readonly string[]; readonly action?: string };
   readonly image?: PetImageRef;
 }
 
 /** 用一个确定的 provider/model 跑一次对话生成（失败原样返回结构化原因，不吞）。 */
 async function generateWith(ctx: { llm?: unknown }, once: GenerateOnce): Promise<ChatGenerateResult> {
-  const { llm, sel, system, history, userText, pool, actions, expressions, image } = once;
+  const { llm, sel, system, history, userText, pool, actions, expressions, worn, image } = once;
   // 历史 → dsh-llm 消息：user 经 createUserMessage（plugin 来源），assistant 经 createAssistantMessage
   // （provider/model 只是消息的角色载体，不涉及适配器回放）。
   // 时间前缀只加在 user 上（模型会照抄 assistant 自己那侧的格式）；配图/动作标记只加在 assistant 上。
@@ -208,7 +236,10 @@ async function generateWith(ctx: { llm?: unknown }, once: GenerateOnce): Promise
   const instruction =
     (wantImage ? imageInstruction(pool) : '') +
     (wantAction ? actionInstruction(actions) : '') +
-    (wantExpression ? expressionInstruction(expressions) : '');
+    (wantExpression ? expressionInstruction(expressions) : '') +
+    // 「你现在挂着什么」排在两份清单之后：先知道有哪些可选，再看自己身上装了什么。
+    // 只在外观/动作任一开启时才有意义（关掉联动时不谈表演，免得模型凭空演起来）。
+    (wantAction || wantExpression ? currentStateInstruction(worn ?? {}) : '');
   const content: Record<string, unknown>[] = [
     { type: 'text', text: instruction === '' ? userText : userText + instruction },
   ];
@@ -259,17 +290,19 @@ async function generateWith(ctx: { llm?: unknown }, once: GenerateOnce): Promise
   if (!wantImage && !wantAction && !wantExpression) return { ok: true, text };
   // 三种标记互不依赖，顺序不影响结果；无效名称也会被剥（见 extractChatAction / extractChatExpression）。
   const acted: { text: string; action?: string } = wantAction ? extractChatAction(text, actions) : { text };
-  const faced: { text: string; expressions: string[] } = wantExpression
+  const faced: { text: string; intent: ExpressionIntent } = wantExpression
     ? extractChatExpression(acted.text, expressions)
-    : { text: acted.text, expressions: [] };
+    : { text: acted.text, intent: { names: [], remove: [], reset: false, additive: false } };
   const picked: { text: string; image?: string } = wantImage
     ? extractChatImage(faced.text, pool)
     : { text: faced.text };
+  // 空意图（这条回复没提外观）就不带字段：调用方据此保持当前挂着的那批不动。
+  const touched = faced.intent.reset || faced.intent.names.length > 0 || faced.intent.remove.length > 0;
   return {
     ok: true,
     text: picked.text,
     ...(picked.image ? { image: picked.image } : {}),
     ...(acted.action ? { action: acted.action } : {}),
-    ...(faced.expressions.length > 0 ? { expressions: faced.expressions } : {}),
+    ...(touched ? { expression: faced.intent } : {}),
   };
 }

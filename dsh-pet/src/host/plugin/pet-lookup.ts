@@ -5,6 +5,7 @@
  * 依赖由 apply 显式传入（见输入类型），模块内不读全局、不建单例。
  * @module dsh-fish-body/src/host/plugin/pet-lookup
  */
+import { AppearanceStore } from '../appearance.ts';
 import { LockStore } from '../lock.ts';
 import { PoseStore } from '../pose.ts';
 import { SURFACE_TEXT, displayCovers, normalizeSurface, type Surface } from '../surface.ts';
@@ -33,6 +34,10 @@ export function createPetLookup(deps: PetLookupInput) {
   // 实况快照（issue #122 第 1 条）：桌面渲染端变化时上报，第三方用 GET /pose 读。
   // 网页端不走这里——它的位置天生每个页面一份，走页面内的 Cordis 服务 `petApi7340`。
   const pose = new PoseStore();
+
+  // 外观/动作的当前状态（渲染端上报的真值）：对话提示词里的「你现在挂着什么」读它。
+  // 与 pose 同层同理——宿主看不见画面，只能由渲染端告诉它；这里只缓存，不做任何推断。
+  const appearance = new AppearanceStore();
 
   // 睡觉状态：与占用锁同层的内存会话状态，状态变化同步进 S 的 `pets.<id>.sleep`。
   // 三段动画名由宿主挑好放进叶子，渲染端照此播放；宿主自己用它拦自动来源与手动触发。
@@ -156,7 +161,17 @@ export function createPetLookup(deps: PetLookupInput) {
     if (g.ok) return null;
     return failResult(g.reason, g.message, g.reason === 'lock-lost' ? { cause: g.cause } : undefined);
   };
-  return { lock, pose, sleep, sleepBlocked, sleepRefusalText: refuseText, surfaceBlocked, requirePet, lockBlocked };
+  return {
+    appearance,
+    lock,
+    pose,
+    sleep,
+    sleepBlocked,
+    sleepRefusalText: refuseText,
+    surfaceBlocked,
+    requirePet,
+    lockBlocked,
+  };
 }
 /** 宠物定位与访问守卫的产出（供下游工厂按需 Pick）。 */
 export type PetLookup = ReturnType<typeof createPetLookup>;

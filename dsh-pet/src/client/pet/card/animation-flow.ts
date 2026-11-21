@@ -105,7 +105,12 @@ export function createAnimationFlow(rt: AnimationFlowRuntime) {
       if (sleeping()) return;
       const roll = Math.random();
       // 宠物固定时，掷骰把「转向/移动」权重按 0 算；菜单点播与显式点播不走这里。
-      const kind = rollKind(roll, hub.cfg().animationWeights, { fixed: hub.cfg().fixedEnabled });
+      // turn 对非 webm 渲染同样按 0 算：转向素材是 webm 文件，live2d/layered 没有，
+      // 掷中它只会让角色静默翻面（就是「时不时水平翻转」的成因之一，见 shared/pickers 的 rollKind）。
+      const kind = rollKind(roll, hub.cfg().animationWeights, {
+        fixed: hub.cfg().fixedEnabled,
+        turn: (hub.cfg().renderer ?? 'webm') === 'webm',
+      });
       // 只有掷到 move 档才试走位：占用中返回 true（已有移动在跑），无法移动返回 false。
       const move = kind === 'move' ? hub.tryWalk() : undefined;
       const decision = decideNextAnimation({
@@ -157,6 +162,12 @@ export function createAnimationFlow(rt: AnimationFlowRuntime) {
         return;
       }
       if (cue.kind === 'turn') {
+        // 翻面只对 webm 成立：转向素材是 webm 动画，播完才该翻。画布后端没有转向素材，
+        // 这里再守一次——历史数据（seq 里存着旧的 turn 动画名）不该把角色翻成镜像。
+        if ((hub.cfg().renderer ?? 'webm') !== 'webm') {
+          pickNext();
+          return;
+        }
         const next = card.state.facing === 'left' ? 'right' : 'left';
         card.actions.setFacing(next);
         card.facingRef.current = next; // 立即同步：翻转后的掷骰用新朝向过滤。

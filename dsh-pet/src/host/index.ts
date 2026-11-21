@@ -132,6 +132,8 @@ export function apply(ctx: any): void {
     poolRoots: setup.poolRoots,
     state,
     userRoot,
+    // 外观真值来自渲染端上报（petLookup 持有的快照表）；提示词里的「你现在挂着什么」读它。
+    appearance: petLookup.appearance,
   });
   const { lastWhisperAt, publishWhisper, publishSleepTalk, chatWithPet, getActivePetId, setActivePetId } = chatMemory;
 

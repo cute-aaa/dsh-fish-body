@@ -538,33 +538,77 @@ async function mountLive2d(sprite, host, api) {
     }
   }
 
+  /** 临时外观的到点摘回定时器；换下一批时先撤掉（否则旧的到点会把新的一批也摘光）。 */
+  let expressionTtl = null;
+
+  /**
+   * 上报「此刻画面挂着什么」：宿主据此让角色知道「你现在是什么样子」（POST /appearance/report）。
+   *
+   * 宿主看不见画面（外观还有右键菜单、临时到点自动摘两个入口），所以真值只能由渲染端给。
+   *
+   * @param {string} [action] - 刚播的动作名（label）；不是动作引起的变化就不传。
+   */
+  function reportAppearance(action) {
+    const id = sprite.pet && sprite.pet.id;
+    if (!id || api.destroyed) return;
+    const body = { expressions: overlay.active('expression') || [] };
+    if (action) body.action = String(action);
+    S.postAction(BASE + '/appearance/report?pet=' + encodeURIComponent(id), body).catch(() => {});
+  }
+
+  /**
+   * 把一批外观挂上：先摘光当前挂着的，再逐个挂（人设那条路径的「整批覆盖」语义）。
+   *
+   * @param {string[]} list - 要挂的外观名（对不上清单的静默跳过）。
+   */
+  async function applyExpressionBatch(list) {
+    overlay.stopKind('expression');
+    for (const only of list) {
+      const ref = api.expressionFiles.get(only);
+      if (ref === undefined) continue;
+      const json = await fetchJson(ref.file);
+      if (json === null || api.destroyed) return;
+      overlay.play(
+        only,
+        'expression',
+        json,
+        ref.fadeSeconds === undefined ? undefined : { fadeSeconds: ref.fadeSeconds },
+      );
+    }
+  }
+
   api.playAction = (name) => {
     // 菜单动作名与浏览器端同格式（见 shared/menu/renderer-actions）：motion:<组>:<序号> / expression:<名>。
     const key = String(name);
     // 人设下发的外观是整批覆盖：先摘光，再把这批逐个挂上（菜单那条仍是可叠加的 toggle）。
+    // 载荷两种形态：数组 = 一直挂着；`{names, ttlMs}` = 只挂一会儿，到点摘回**换之前**那一批。
     if (key.startsWith('expression-set:')) {
       let list = [];
+      let ttlMs = 0;
       try {
         const parsed = JSON.parse(key.slice('expression-set:'.length));
-        if (Array.isArray(parsed)) list = parsed.filter((item) => typeof item === 'string');
+        if (Array.isArray(parsed)) {
+          list = parsed.filter((item) => typeof item === 'string');
+        } else if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed.names)) list = parsed.names.filter((item) => typeof item === 'string');
+          if (typeof parsed.ttlMs === 'number' && parsed.ttlMs > 0) ttlMs = parsed.ttlMs;
+        }
       } catch {
         return;
       }
-      overlay.stopKind('expression');
+      const before = (overlay.active('expression') || []).slice();
+      if (expressionTtl !== null) {
+        window.clearTimeout(expressionTtl);
+        expressionTtl = null;
+      }
       if (window.__dshPetDebug)
         window.__dshPetDebug.lastGesture = { name: key, kind: 'expression-set', at: Date.now() };
-      for (const only of list) {
-        const ref = api.expressionFiles.get(only);
-        if (ref === undefined) continue;
-        void fetchJson(ref.file).then((json) => {
-          if (json === null || api.destroyed) return;
-          overlay.play(
-            only,
-            'expression',
-            json,
-            ref.fadeSeconds === undefined ? undefined : { fadeSeconds: ref.fadeSeconds },
-          );
-        });
+      void applyExpressionBatch(list).then(() => reportAppearance());
+      if (ttlMs > 0) {
+        expressionTtl = window.setTimeout(() => {
+          expressionTtl = null;
+          void applyExpressionBatch(before).then(() => reportAppearance());
+        }, ttlMs);
       }
       return;
     }
@@ -578,6 +622,7 @@ async function mountLive2d(sprite, host, api) {
           fadeSeconds: motion.fadeSeconds,
           raw: json,
         });
+        reportAppearance(motion.label || key);
       });
       return;
     }
@@ -593,6 +638,7 @@ async function mountLive2d(sprite, host, api) {
           fadeSeconds: declared.fadeSeconds,
           raw: json,
         });
+        reportAppearance(declared.label || key);
       });
       return;
     }
@@ -602,6 +648,7 @@ async function mountLive2d(sprite, host, api) {
     }
     if (key === window.PetShared.EXPRESSION_RESET) {
       overlay.stopKind('expression');
+      reportAppearance();
       return;
     }
     if (key.startsWith('expression:')) {
@@ -619,6 +666,7 @@ async function mountLive2d(sprite, host, api) {
           json,
           ref.fadeSeconds === undefined ? undefined : { fadeSeconds: ref.fadeSeconds },
         );
+        reportAppearance();
       });
       return;
     }
@@ -629,6 +677,11 @@ async function mountLive2d(sprite, host, api) {
     void model.motion('Idle', undefined, cubism.MotionPriority.IDLE);
   };
   api.destroy = () => {
+    // 临时外观的定时器跟着实例走：不撤掉的话它在画布卸掉之后还会再挂一次（挂到空 overlay 上）。
+    if (expressionTtl !== null) {
+      window.clearTimeout(expressionTtl);
+      expressionTtl = null;
+    }
     model.internalModel.off('beforeModelUpdate', ticker);
     overlay.destroy();
     files.clear();
@@ -699,10 +752,24 @@ Object.assign(PetSprite.prototype, {
     }, BACKEND_ACTION_MS);
   },
 
+  /**
+   * 当前朝向该贴的镜像样式（空串 = 不镜像）。
+   *
+   * live2d 一律不镜像：它是「正面站着的角色」，没有转向素材，翻面只会把人翻成镜像人；
+   * 历史缺陷正是随机链掷到 turn 档、播了一段不存在的转向动画，然后静默把模型镜像过去
+   * （用户看到的就是「角色时不时水平翻转」）。转向档现在也一并按 0 权处理（见 playIdle）。
+   *
+   * @returns `scaleX(-1)` 或空串。
+   */
+  mirrorCss() {
+    if (this.renderer === 'live2d') return '';
+    return this.facing === 'right' ? 'scaleX(-1)' : '';
+  },
+
   /** 非 webm 的镜像：画布由 CSS translateX 居中，镜像要落在包装层上（见 startSquash 的 transform 口径）。 */
   flashMirror() {
     const el = this.backend && this.backend.el;
-    if (el) el.style.transform = this.facing === 'right' ? 'scaleX(-1)' : '';
+    if (el) el.style.transform = this.mirrorCss();
   },
 
   /** 非 webm 的冻结/解冻：canvas 没有 pause，停在原地就是「冻住」，只需停掉换动作计时器。 */

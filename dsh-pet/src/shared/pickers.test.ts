@@ -193,6 +193,26 @@ describe('rollKind —— 随机链掷骰（含宠物固定 fixedEnabled）', ()
       assert.equal(rollKind(roll, w, { fixed: false }), rollKind(roll, w), `roll=${roll}：false 应等价于不传`);
     }
   });
+
+  test('turn: false = 转向档按 0 权（画布渲染没有转向素材），区间顺延给下一档', () => {
+    // 这是「角色时不时水平翻转」的根因口径：live2d/layered 没有转向动画，
+    // 掷中 turn 只会播一段不存在的动画再把朝向翻过去。
+    assert.equal(rollKind(0.1, w, { turn: false }), 'move', '原本落 turn 的区间顺延给 move');
+    assert.equal(rollKind(0.1499, w, { turn: false }), 'move');
+    assert.equal(rollKind(0.15, w, { turn: false }), 'action');
+    // move 也被按 0（fixed）时，那段自然落到 action
+    assert.equal(rollKind(0.1, w, { turn: false, fixed: true }), 'action');
+    for (let i = 0; i < 1000; i++) {
+      const roll = i / 1000;
+      assert.notEqual(rollKind(roll, w, { turn: false }), 'turn', `roll=${roll} 不该掷出 turn`);
+    }
+  });
+
+  test('turn: true 与不传等价（webm 行为逐位不变）', () => {
+    for (const roll of [0, 0.1, 0.1499, 0.15, 0.1999, 0.5, 0.9999]) {
+      assert.equal(rollKind(roll, w, { turn: true }), rollKind(roll, w), `roll=${roll}`);
+    }
+  });
 });
 
 describe('宠物固定 —— 双端一致守卫（两端必须都把这个开关传进掷骰）', () => {
@@ -230,5 +250,51 @@ describe('宠物固定 —— 双端一致守卫（两端必须都把这个开�
   test('两端传的都是该宠物自己的配置项（不是写死的 true/false）', () => {
     assert.ok(/fixed:\s*hub\.cfg\(\)\.fixedEnabled/.test(browserShell), '浏览器壳必须传该宠物自己的 fixedEnabled');
     assert.ok(/fixed:\s*this\.pet\.fixedEnabled/.test(desktopShell), '桌面壳必须传 this.pet.fixedEnabled');
+  });
+});
+
+describe('turn 档 —— 双端一致守卫（画布渲染没有转向素材，必须按 0 权）', () => {
+  // 背景：转向动画是 webm 素材。live2d / layered 上随机链一旦掷中 turn，画面播不出任何东西、
+  // 朝向却被翻过去——用户看到的是「角色时不时水平翻转」，而且翻过去就一直镜像着。
+  // 两端的掷骰与播完翻面都要按渲染方式拦住，这里把四处一起钉住。
+  const browserFlow = readFileSync(
+    fileURLToPath(new URL('../client/pet/card/animation-flow.ts', import.meta.url)),
+    'utf8',
+  );
+  const desktopShell = [
+    readFileSync(fileURLToPath(new URL('../../runtime/electron-helper/sprite.js', import.meta.url)), 'utf8'),
+    ...readdirSync(fileURLToPath(new URL('../../runtime/electron-helper/sprite/', import.meta.url))).map((name) =>
+      readFileSync(fileURLToPath(new URL('../../runtime/electron-helper/sprite/' + name, import.meta.url)), 'utf8'),
+    ),
+  ].join('\n');
+
+  test('浏览器壳按渲染方式传 turn（只有 webm 允许掷出转向）', () => {
+    assert.ok(
+      /turn:\s*\(hub\.cfg\(\)\.renderer \?\? 'webm'\) === 'webm'/.test(browserFlow),
+      '浏览器侧的掷骰必须按渲染方式传 turn（否则 live2d 上的角色会自己翻面）',
+    );
+  });
+
+  test('桌面壳按渲染方式传 turn', () => {
+    assert.ok(/turn:\s*this\.renderer === 'webm'/.test(desktopShell), '桌面 playIdle 必须按 this.renderer 传 turn');
+  });
+
+  test('两端的「播完翻面」也只对 webm 生效', () => {
+    assert.ok(
+      /this\.renderer === 'webm' && animations\.turn\.includes/.test(desktopShell),
+      '桌面 handleEnded 的翻面必须限定 webm',
+    );
+    assert.ok(
+      /\(hub\.cfg\(\)\.renderer \?\? 'webm'\) !== 'webm'/.test(browserFlow),
+      '浏览器 applyEndedCue 的 turn 分支必须按渲染方式收手',
+    );
+  });
+
+  test('桌面画布后端的镜像只对非 live2d 生效（mirrorCss 是唯一出口）', () => {
+    assert.ok(/mirrorCss\(\)\s*\{[\s\S]{0,160}this\.renderer === 'live2d'[\s\S]{0,40}return ''/.test(desktopShell));
+    assert.ok(
+      !/el\.style\.transform = this\.facing === 'right'/.test(desktopShell),
+      '镜像必须走 mirrorCss，不能再各处直接判 facing（否则 live2d 又会被翻）',
+    );
   });
 });

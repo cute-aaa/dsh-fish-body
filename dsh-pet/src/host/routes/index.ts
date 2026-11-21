@@ -7,6 +7,7 @@
  * @module dsh-fish-body/src/host/routes/index
  */
 import type { RouteResult } from '../http.ts';
+import { handleAppearanceRoutes } from './appearance.ts';
 import { handleAssetsRoutes } from './assets.ts';
 import { handleAttachmentRoutes } from './attachment.ts';
 import { handleAvatarRoutes } from './avatar.ts';
@@ -49,6 +50,7 @@ const HANDLERS: readonly RouteHandler[] = [
   handleBalanceRoutes,
   handleInteractionRoutes,
   handleMotionRoutes,
+  handleAppearanceRoutes,
   handlePlaybackRoutes,
   handleSleepRoutes,
   handleChatRoutes,
