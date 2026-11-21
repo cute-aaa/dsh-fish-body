@@ -27,13 +27,14 @@ function tempHome(): { home: string; root: string } {
 }
 
 /** 最小依赖：路由只用到 paths / dshHome / log / requestRestart。 */
-function deps(root: string, home: string): PetRouteDeps {
+function deps(root: string, home: string, extra: Partial<PetRouteDeps> = {}): PetRouteDeps {
   return {
     paths: userPaths(root),
     userRoot: root,
     dshHome: home,
     log: { info: () => undefined, warn: () => undefined, file: join(home, 'logs.txt') },
     requestRestart: async () => undefined,
+    ...extra,
   } as unknown as PetRouteDeps;
 }
 
@@ -188,6 +189,150 @@ describe('POST /pick-folder', () => {
         if (savedDisplay !== undefined) process.env.DISPLAY = savedDisplay;
         if (savedWayland !== undefined) process.env.WAYLAND_DISPLAY = savedWayland;
       }
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('POST /pick-*：A 通道（helper 系统框）的接线与三态', () => {
+  test('deps.nativePicker 存在：/pick-folder 走它，picked 仍是 {ok:true,path}', async () => {
+    const { home, root } = tempHome();
+    try {
+      const asks: string[] = [];
+      const nativePicker = async (req: { kind: string; title: string; start?: string }) => {
+        asks.push(`${req.kind}:${req.title}:${req.start ?? ''}`);
+        return { kind: 'picked' as const, path: 'D:/AI/AI-Voice' };
+      };
+      const obj = await json(deps(root, home, { nativePicker }), 'pick-folder', 'POST', {
+        title: '选择权重目录',
+        start: 'D:/AI',
+      });
+
+      assert.deepEqual(obj, { ok: true, path: 'D:/AI/AI-Voice' }, '响应形状与走 PowerShell 时一字不差');
+      assert.deepEqual(asks, ['folder:选择权重目录:D:/AI'], 'A 通道拿到的就是界面传来的标题与初始目录');
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('/pick-file 走 A 通道：扩展名透传、cancelled 仍是 {ok:false,reason:cancelled}', async () => {
+    const { home, root } = tempHome();
+    try {
+      const seen: unknown[] = [];
+      const nativePicker = async (req: unknown) => {
+        seen.push(req);
+        return { kind: 'cancelled' as const };
+      };
+      const obj = await json(deps(root, home, { nativePicker }), 'pick-file', 'POST', {
+        title: '选择参考文本',
+        extensions: ['.txt', '.list'],
+      });
+
+      assert.equal(obj.ok, false);
+      assert.equal(obj.reason, 'cancelled', '取消的口径不变（界面据此不动输入框）');
+      assert.deepEqual(
+        seen,
+        [{ kind: 'file', title: '选择参考文本', extensions: ['.txt', '.list'] }],
+        '不再带 timeoutMs：选择框没有超时了',
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('A 通道回 unsupported：仍回 {ok:false,reason:unsupported,message} 并写一行 warn', async () => {
+    const { home, root } = tempHome();
+    try {
+      const warns: string[] = [];
+      const nativePicker = async () => ({ kind: 'unsupported' as const, message: '另一个选择框还开着' });
+      const d = deps(root, home, {
+        nativePicker,
+        log: {
+          info: () => undefined,
+          warn: (message: string) => warns.push(message),
+          file: join(home, 'logs.txt'),
+        } as unknown as PetRouteDeps['log'],
+      });
+
+      const obj = await json(d, 'pick-folder', 'POST', { title: 'pick' });
+
+      assert.deepEqual(obj, { ok: false, reason: 'unsupported', message: '另一个选择框还开着' });
+      assert.equal(warns.length, 1, '弹不出来要留一行日志（排障唯一线索）');
+      assert.match(warns[0] ?? '', /由 helper 提供/, '日志要写明是哪个通道给的结论');
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('/pick-* 的三态形状未变：picked / cancelled / unsupported（aborted 不在响应体里）', async () => {
+    const { home, root } = tempHome();
+    try {
+      const outcomes = [
+        { kind: 'picked' as const, path: 'D:/AI/AI-Voice' },
+        { kind: 'cancelled' as const },
+        { kind: 'unsupported' as const, message: '弹不出来' },
+      ];
+      const shapes: unknown[] = [];
+      for (const outcome of outcomes) {
+        const d = deps(root, home, { nativePicker: async () => outcome });
+        shapes.push(await json(d, 'pick-file', 'POST', { title: 't' }));
+      }
+      assert.deepEqual(shapes, [
+        { ok: true, path: 'D:/AI/AI-Voice' },
+        { ok: false, reason: 'cancelled' },
+        { ok: false, reason: 'unsupported', message: '弹不出来' },
+      ]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('/pick-file 的调用方 signal 已 abort：路由把它透传给选择器，并回 {kind:"none"}', async () => {
+    const { home, root } = tempHome();
+    try {
+      const controller = new AbortController();
+      controller.abort();
+      let seen: AbortSignal | undefined;
+      const nativePicker = async (req: { signal?: AbortSignal }) => {
+        seen = req.signal;
+        return { kind: 'aborted' as const };
+      };
+      const d = deps(root, home, { nativePicker });
+
+      const result = await handleLayoutRoutes(d, {
+        url: new URL('http://localhost/pick-file'),
+        rest: 'pick-file',
+        method: 'POST',
+        body: JSON.stringify({ title: '选择参考文本' }),
+        signal: controller.signal,
+      });
+
+      assert.deepEqual(result, { kind: 'none' }, '调用方已走：不写响应，也不当失败');
+      assert.equal(seen?.aborted, true, 'input.signal 必须真的进到选择器（否则 B 路径没有唯一的提前退出机制）');
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('A 通道回 aborted（调用方断开）：回 {kind:"none"}——不写响应，也不当失败', async () => {
+    const { home, root } = tempHome();
+    try {
+      const warns: string[] = [];
+      const nativePicker = async () => ({ kind: 'aborted' as const });
+      const d = deps(root, home, {
+        nativePicker,
+        log: {
+          info: () => undefined,
+          warn: (message: string) => warns.push(message),
+          file: join(home, 'logs.txt'),
+        } as unknown as PetRouteDeps['log'],
+      });
+
+      const result = await call(d, 'pick-file', 'POST', { title: '选择参考文本' });
+
+      assert.deepEqual(result, { kind: 'none' }, '与 /playback、/state 的取消先例一致：没有人在等应答');
+      assert.equal(warns.length, 0, 'aborted 不是失败，不该写 warn');
     } finally {
       rmSync(home, { recursive: true, force: true });
     }

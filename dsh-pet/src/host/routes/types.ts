@@ -22,6 +22,7 @@ import type { FishSkinDirs } from '../session-fish/skins.ts';
 import type { PersonaCharacterService, PersonaSourceService } from '../persona/service.ts';
 import type { SfxDirs } from '../sfx/scan.ts';
 import type { PollStateStore } from '../state.ts';
+import type { NativePicker } from '../helper/dialog.ts';
 import type { VoiceTarget } from '../surface.ts';
 import type { TodoStore } from '../todo/store.ts';
 import type { UserPaths } from '../user-layout.ts';
@@ -106,6 +107,13 @@ export interface PetRouteDeps {
   readonly requestRestart: () => Promise<void>;
   /** 停掉桌面 Helper 进程（托盘「退出」在 DSH 宿主内的实现：不退出 DSH，只结束桌面侧）。 */
   readonly stopHelper?: (reason?: string) => void;
+  /**
+   * 系统选择框（helper 的 `dialog.showOpenDialog`）。
+   *
+   * 可选：精简测试桩不给它就等于「没有 A 通道」，`/pick-*` 直接走 PowerShell 兜底——与改造前一致。
+   * 内部态 `unavailable` 由 `pick-folder` 吞掉，**不会**进入任何路由响应。
+   */
+  readonly nativePicker?: NativePicker;
   /** 按 `?pet=` 定位宠物；缺参/未知宠物给出可直接返回的应答。 */
   readonly requirePet: (
     params: URLSearchParams,

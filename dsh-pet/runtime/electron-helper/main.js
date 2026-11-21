@@ -22,7 +22,7 @@ try {
   );
   process.exit(3);
 }
-const { app, BrowserWindow, ipcMain, screen, shell, protocol, Tray, Menu, nativeImage, powerMonitor, session } =
+const { app, BrowserWindow, dialog, ipcMain, screen, shell, protocol, Tray, Menu, nativeImage, powerMonitor, session } =
   electronApi;
 const path = require('node:path');
 const fsSync = require('node:fs');
@@ -49,6 +49,8 @@ const { buildDeskGeometry } = require('./desktop-geometry.js');
 const { runSmokeCheck } = require('./main/smoke.js');
 const { createDpi } = require('./main/dpi.js');
 const { createBridge } = require('./main/bridge.js');
+// 系统选择框：宿主经 bridge 的 `POST /pick` 调它（`dialog.showOpenDialog` 只有主进程能调）
+const { createPickDialog } = require('./main/dialog.js');
 const { createTray } = require('./main/tray.js');
 const { createWindows } = require('./main/windows.js');
 const { registerIpc } = require('./main/ipc.js');
@@ -233,7 +235,14 @@ const ORIGIN = new URL(process.env.DSH_PET_CONFIG_URL || 'http://127.0.0.1:3080/
 const TRAY_PLATFORM = trayPlatform(process.platform);
 
 /** 与宿主的通道：bridge 走管道 + 本地回调，否则 HTTP 直连。 */
-const bridge = createBridge({ isBridge: BRIDGE, prefix: BRIDGE_PREFIX, origin: ORIGIN, token: APP_TOKEN });
+const bridge = createBridge({
+  isBridge: BRIDGE,
+  prefix: BRIDGE_PREFIX,
+  origin: ORIGIN,
+  token: APP_TOKEN,
+  // 宿主点「选择…」时由这条通道弹系统对话框（没有它 /pick 回 501，宿主回落 PowerShell）
+  pick: createPickDialog({ dialog, BrowserWindow }),
+});
 
 /** 窗口能力：建窗、整窗穿透镜像、宠物状态广播、两条实时泵。 */
 const petWindows = createWindows({

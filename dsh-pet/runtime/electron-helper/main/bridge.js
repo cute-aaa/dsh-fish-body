@@ -17,8 +17,9 @@ const { parseRange } = require('../range.js');
  * @param deps.prefix - 协议行前缀（与宿主 helper-process 的 prefix 一致）。
  * @param deps.origin - 非 bridge 模式下的宿主 HTTP 源。
  * @param deps.token - 独立应用的访问凭据（只进请求头）。
+ * @param deps.pick - 可选的系统选择框能力（`createPickDialog` 的返回值）；不注入时 `/pick` 回 501。
  */
-function createBridge({ isBridge, prefix, origin, token }) {
+function createBridge({ isBridge, prefix, origin, token, pick }) {
   let bridgeSeq = 0;
   /** id -> {resolve, reject}：一个请求对应宿主的一次回调应答 */
   const bridgePending = new Map();
@@ -52,7 +53,13 @@ function createBridge({ isBridge, prefix, origin, token }) {
   function startBridgeCallback() {
     const http = require('node:http');
     const server = http.createServer((req, res) => {
-      if (req.method !== 'POST' || req.url !== '/respond') {
+      // 两条路由共用同一个端口：`/respond`（宿主回话，语义一字不改）与 `/pick`（宿主让我弹选择框）。
+      const url = typeof req.url === 'string' ? req.url.split('?')[0] : '';
+      if (req.method === 'POST' && url === '/pick') {
+        handlePick(req, res);
+        return;
+      }
+      if (req.method !== 'POST' || url !== '/respond') {
         res.writeHead(404, { 'content-type': 'text/plain' });
         res.end('fish-body: not found');
         return;
@@ -131,6 +138,61 @@ function createBridge({ isBridge, prefix, origin, token }) {
       }
     }
     return new Response(resp.body ?? '', { status: resp.status || 200, headers });
+  }
+
+  /**
+   * `POST /pick`：宿主让我弹系统选择框，结果以 JSON 回给宿主。
+   *
+   * 三态与业务失败都在 200 里（`ok:true|false` 由 pick 自己给），与 `/pick-file` 的
+   * 「业务失败也是 200」口径一致；只有「没注入 pick」才回 501（老 helper 遇到新宿主）。
+   *
+   * **断开语义**：选择框没有超时，宿主完全可能在框还开着的时候把连接断掉（页面关掉、进程被杀）。
+   * 那时 `pick()` 之后落地，写应答前必须先看 socket 还能不能写——否则 `ERR_STREAM_WRITE_AFTER_END`
+   * 会变成未捕获异常把 helper 主进程带崩。注意：断开**只**影响「写不写」，不影响 `pick()` 里的
+   * `inFlight`（那个标记的生命周期是对话框本身，不是这条连接）。
+   *
+   * @param req - HTTP 请求（读 JSON 体）。
+   * @param res - HTTP 应答。
+   */
+  function handlePick(req, res) {
+    if (typeof pick !== 'function') {
+      res.writeHead(501, { 'content-type': 'text/plain' });
+      res.end('fish-body: pick not supported');
+      return;
+    }
+    /** 宿主已经断开：不再写任何字节。只看 socket 状态，不改任何互斥/业务状态。 */
+    const writable = () => res.writableEnded !== true && res.destroyed !== true;
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      let body;
+      try {
+        body = raw === '' ? {} : JSON.parse(raw);
+      } catch {
+        if (!writable()) return;
+        res.writeHead(400, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, reason: 'bad-request', message: 'fish-body: bad payload' }));
+        return;
+      }
+      Promise.resolve()
+        .then(() => pick(body))
+        .then((outcome) => {
+          if (!writable()) return;
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify(outcome));
+        })
+        .catch((error) => {
+          if (!writable()) return;
+          const message = error && error.message ? String(error.message) : String(error);
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, reason: 'unsupported', message: message }));
+        });
+    });
+    req.on('error', () => {
+      if (!writable()) return;
+      res.writeHead(400, { 'content-type': 'text/plain' });
+      res.end('fish-body: bad payload');
+    });
   }
 
   /** 与宿主 handlePetRoute 通信：bridge 模式走管道，手动 start-desktop 流退回 HTTP 直连 */

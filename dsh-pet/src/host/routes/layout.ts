@@ -23,6 +23,21 @@ import { failResult, methodNotAllowed, okResult } from './result.ts';
 /** 可改位置的两项。 */
 export type MovableLocation = 'root' | 'skin';
 
+/**
+ * 选择框是哪个通道给的（只进日志，不进响应）。
+ *
+ * `pick-folder` 的三个结论都带 `via`：`native` = helper 的 Electron 系统对话框，`shell` = PowerShell /
+ * osascript / zenity 兜底。排障时「用户说没反应」第一句要问的就是这一行。
+ *
+ * @param via - 结论来源；除旧测试桩外总是有值。
+ * @returns 中文短语，用于拼日志。
+ */
+function viaLabel(via: 'native' | 'shell' | undefined): string {
+  if (via === 'native') return '由 helper 提供';
+  if (via === 'shell') return '由 PowerShell 提供';
+  return '来源未知';
+}
+
 /** 一次搬迁的对外状态（`GET /layout/location` 的响应体）。 */
 export interface MoveState {
   /** 是否正在搬。 */
@@ -231,11 +246,17 @@ export async function handleLayoutRoutes(deps: PetRouteDeps, input: RouteInput):
     const picked = await pickFolder({
       ...(title === undefined ? {} : { title }),
       ...(start === undefined ? {} : { start }),
+      ...(deps.nativePicker === undefined ? {} : { native: deps.nativePicker }),
+      // 调用方断开（页面关掉 / 请求取消）是 B 路径唯一的提前退出信号：选择框本身没有超时。
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+      log: deps.log,
     });
+    // 调用方已经走了：没有人在等这份应答，回「无需应答」——与 `/playback`、`/state` 的取消先例一致。
+    if (picked.kind === 'aborted') return { kind: 'none' };
     if (picked.kind === 'picked') return okResult({ ok: true, path: picked.path });
     if (picked.kind === 'cancelled') return okResult({ ok: false, reason: 'cancelled' });
-    // 弹不出来要说进日志：用户那边只看到一句「没反应」，排障时这行是唯一线索（缺解释器 / 无桌面会话 / 超时）。
-    deps.log.warn(`[fish-body] 目录选择框不可用：${picked.message}`);
+    // 弹不出来要说进日志：用户那边只看到一句「没反应」，排障时这行是唯一线索（缺解释器 / 无桌面会话）。
+    deps.log.warn(`[fish-body] 目录选择框不可用（${viaLabel(picked.via)}）：${picked.message}`);
     return okResult({ ok: false, reason: 'unsupported', message: picked.message });
   }
 
@@ -249,10 +270,14 @@ export async function handleLayoutRoutes(deps: PetRouteDeps, input: RouteInput):
       ...(Array.isArray(body.extensions)
         ? { extensions: body.extensions.filter((item): item is string => typeof item === 'string') }
         : {}),
+      ...(deps.nativePicker === undefined ? {} : { native: deps.nativePicker }),
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+      log: deps.log,
     });
+    if (picked.kind === 'aborted') return { kind: 'none' };
     if (picked.kind === 'picked') return okResult({ ok: true, path: picked.path });
     if (picked.kind === 'cancelled') return okResult({ ok: false, reason: 'cancelled' });
-    deps.log.warn(`[fish-body] 文件选择框不可用：${picked.message}`);
+    deps.log.warn(`[fish-body] 文件选择框不可用（${viaLabel(picked.via)}）：${picked.message}`);
     return okResult({ ok: false, reason: 'unsupported', message: picked.message });
   }
 

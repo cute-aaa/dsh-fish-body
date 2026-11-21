@@ -28,6 +28,7 @@ import {
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit } from './ui.ts';
 import { pickFile, pickFolder } from './layout-api.ts';
+import { pickDirStorage, readPickDirs, rememberPickDir, startFor } from './pick-dirs.ts';
 import { postJson, rescanVoiceProvider } from './voice-api.ts';
 
 /** 「导入音色…」按钮（卡里那一段）的输入。 */
@@ -252,7 +253,7 @@ export function makeVoiceImportRow(rt: SettingsRuntime): FunctionComponent<Voice
  * @returns 弹窗组件；`open === false` 时不渲染。
  */
 export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<VoiceImportDialogProps> {
-  const { h, t, useState } = rt;
+  const { h, t, useState, useEffect, useRef } = rt;
   const { note } = makeUiKit({ h, t });
 
   return function VoiceImportDialog(props: VoiceImportDialogProps) {
@@ -264,15 +265,51 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
     const [overwrite, setOverwrite] = useState(false);
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
-    const [lines, setLines] = useState<readonly TextLineView[] | null>(null);
-    const [lineTarget, setLineTarget] = useState('');
+    // 候选行与「这一批是给哪一行选的」是同一个事实，所以放在同一个状态里：
+    // 分成 `lines` + `lineTarget` 两个 state 时，列表的点击回调读到的是渲染期闭包里的目标，
+    // 一旦两次 setState 落在不同批次或目标被另一次选择覆盖，就会出现「点了完全没反应」。
+    const [linePick, setLinePick] = useState<{ id: string; lines: readonly TextLineView[] } | null>(null);
     const [results, setResults] = useState<readonly VoicePackApplyView[] | null>(null);
     const [errorIds, setErrorIds] = useState<readonly string[]>([]);
+    // 行的真值镜像：事件回调与 Promise 回调都可能拿到「上一次渲染」的 rows，
+    // 写入一律以镜像为准，写完立刻更新镜像，同一次交互里连续写也不会互相覆盖。
+    const rowsRef = useRef<Record<string, ImportRowState>>({});
+    useEffect(() => {
+      rowsRef.current = rows;
+    }, [rows]);
 
     if (!props.open) return null;
 
     const fail = (error: unknown): void => {
       setMessage('!' + (error instanceof Error ? error.message : String(error)));
+    };
+
+    /** 整份替换行状态（扫描结果、全选、全不选走这里）。 */
+    const replaceRows = (next: Record<string, ImportRowState>): void => {
+      rowsRef.current = next;
+      setRows(next);
+    };
+
+    /**
+     * 写一行；键不存在时返回 `false`（调用方负责提示，界面不再出现「点了没反应」）。
+     *
+     * @param id - 候选 id。
+     * @param patch - 要合并进去的字段。
+     * @returns 是否真的写进去了。
+     */
+    const applyRow = (id: string, patch: Partial<ImportRowState>): boolean => {
+      const row = rowsRef.current[id];
+      if (row === undefined) return false;
+      replaceRows({ ...rowsRef.current, [id]: { ...row, ...patch } });
+      setResults(null);
+      return true;
+    };
+
+    /** 写一行；写不进去时把原因贴到输入框下面（保留列表，用户可以直接重选）。 */
+    const applyRowOrWarn = (id: string, patch: Partial<ImportRowState>): boolean => {
+      if (applyRow(id, patch)) return true;
+      setMessage('!' + t('voiceImportRowMissing'));
+      return false;
     };
 
     /** 选根 → 宿主展开两侧权重并配对（手输与原生选择框共用这一条）。 */
@@ -286,6 +323,8 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
       setMessage('');
       setResults(null);
       setErrorIds([]);
+      // 重新扫描会重建整张清单：上一份候选行属于旧目录，留着只会指向不存在的行。
+      setLinePick(null);
       void postJson('/voice/voice-pack', { provider: 'gsv', mode: 'weights', root }, 'scan')
         .then((result) => {
           const parsed = readWeightImportScan(result.scan);
@@ -293,7 +332,7 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
           const next: Record<string, ImportRowState> = {};
           for (const candidate of parsed.candidates) next[candidate.id] = rowStateOf(candidate);
           setScan(parsed);
-          setRows(next);
+          replaceRows(next);
         })
         .catch(fail)
         .finally(() => setBusy(false));
@@ -304,47 +343,58 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
      *
      * 其余情况一定要说话——`unsupported` 与「宿主回了看不懂的东西」都曾表现为「点了没反应」，
      * 所以任何非 picked / 非 cancelled 的结论都落到一句可操作的提示上，并保留手输框。
+     *
+     * 初始目录在**点击时**现读（不在渲染期缓存）：同一会话里「刚选完立刻再选」才能落在新目录。
      */
     const pickRoot = (): void => {
-      void pickFolder(t('voiceImportPickRoot')).then((outcome) => {
-        if (outcome.kind === 'picked') loadRoot(outcome.path);
-        else if (outcome.kind === 'unsupported') setMessage('!' + (outcome.message || t('voiceImportPickUnsupported')));
+      const storage = pickDirStorage();
+      const draft = rootDraft.trim();
+      const start = startFor('weights', readPickDirs(storage), draft === '' ? undefined : draft);
+      void pickFolder(t('voiceImportPickRoot'), start).then((outcome) => {
+        if (outcome.kind === 'picked') {
+          // 只有真的选中了才记：取消/弹不出来都不代表用户认可了这个目录。
+          rememberPickDir('weights', outcome.path, 'folder', storage);
+          loadRoot(outcome.path);
+        } else if (outcome.kind === 'unsupported') {
+          setMessage('!' + (outcome.message || t('voiceImportPickUnsupported')));
+        }
       });
-    };
-
-    const setRow = (id: string, patch: Partial<ImportRowState>): void => {
-      setRows((current) => {
-        const row = current[id];
-        return row === undefined ? current : { ...current, [id]: { ...row, ...patch } };
-      });
-      setResults(null);
     };
 
     const pickRef = (id: string): void => {
-      void pickFile(t('voiceImportRef'), AUDIO_EXTS).then((outcome) => {
-        if (outcome.kind === 'picked') setRow(id, { refAudioPath: outcome.path });
-        else if (outcome.kind === 'unsupported')
+      const storage = pickDirStorage();
+      void pickFile(t('voiceImportRef'), AUDIO_EXTS, startFor('refAudio', readPickDirs(storage))).then((outcome) => {
+        if (outcome.kind === 'picked') {
+          rememberPickDir('refAudio', outcome.path, 'file', storage);
+          applyRowOrWarn(id, { refAudioPath: outcome.path });
+        } else if (outcome.kind === 'unsupported') {
           setMessage('!' + (outcome.message || t('voiceImportFilePickUnsupported')));
+        }
       });
     };
 
     /** 选一个文本文件，读成候选行；点其中一行填进该行。 */
     const pickLine = (id: string): void => {
-      void pickFile(t('voiceImportText'), TEXT_EXTS).then((outcome) => {
-        if (outcome.kind !== 'picked') {
-          if (outcome.kind === 'unsupported')
-            setMessage('!' + (outcome.message || t('voiceImportFilePickUnsupported')));
-          return;
-        }
-        void postJson('/voice/text-lines', { path: outcome.path }, t('voiceImportLinesFailed'))
-          .then((result) => {
-            const parsed = readTextLines(result);
-            if (parsed.length === 0) throw new Error(t('voiceImportLinesEmpty'));
-            setLineTarget(id);
-            setLines(parsed.slice(0, 20));
-          })
-          .catch(fail);
-      });
+      const storage = pickDirStorage();
+      void pickFile(t('voiceImportTextTitle'), TEXT_EXTS, startFor('refText', readPickDirs(storage))).then(
+        (outcome) => {
+          if (outcome.kind !== 'picked') {
+            if (outcome.kind === 'unsupported') {
+              setMessage('!' + (outcome.message || t('voiceImportFilePickUnsupported')));
+            }
+            return;
+          }
+          rememberPickDir('refText', outcome.path, 'file', storage);
+          void postJson('/voice/text-lines', { path: outcome.path }, t('voiceImportLinesFailed'))
+            .then((result) => {
+              const parsed = readTextLines(result);
+              if (parsed.length === 0) throw new Error(t('voiceImportLinesEmpty'));
+              // 目标行与候选行一次写入：列表里点哪一行都能读到同一个 id。
+              setLinePick({ id, lines: parsed.slice(0, 20) });
+            })
+            .catch(fail);
+        },
+      );
     };
 
     const candidates = scan?.candidates ?? [];
@@ -443,7 +493,7 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
         value,
         disabled: !enabled,
         onChange: (event: { target: { value: string } }) =>
-          setRow(id, kind === 'gpt' ? { gpt: event.target.value } : { sovits: event.target.value }),
+          applyRow(id, kind === 'gpt' ? { gpt: event.target.value } : { sovits: event.target.value }),
         children: files.map((file) => h('option', { key: file, value: file, children: [baseNameOf(file)] })),
       });
     };
@@ -465,7 +515,7 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
             disabled,
             'aria-label': candidate.id,
             onChange: (event: { target: { checked: boolean } }) =>
-              setRow(candidate.id, { checked: event.target.checked }),
+              applyRow(candidate.id, { checked: event.target.checked }),
           }),
           h('div', {
             key: 'body',
@@ -502,6 +552,21 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
                     onClick: () => pickRef(candidate.id),
                     children: [t('voiceImportRef'), row.refAudioPath === '' ? '' : `：${baseNameOf(row.refAudioPath)}`],
                   }),
+                  // 「×」只在真的填了东西时出现：空字段旁边挂一个 × 只会让人以为那行坏了。
+                  // 写法与选音频/选文本同一个入口（`applyRowOrWarn`），`rows` 仍是唯一状态真源。
+                  row.refAudioPath === ''
+                    ? null
+                    : h('button', {
+                        key: 'clearAudio',
+                        type: 'button',
+                        className: 'dsh-pet-cfg__btn is-text dsh-pet-cfg__clear',
+                        'data-field': 'refAudio',
+                        'aria-label': t('voiceImportClearRefAudio'),
+                        title: t('voiceImportClearRefAudio'),
+                        disabled: disabled || !row.checked,
+                        onClick: () => applyRowOrWarn(candidate.id, { refAudioPath: '' }),
+                        children: '×',
+                      }),
                   h('input', {
                     key: 'text',
                     type: 'text',
@@ -510,8 +575,21 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
                     placeholder: t('voiceImportTextPlaceholder'),
                     disabled: disabled || !row.checked,
                     onChange: (event: { target: { value: string } }) =>
-                      setRow(candidate.id, { refText: event.target.value }),
+                      applyRow(candidate.id, { refText: event.target.value }),
                   }),
+                  row.refText === ''
+                    ? null
+                    : h('button', {
+                        key: 'clearText',
+                        type: 'button',
+                        className: 'dsh-pet-cfg__btn is-text dsh-pet-cfg__clear',
+                        'data-field': 'refText',
+                        'aria-label': t('voiceImportClearRefText'),
+                        title: t('voiceImportClearRefText'),
+                        disabled: disabled || !row.checked,
+                        onClick: () => applyRowOrWarn(candidate.id, { refText: '' }),
+                        children: '×',
+                      }),
                   h('button', {
                     key: 'line',
                     type: 'button',
@@ -526,7 +604,7 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
                     value: row.placement,
                     disabled: disabled || !row.checked,
                     onChange: (event: { target: { value: string } }) =>
-                      setRow(candidate.id, { placement: event.target.value === 'copy' ? 'copy' : 'hardlink' }),
+                      applyRow(candidate.id, { placement: event.target.value === 'copy' ? 'copy' : 'hardlink' }),
                     children: [
                       h('option', {
                         key: 'hardlink',
@@ -672,9 +750,12 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
                         onClick: () => {
                           const next: Record<string, ImportRowState> = {};
                           for (const candidate of candidates) {
-                            next[candidate.id] = { ...(rows[candidate.id] ?? rowStateOf(candidate)), checked: true };
+                            next[candidate.id] = {
+                              ...(rowsRef.current[candidate.id] ?? rowStateOf(candidate)),
+                              checked: true,
+                            };
                           }
-                          setRows(next);
+                          replaceRows(next);
                         },
                         children: t('voiceImportSelectAll'),
                       }),
@@ -686,9 +767,12 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
                         onClick: () => {
                           const next: Record<string, ImportRowState> = {};
                           for (const candidate of candidates) {
-                            next[candidate.id] = { ...(rows[candidate.id] ?? rowStateOf(candidate)), checked: false };
+                            next[candidate.id] = {
+                              ...(rowsRef.current[candidate.id] ?? rowStateOf(candidate)),
+                              checked: false,
+                            };
                           }
-                          setRows(next);
+                          replaceRows(next);
                         },
                         children: t('voiceImportSelectNone'),
                       }),
@@ -723,7 +807,7 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
           scan !== null && candidates.length === 0
             ? h('div', { key: 'empty', className: 'dsh-pet-cfg__msg', children: t('voiceImportNoRows') })
             : null,
-          lines === null
+          linePick === null
             ? null
             : h('div', {
                 key: 'lines',
@@ -732,14 +816,15 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
                   h('div', { className: 'dsh-pet-cfg__msg', children: t('voiceImportLinesTitle') }),
                   h('div', {
                     className: 'dsh-pet-cfg__searchList',
-                    children: lines.map((line: TextLineView) =>
+                    children: linePick.lines.map((line: TextLineView) =>
                       h('button', {
                         key: `${line.index}`,
                         type: 'button',
                         className: 'dsh-pet-cfg__searchRow',
                         onClick: () => {
-                          setRow(lineTarget, { refText: line.text });
-                          setLines(null);
+                          // 目标行就在这一份候选行里，写不进去（行已不在清单）时给提示并保留列表。
+                          if (!applyRowOrWarn(linePick.id, { refText: line.text })) return;
+                          setLinePick(null);
                         },
                         children: [line.text],
                       }),
@@ -748,7 +833,7 @@ export function makeVoiceImportDialog(rt: SettingsRuntime): FunctionComponent<Vo
                   h('button', {
                     type: 'button',
                     className: 'dsh-pet-cfg__btn is-sm',
-                    onClick: () => setLines(null),
+                    onClick: () => setLinePick(null),
                     children: t('voiceImportClose'),
                   }),
                 ],

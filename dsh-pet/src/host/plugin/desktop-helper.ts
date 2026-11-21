@@ -27,6 +27,8 @@ export function createDesktopHelper(deps: DesktopHelperDeps) {
     requestRestart: sync.requestRestart,
     assetRootFor: spawn.assetRootFor,
     userRootFor: spawn.userRootFor,
+    // 系统选择框（helper 的 dialog.showOpenDialog）：路由层透传给 `pick-folder`，不可用时回落 PowerShell。
+    nativePicker: spawn.nativePicker,
     markDisposed: spawn.markDisposed,
   };
 }

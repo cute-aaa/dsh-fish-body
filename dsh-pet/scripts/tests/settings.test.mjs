@@ -215,11 +215,24 @@ async function open(
     voiceProviders = null,
     // 接入配置的「服务端」状态：`{ values, secrets }`，POST 时按预设展开后写回（R2 的 UI 侧证据）。
     voiceConfig = null,
+    // 音色导入夹具（R1 的用户旅程）：给了才拦 `/voice/voice-pack`、`/pick-file`、`/voice/text-lines`。
+    // `pickFiles` / `lineSets` 按调用顺序消耗：一次「Pick a line…」取一个文件路径、取一份行集；
+    // 取不到就当取消（`/pick-file` 回 `{ok:false,reason:'cancelled'}`）。
+    voiceImport = null,
+    // 预置 localStorage（模拟「上次会话记下的目录」）：必须在首帧脚本之前写入，所以要 addInitScript。
+    storage = null,
   } = {},
 ) {
+  const voiceImportState = voiceImport === null ? null : { packs: [], pickCalls: [], lineCalls: [], ...voiceImport };
   const context = await browser.newContext(reducedMotion ? { reducedMotion, viewport } : { viewport });
   t.after(() => context.close());
   const page = await context.newPage();
+  // `addInitScript` 在每次导航的脚本执行前跑：这是唯一能「跨会话」预置存储的时机。
+  if (storage !== null) {
+    await page.addInitScript((entries) => {
+      for (const [key, value] of Object.entries(entries)) window.localStorage.setItem(key, value);
+    }, storage);
+  }
   page.setDefaultTimeout(5000);
   const writes = [],
     polishCalls = [],
@@ -475,6 +488,26 @@ async function open(
     if (path === '/dsh-pet-7340/voice/voices' && voiceProviders !== null) {
       return route.fulfill({ json: { ok: true, voices: [], providers: voiceProviders } });
     }
+    // 音色导入三条桩：扫描结果、系统选择框、文本行。形状与宿主逐字一致，
+    // 这样 E2E 覆盖的是「客户端真的按这条路走」而不是把链路短路掉。
+    if (voiceImportState !== null && path === '/dsh-pet-7340/voice/voice-pack') {
+      const body = request.postDataJSON() ?? {};
+      voiceImportState.packs.push(body);
+      if (body.mode === 'weights')
+        return route.fulfill({ json: { ok: true, mode: 'weights', scan: voiceImportState.scan } });
+      return route.fulfill({ json: { ok: true, previews: [], results: [] } });
+    }
+    if (voiceImportState !== null && path === '/dsh-pet-7340/pick-file') {
+      voiceImportState.pickCalls.push(request.postDataJSON() ?? {});
+      const picked = voiceImportState.pickFiles.shift();
+      return route.fulfill({
+        json: picked === undefined ? { ok: false, reason: 'cancelled' } : { ok: true, path: picked },
+      });
+    }
+    if (voiceImportState !== null && path === '/dsh-pet-7340/voice/text-lines') {
+      voiceImportState.lineCalls.push(request.postDataJSON() ?? {});
+      return route.fulfill({ json: { ok: true, lines: voiceImportState.lineSets.shift() ?? [] } });
+    }
     // 接入配置：GET 回「服务端」当前值，POST 先按预设展开再回展开后的值。
     // 展开规则与宿主同形（空值/等于旧预设默认值才覆盖），所以保存后卡上显示的就是「生效值」。
     if (path === '/dsh-pet-7340/voice/provider-config' && voiceConfig !== null) {
@@ -503,6 +536,7 @@ async function open(
     runtimePosts,
     movePosts,
     models,
+    voiceImport: voiceImportState,
     setPickPath: (value) => {
       pickPath = value;
     },
@@ -1618,6 +1652,168 @@ test('声音 → 接入卡：保存与启停的结论只占一行', async (t) =>
   assert.equal(await card.locator('.dsh-pet-cfg__msg').count(), 1);
 });
 
+/**
+ * R1 的用户旅程（真 React + 真 Chromium）：勾一行 → 选文件 → 点候选行 → 该行参考文本输入框回填。
+ *
+ * 三条桩只替换网络：`/voice/voice-pack`（扫描结果）、`/pick-file`（系统选择框）、
+ * `/voice/text-lines`（自绘候选行的来源）。判读点是**输入框的 value**——这是用户能看见的东西。
+ */
+// 本地 GSV 的接入卡：ields 非空才会被渲染（providerFormsOf 的过滤条件），
+// 两个字段与宿主 registry 声明的一致（baseURL / voicesDir），音色导入那一段挂在它的 beforeActions 上。
+const gsvImportProvider = {
+  id: 'gsv',
+  name: 'Local GSV',
+  available: true,
+  fields: [
+    { key: 'baseURL', label: 'GSV 服务地址', kind: 'text' },
+    { key: 'voicesDir', label: '音色包目录', kind: 'text' },
+  ],
+};
+
+/** 权重扫描结果：两条候选（klee / hutao），音色包目录非空。 */
+const voiceScanFixture = {
+  root: '/test/GPT-SoVITS',
+  gptDirs: ['/test/GPT-SoVITS/GPT_weights'],
+  sovitsDirs: ['/test/GPT-SoVITS/SoVITS_weights'],
+  voicesDir: '/test/voices',
+  adopted: 1,
+  notes: [],
+  candidates: [
+    {
+      id: 'klee',
+      gptFiles: ['/test/klee.ckpt'],
+      sovitsFiles: ['/test/klee.pth'],
+      gptPath: '/test/klee.ckpt',
+      sovitsPath: '/test/klee.pth',
+      bytes: 1048576,
+      linkable: true,
+      installed: false,
+      warnings: [],
+    },
+    {
+      id: 'hutao',
+      gptFiles: ['/test/hutao.ckpt'],
+      sovitsFiles: ['/test/hutao.pth'],
+      gptPath: '/test/hutao.ckpt',
+      sovitsPath: '/test/hutao.pth',
+      bytes: 1048576,
+      linkable: true,
+      installed: false,
+      warnings: [],
+    },
+  ],
+};
+
+/** 一份 `/voice/text-lines` 的行集（行号从 1 起，与宿主同形）。 */
+const linesOf = (...texts) => texts.map((text, index) => ({ index: index + 1, text }));
+
+/** 打开「Import voices…」弹窗并把权重目录读进来（三条音频用例的公共前置）。 */
+async function openVoiceImport(page) {
+  await tab(page, 'Sound').click();
+  await page.getByRole('button', { name: 'Import voices…' }).click();
+  const dialog = page.locator('.dsh-pet-cfg__dialog');
+  await dialog.locator('input[placeholder^="Weights folder"]').fill('/test/GPT-SoVITS');
+  await dialog.getByRole('button', { name: 'Read', exact: true }).click();
+  const rows = dialog.locator('.dsh-pet-cfg__impRow');
+  await rows.first().waitFor();
+  return { dialog, rows };
+}
+
+/** 弹窗里那行「参考文本」输入框。 */
+const refTextInputOf = (row) => row.locator('input[placeholder^="the sentence spoken"]');
+
+test('声音 → 导入音色：点候选行第 2 行 → 该行参考文本立刻回填', async (t) => {
+  const { page, voiceImport } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    voiceImport: {
+      scan: voiceScanFixture,
+      pickFiles: ['/test/ref.txt'],
+      lineSets: [linesOf('甲', '乙', '丙')],
+    },
+  });
+  const { dialog, rows } = await openVoiceImport(page);
+  await rows.first().locator('input[type=checkbox]').click();
+  await rows.first().getByRole('button', { name: 'Pick a line…' }).click();
+
+  const lineButtons = dialog.locator('.dsh-pet-cfg__searchList button');
+  await lineButtons.first().waitFor();
+  assert.equal(await lineButtons.count(), 3, '候选行要按宿主返回的行数渲染');
+  assert.deepEqual(await lineButtons.allInnerTexts(), ['甲', '乙', '丙'], '列表内容必须是这一份文件的行');
+
+  // 点**第 2 行**：写进去的必须是第 2 行的文本，不能总是第一行。
+  await lineButtons.nth(1).click();
+  assert.equal(await refTextInputOf(rows.first()).inputValue(), '乙', '第 2 行 → 输入框显示「乙」');
+  assert.equal(await dialog.locator('.dsh-pet-cfg__searchList').count(), 0, '选完列表关闭');
+  assert.equal(voiceImport.lineCalls.length, 1, '只读了这一份文件');
+  assert.equal(voiceImport.lineCalls[0].path, '/test/ref.txt', '读的是选择框给的那个路径');
+});
+
+test('声音 → 导入音色：列表开着时换个文件 → 列表换内容且仍能回填', async (t) => {
+  const { page, voiceImport } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    voiceImport: {
+      scan: voiceScanFixture,
+      pickFiles: ['/test/a.txt', '/test/b.txt'],
+      lineSets: [linesOf('甲', '乙', '丙'), linesOf('丁', '戊')],
+    },
+  });
+  const { dialog, rows } = await openVoiceImport(page);
+  await rows.first().locator('input[type=checkbox]').click();
+
+  const lineButtons = dialog.locator('.dsh-pet-cfg__searchList button');
+  await rows.first().getByRole('button', { name: 'Pick a line…' }).click();
+  await lineButtons.first().waitFor();
+  assert.deepEqual(await lineButtons.allInnerTexts(), ['甲', '乙', '丙']);
+
+  // 列表还开着，再选另一个文件：列表内容要换成新行集（不能沿用上一份）。
+  await rows.first().getByRole('button', { name: 'Pick a line…' }).click();
+  await page.getByRole('button', { name: '戊', exact: true }).waitFor();
+  assert.deepEqual(await lineButtons.allInnerTexts(), ['丁', '戊'], '换文件后列表内容被替换');
+
+  await page.getByRole('button', { name: '戊', exact: true }).click();
+  assert.equal(await refTextInputOf(rows.first()).inputValue(), '戊', '换过文件之后仍然能回填');
+  assert.equal(voiceImport.lineCalls.length, 2, '两次选文件各读一次');
+  assert.equal(voiceImport.lineCalls[1].path, '/test/b.txt');
+});
+
+test('声音 → 导入音色：取消不动值、未勾选行不可点', async (t) => {
+  const { page, voiceImport } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    voiceImport: {
+      scan: voiceScanFixture,
+      pickFiles: ['/test/ref.txt'],
+      lineSets: [linesOf('甲', '乙', '丙')],
+    },
+  });
+  const { dialog, rows } = await openVoiceImport(page);
+  await rows.first().locator('input[type=checkbox]').click();
+  await rows.first().getByRole('button', { name: 'Pick a line…' }).click();
+  const lineButtons = dialog.locator('.dsh-pet-cfg__searchList button');
+  await lineButtons.first().waitFor();
+  await lineButtons.nth(1).click();
+  assert.equal(await refTextInputOf(rows.first()).inputValue(), '乙');
+
+  // 取消一次（pickFiles 空了 → 桩回 cancelled）：值不变、不报错、也不再打 /voice/text-lines。
+  await rows.first().getByRole('button', { name: 'Pick a line…' }).click();
+  await page.waitForTimeout(300);
+  assert.equal(await refTextInputOf(rows.first()).inputValue(), '乙', '取消不动值');
+  assert.equal(voiceImport.lineCalls.length, 1, '取消后不该再读文本行');
+  assert.equal(await dialog.locator('.dsh-pet-cfg__msg.is-err').count(), 0, '取消不报错');
+
+  // 没勾的行：两个「选…」入口都置灰（勾选才可编辑）。
+  assert.equal(await rows.nth(1).getByRole('button', { name: 'Pick a line…' }).isDisabled(), true);
+  assert.equal(
+    await rows
+      .nth(1)
+      .getByRole('button', { name: /^Reference audio/ })
+      .isDisabled(),
+    true,
+  );
+});
+
 test('对话 → 重新拉取模型清单：不必刷整页', async (t) => {
   const { page, models } = await open(t);
   await tab(page, 'Chat').click();
@@ -1626,4 +1822,134 @@ test('对话 → 重新拉取模型清单：不必刷整页', async (t) => {
   await page.getByRole('button', { name: 'Reload model list', exact: true }).click();
   await page.waitForTimeout(300);
   assert.ok(models.length > initial, '点一下要再请求一次 /models');
+});
+
+/**
+ * 「×」清除与目录记忆（R2 / R3 的用户旅程，真 React + 真 Chromium）。
+ *
+ * 判读点都是用户能看见的东西：`.dsh-pet-cfg__clear[data-field=…]` 的出现/消失、输入框的 value、
+ * `Selected … · missing reference …` 那一行计数、`Start import` 的 disabled，以及发给 `/pick-file`
+ * 的请求体里 `start` 到底有没有。
+ */
+test('声音 → 导入音色：「×」只清该字段，另一字段与候选行都还在', async (t) => {
+  const { page, voiceImport } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    voiceImport: {
+      scan: voiceScanFixture,
+      // ① 参考音频 ② 参考文本文件 ③ 再选一次参考音频（清掉之后重选）
+      pickFiles: ['/in/klee.wav', '/in/ref.txt', '/in/klee2.wav'],
+      lineSets: [linesOf('甲', '乙')],
+    },
+  });
+  const { dialog, rows } = await openVoiceImport(page);
+  const row = rows.first();
+  await row.locator('input[type=checkbox]').click();
+
+  // 先让这一行同时有音频与文本（每次点完都等「×」出现，别跟 fetch 抢时序）。
+  await row.getByRole('button', { name: /^Reference audio/ }).click();
+  await dialog.locator('.dsh-pet-cfg__clear[data-field=refAudio]').waitFor();
+  await row.getByRole('button', { name: 'Pick a line…' }).click();
+  await dialog.locator('.dsh-pet-cfg__searchList button').first().click();
+  await dialog.locator('.dsh-pet-cfg__clear[data-field=refText]').waitFor();
+  assert.equal(await refTextInputOf(row).inputValue(), '甲');
+
+  const clearAudio = dialog.locator('.dsh-pet-cfg__clear[data-field=refAudio]');
+  const clearText = dialog.locator('.dsh-pet-cfg__clear[data-field=refText]');
+  assert.equal(await clearAudio.count(), 1, '音频有值 → 出现音频的 ×');
+  assert.equal(await clearText.count(), 1, '文本有值 → 出现文本的 ×');
+  assert.equal(await clearAudio.getAttribute('aria-label'), 'Clear reference audio', '无障碍名写明清除什么');
+  assert.ok(
+    (await dialog.locator('.dsh-pet-cfg__msg', { hasText: 'missing reference 0' }).count()) >= 1,
+    '两个参考都齐：缺参考音频 0',
+  );
+  assert.equal(await dialog.getByRole('button', { name: 'Start import' }).isDisabled(), false);
+
+  // 点音频 ×：音频回初始态，文本与候选行都还在，计数 +1、开始导入置灰。
+  await clearAudio.click();
+  await dialog.locator('.dsh-pet-cfg__clear[data-field=refAudio]').waitFor({ state: 'detached' });
+  assert.equal(
+    await row.getByRole('button', { name: 'Reference audio', exact: true }).count(),
+    1,
+    '音频按钮回到初始态',
+  );
+  assert.equal(await refTextInputOf(row).inputValue(), '甲', '清音频不动参考文本');
+  assert.equal(await rows.count(), 2, '候选行都还在（只清字段，不重建清单）');
+  assert.equal(await clearAudio.count(), 0, '音频空 → 它自己的 × 消失');
+  assert.equal(await clearText.count(), 1, '文本的 × 仍在');
+  assert.ok(
+    (await dialog.locator('.dsh-pet-cfg__msg', { hasText: 'missing reference 1' }).count()) >= 1,
+    '清音频 → 该行重新计入「缺参考音频」',
+  );
+  assert.equal(
+    await dialog.getByRole('button', { name: 'Start import' }).isDisabled(),
+    true,
+    '缺参考音频 → 开始导入置灰',
+  );
+
+  // 重选音频，再点文本 ×：反过来成立。
+  await row.getByRole('button', { name: /^Reference audio/ }).click();
+  await dialog.locator('.dsh-pet-cfg__clear[data-field=refAudio]').waitFor();
+  await dialog.locator('.dsh-pet-cfg__clear[data-field=refText]').click();
+  await dialog.locator('.dsh-pet-cfg__clear[data-field=refText]').waitFor({ state: 'detached' });
+  assert.equal(await refTextInputOf(row).inputValue(), '', '文本被清空');
+  assert.equal(await row.getByRole('button', { name: /^Reference audio/ }).count(), 1, '清文本不动参考音频');
+  assert.equal(await dialog.locator('.dsh-pet-cfg__clear[data-field=refText]').count(), 0, '文本空 → 它的 × 消失');
+  assert.equal(await rows.count(), 2, '候选行仍然都在');
+  assert.equal(voiceImport.pickCalls.length, 3, '两次选音频 + 一次选文本文件');
+});
+
+test('目录记忆：预置 localStorage 时参考音频框带 start；没有预置时不传 start', async (t) => {
+  // ① 预置「上次记下的目录」→ 第二次打开必须落在它上面（模拟跨重启）。
+  const withMemory = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    voiceImport: { scan: voiceScanFixture, pickFiles: ['/in/klee.wav'], lineSets: [] },
+    storage: { 'dsh-pet/pick-dirs': JSON.stringify({ schema: 1, refAudio: '/in', last: '/in' }) },
+  });
+  const first = await openVoiceImport(withMemory.page);
+  await first.rows.first().locator('input[type=checkbox]').click();
+  await first.rows
+    .first()
+    .getByRole('button', { name: /^Reference audio/ })
+    .click();
+  const remembered = withMemory.voiceImport.pickCalls.at(-1);
+  assert.equal(remembered.start, '/in', '预置的记忆直接成为初始目录');
+  assert.deepEqual(remembered.extensions, ['.wav', '.mp3', '.flac', '.ogg', '.m4a'], '扩展名照旧');
+
+  // ② 没有记忆 → 请求体里**没有** start 这个键（交给系统默认目录，不是传空串）。
+  const fresh = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    voiceImport: { scan: voiceScanFixture, pickFiles: ['/in/klee.wav'], lineSets: [] },
+  });
+  const second = await openVoiceImport(fresh.page);
+  await second.rows.first().locator('input[type=checkbox]').click();
+  await second.rows
+    .first()
+    .getByRole('button', { name: /^Reference audio/ })
+    .click();
+  const firstEver = fresh.voiceImport.pickCalls.at(-1);
+  assert.equal('start' in firstEver, false, '没有记忆时不传 start（不是传空串）');
+});
+
+test('目录记忆：取消不写（读回来仍是预置值）', async (t) => {
+  const preset = JSON.stringify({ schema: 1, refAudio: '/keep', last: '/keep' });
+  const { page, voiceImport } = await open(t, {
+    viewport: { width: 900, height: 1800 },
+    voiceProviders: [gsvImportProvider],
+    // pickFiles 空 → 桩回 `{ok:false,reason:'cancelled'}`。
+    voiceImport: { scan: voiceScanFixture, pickFiles: [], lineSets: [] },
+    storage: { 'dsh-pet/pick-dirs': preset },
+  });
+  const { rows } = await openVoiceImport(page);
+  await rows.first().locator('input[type=checkbox]').click();
+  await rows
+    .first()
+    .getByRole('button', { name: /^Reference audio/ })
+    .click();
+
+  assert.equal(voiceImport.pickCalls.length, 1, '确实发起过选择框');
+  const after = await page.evaluate(() => window.localStorage.getItem('dsh-pet/pick-dirs'));
+  assert.equal(after, preset, '取消不等于「用户认可了这个目录」：存储一个字都不改');
 });

@@ -41,6 +41,9 @@ const CRITICAL_PATHS = [
   '/pet-click-through',
   '/settings-backup',
   '/open-folder',
+  // 选择器：A 主（helper 系统对话框）→ B 兜底（PowerShell），两条路的字段/取消/超时都要在设计里写死。
+  '/pick-file',
+  '/pick-folder',
 ];
 
 /** 从 openapi.yaml 抽出 `/dsh-pet-7340/<前缀>` 的前缀集合。 */

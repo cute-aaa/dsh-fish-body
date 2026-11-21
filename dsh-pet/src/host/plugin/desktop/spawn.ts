@@ -11,6 +11,7 @@ import { animSubdirFor, PACKAGE_ROOT } from '../../paths.ts';
 import type { DesktopHelperDeps } from './types.ts';
 import type { DesktopPets } from './pets.ts';
 import { toBridgeResponse } from './bridge-response.ts';
+import { createHelperDialog, type NativePicker } from '../../helper/dialog.ts';
 import {
   HelperProcess,
   clearRuntimePrompt,
@@ -249,11 +250,30 @@ export function createDesktopSpawn(deps: DesktopSpawnInput) {
 
   const userRootFor = (ext: string): string => join(thumbUserRoot, animSubdirFor(ext));
 
+  /**
+   * 系统选择框的宿主侧客户端：基址来自 helper 最近一条协议行里的 `cb`。
+   *
+   * 三处「不知道」都直接回 `unavailable`，让 `pick-folder` 回落 PowerShell：
+   * helper 不在 / 已经退出 / 还没发过任何协议行（端口未知）。这三条都不会让功能丢。
+   *
+   * 客户端**没有超时**（人的思考时间不算失败）；`isPeerAlive` 用来把「连接中途断了」分成
+   * 「helper 已死 → 回落 B」与「helper 还活着 → 框可能还在屏幕上，只给提示」两种情况。
+   */
+  const helperDialog = createHelperDialog({
+    endpoint: () => (helper && helper.isAlive() ? helper.callbackBase() : ''),
+    isPeerAlive: () => helper?.isAlive() === true,
+  });
+
+  const nativePicker: NativePicker = async (req) => {
+    if (!helper || !helper.isAlive() || helper.callbackBase() === '') return { kind: 'unavailable' };
+    return helperDialog(req);
+  };
+
   const markDisposed = (): void => {
     disposed = true;
   };
 
-  return { startHelper, stopHelper, stopHelperAndWait, markDisposed, assetRootFor, userRootFor };
+  return { startHelper, stopHelper, stopHelperAndWait, markDisposed, assetRootFor, userRootFor, nativePicker };
 }
 
 /** DesktopSpawn的产出。 */

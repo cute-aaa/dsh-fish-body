@@ -116,6 +116,14 @@ export class HelperProcess {
   declare private hasSandboxFallbackApplied: boolean;
   /** 当前子进程有没有写过非空白 stdout/stderr：有输出说明 JS 已经跑过，秒退就不能赖沙箱 */
   declare private hasChildOutput: boolean;
+  /**
+   * helper 的本地回调服务器基址（`http://127.0.0.1:<port>`，不含 `/respond`）。
+   *
+   * helper 端口是随机分配的，而且只在它主动发第一条协议行时才知道——所以这里记的是
+   * 「最近一次 bridge 请求里的 cb」的 origin。`stop()` 与进程退出都会清空：旧端口可能被
+   * 系统分配给别的进程，留着只会把请求投给陌生服务。
+   */
+  declare private callbackOrigin: string;
 
   constructor(options: HelperOptions = {}, logger: Logger = console) {
     this.options = options;
@@ -129,6 +137,29 @@ export class HelperProcess {
     this.launchIdentity = '';
     this.hasSandboxFallbackApplied = false;
     this.hasChildOutput = false;
+    this.callbackOrigin = '';
+  }
+
+  /**
+   * helper 本地回调服务器的基址（`http://127.0.0.1:<port>`）。
+   *
+   * @returns 已知的 origin；还没收到过协议行（或已停止/退出）时为空串。
+   */
+  callbackBase(): string {
+    return this.stopping ? '' : this.callbackOrigin;
+  }
+
+  /**
+   * 当前是否有一个活着的 helper 子进程。
+   *
+   * 「活着」= 有句柄、还没退出（`exitCode` / `signalCode` 都为空）、且不是正在停止。
+   *
+   * @returns 可直接用于「能不能走这条通道」的判定。
+   */
+  isAlive(): boolean {
+    const child = this.child;
+    if (!child || this.stopping) return false;
+    return child.exitCode === null && child.signalCode === null;
   }
 
   /** 拉起子进程；已有子进程在跑或正在停止时直接返回现有句柄。 */
@@ -193,6 +224,8 @@ export class HelperProcess {
     child.once('exit', (code, signal) => {
       if (this.child !== child) return;
       this.child = undefined;
+      // 端口随进程一起消失：清掉基址，等新进程的第一条协议行再记（重启后端口会变）。
+      this.callbackOrigin = '';
       clearTimeout(stableTimer);
       if (!this.stopping) {
         // 沙箱初始化失败的特殊形态：秒退、无输出、退出码 0x80000003 → 换 --no-sandbox 立刻重试一次。
@@ -254,6 +287,16 @@ export class HelperProcess {
       return;
     }
     if (typeof req.id !== 'number') return;
+    // 记住 helper 的回调基址：端口是随机分配的，只有它主动发协议行时才带出来（`cb` 指向自己的回环服务）。
+    // 只在形状合法时更新；重启后由下一条协议行自然刷新，停止/退出时清空（见 stop / exit）。
+    const cb = typeof req.cb === 'string' ? req.cb : '';
+    if (/^https?:[/][/]/.test(cb)) {
+      try {
+        this.callbackOrigin = new URL(cb).origin;
+      } catch {
+        /* 非法的 cb（老版本或手写）：保留上一次已知值 */
+      }
+    }
     try {
       // bridgeHandler 返回完整 BridgeResponse（含 id）；异常时兜底 500
       const resp = await this.options.bridgeHandler(req);
@@ -295,6 +338,8 @@ export class HelperProcess {
    *  停止后要立刻重启的场景必须用 stopAndWait()，否则新旧进程会短暂重叠。 */
   stop(reason = 'plugin-disposed'): void {
     this.stopping = true;
+    // 旧端口随时可能被系统分给别的进程：停下来就把基址丢掉，别让后续请求投给陌生服务。
+    this.callbackOrigin = '';
     if (this.restartTimer) clearTimeout(this.restartTimer);
     this.restartTimer = undefined;
     this.logger.debug?.(`dsh-pet desktop helper stopping (${reason})`);
