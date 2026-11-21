@@ -45,22 +45,30 @@
  * 而 `timeoutMs` / `WAITING_TIMEOUT_CODES` / `'HeadersTimeoutError'` 这些标识量与字符串都不会被它命中
  * （`\btimeout` 后面必须是可选空白加冒号；`TimeoutError` 首字母大写也匹配不到）。
  *
- * 已知边界（**这是可执行的事实，不是免责声明**）：剥注释是「字符串感知」的字符扫描，不是完整 JS 词法器；
- * 正则字面量里若出现引号，归属判定可能变粗——但判据是「有没有这个符号」，不会因此漏掉真实计时器。
+ * 已知边界（**这是可执行的事实，不是免责声明**）：剥注释是「字符串感知 + 正则字面量感知」的字符扫描，
+ * 不是完整 JS 词法器；模板串 `${…}` 内部的引号/正则不做嵌套解析——但判据是「有没有这个符号」，
+ * 这些粗化都只会把注释/字符串内容带进匹配（误报方向），不会漏掉真实计时器。
  *
- * 一处**实测**的失步（2026-11 复现）：`pick-folder.ts` 的 `replace(/'/g, "''")`（第 295 行附近）让扫描器
- * 从第 296 行起一直以为自己在字符串里 → 那之后的行内注释**不会被剥掉**。方向是**误报**（字符串内容原样
- * 参与匹配，真实代码里的 `setInterval(` 照样命中，不会漏计时器），后果是「在文件尾部写一句带
- * `setInterval(` 的注释」会被判违规。修它要引入正则字面量识别（≈ 词法级扫描），本轮不做，只把事实写清。
+ * 一处**实测并已修复**的失步（2026-11 复现、同月修复）：`pick-folder.ts` 的 `replace(/'/g, "''")`
+ * 让旧扫描器从那一行起一直以为自己在字符串里 → 那之后的行内注释**不被剥掉**。方向是**误报**
+ * （字符串内容原样参与匹配，真实代码里的 `setInterval(` 照样命中，不会漏计时器），后果是「在失步点
+ * 之后写一句带 `setInterval(` 的注释」会被判违规。修复：`stripComments` / `lastArgumentOf` 都通过
+ * {@link isRegexStart} 感知正则字面量（表达式起点启发式 + 关键字白名单），合成样本与真实文件锚点
+ * 双双钉进用例（见「stripComments：正则字面量不再劫持引号态」与「lastArgumentOf：正则字面量」两条）。
  *
  * 静态拼接/逗号转手规则（`globalBracketTimer` / `abortSignalBracketTimer` / `commaIndirection`）：
  *   **拦得住**——单行内纯字面量的任意切分（`globalThis['set' + 'Timeout']`、`AbortSignal['time' + 'out']`）、
  *   逗号转手（`(0, setTimeout)` / `(0, AbortSignal.timeout)`）、成员取值别名（既有的 `timerAlias`）。
- *   **拦不住**（负向用例 `globalThis['set' + name](…)` 把这一条写成可执行的，防止有人以为它全知）：
- *     ① 任何变量参与的拼接与模板串插值（`` globalThis[`set${'Timeout'}`] ``）；
- *     ② 更远的间接（`Reflect.get(globalThis, 'setTimeout')`、`eval`、`new Function`）；
- *     ③ 跨行拼接；④ 运行时改写全局（`Object.defineProperty`）。
- *   要拦住这些得上 AST/词法级扫描或引入依赖，本轮刻意不做（守卫要在没有 `node_modules` 的极端情况下
+ *   **拦不住**（负向用例已把下面七条**全部写成可执行的**，防止有人以为它全知；文件头与本用例是同一份
+ *   事实的两处表达，改一处必须改另一处）：
+ *     ① 变量参与拼接（`globalThis['set' + name]`）；
+ *     ② 模板串插值（`` globalThis[`set${'Timeout'}`] ``）；
+ *     ③ 跨行拼接；
+ *     ④ 更远的间接·反射（`Reflect.get(globalThis, 'setTimeout')`）；
+ *     ⑤ 更远的间接·求值（`eval`）；
+ *     ⑥ 更远的间接·函数化（`new Function`）；
+ *     ⑦ 运行时改写全局（`Object.defineProperty`）。
+ *   要拦住这些得上 AST 级扫描或引入依赖，本轮刻意不做（守卫要在没有 `node_modules` 的极端情况下
  *   也能说清「为什么红」）。规则拦的是「正常会写出来的形态」——包括 `= globalThis.setTimeout` 这种成员取值。
  * 失败信息一律指向可执行的下一步，而不是「assert 失败」。
  * @module dsh-fish-body/src/host/pick-no-timeout-guard.test
@@ -376,10 +384,75 @@ const ALLOWANCES: readonly Allowance[] = [
 ];
 
 /**
+ * 判定 `source[index]` 处的 `/` 是不是**正则字面量的开头**（除法则返回 `false`）。
+ *
+ * 为什么需要它：本仓源码里既有 `a / 2`（除法）也有 `/'/g`（正则），后者里的引号如果被当成
+ * 字符串引号，扫描器从那里起就「以为自己在字符串里」——行注释不被剥、逗号切分切错
+ * （`pick-folder.ts` 的 `replace(/'/g, "''")` 是实测失步点）。识别正则不需要完整词法器：
+ * JS 规定正则只能出现在**表达式起点**，所以看 `/` 前面最近的一个有效字符/词就够——
+ * `(` `,` `=` `:` 等后面是正则，数字、标识符、`)` `]` `}` 与闭引号后面是除法，
+ * 唯一的歧义是关键字（`return /re/`），用关键字白名单解决。
+ *
+ * 误判后果可控且方向安全：把除法当正则时，正则区间内容**原样保留**（不是删掉），
+ * 最坏退化成「该区间内注释不被剥」——与修复前的失步同款，误报方向，不会漏真实计时器。
+ *
+ * @param source - 原始文本（剥注释前的原文，或已剥注释的代码）。
+ * @param index - `/` 的下标。
+ * @returns `true` = 正则字面量开头；`false` = 除法或其它。
+ */
+function isRegexStart(source: string, index: number): boolean {
+  // 关键字后跟 `/` 是正则（`return /re/`）；但 `.in /`、`.of /` 这类**成员名撞关键字**极罕见，
+  // 且误判只造成误报方向（同上），列进来。
+  const KEYWORDS_BEFORE_REGEX: ReadonlySet<string> = new Set([
+    'return',
+    'case',
+    'typeof',
+    'instanceof',
+    'in',
+    'of',
+    'new',
+    'delete',
+    'void',
+    'throw',
+    'do',
+    'else',
+    'yield',
+    'await',
+  ]);
+  let i = index - 1;
+  while (i >= 0 && /\s/.test(source[i] ?? '')) i -= 1;
+  const prev = source[i] ?? '';
+  if (prev === '') return true;
+  // `++` / `--` 后的 `/` 是除法（`count++ / 2`）；单个 `+`/`-` 后是正则（`a + /re/.test(x)`）。
+  if (prev === '+' || prev === '-') {
+    let j = i - 1;
+    while (j >= 0 && (source[j] ?? '') !== prev && /\s/.test(source[j] ?? '')) j -= 1;
+    return (source[j] ?? '') !== prev;
+  }
+  // 除法的确定语境：值（数字/标识符/闭括号/闭引号）后面的 `/` 一定是除法。
+  if (prev === ')' || prev === ']' || prev === '}' || prev === '"' || prev === "'" || prev === '`' || /\d/.test(prev)) {
+    return false;
+  }
+  // 表达式起点字符：正则合法。
+  if ('([{,;=:!&|?^~%*<>'.includes(prev)) return true;
+  // 标识符结尾：向前取整个词，只有关键字命中才算正则。
+  let j = i;
+  while (j >= 0 && /[A-Za-z_$0-9]/.test(source[j] ?? '')) j -= 1;
+  return KEYWORDS_BEFORE_REGEX.has(source.slice(j + 1, i + 1));
+}
+
+/**
  * 剥掉 `//` 与 `/* *\/` 注释，**保留换行与长度**（把注释字符换成空格）。
  *
  * 为什么不用正则一把梭：本仓代码里有 `'http://127.0.0.1:…'` 这种字符串，`//` 出现在字符串里时
  * 不能被当成行注释，否则后面整段真实代码会被吃掉、守卫变成假的绿。
+ *
+ * 正则字面量也要感知（2026-11-21 轮修复的实测失步）：`pick-folder.ts` 的
+ * `replace(/'/g, "''")` 里正则带引号，旧实现把它当成字符串引号后，从那行起行内注释
+ * 全部漏剥（方向是误报——注释里的 `setInterval(` 会被判违规）。现在 `/` 在表达式起点
+ * （{@link isRegexStart}）按正则处理：区间内容**原样保留**，收尾的未转义 `/`（字符类内的
+ * `/` 不收尾）之后吞掉 flags；正则不跨行，行尾还没闭合就当没开过（保持旧失步的误报方向，
+ * 不把误判扩大到下一行）。
  *
  * @param source - 原始文件文本。
  * @returns 同长度文本，注释位置全是空格（换行原样保留，行号可直接对应）。
@@ -425,6 +498,37 @@ function stripComments(source: string): string {
       }
       out.push(' ', ' ');
       index += 2;
+      continue;
+    }
+    if (ch === '/' && isRegexStart(source, index)) {
+      // 正则字面量：内容原样输出（它是代码，不是注释）。
+      out.push(ch);
+      index += 1;
+      /** `[…]` 字符类里的 `/` 不收尾（`[/]` 合法且常见）。 */
+      let inClass = false;
+      while (index < source.length) {
+        const regexCh = source[index] ?? '';
+        out.push(regexCh);
+        if (regexCh === '\\') {
+          out.push(source[index + 1] ?? '');
+          index += 2;
+          continue;
+        }
+        if (regexCh === '[') inClass = true;
+        else if (regexCh === ']') inClass = false;
+        else if (regexCh === '\n')
+          break; // 字面量正则不跨行：行尾还没闭合就当没开过（不扩吞）。
+        else if (regexCh === '/' && !inClass) {
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+      // flags（g/i/m/s/u/y/d 等）：原样保留。
+      while (index < source.length && /[a-z]/i.test(source[index] ?? '')) {
+        out.push(source[index] ?? '');
+        index += 1;
+      }
       continue;
     }
     out.push(ch);
@@ -482,7 +586,9 @@ function snippetOf(code: string, at: number): string {
  *
  * 为什么不能只按 `,` 切：回调里带逗号（`setInterval(() => log(a, b), 60000)`）、对象/数组实参、
  * 箭头函数体里的逗号都会被误切成多段，于是「最后一个数字」可能来自别处。
- * 这里按 `()` / `[]` / `{}` 深度与字符串（`'` `"` `` ` ``，含转义）一起感知，只在**深度 1** 的逗号处切。
+ * 这里按 `()` / `[]` / `{}` 深度与字符串（`'` `"` `` ` ``，含转义）一起感知，只在**深度 1** 的逗号处切；
+ * 正则字面量也按字面量感知（`isRegexStart`）：`setInterval(cb, /,/.test(x), 60000)` 里正则内的
+ * 逗号/引号/括号都不得参与切分，否则「最后一个实参」会取错段（与 {@link stripComments} 的失步同族）。
  *
  * @param callText - 从调用名开始的片段（{@link Finding.snippet}）。
  * @returns 最后一段实参文本；括号不配对时 `undefined`。
@@ -492,15 +598,33 @@ function lastArgumentOf(callText: string): string | undefined {
   if (open < 0) return undefined;
   let depth = 0;
   let quote: string | undefined;
+  /** 当前是否在正则字面量里（`inClass` = 正则的 `[…]` 字符类，类里的 `/` 不收尾）。 */
+  let regex = false;
+  let regexInClass = false;
   let lastComma = open;
   for (let index = open; index < callText.length; index++) {
     const ch = callText[index] ?? '';
+    if (regex) {
+      if (ch === '\\') {
+        index += 1;
+        continue;
+      }
+      if (ch === '[') regexInClass = true;
+      else if (ch === ']') regexInClass = false;
+      else if (ch === '/' && !regexInClass) regex = false;
+      continue;
+    }
     if (quote !== undefined) {
       if (ch === '\\') {
         index += 1;
         continue;
       }
       if (ch === quote) quote = undefined;
+      continue;
+    }
+    if (ch === '/' && isRegexStart(callText, index)) {
+      regex = true;
+      regexInClass = false;
       continue;
     }
     if (ch === '"' || ch === "'" || ch === '`') {
@@ -1020,6 +1144,64 @@ test('守卫自身有效（新规则）：setInterval 超上限 / 计时器别�
   );
 });
 
+test('stripComments：正则字面量不再劫持引号态（pick-folder.ts 失步已修，真实文件锚定）', () => {
+  // 修复前的实测失步：`replace(/'/g, "''")` 的正则带引号，旧扫描器把正则里的 `'` 当成字符串引号，
+  // 从那一行起「以为自己在字符串里」→ 之后的行内注释不被剥（注释里写 setInterval( 会被误判违规）。
+  const synthetic = [
+    "const t = (title ?? '默认').replace(/'/g, \"''\");",
+    "const filter = extensions.length > 0 ? `文件 (${patterns})|${patterns}` : '所有文件 (*.*)';",
+    '// 与目录框同一套理由：注释里的 setInterval( 必须被剥掉',
+    'keepGoing(1);',
+  ].join('\n');
+  const code = stripComments(synthetic);
+  assert.ok(!code.includes('setInterval('), '失步回归：行内注释没被剥掉（正则里的引号又被当成了字符串引号）');
+  assert.ok(code.includes('keepGoing(1);'), '注释后面的真实代码被误吞：剥注释矫枉过正');
+
+  // 真实文件锚定：pick-folder.ts 里就有失步源，且其后有一条行内注释——合成样本之外的双保险。
+  const file = 'src/host/pick-folder.ts';
+  const source = readFileSync(resolve(PACKAGE_ROOT, file), 'utf8');
+  const stripped = stripComments(source);
+  const regexLine = source.split('\n').findIndex((line) => line.includes("replace(/'/g"));
+  assert.ok(regexLine >= 0, `${file} 里找不到 replace(/'/g：失步源已重构，请同步更新本用例的锚点`);
+  const commentLine = source.split('\n').findIndex((line) => line.includes('// 与目录框同一套理由'));
+  assert.ok(commentLine > regexLine, `${file} 的行内注释跑到失步点之前了：锚点失效，请同步更新本用例`);
+  assert.ok(
+    !(stripped.split('\n')[commentLine] ?? '').includes('与目录框同一套理由'),
+    `${file}:${String(commentLine + 1)} 的行内注释没被剥掉：stripComments 从正则字面量起失步（修复前就是这条症状）`,
+  );
+  assert.ok(
+    stripped.includes('System.Windows.Forms'),
+    '失步点之后行的真实代码被误吞：正则识别矫枉过正（内容必须原样保留）',
+  );
+  // 同长度不变量：剥注释只把注释字符换成空格，不增删任何字符（行号可直接对应的前提）。
+  assert.equal(stripped.length, source.length, 'stripComments 的输出长度必须与输入一致');
+});
+
+test('lastArgumentOf：正则字面量里的引号/逗号不再劫持实参切分（断言解值）', () => {
+  // 修复前：正则里的 `'` 会打开一个关不上的假字符串态 → 整段括号配对失效 → 间隔解不出来。
+  // 这条旧实现必红（返回 undefined），新实现必须解出 60000。
+  assert.equal(
+    intervalOf("setInterval(cb, /'/.test(x) ? 1 : 2, 60000)"),
+    60_000,
+    '正则里的引号劫持了字符串态：60000 解不出来（旧失步同族）',
+  );
+  // 除法仍是除法：`/` 前面是数字时不许被误判成正则开头（误判会把四则实参吞掉）。
+  assert.equal(
+    intervalOf('setInterval(cb, 60000 / 3)'),
+    20_000,
+    '数字后的除法被误判为正则：四则实参 60000/3 解不出 20000',
+  );
+  // `++` / `--` 后的 `/` 是除法：没有这条保护，`count++ / 2` 的 `/` 会被当成正则开头。
+  assert.equal(
+    intervalOf('setInterval(cb, count++ / 2, 45000)'),
+    45_000,
+    '`++` 后的除法被误判为正则：45000 会取错段或取不到',
+  );
+  // 既有行为不回退：字符串里的逗号照旧不参与切分；回调带逗号照旧取到最后一段。
+  assert.equal(intervalOf("setInterval(() => log('a,b'), 45000)"), 45_000, '字符串里的逗号必须继续被忽略');
+  assert.equal(intervalOf('setInterval(() => log(a, b), 60000)'), 60_000, '回调实参里的逗号切分回归面');
+});
+
 test('intervalOf：数值求值覆盖十进制/下划线/0x/0b/0o/指数/小数与四则，**断言解值**', () => {
   // 为什么必须断言解值：`180_000` 在旧正则下本来就能红，「只断言红」证明不了修复；
   // 旧实现的真实缺口是 `1e5` / `1.8e5` / `0x2BF20` / `60 * 1000` 解不出数——
@@ -1101,7 +1283,7 @@ test('三条静态形态规则：方括号取计时器 / AbortSignal 方括号 /
     assert.ok(ids.includes(id), `${source} 必须命中 ${id}：任意切分/逗号转手都是「换个写法就能绕过」的口子`);
   }
 
-  // 负向边界：这四类**拦不住**，写成可执行的，防止下一轮有人误以为这条规则全知。
+  // 负向边界：这七类**拦不住**，写成可执行的，防止下一轮有人误以为这条规则全知。
   // 文件头的「已知边界」段与本用例是同一份事实的两处表达，改一处必须改另一处。
   const boundaries = [
     // ① 变量参与拼接
@@ -1110,8 +1292,14 @@ test('三条静态形态规则：方括号取计时器 / AbortSignal 方括号 /
     'globalThis[`set${"Timeout"}`](() => undefined, 1);',
     // ③ 跨行拼接
     "globalThis['set' +\n  'Timeout'](() => undefined, 1);",
-    // ④ 更远的间接
+    // ④ 更远的间接·反射
     'Reflect.get(globalThis, "setTimeout")(() => undefined, 1);',
+    // ⑤ 更远的间接·求值
+    'eval("setTimeout")(() => undefined, 1);',
+    // ⑥ 更远的间接·函数化
+    'new Function("return setTimeout")()(() => undefined, 1);',
+    // ⑦ 运行时改写全局（样本里不得出现 `setTimeout(` 这类会被既有规则抓住的形态，钉的是「这条规则拦不住」）
+    'Object.defineProperty(globalThis, "setTimeout", { value: globalThis.setTimeout });',
   ];
   for (const source of boundaries) {
     assert.deepEqual(
