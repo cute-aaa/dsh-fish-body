@@ -333,8 +333,10 @@ export function createChatMemory(deps: ChatMemoryInput) {
       //           （会回退 Idle），混进来只会让模型挑中一个点了没反应的名字（真实故障形态）。
       //   webm/layered（catalog 为 null）：仍用 animations.categories（原口径不变）。
       // 开关关闭时两套都为空 = 不注入也不解析。
+      // 注意传的是 `found.pet`（宠物条目，renderer/model 在这一层），不是 `found.conf`（整桶配置，
+      // 只有 animations/assets 这类全局段）——传错层会得到 renderer=undefined，于是永远走 webm 分支。
       const animationOn = found.conf.chatAnimationEnabled === true;
-      const catalog = animationOn ? live2dCatalogOf(poolRoots(), found.conf) : null;
+      const catalog = animationOn ? live2dCatalogOf(poolRoots(), found.pet) : null;
       const actions =
         catalog !== null ? [...catalog.actions] : animationOn ? chatActionNames(found.conf.animations) : [];
       // 外观（live2d 清单）：与动作共用同一个开关；切换是整批覆盖语义，见 chat-action 的指令说明。
@@ -343,9 +345,11 @@ export function createChatMemory(deps: ChatMemoryInput) {
       // 而它取决于渲染方式、模型文件与开关三件事，不打印就只能靠猜。
       log.info(
         '[fish-body] 对话表演清单 pet=' +
-          found.pet.id +
+          String(found.pet.id) +
           ' renderer=' +
-          String(found.conf.renderer) +
+          String(found.pet.renderer) +
+          ' model=' +
+          String(found.pet.model) +
           ' actions=' +
           String(actions.length) +
           (actions[0] === undefined ? '' : '(' + actions[0] + ')') +
