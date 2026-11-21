@@ -168,6 +168,17 @@ export function createOverlay(
     // 外观：解析 exp3 后每帧重写，不建队列——运行库的表达式是一次性的，挂不住。
     if (kind === 'expression') {
       const parsed = parseExp3(json);
+      // 一行诊断：外观「看起来没生效」时，第一件要确认的就是 exp3 到底写了哪些参数
+      // （空 Parameters = 这份外观本身是空的，不是我们没挂上）。每次挂载打一行，不是每帧。
+      console.log(
+        '[fish-body] 外观挂载 ' +
+          key +
+          ' params=' +
+          String(parsed.parameters.length) +
+          (parsed.parameters.length === 0
+            ? '（这份 exp3 没有 Parameters，挂上也不会变）'
+            : '(' + parsed.parameters.map((p) => p.id + '+' + String(p.value)).join(',') + ')'),
+      );
       entries.set(key, {
         kind,
         queue: null,
