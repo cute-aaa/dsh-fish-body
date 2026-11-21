@@ -7,6 +7,25 @@
  */
 
 /**
+ * 把一个标记里的名字对到白名单上（先精确、再包含式）。
+ *
+ * 为什么容错：模型常把「单片眼镜」写成「眼镜」、「抬手打招呼」写成「抬手」。精确匹配下这些
+ * 都会被剥掉且不采纳——用户看到的是「它明明说要戴，却没戴」。包含式匹配只在唯一命中时采纳，
+ * 命中多个就不猜（宁可不动，也不要戴错一个）。
+ *
+ * @param raw - 标记里写下的名字（已 trim）。
+ * @param names - 白名单。
+ * @returns 白名单里的规范名；对不上或命中多个时返回 undefined。
+ */
+function matchName(raw: string, names: readonly string[]): string | undefined {
+  if (raw === '') return undefined;
+  const exact = names.find((name) => name === raw);
+  if (exact !== undefined) return exact;
+  const fuzzy = names.filter((name) => name.includes(raw) || raw.includes(name));
+  return fuzzy.length === 1 ? fuzzy[0] : undefined;
+}
+
+/**
  * 对话联动可用的动作：`animations.categories` 下全部动作（去重，保持配置顺序）。
  *
  * 与 animationNames 分开：待机 / 转向 / 拖拽 / 点击 / 移动 / 事件动画不参与对话联动。
@@ -61,7 +80,8 @@ export function actionInstruction(names: readonly string[]): string {
   return (
     '\n\n[动作] 回复结尾可选做一个动作给用户看，从下列清单里挑最贴合当前语境的：\n' +
     names.map((name) => '- ' + name).join('\n') +
-    '\n挑中就在回复最后另起一行写 [动作:名称]（名称原样照抄）；没有合适的就完全不要写这个标记。'
+    '\n挑中就在回复最后另起一行写 [动作:名称]，名称原样照抄清单里的写法；' +
+    '用户点名要动作时更要写。没有合适的就完全不要写这个标记。'
   );
 }
 
@@ -83,7 +103,8 @@ export function extractChatAction(text: string, names: readonly string[]): { tex
   const cleaned = text.replace(tag, (_tag, raw: string) => {
     tagged = true;
     const name = raw.trim();
-    if (action === undefined && names.includes(name)) action = name;
+    const hit = matchName(name, names);
+    if (action === undefined && hit !== undefined) action = hit;
     return '';
   });
   if (!tagged) return { text };
@@ -105,10 +126,11 @@ export function extractChatAction(text: string, names: readonly string[]): { tex
  */
 export function expressionInstruction(names: readonly string[]): string {
   return (
-    '\n\n[外观] 需要换个样子给用户看时，从下列清单里挑最贴合当前语境的：\n' +
+    '\n\n[外观] 用户提到换样子（戴眼镜、兔牙、挑眉、换装…）时，**必须**从下列清单里挑并写标记：\n' +
     names.map((name) => '- ' + name).join('\n') +
-    '\n挑中就在回复最后另起一行写 [外观:名称]（名称原样照抄）。同一条回复可以写多个（会一起挂上），' +
-    '但下一次换外观会把上一次挂的全部摘掉，所以别堆太多；不需要就完全不要写这个标记。'
+    '\n在回复最后另起一行写 [外观:名称]，名称原样照抄清单里的写法（例如清单是「单片眼镜」，' +
+    '就写 [外观:单片眼镜]，不要缩写）。同一条回复可以写多个（会一起挂上），' +
+    '但下一次换外观会把上一次挂的全部摘掉，所以别堆太多；用户没提、也没这个必要就不要写。'
   );
 }
 
@@ -129,7 +151,8 @@ export function extractChatExpression(text: string, names: readonly string[]): {
     tagged = true;
     const name = raw.trim();
     // 采纳**全部**命中项：外观是叠加状态，一条回复写两个就是要两个一起挂。
-    if (names.includes(name) && !expressions.includes(name)) expressions.push(name);
+    const hit = matchName(name, names);
+    if (hit !== undefined && !expressions.includes(hit)) expressions.push(hit);
     return '';
   });
   if (!tagged) return { text, expressions };
