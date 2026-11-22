@@ -34,6 +34,17 @@ export interface AlphaBox {
   readonly h: number;
 }
 
+/** 画面内容盒的四边比例（相对画布，0..1）：命中框收窄用。 */
+export interface CanvasBoxRatios {
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+}
+
+/** 内容盒探测的画布边长（px）：比内容顶那一档细一档，仍只读 9216 个像素。 */
+export const BOX_PROBE_SIDE = 96;
+
 /** 往探测画布上作画的回调：调用方按自己的画布口径铺图。 */
 export type VisualProbe = (ctx: CanvasRenderingContext2D, width: number, height: number) => void;
 
@@ -122,6 +133,39 @@ export function measureVisualTopRatio(draw: VisualProbe): number | null {
     return null;
   }
   return null;
+}
+
+/**
+ * 量画面内容的包围盒（相对画布的 0..1 比例）：方形画布的透明边角不该吃点击。
+ *
+ * 与 {@link measureVisualTopRatio} 同一套探针，只是一次读回四个边——挂载时跑一次，
+ * 结果交给 `body-box` 去收窄命中框（桌面端由主进程据此判定穿透）。
+ *
+ * @param draw - 在探测画布上铺一次画面的回调。
+ * @returns 四边比例；整幅全透明或 canvas 不可用时返回 null。
+ */
+export function measureVisualBox(draw: VisualProbe): CanvasBoxRatios | null {
+  const side = BOX_PROBE_SIDE;
+  const canvas = document.createElement('canvas');
+  canvas.width = side;
+  canvas.height = side;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (ctx === null) return null;
+  try {
+    draw(ctx, side, side);
+    const data = ctx.getImageData(0, 0, side, side).data;
+    const box = alphaBoxOf(data, side, side, BOX_ALPHA_MIN);
+    if (box === null) return null;
+    return {
+      x0: box.x / side,
+      y0: box.y / side,
+      x1: (box.x + box.w) / side,
+      y1: (box.y + box.h) / side,
+    };
+  } catch {
+    // 与内容顶探测同理：读不到像素就交给调用方保留理论命中框。
+    return null;
+  }
 }
 
 /**

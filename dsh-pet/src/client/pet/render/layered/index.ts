@@ -8,4 +8,4 @@
 export { assemblyActionOf } from './gestures.ts';
 export { computePoses, drawPoses, hitTest } from './rig.ts';
 export { parseSkinManifest } from './types.ts';
-export { alphaBoxOf, boxToSource, measureLayerBox, measureVisualTopRatio } from './probe.ts';
+export { alphaBoxOf, boxToSource, measureLayerBox, measureVisualBox, measureVisualTopRatio } from './probe.ts';

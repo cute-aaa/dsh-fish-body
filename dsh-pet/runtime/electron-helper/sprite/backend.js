@@ -253,14 +253,15 @@ async function mountLayered(sprite, host, api) {
   // 原先恒按 1024² 全幅绘制，显示在 462px 上等于多算 4.9 倍像素。
   setCanvasPixels(canvas, ctx, skin, sprite.size, sideOf);
   // 量一次内容顶：方形皮肤的头顶在舞台顶以上，气泡贴着它才不会盖脸（见 shared/bubble-anchor）。
-  applyBubbleAnchor(
-    sprite,
-    measureTop === null
-      ? null
-      : measureTop((probe, w, h) => {
-          for (const layer of layers) probe.drawImage(layer.image, 0, 0, w, h);
-        }),
-  );
+  const drawAll = (probe, w, h) => {
+    for (const layer of layers) probe.drawImage(layer.image, 0, 0, w, h);
+  };
+  applyBubbleAnchor(sprite, measureTop === null ? null : measureTop(drawAll));
+  // 内容包围盒：方形画布四角是透明像素，命中区按实测收窄，透明边角不再吃点击。
+  {
+    const measureContent = optionalProbe('measureVisualBox');
+    if (measureContent !== null) sprite.setContentBox(measureContent(drawAll));
+  }
 
   let tMs = 0;
   let lastMs = performance.now();
@@ -519,10 +520,11 @@ async function mountLive2d(sprite, host, api) {
   app.renderer.render(app.stage);
   {
     const measureTop = optionalProbe('measureVisualTopRatio');
-    applyBubbleAnchor(
-      sprite,
-      measureTop === null ? null : measureTop((probe, w, h) => probe.drawImage(app.view, 0, 0, w, h)),
-    );
+    const draw = (probe, w, h) => probe.drawImage(app.view, 0, 0, w, h);
+    applyBubbleAnchor(sprite, measureTop === null ? null : measureTop(draw));
+    // 内容包围盒：方形画布四角是透明像素，命中区按实测收窄，透明边角不再吃点击。
+    const measureBox = optionalProbe('measureVisualBox');
+    if (measureBox !== null) sprite.setContentBox(measureBox(draw));
   }
 
   /** 当前模型的相对路径（`<池>/models` 的返回值）；动作/外观的 File 靠它定目录。 */

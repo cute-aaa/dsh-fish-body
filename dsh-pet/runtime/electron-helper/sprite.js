@@ -48,8 +48,7 @@ class PetSprite {
     // webm 只占画面中间 37.5% 宽，方形画布几乎铺满整块、头顶还跑到舞台顶以上。
     const body = S.bodyBoxPx(pet.renderer, this.size);
     this.hitRect = { x: body.x, y: this.bottomPad + body.y, w: body.w, h: body.h };
-    window.__dshPetDebug.hitRect = this.hitRect;
-    // 左右透明边余量（视频盒内宠物身体居中）：让边界按身体贴边——宠物能走到屏幕边缘，但身体永不越界。
+    window.__dshPetDebug.hitRect = this.hitRect; // 左右透明边余量（视频盒内宠物身体居中）：让边界按身体贴边——宠物能走到屏幕边缘，但身体永不越界。
     this.sideAllow = S.bodyUnitBox(pet.renderer).x0 * this.size;
     window.__dshPetDebug.sideAllow = this.sideAllow;
     // 窗口四周外扩：左右下 = WINDOW_MARGIN_RATIO×宠物尺寸；上边距按气泡与待办面板的最大高度算——
@@ -94,6 +93,35 @@ class PetSprite {
     this.initPanels();
     this.buildDom();
     this.bindEvents();
+  }
+
+  /**
+   * 后端量出画面内容的包围盒后，把命中区收窄到「人物真正占的那一块」。
+   *
+   * 方形画布的四个角是透明像素，命中框却是矩形：不收窄就会把透明角落也算成宠物，
+   * 桌面端连带挡住下层窗口的点击。理论命中框是上限（见 shared/body-box），实测只往里收、不往外放；
+   * 收到之后立刻按新矩形重报一次 bounds，主进程的穿透判定才跟着变。
+   *
+   * @param {?{x0:number,y0:number,x1:number,y1:number}} content - 相对画布的 0..1 四边；缺值不处理。
+   */
+  setContentBox(content) {
+    if (!content) return;
+    const contentBox = S.contentUnitBox(this.pet.renderer, content);
+    if (contentBox === null) return;
+    const shrunk = S.intersectUnitBox(S.bodyUnitBox(this.pet.renderer), contentBox);
+    // 完全不相交（探测到的是透明帧）时保留理论框：宁可多一块可点，也不要把宠物变点不到。
+    if (shrunk === null) return;
+    const px = S.unitBoxPx(shrunk, this.size);
+    this.hitRect = { x: px.x, y: this.bottomPad + px.y, w: px.w, h: px.h };
+    window.__dshPetDebug.hitRect = this.hitRect;
+    if (this.hit) {
+      const pct = S.unitBoxPercent(shrunk);
+      this.hit.style.left = pct.left * 100 + '%';
+      this.hit.style.top = pct.top * 100 + '%';
+      this.hit.style.width = pct.width * 100 + '%';
+      this.hit.style.height = pct.height * 100 + '%';
+    }
+    this.sendBounds(this.pos.x, this.pos.y);
   }
 
   dispose() {

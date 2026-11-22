@@ -7,4 +7,4 @@
  * @module dsh-fish-body/src/client/pet/render/visual-top
  */
 
-export { measureVisualTopRatio, type VisualProbe } from './layered/probe.ts';
+export { measureVisualBox, measureVisualTopRatio, type CanvasBoxRatios, type VisualProbe } from './layered/probe.ts';

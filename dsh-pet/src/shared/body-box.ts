@@ -38,6 +38,14 @@ export interface BodyPercentBox {
   readonly height: number;
 }
 
+/** 画布内容框：后端实测出的不透明包围盒，四边都是相对**画布**的 0..1 比例。 */
+export interface CanvasBox {
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+}
+
 /**
  * 画布后端命中框的横向内缩（相对宠物宽度）。
  *
@@ -91,12 +99,56 @@ export function bodyWidthRatio(renderer: RendererKind | undefined): number {
  * @returns `x/y/w/h`，未含舞台的 `bottomPad`；纵向 `y` 可为负。
  */
 export function bodyBoxPx(renderer: RendererKind | undefined, size: number): BodyRect {
-  const box = bodyUnitBox(renderer);
+  return unitBoxPx(bodyUnitBox(renderer), size);
+}
+
+/** 把「以宠物宽度为单位」的框换成像素矩形。 */
+export function unitBoxPx(box: BodyUnitBox, size: number): BodyRect {
   return {
     x: box.x0 * size,
     y: box.y0 * size,
     w: (box.x1 - box.x0) * size,
     h: (box.y1 - box.y0) * size,
+  };
+}
+
+/**
+ * 两个单位框的交集：用于「实测内容框不得超出理论命中框」。
+ *
+ * @param a - 理论命中框（上限）。
+ * @param b - 实测内容框。
+ * @returns 交集；完全不相交时 null（调用方保留理论框，绝不把命中区缩成 0）。
+ */
+export function intersectUnitBox(a: BodyUnitBox, b: BodyUnitBox): BodyUnitBox | null {
+  const x0 = Math.max(a.x0, b.x0);
+  const y0 = Math.max(a.y0, b.y0);
+  const x1 = Math.min(a.x1, b.x1);
+  const y1 = Math.min(a.y1, b.y1);
+  if (!(x1 > x0) || !(y1 > y0)) return null;
+  return { x0, y0, x1, y1 };
+}
+
+/** 画布内容框外扩量（画布比例）：探测图被缩小过，边缘会各吃进一个像素。 */
+const CONTENT_PAD = 0.015;
+
+/**
+ * 画布内容框 → 舞台坐标下的单位框。
+ *
+ * 方形画布在舞台里是「宽 = size、底部对齐」：x 直接照搬，纵向要减掉画布探出舞台顶的那一段。
+ *
+ * @param renderer - 当前渲染方式。
+ * @param content - 实测内容框（相对画布）。
+ * @returns 单位框；webm 等非方形画布后端返回 null。
+ */
+export function contentUnitBox(renderer: RendererKind | undefined, content: CanvasBox): BodyUnitBox | null {
+  if (renderer !== 'layered' && renderer !== 'live2d') return null;
+  const clamp = (v: number): number => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0);
+  const top = -(1 - STAGE_ASPECT);
+  return {
+    x0: clamp(content.x0 - CONTENT_PAD),
+    x1: clamp(content.x1 + CONTENT_PAD),
+    y0: top + clamp(content.y0 - CONTENT_PAD),
+    y1: top + clamp(content.y1 + CONTENT_PAD),
   };
 }
 
@@ -110,7 +162,16 @@ export function bodyBoxPx(renderer: RendererKind | undefined, size: number): Bod
  * @returns 可直接乘 100 写成 `%` 的四个比例。
  */
 export function bodyBoxPercent(renderer: RendererKind | undefined): BodyPercentBox {
-  const box = bodyUnitBox(renderer);
+  return unitBoxPercent(bodyUnitBox(renderer));
+}
+
+/**
+ * 单位框 → CSS 百分比（两轴分别归一：横向除以 `size`、纵向除以 `size × 9/16`）。
+ *
+ * @param box - 单位框（与 {@link bodyUnitBox} 同口径）。
+ * @returns 可直接乘 100 写成 `%` 的四个比例。
+ */
+export function unitBoxPercent(box: BodyUnitBox): BodyPercentBox {
   return {
     left: box.x0,
     top: box.y0 / STAGE_ASPECT,

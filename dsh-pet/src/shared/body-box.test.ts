@@ -8,7 +8,16 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { bodyBoxPercent, bodyBoxPx, bodyUnitBox, bodyWidthRatio } from './body-box.ts';
+import {
+  bodyBoxPercent,
+  bodyBoxPx,
+  bodyUnitBox,
+  bodyWidthRatio,
+  contentUnitBox,
+  intersectUnitBox,
+  unitBoxPercent,
+  unitBoxPx,
+} from './body-box.ts';
 import { STAGE_ASPECT } from './bubble-anchor.ts';
 import { CANVAS_H, HIT_BOX } from './constants.ts';
 import type { RendererKind } from './types.ts';
@@ -96,5 +105,58 @@ describe('bodyWidthRatio —— 人物占框宽度', () => {
   test('webm 37.5%，画布 84%', () => {
     assert.ok(Math.abs(bodyWidthRatio('webm') - 0.375) < 1e-12);
     assert.ok(Math.abs(bodyWidthRatio('live2d') - 0.84) < 1e-12);
+  });
+});
+
+describe('contentUnitBox —— 实测内容框换到舞台坐标', () => {
+  test('画布底边对齐舞台底边、x 直接照搬', () => {
+    const box = contentUnitBox('live2d', { x0: 0.3, y0: 0.1, x1: 0.7, y1: 1 });
+    assert.ok(box !== null);
+    assert.ok(Math.abs(box.x0 - (0.3 - 0.015)) < 1e-12, '横向带一点外扩');
+    assert.ok(Math.abs(box.y1 - STAGE_ASPECT) < 1e-12, 'y1=1 就是画布底边 = 舞台底边');
+    assert.ok(box.y0 < 0, '头顶跑到舞台顶以上');
+  });
+
+  test('webm 等非方形画布后端不参与（返回 null，保留理论框）', () => {
+    assert.equal(contentUnitBox('webm', { x0: 0, y0: 0, x1: 1, y1: 1 }), null);
+    assert.equal(contentUnitBox(undefined, { x0: 0, y0: 0, x1: 1, y1: 1 }), null);
+  });
+
+  test('非法值被夹进 0..1（探测拿到 NaN 也不会把框撑大）', () => {
+    const box = contentUnitBox('layered', { x0: Number.NaN, y0: -5, x1: 9, y1: Number.NaN });
+    assert.ok(box !== null);
+    assert.ok(box.x0 >= 0 && box.x1 <= 1);
+  });
+});
+
+describe('intersectUnitBox —— 实测只往理论框里收', () => {
+  test('收窄到交叠部分', () => {
+    const base = bodyUnitBox('live2d');
+    const inner = { x0: 0.3, y0: -0.3, x1: 0.7, y1: 0.5 };
+    const both = intersectUnitBox(base, inner);
+    assert.ok(both !== null);
+    assert.deepEqual(both, inner);
+  });
+
+  test('超出理论框的部分被裁掉（不会把命中区放大）', () => {
+    const base = bodyUnitBox('live2d');
+    const both = intersectUnitBox(base, { x0: -1, y0: -9, x1: 2, y1: 9 });
+    assert.ok(both !== null);
+    assert.deepEqual(both, base);
+  });
+
+  test('完全不相交时返回 null（调用方保留理论框，不把宠物做成点不到）', () => {
+    const base = bodyUnitBox('live2d');
+    assert.equal(intersectUnitBox(base, { x0: 2, y0: 2, x1: 3, y1: 3 }), null);
+    assert.equal(intersectUnitBox(base, { x0: 0.5, y0: 0.5, x1: 0.5, y1: 0.6 }), null);
+  });
+});
+
+describe('unitBoxPx / unitBoxPercent —— 与 renderer 版同一口径', () => {
+  test('对理论框调用时逐位等于 bodyBoxPx / bodyBoxPercent', () => {
+    for (const renderer of ['webm', 'layered', 'live2d'] as const) {
+      assert.deepEqual(unitBoxPx(bodyUnitBox(renderer), 462), bodyBoxPx(renderer, 462));
+      assert.deepEqual(unitBoxPercent(bodyUnitBox(renderer)), bodyBoxPercent(renderer));
+    }
   });
 });

@@ -157,12 +157,12 @@ if (!DPI_PROBE && HOST_PID > 0) {
   }, HOST_POLL_MS).unref?.();
 }
 
-// Windows 透明分层窗口（WS_EX_LAYERED）在 DWM 硬件加速合成下有缺陷：拖拽移动时窗口四周出现黑边、
-// 大透明窗移动覆盖小透明窗时后者内容丢失。本进程只渲染轻量宠物动画（640×360），改走软件合成；
-// 非 Windows 合成路径不同，保留硬件加速。
-if (process.platform === 'win32') {
-  app.disableHardwareAcceleration();
-  // 它只关硬件 GL、不会去掉 Chromium 的 GPU 进程：装了虚拟显示器（ToDesk / 远程桌面 IDD 之类）时，
+// 合成方式：默认走 GPU（实测同一台机器 live2d 一帧 48ms → 10ms、零长任务；软件光栅只有 20fps）。
+// 代价是 Windows 透明分层窗口（WS_EX_LAYERED）在 DWM 硬件合成下的两个已知缺陷：拖拽移动时四周出现黑边、
+// 大透明窗移动覆盖小透明窗时后者内容丢失——真遇上了设 DSH_PET_GPU=0 退回软件合成（画面不再有这两个毛病）。
+// 非 Windows 合成路径不同，本来就保留硬件加速。
+if (process.platform === 'win32' && process.env.DSH_PET_GPU !== '0') {
+  // 上面那两个缺陷之外，还踩过一个与合成方式无关的坑：装了虚拟显示器（ToDesk / 远程桌面 IDD 之类）时，
   // GPU 进程沙箱会在初始化阶段以 STATUS_BREAKPOINT 反复崩掉，浏览器进程随即以 0x80000003 退出，
   // helper 每起必崩而宿主只看到一行无信息量的退出码。关掉 GPU 沙箱即可恢复（单测过：
   // --disable-gpu 与 --use-angle 无效，--disable-gpu-sandbox 有效）。本进程只渲染本地素材、
