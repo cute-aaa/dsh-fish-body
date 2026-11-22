@@ -19,6 +19,7 @@ export * from './fonts.ts';
 export * from './notify.ts';
 export * from './menu.ts';
 export * from './live2d-fixes.ts';
+export * from './live2d-sampling.ts';
 export * from './live2d-motion3.ts';
 export * from './live2d-exp3.ts';
 export * from './bubble-anchor.ts';

@@ -461,7 +461,8 @@ async function mountLive2d(sprite, host, api) {
     backgroundAlpha: 0,
     antialias: true,
     autoDensity: true,
-    resolution: Math.min(window.devicePixelRatio || 1, 2),
+    // 超采样一档：贴图关了 mipmap 后没有低通兜底，靠高分辨率画布缩回来抹掉欠采样的锯齿。
+    resolution: S.live2dRenderResolution(window.devicePixelRatio),
     // 内容顶探测要在画完一帧后读回像素（见 measureVisualTopRatio）：不保帧缓冲读到的会是空画面。
     preserveDrawingBuffer: true,
   });
@@ -482,6 +483,9 @@ async function mountLive2d(sprite, host, api) {
     model.destroy();
     return;
   }
+  // 贴图采样：关 mipmap（PIXI 默认会给 2 的幂贴图生成 mip 链，缩小十几倍时把线稿低通糊掉）。
+  // 必须在第一次渲染之前改：PIXI 只在贴图首次上传时决定要不要 mip 链，之后改 flag 不会重传。
+  S.applyLive2dTextureSampling(model.textures, pixi);
   app.stage.addChild(model);
   const scale = sprite.size / Math.max(model.internalModel.originalWidth, model.internalModel.originalHeight);
   model.anchor.set(0.5, 0.5);
