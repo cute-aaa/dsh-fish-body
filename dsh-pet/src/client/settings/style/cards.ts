@@ -99,6 +99,12 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__rowMeta{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;min-width:0;font-size:var(--pcg-fs-meta);letter-spacing:var(--pet-tracking-meta);line-height:16px;color:var(--dsw-alias-label-tertiary)}',
   '.dsh-pet-cfg__mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-meta);letter-spacing:var(--pet-tracking-meta);line-height:16px;color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;user-select:text}',
   '.dsh-pet-cfg__hookRow{display:flex;align-items:center;gap:6px;min-width:0;padding:5px 8px;border-radius:var(--pcg-radius-sm)}',
+  // 字段级的一行（静默时段 / 窗口行为）：左右两件——左边是控件，右边是徽标。
+  // 与列表行分家是必须的：列表行是「主体在上、元信息在下」的一格（音效槽 / hook），
+  // 字段行是「左控件 + 右徽标」的一行。两者挤在同一个类名上，后写的那条规则会静默
+  // 改掉前一条的方向、间距与对齐——音效卡那格排版错乱就是这么来的
+  // （音色导入那次给 `__row` 补了第二条同名规则，两条一起生效，逐属性互相覆盖）。
+  '.dsh-pet-cfg__fieldRow{display:flex;align-items:center;gap:8px;justify-content:space-between;min-width:0}',
 
   // 会话鱼预览：媒体框 + 一行尺寸/皮肤说明。媒体框沿用 `.dsh-session-fish-preview`（与浮层同一套外观），
   // 但设置页里它独占一格，所以收窄到内容宽度——否则虚线框会横着铺满、右半边空着。
@@ -185,9 +191,11 @@ export const CARDS_CSS = [
   '.dsh-pet-cfg__dialogActions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}',
   // 导入音色弹窗比确认框宽：六格表单（权重 / 另一侧 / 参考音频 / 文本 / id / 目标）在 360px 会挤成一条缝。
   '.dsh-pet-cfg__dialog.is-wide{width:min(680px,calc(100vw - 40px));max-height:calc(100vh - 80px);overflow-y:auto;scrollbar-width:thin}',
-  // 现状清单的一行：左边 id（等宽，便于和文件名对照），右边说明与「接入…」。
-  '.dsh-pet-cfg__row{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 0;border-top:1px solid var(--dsw-alias-border-l2)}',
-  '.dsh-pet-cfg__rowMain{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-label);color:var(--dsw-alias-label-primary)}',
+  // 导入清单里的 id：等宽 + 省略号，便于和文件名对照。
+  // 作用域收在 `.impMeta` 里：`.rowMain` 是「列表行的主体」——音效槽 / hook 那一行是横向 flex，
+  // 开关、徽标、试听按钮并排。把「一段等宽文本」的样式挂在同一个类名上，两边会互相覆盖：
+  // 列表行会变成等宽、被截断、还带上分隔线的文本行（音效卡排版错乱就是这么来的）。
+  '.dsh-pet-cfg__impMeta>.dsh-pet-cfg__rowMain{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:var(--pcg-fs-label);color:var(--dsw-alias-label-primary)}',
   // 导入清单的一行：勾选框在左，右边竖排「id+徽标 / 两侧权重 / 参考与放法 / 说明」。
   // 没勾的行整体压暗：清单常常十几行，勾了哪些必须一眼看得出来。
   '.dsh-pet-cfg__impRow{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-top:1px solid var(--dsw-alias-border-l2)}',

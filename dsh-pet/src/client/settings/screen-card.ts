@@ -123,7 +123,7 @@ export function makeScreenCard(rt: SettingsRuntime): FunctionComponent<ScreenCar
           field(
             t('screenQuietLabel'),
             h('div', {
-              className: 'dsh-pet-cfg__row',
+              className: 'dsh-pet-cfg__fieldRow',
               children: [clockInput('quietFrom'), clockInput('quietTo')],
             }),
             t('screenQuietHint'),

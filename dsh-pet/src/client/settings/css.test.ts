@@ -75,6 +75,38 @@ class FakeDocument {
   }
 }
 
+/**
+ * 取出样式表里所有**顶层**规则的选择器。
+ *
+ * 顶层 = 不在 `@media` / `@container` 里的规则块；嵌套块里的同名类是媒体查询的
+ * 刻意覆盖（窄屏折行、高对比度档），不算重复定义。
+ *
+ * @param css - 样式表全文。
+ * @returns 顶层选择器列表（已按逗号拆开）。
+ */
+function topLevelSelectors(css: string): string[] {
+  const selectors: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < css.length; index++) {
+    const char = css[index];
+    if (char === '{') {
+      if (depth === 0) {
+        const selector = css.slice(start, index).trim();
+        // `@media` / `@container` 自身不算选择器：它里面的规则在深度 > 0 处，已被跳过。
+        if (!selector.startsWith('@')) {
+          for (const part of selector.split(',')) selectors.push(part.trim());
+        }
+      }
+      depth++;
+    } else if (char === '}') {
+      depth--;
+      if (depth === 0) start = index + 1;
+    }
+  }
+  return selectors;
+}
+
 /** 装一套假 DOM，返回 document 与还原函数。 */
 function withFakeDom(): { doc: FakeDocument; restore: () => void } {
   const doc = new FakeDocument();
@@ -175,5 +207,51 @@ describe('injectSettingsCss —— 设置页样式注入', () => {
 
   test('没有 document：静默返回，不抛', () => {
     assert.doesNotThrow(() => injectSettingsCss(), '无 DOM 环境下注入必须是空操作');
+  });
+});
+
+describe('注入后的样式表 —— 顶层类名不重复', () => {
+  /** 注入一份样式表并取回全文。 */
+  function injectedCss(): string {
+    const { doc, restore } = withFakeDom();
+    try {
+      injectSettingsCss();
+      const tag = doc.head.children.find((el) => el.attrs.get('data-plugin-css') === 'dsh-pet/settings.css');
+      assert.ok(tag !== undefined, '设置页样式表没有注入');
+      return tag!.ownText;
+    } finally {
+      restore();
+    }
+  }
+
+  test('同一个顶层类只定义一次：重复会让后一条悄悄改掉前一条的布局', () => {
+    const css = injectedCss();
+    const seen = new Map<string, number>();
+    for (const selector of topLevelSelectors(css)) {
+      const match = /^\.dsh-pet-cfg__([A-Za-z0-9_-]+)$/.exec(selector);
+      if (match === null) continue;
+      seen.set(match[1], (seen.get(match[1]) ?? 0) + 1);
+    }
+    const duplicated = [...seen].filter(([, count]) => count > 1).map(([name, count]) => name + ' x' + count);
+    assert.deepEqual(duplicated, [], '顶层重复定义的类：' + duplicated.join(', '));
+  });
+
+  test('音效槽那一行是竖排（主体在上、元信息在下）', () => {
+    const css = injectedCss();
+    assert.match(css, /\.dsh-pet-cfg__row\{[^}]*flex-direction:column/, '列表行必须是竖排');
+  });
+
+  test('字段级的一行走自己的类名：横排，不与列表行共用', () => {
+    const css = injectedCss();
+    assert.match(css, /\.dsh-pet-cfg__fieldRow\{[^}]*display:flex/, '字段行要有自己的样式');
+    assert.doesNotMatch(css, /\.dsh-pet-cfg__fieldRow\{[^}]*flex-direction:column/, '字段行是横排');
+  });
+  test('导入清单里的 id 是等宽单行文本，不再借用列表行的类名', () => {
+    const css = injectedCss();
+    assert.match(
+      css,
+      /\.dsh-pet-cfg__impMeta>\.dsh-pet-cfg__rowMain\{[^}]*text-overflow:ellipsis/,
+      '导入清单的 id 仍要能省略号截断',
+    );
   });
 });

@@ -27,11 +27,13 @@ export interface SearchEntry {
   readonly text: string;
 }
 
-/** 参与索引与高亮的元素：字段、开关、列表行、目录树行、hook 行、chip。 */
+/** 参与索引与高亮的元素：字段、开关、列表行、字段行、目录树行、hook 行、chip。 */
 const ITEM_SELECTOR = [
   '.dsh-pet-cfg__field',
   '.dsh-pet-cfg__switch',
   '.dsh-pet-cfg__row',
+  // 字段级的一行（静默时段 / 窗口行为）用独立类名，不与列表行共用 `__row`。
+  '.dsh-pet-cfg__fieldRow',
   '.dsh-pet-cfg__treeRow',
   '.dsh-pet-cfg__hookRow',
   '.dsh-pet-cfg__chip',

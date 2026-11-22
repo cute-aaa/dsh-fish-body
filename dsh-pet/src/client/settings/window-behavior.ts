@@ -55,7 +55,7 @@ export function makeWindowBehavior(rt: SettingsRuntime): FunctionComponent<Windo
     }) =>
       h('div', {
         key: options.key,
-        className: 'dsh-pet-cfg__row',
+        className: 'dsh-pet-cfg__fieldRow',
         children: [
           toggleCell(options.label, options.value, options.disabled, options.onToggle, options.path),
           h('span', { key: 'scope', className: 'dsh-pet-cfg__treeBadge', children: t(options.scope) }),
