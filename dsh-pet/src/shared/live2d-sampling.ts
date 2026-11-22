@@ -20,8 +20,9 @@ export const LIVE2D_RENDER_SIDE_MAX = 2048;
 /** 裁剪掩膜缓冲区边长下限（px）：低于它对大画布来说仍是一圈软边。 */
 export const LIVE2D_MASK_SIDE_MIN = 512;
 
-/** 裁剪掩膜缓冲区边长上限（px）：2048² 的 RGBA 已经 16MB，再大只是白烧显存与填充率。 */
-export const LIVE2D_MASK_SIDE_MAX = 2048;
+/** 裁剪掩膜缓冲区边长上限（px）：桌面 Helper 走软件光栅化，2048²（16MB）每帧多花约 7ms，
+ *  而 1024² 与 2048² 的尾巴边缘肉眼看不出差别——这一档是拿实测帧耗时换的。 */
+export const LIVE2D_MASK_SIDE_MAX = 1024;
 
 /** PIXI 里我们真正用到的那几个成员（桌面侧是 classic JS，没有类型检查，这里只描述用到的那几个）。 */
 export interface Live2dPixiFace {

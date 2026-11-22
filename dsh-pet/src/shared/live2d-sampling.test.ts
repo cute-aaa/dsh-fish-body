@@ -79,14 +79,14 @@ describe('live2dRenderResolution —— 画布分辨率', () => {
 
 describe('live2dMaskBufferSide —— 裁剪掩膜缓冲区', () => {
   test('跟着画布实际像素走，向上取 2 的幂', () => {
-    assert.equal(live2dMaskBufferSide(490, 3), 2048);
     assert.equal(live2dMaskBufferSide(300, 2), 1024);
     assert.equal(live2dMaskBufferSide(260, 2), 1024);
   });
 
-  test('夹在上下限之间（小画布不至于更糊，大画布别烧 16MB 以上）', () => {
+  test('夹在上下限之间（小画布不至于更糊，大画布别烧满帧耗时）', () => {
     assert.equal(live2dMaskBufferSide(100, 2), LIVE2D_MASK_SIDE_MIN);
     assert.equal(live2dMaskBufferSide(10, 1), LIVE2D_MASK_SIDE_MIN);
+    assert.equal(live2dMaskBufferSide(490, 3), LIVE2D_MASK_SIDE_MAX);
     assert.equal(live2dMaskBufferSide(4096, 4), LIVE2D_MASK_SIDE_MAX);
     assert.equal(live2dMaskBufferSide(Number.NaN, Number.NaN), LIVE2D_MASK_SIDE_MIN);
   });

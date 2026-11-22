@@ -130,8 +130,14 @@ describe('renderPixelSide —— 画布后备分辨率', () => {
     assert.equal(renderPixelSide(2000, 1024, 2), 1024);
   });
 
-  test('DPR 上限 2：3 倍屏按 2 倍算，不白烧像素', () => {
-    assert.equal(renderPixelSide(400, 2048, 3), 800);
+  test('DPR 不设上限：3 倍屏按 3 倍算（封顶到 2 等于把画布压到设备像素之下）', () => {
+    assert.equal(renderPixelSide(400, 2048, 3), 1200);
+    assert.equal(renderPixelSide(400, 2048, 4), 1600);
+  });
+
+  test('高 DPR 也不会超过素材原生边', () => {
+    assert.equal(renderPixelSide(400, 1024, 4), 1024);
+    assert.equal(renderPixelSide(279, 1024, 3), 837);
   });
 
   test('极小尺寸与非法 DPR：至少 1 像素，不产生 NaN/0', () => {

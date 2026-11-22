@@ -81,12 +81,6 @@ function sizeOverrideOf(sizes: unknown, renderer: unknown): number | undefined {
 }
 
 /**
- * 画布后备分辨率的像素上限倍数：与 live2d 的 `resolution` 同一口径（`min(dpr, 2)`）。
- * 超过 2 倍没有肉眼收益，只是把每帧像素数再翻一倍。
- */
-export const DPR_CAP = 2;
-
-/**
  * 画布后端（layered，以及将来任何按素材原生画布绘制的后端）该用多大的后备像素边。
  *
  * 三条约束一次夹掉：
@@ -94,6 +88,9 @@ export const DPR_CAP = 2;
  *    （整幅绘制的像素量差 4.9 倍，实测就是「拖动和动画都卡」的主因之一）；
  * 2. **不超过素材原生边**：原生 1024² 的图放大到 2000² 不会有更多细节，只是白烧一次全幅采样；
  * 3. **至少 1 像素**：画布边为 0 会让 `getContext`/`drawImage` 直接失效。
+ *
+ * DPR 不设上限：3×／4× 屏上封顶到 2 等于把画布压到设备像素之下（浏览器再放大回去就是糊的），
+ * 分辨率该由显示器和用户决定——素材原生边那一条已经兜住了成本。
  *
  * @param cssSize - 画框宽度（CSS px，已按渲染方式解析过）。
  * @param nativeSide - 素材画布的原生边（清单 `canvas.w`，方形）。
@@ -103,7 +100,7 @@ export const DPR_CAP = 2;
 export function renderPixelSide(cssSize: number, nativeSide: number, dpr: number): number {
   const css = Number.isFinite(cssSize) && cssSize > 0 ? cssSize : SIZE_MIN;
   const native = Number.isFinite(nativeSide) && nativeSide > 0 ? Math.round(nativeSide) : Math.round(css);
-  const scale = Number.isFinite(dpr) && dpr > 0 ? Math.min(dpr, DPR_CAP) : 1;
+  const scale = Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
   return Math.max(1, Math.min(native, Math.round(css * scale)));
 }
 
