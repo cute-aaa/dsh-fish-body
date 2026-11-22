@@ -17,9 +17,12 @@ import { postAction } from '../../../shared/state.ts';
 import { bubbleAnchorY } from '../../../shared/bubble-anchor.ts';
 import { hiddenDrawableIndexesOf } from '../../../shared/live2d-fixes.ts';
 import {
+  applyLive2dMaskBuffer,
   applyLive2dTextureSampling,
+  live2dMaskBufferSide,
   live2dRenderResolution,
   type Live2dPixiFace,
+  type Live2dRendererFace,
   type Live2dTextureFace,
 } from '../../../shared/live2d-sampling.ts';
 import {
@@ -339,6 +342,8 @@ export function createLive2dRenderer(): Renderer {
     if (destroyed) return;
 
     const pixi = pixiGlobal();
+    // 分辨率的下限是设备像素比，超采样只是往上加的一档抗锯齿（见 shared/live2d-sampling）。
+    const resolution = live2dRenderResolution(window.devicePixelRatio, size);
     const created = new pixi.Application({
       width: size,
       height: size,
@@ -346,8 +351,8 @@ export function createLive2dRenderer(): Renderer {
       backgroundAlpha: 0,
       antialias: true,
       autoDensity: true,
-      // 超采样一档：贴图关了 mipmap 后没有低通兜底，靠高分辨率画布缩回来抹掉欠采样的锯齿。
-      resolution: live2dRenderResolution(window.devicePixelRatio),
+      // 关掉 mipmap 后没有低通兜底，靠高分辨率画布缩回来抹掉欠采样的锯齿。
+      resolution,
       // 内容顶探测要在一帧画完之后读回像素（见 render/visual-top）：不保帧缓冲读到的会是空画面。
       preserveDrawingBuffer: true,
     });
@@ -371,6 +376,11 @@ export function createLive2dRenderer(): Renderer {
     applyLive2dTextureSampling(
       (model as unknown as { textures: Live2dTextureFace[] }).textures,
       pixi as unknown as Live2dPixiFace,
+    );
+    // 裁剪掩膜：官方默认的 256² 摊到单通道只剩 128²，被掩膜裁的部件（尾巴）边缘会糊成一圈软边。
+    applyLive2dMaskBuffer(
+      (model.internalModel as unknown as { renderer?: Live2dRendererFace }).renderer,
+      live2dMaskBufferSide(size, resolution),
     );
     created.stage.addChild(model);
     // 逐模型修正：把「纯黑遮罩源」从可见绘制里去掉（见 shared/live2d-fixes）。
