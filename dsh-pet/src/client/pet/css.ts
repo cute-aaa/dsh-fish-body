@@ -17,11 +17,14 @@ const PET_CSS = [
   '.dsh-pet-root[data-corner="top-left"]{left:var(--dsh-pet-mx,24px);top:var(--dsh-pet-my,0)}',
   '.dsh-pet-stage{position:relative;width:var(--dsh-pet-size,462px);height:calc(var(--dsh-pet-size,462px)*9/16);pointer-events:none}',
   // 与桌面 helper 同一条修正，滤镜定义见 ensureAlphaFilter。
-  // **不做交叉淡化**：两段半透明视频叠着合成时 alpha 会掉到 0.75（1−(1−0.5)²），
-  // 换动画时画面整体暗一下再亮回来，就是用户说的「闪一下」。换台改成离散的、
-  // 且必须等新段真的出画之后的同一帧（见 animation/animation.ts 的 handoff）。
-  '.dsh-pet-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;opacity:0;transform-origin:center;filter:url(#dsh-pet-alpha-fix)}',
-  '.dsh-pet-video.is-front{opacity:1}',
+  // **换台用 visibility，不能用 opacity**（与 helper 同一口径）：
+  // ① 两段半透明叠着合成时 alpha 掉到 0.75（1−(1−0.5)²），换动画会暗一下；
+  // ② 更要命的是带 `filter` 的视频层只要 opacity 一变，Chromium 会整组滤镜重做，
+  //    整整一帧什么都画不出来——就是用户说的「切动作闪一下空白」（CDP 逐帧录屏实测）。
+  // visibility 变化不触发滤镜重做，一帧都不掉；换台本身仍要等新段出画后同一帧进行
+  // （见 animation/animation.ts 的 handoff）。
+  '.dsh-pet-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;visibility:hidden;transform-origin:center;filter:url(#dsh-pet-alpha-fix)}',
+  '.dsh-pet-video.is-front{visibility:visible}',
   // 触屏拖拽必需：缺 touch-action:none 时浏览器会把手势判成滚动并触发 pointercancel；
   // 两条 -webkit-* 抑制长按选中与 iOS 长按系统菜单。
   `.dsh-pet-hit{position:absolute;pointer-events:auto;cursor:url("${ROUTE_PATH}/pic/cursor-grab.png") 16 16, grab;z-index:1;touch-action:none;-webkit-user-select:none;-webkit-touch-callout:none}`,

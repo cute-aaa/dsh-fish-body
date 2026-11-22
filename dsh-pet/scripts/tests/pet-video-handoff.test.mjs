@@ -2,13 +2,16 @@
  * 桌面视频双缓冲「原子交接」的源码守卫：切动画时不能再闪一下。
  *
  * 为什么用源码断言而不是跑起来测：这是纯渲染时序问题（透明窗口上的 alpha 叠合 +
- * 首帧是否已提交），在没有真实合成器的 node:test 里测不出来；而一旦有人把
- * 交叉淡化写回 CSS 或把交接改回「先换 front 再 play」，只有源码能立刻报警。
+ * 首帧是否已提交 + 滤镜层被作废），在没有真实合成器的 node:test 里测不出来；
+ * 而一旦有人把交叉淡化写回 CSS，或把 visibility 换回 opacity，只有源码能立刻报警。
  *
- * 两条不可退让的约定：
- *   1. helper 的 `video.pet-video` **不能**有 opacity 过渡——窗口是透明的，两段半透明视频
- *      叠着合成会让不透明像素掉到 0.75（1−(1−0.5)²），观感就是「每次切动画暗一下」。
- *   2. 新段必须先开播、等它真正出画后**同一帧**顶掉旧段；旧段在此之前一直亮着，不能露空洞。
+ * 三条不可退让的约定：
+ *   1. helper 的 `video.pet-video` **不能**有 opacity（更不能有过渡）——窗口是透明的，
+ *      两段半透明叠着会让不透明像素掉到 0.75（1−(1−0.5)²），观感就是「每次切动画暗一下」；
+ *   2. 换台用 `visibility`：带 `filter` 的视频层只要 opacity 一变，Chromium 会整组滤镜重做，
+ *      **整整一帧什么都画不出来**——用户看到的就是「切动作闪一下空白」（CDP 逐帧录屏实测：
+ *      opacity 版每次换台掉一帧全空，visibility 版一帧不掉）；
+ *   3. 新段必须先开播、等它真正出画后**同一帧**顶掉旧段；旧段在此之前一直亮着，不能露空洞。
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -32,12 +35,15 @@ function ruleBody(css, selector) {
   return open < 0 || close < 0 ? '' : css.slice(open + 1, close);
 }
 
-test('helper 的 .pet-video 不能有 opacity 过渡（透明窗口上叠合会掉 alpha）', () => {
+test('helper 的 .pet-video 用 visibility 换台（opacity 会让滤镜层整帧消失）', () => {
   const css = readFileSync(HELPER + 'index.html', 'utf8');
   const body = ruleBody(css, 'video.pet-video');
   assert.ok(body.length > 0, '必须能定位到 video.pet-video 的样式块');
   assert.equal(/transition\s*:/.test(body), false, '桌面端不许给 .pet-video 加过渡：切动画会暗一下');
-  assert.equal(/opacity\s*:/.test(body), true, 'opacity:0 / .is-front opacity:1 的离散切换必须保留');
+  assert.equal(/opacity\s*:/.test(body), false, '不许用 opacity 换台：滤镜层会整帧画不出来（闪空白）');
+  assert.equal(/visibility\s*:\s*hidden/.test(body), true, '换台靠 visibility:hidden / visible');
+  const front = ruleBody(css, 'video.pet-video.is-front');
+  assert.equal(/visibility\s*:\s*visible/.test(front), true, '前台段必须是 visibility:visible');
 });
 
 test('换源必须先开播、再在帧回调里同一帧交接 front', () => {

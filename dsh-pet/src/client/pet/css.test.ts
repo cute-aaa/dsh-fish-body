@@ -130,9 +130,11 @@ describe('injectPetCss —— 宠物页样式注入', () => {
       assert.ok(tag.textContent.includes('.pet-tooltip{'), '提示外观与桌面端共用同一份');
       assert.doesNotMatch(
         tag.textContent,
-        /\.dsh-pet-video\{[^}]*transition/,
-        '视频不许再挂 opacity 过渡：两段同时半透明会让合成 alpha 掉到 0.75，换动画时闪一下',
+        /\.dsh-pet-video\{[^}]*(transition|opacity)/,
+        '视频不许用 opacity/过渡换台：带 filter 的层会整帧画不出来（闪空白），叠合还会掉 alpha',
       );
+      assert.match(tag.textContent, /\.dsh-pet-video\{[^}]*visibility:hidden/, '换台靠 visibility');
+      assert.match(tag.textContent, /\.dsh-pet-video\.is-front\{visibility:visible\}/, '前台段 visibility:visible');
     } finally {
       restore();
     }
