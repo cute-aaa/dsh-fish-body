@@ -61,13 +61,26 @@ class FakeVideo {
     this.paused = false;
     return Promise.resolve();
   }
-
   pause(): void {
     this.paused = true;
   }
 
   load(): void {
     this.loadCalls += 1;
+  }
+
+  /** 待兑现的首帧回调（模拟 requestVideoFrameCallback 的队列）。 */
+  private frameQueue: Array<() => void> = [];
+
+  requestVideoFrameCallback(cb: () => void): number {
+    this.frameQueue.push(cb);
+    return this.frameQueue.length;
+  }
+
+  /** 播放器提交了一帧：兑现排队的首帧回调（交接就发生在这之后）。 */
+  commitFrame(): void {
+    const queue = this.frameQueue.splice(0);
+    for (const cb of queue) cb();
   }
 }
 
@@ -170,10 +183,13 @@ describe('createOwnAnimation —— 换源与回执', () => {
     h.anim.switchTo('idle1', true, 'pb-1');
     h.loader.requests[0].handlers.onObjectUrl('blob:1');
     h.videoB.fire('loadeddata');
+    // 只解码出首帧还不算「出画」：这时候换台，旧段已被撤下而新段还没有画面 = 露一个透明空洞。
+    assert.equal(h.videoB.classList.contains('is-front'), false, '首帧未提交前不许翻前台');
+    assert.equal(h.videoB.playCalls, 1, '必须先开播才谈得上出画');
+    h.videoB.commitFrame();
     // playing 回执挂在 play() 的微任务上：只有兑现才代表确实开始出画。
     await Promise.resolve();
     assert.equal(h.videoB.classList.contains('is-front'), true);
-    assert.equal(h.videoB.playCalls, 1);
     assert.deepEqual(h.reports, [{ id: 'pb-1', status: 'playing', reason: undefined }]);
     assert.equal(h.ready.length, 1, '就位后要通知组件补 Q 弹与走位');
     assert.equal(h.anim.frontVideo(), h.videoB);
@@ -233,6 +249,7 @@ describe('createOwnAnimation —— 播完与冻结', () => {
     h.anim.switchTo('idle1', true, 'pb-1');
     h.loader.requests[0].handlers.onObjectUrl('blob:1');
     h.videoB.fire('loadeddata');
+    h.videoB.commitFrame();
     h.setCurrentAnim('idle1');
     const cue = h.anim.handleEnded({ currentTarget: h.videoB } as unknown as Event);
     assert.deepEqual(h.reports[h.reports.length - 1], { id: 'pb-1', status: 'ended', reason: undefined });
@@ -250,6 +267,7 @@ describe('createOwnAnimation —— 播完与冻结', () => {
     h.anim.switchTo('idle1', true, 'pb-1');
     h.loader.requests[0].handlers.onObjectUrl('blob:1');
     h.videoB.fire('loadeddata');
+    h.videoB.commitFrame();
     h.setDragging(true);
     const cue = h.anim.handleEnded({ currentTarget: h.videoB } as unknown as Event);
     assert.deepEqual(cue, { kind: 'ignore' });
@@ -261,6 +279,7 @@ describe('createOwnAnimation —— 播完与冻结', () => {
     h.anim.switchTo('idle1', true, 'pb-1');
     h.loader.requests[0].handlers.onObjectUrl('blob:1');
     h.videoB.fire('loadeddata');
+    h.videoB.commitFrame();
     const frozen = h.anim.setFrozen(true);
     assert.deepEqual(frozen, { kind: 'frozen' });
     assert.equal(h.videoB.paused, true, '冻结要把前台暂停');

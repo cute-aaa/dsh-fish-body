@@ -27,6 +27,9 @@ const REASON_FROZEN = 'frozen';
 /** 资源超时（ms）：DSH WebServer 偶发 stalled，超时就丢弃本次换源。 */
 const ASSET_FETCH_TIMEOUT_MS = 10_000;
 
+/** 首帧交接的兜底时限（ms）：个别环境没有 `requestVideoFrameCallback`，过期就按已出画处理。 */
+const HANDOFF_FALLBACK_MS = 50;
+
 /** 日志时间戳：与其余宠物日志同一格式，便于对照同一次事件。 */
 const stamp = (petId: string): string => new Date().toTimeString().slice(0, 8) + ' pet=' + petId;
 
@@ -201,22 +204,46 @@ export function createOwnAnimation(deps: OwnAnimationDeps): OwnAnimation {
     const onReady = (): void => {
       el.removeEventListener('loadeddata', onReady);
       if (pending?.gen !== swapGen) return;
-      const outgoing = elementOf(front);
-      el.classList.add('is-front');
-      if (outgoing !== null && outgoing !== el) {
-        outgoing.classList.remove('is-front');
-        // 降级为背景的视频若继续播完，残留的 onended 会掐断当前前台动画：清 handler 并停播。
-        outgoing.onended = null;
-        outgoing.onerror = null;
-        outgoing.pause();
-        // 被换下的点播若没播完，如实回 cancelled（补的是点击、拖拽这类非点播打断）。
-        if (playing !== null && playing !== cuePlaybackId) reportOnce(playing, 'cancelled', REASON_SUPERSEDED);
-      }
-      front = front === 0 ? 1 : 0;
-      pending = null;
-      playing = cuePlaybackId;
-      el.style.transform = deps.facing() === 'right' ? 'scaleX(-1)' : '';
-      el.play()
+      // 先开播：`loadeddata` 只代表可解码，播放器要真的出画才有第一帧可以提交。
+      const started = el.play();
+      let handed = false;
+      /**
+       * 交接：新段**已出画**之后才在同一帧顶掉旧段。
+       *
+       * 顺序不能反。旧实现是「loadeddata 就加 is-front（.18s 淡化）+ 立刻撤旧段」，于是换动画时
+       * 有两层半透明的视频叠着：合成 alpha = 1−(1−a)²，过渡中点掉到 0.75，画面整体暗一下再亮回来
+       * ——看起来就是「闪一下」。这里改成桌面端同一套：新段先出画，再离散换台，全程只有一层在画。
+       */
+      const handoff = (): void => {
+        if (handed) return;
+        handed = true;
+        // 等帧期间可能又被下一次换源顶掉：那时不能再动 front。
+        if (pending?.gen !== swapGen) return;
+        const outgoing = elementOf(front);
+        el.classList.add('is-front');
+        if (outgoing !== null && outgoing !== el) {
+          outgoing.classList.remove('is-front');
+          // 降级为背景的视频若继续播完，残留的 onended 会掐断当前前台动画：清 handler 并停播。
+          outgoing.onended = null;
+          outgoing.onerror = null;
+          outgoing.pause();
+          // 被换下的点播若没播完，如实回 cancelled（补的是点击、拖拽这类非点播打断）。
+          if (playing !== null && playing !== cuePlaybackId) reportOnce(playing, 'cancelled', REASON_SUPERSEDED);
+        }
+        front = front === 0 ? 1 : 0;
+        pending = null;
+        playing = cuePlaybackId;
+        el.style.transform = deps.facing() === 'right' ? 'scaleX(-1)' : '';
+        deps.onFrontReady(el);
+      };
+      // 帧回调是「这一帧已提交合成」的信号，正是交接时机；没有它的环境用定时器兜底
+      // （兜底期间旧段一直亮着，所以看不到空洞，只是晚一点换）。
+      const tick = (el as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number })
+        .requestVideoFrameCallback;
+      if (typeof tick === 'function') tick.call(el, () => handoff());
+      // 用全局 setTimeout：渲染端与 node 侧的单测都能跑（不依赖 window）。
+      globalThis.setTimeout(handoff, HANDOFF_FALLBACK_MS);
+      started
         .then(() => {
           // 只有 play() 兑现才代表确实开始出画，loadeddata 只代表可解码。
           if (cuePlaybackId !== null) deps.report(cuePlaybackId, 'playing');
@@ -224,7 +251,6 @@ export function createOwnAnimation(deps: OwnAnimationDeps): OwnAnimation {
         .catch(() => {
           if (cuePlaybackId !== null) reportOnce(cuePlaybackId, 'failed', REASON_PLAY_REJECTED);
         });
-      deps.onFrontReady(el);
     };
     el.addEventListener('loadeddata', onReady);
   };

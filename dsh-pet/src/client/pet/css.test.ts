@@ -128,10 +128,10 @@ describe('injectPetCss —— 宠物页样式注入', () => {
       assert.ok(tag.textContent.includes('.dsh-pet-hit{'), '命中区样式必须在（拖拽与光标都靠它）');
       assert.ok(tag.textContent.includes('touch-action:none'), '触屏拖拽必需，缺了会被判成滚动');
       assert.ok(tag.textContent.includes('.pet-tooltip{'), '提示外观与桌面端共用同一份');
-      assert.match(
+      assert.doesNotMatch(
         tag.textContent,
-        /@media \(prefers-reduced-motion: reduce\)\{\.dsh-pet-video\{transition:none\}\}/,
-        '宠物视频的动效降级不许回退',
+        /\.dsh-pet-video\{[^}]*transition/,
+        '视频不许再挂 opacity 过渡：两段同时半透明会让合成 alpha 掉到 0.75，换动画时闪一下',
       );
     } finally {
       restore();
