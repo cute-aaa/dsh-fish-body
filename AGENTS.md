@@ -9,7 +9,7 @@
 | 主检出 | `G:/Projnew/ai/dsh-fish-body`                                     | `main`              | 用户的日常开发副本；**新功能常先在这里落地** |
 | 工作树 | `G:/Projnew/ai/dsh-fish-body/.agents/worktrees/dsh-42f42794-3023` | `dsh-42f42794-3023` | 长任务/DevFlow 路由用的隔离副本              |
 
-- 插件本体在 `dsh-pet/`；仓库根另有 `openapi.yaml`、`API.md`、`CONFIG.md`、`FEATURES.md`、`docs/`。
+- 插件本体在 `dsh-fish-body/`；仓库根另有 `openapi.yaml`、`API.md`、`CONFIG.md`、`FEATURES.md`、`docs/`。
 - `D:\NodeJs\DSH_home\plugins\dsh-fish-body` 是 **junction**，指向哪一个副本，决定「当前运行的插件代码是哪一份」——这直接决定用户看到的功能。
 - 远程 `upstream` = `github.com/PC2005-cloud/dsh-pet`（上游模板仓库），`main` 已远领先于它。
 
@@ -45,9 +45,9 @@ git -C G:\Projnew\ai\dsh-fish-body log --oneline <当前分支>..main
 
 - 方向固定：**主检出 → 工作树**（`git merge main`，在主检出所在仓库执行即可，两边共享同一个 `.git`）。
 - 已知冲突热点：
-  - `dsh-pet/runtime/electron-helper/main.js` / `main/tray.js` / `main/windows.js` —— 托盘/窗口状态相关改动都挤在这里；
-  - `dsh-pet/src/client/settings/locales/*.ts`（8 份字典，键集必须一致）；
-  - `dsh-pet/src/client/settings/{voice-tab,voice-card,voice-provider-card,use-voice-settings}.ts` 与 `src/host/voice/**`、`src/host/routes/voice*.ts`；
+  - `dsh-fish-body/runtime/electron-helper/main.js` / `main/tray.js` / `main/windows.js` —— 托盘/窗口状态相关改动都挤在这里；
+  - `dsh-fish-body/src/client/settings/locales/*.ts`（8 份字典，键集必须一致）；
+  - `dsh-fish-body/src/client/settings/{voice-tab,voice-card,voice-provider-card,use-voice-settings}.ts` 与 `src/host/voice/**`、`src/host/routes/voice*.ts`；
   - `openapi.yaml`（新增端点/字段要双向校验：`npm run check:openapi`）。
 - 解冲突原则：**两侧能力都要保留**；若两侧做的是同一件事的不同入口，收敛成「一个状态真源 + 变更广播」，不要留两条并行路径。
 
@@ -68,7 +68,7 @@ git -C G:\Projnew\ai\dsh-fish-body log --oneline <当前分支>..main
 - 虚拟桌面（`dshv-*`）：`/vdesk/input` **不校验桌面名**，历史上因此误关过用户的浏览器窗口。使用前必须 ①目标桌面在 `/vdesk/desktops` 里 ②`/vdesk/frame` 拿到有内容的帧 ③该用例确实需要 OS 级输入；**禁止探测式点击**。截图优先走 CDP（DComp 窗口不进 BitBlt 帧）。
 - 路由失败约定：本仓不少接口是 **`200 + {ok:false,reason,message}`**，`400` 只留给非法 JSON；断言要写 `body.ok === false`，别按 4xx 写。
 - **`{kind:'none'}` 只表示「调用方已经走了」**（`routes/types.ts` 的 `RouteInput.signal` 触发，`http-route.ts` 因此**不写任何应答**）。任何**「时限到点」都不许走这条路**：用户侧症状是「点了没反应」——既不失败也不说话，而门禁可能是全绿的。时限类错误必须显式落成 `unsupported`（可操作提示）或继续等待，见 `src/host/pick-no-timeout-guard.test.ts` 的守卫口径。
-- **别用时间当失败条件**：凡是「等外部人操作」的链路（系统对话框、长轮询、回调），不得以 `setTimeout`/`AbortSignal.timeout`/请求选项 `timeout:` 判失败。释放互斥只能由真实事件（选中 / 取消 / 抛错 / 调用方断开）驱动。守卫：`dsh-pet/src/host/pick-no-timeout-guard.test.ts`（覆盖四个 pick 源文件）。
+- **别用时间当失败条件**：凡是「等外部人操作」的链路（系统对话框、长轮询、回调），不得以 `setTimeout`/`AbortSignal.timeout`/请求选项 `timeout:` 判失败。释放互斥只能由真实事件（选中 / 取消 / 抛错 / 调用方断开）驱动。守卫：`dsh-fish-body/src/host/pick-no-timeout-guard.test.ts`（覆盖四个 pick 源文件）。
 
 ## 七、文档与产物索引
 

@@ -27,16 +27,16 @@ set -euo pipefail
 if [[ -n "$1" ]]; then
   asset_dir=$1
 else
-  if [[ -d "main-repo/dsh-pet/assets/webm" ]]; then
-    asset_dir="main-repo/dsh-pet/assets/webm"
-  elif [[ -d "main-repo/dsh-pet/assets/thumb" ]]; then
-    asset_dir="main-repo/dsh-pet/assets/thumb"
-  elif [[ -d "dsh-pet/assets/webm" ]]; then
-    asset_dir="dsh-pet/assets/webm"
-  elif [[ -d "dsh-pet/assets/thumb" ]]; then
-    asset_dir="dsh-pet/assets/thumb"
+  if [[ -d "main-repo/dsh-fish-body/assets/webm" ]]; then
+    asset_dir="main-repo/dsh-fish-body/assets/webm"
+  elif [[ -d "main-repo/dsh-fish-body/assets/thumb" ]]; then
+    asset_dir="main-repo/dsh-fish-body/assets/thumb"
+  elif [[ -d "dsh-fish-body/assets/webm" ]]; then
+    asset_dir="dsh-fish-body/assets/webm"
+  elif [[ -d "dsh-fish-body/assets/thumb" ]]; then
+    asset_dir="dsh-fish-body/assets/thumb"
   else
-    print -u2 "no asset dir found; pass it as \$1 (e.g. main-repo/dsh-pet/assets/webm)"
+    print -u2 "no asset dir found; pass it as \$1 (e.g. main-repo/dsh-fish-body/assets/webm)"
     exit 1
   fi
 fi

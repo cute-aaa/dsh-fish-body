@@ -70,9 +70,9 @@ dsh plugin --profile web add file:D:/path/to/dsh-fish-body/dsh-pet
 
 ### 直接运行（Release 绿色版）
 
-1. 到 [Releases](https://github.com/cute-aaa/dsh-fish-body/releases) 页面挑一个版本，下载它的 `dsh-pet-win-x64.zip`（固定名）；
+1. 到 [Releases](https://github.com/cute-aaa/dsh-fish-body/releases) 页面挑一个版本，下载它的 `dsh-fish-body-win-x64.zip`（固定名）；
 2. 解压到任意目录，例如 `D:\dsh-pet`；
-3. 双击目录里的 `dsh-pet.exe`。
+3. 双击目录里的 `dsh-fish-body.exe`。
 
 不需要 Node.js，也不需要 DSH，Electron 运行时已经打进包里；关闭窗口即退出。
 
@@ -106,10 +106,10 @@ npm run ensure:electron   # 首次：解析本机 Electron 解压目录（没有
 npm run dist              # electron-builder 打包
 ```
 
-产物在 `dist-app/win-unpacked/`，双击其中的 `dsh-pet.exe` 即可运行。**只出「解包目录」一种形态**（绿色版），不出 nsis 安装包——要分发就把整个目录压成 zip。
+产物在 `dist-app/win-unpacked/`，双击其中的 `dsh-fish-body.exe` 即可运行。**只出「解包目录」一种形态**（绿色版），不出 nsis 安装包——要分发就把整个目录压成 zip。
 
 - 本机找不到 Electron 解压目录时 `dist` 会直接失败并提示先跑 `ensure:electron`（可用 `DSH_PET_ELECTRON_DIST` 指向现成目录）；CI 里设 `DSH_PET_ALLOW_ELECTRON_DOWNLOAD=1` 让它自行下载。
-- 发版由 `v*` tag 触发 `.github/workflows/release-app.yml`：构建后把固定名 `dsh-pet-win-x64.zip` 挂到该 tag 的 Release 上（不创建 Release、不改更新日志）。
+- 发版由 `v*` tag 触发 `.github/workflows/release-app.yml`：构建后把固定名 `dsh-fish-body-win-x64.zip` 挂到该 tag 的 Release 上（不创建 Release、不改更新日志）。
 
 ### 能力边界
 

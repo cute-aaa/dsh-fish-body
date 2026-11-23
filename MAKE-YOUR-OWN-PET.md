@@ -25,7 +25,7 @@
 
 - 入睡与循环段**结尾不许回到站立**，只有醒来段才回站立；循环段首尾两帧必须完全相同，否则循环处会跳。
 - 三段共用同一条地面线、同一角色大小；生成后先比对「入睡尾帧 = 循环首帧 = 醒来首帧」「醒来尾帧 = 入睡首帧」再进素材链。
-- 素材链其余步骤不变（同样落 `dsh-pet/assets/webm/`），最后把三个名字写进配置的 `animations.sleep`：一套 = `start` / `loop` / `end` 各一个候选数组，可以配多套（蹲着睡、趴着睡…）；结构见 `dsh-pet/assets/config.jsonc` 里的 `sleep` 注释。
+- 素材链其余步骤不变（同样落 `dsh-fish-body/assets/webm/`），最后把三个名字写进配置的 `animations.sleep`：一套 = `start` / `loop` / `end` 各一个候选数组，可以配多套（蹲着睡、趴着睡…）；结构见 `dsh-fish-body/assets/config.jsonc` 里的 `sleep` 注释。
 
 ## ② 源视频 → 透明动画（素材链）
 
@@ -62,12 +62,12 @@ python encode_thumbs.py      # 转码 640×360 播放变体 → step04/
 
 ```sh
 # 把 step04 的播放变体同步进插件包（webm 直接 cp）
-cp step04/*.webm dsh-pet/assets/webm/   # 播放格式（VP9-alpha）
+cp step04/*.webm dsh-fish-body/assets/webm/   # 播放格式（VP9-alpha）
 
 # 本地安装插件（--profile 填实际在用的那个：dsh web → web，桌面应用 → desktop；
 # 详见 INSTALL.md 的「从源码安装」；
-# file: 指向插件目录 dsh-pet/dsh-pet）
-dsh plugin --profile web add file:D:/path/to/dsh-pet/dsh-pet
+# file: 指向插件目录 dsh-fish-body/dsh-pet）
+dsh plugin --profile web add file:D:/path/to/dsh-fish-body/dsh-pet
 ```
 
 > 中间产物（step01-04）由脚本生成、不入仓库；`video/` 源视频和脚本是成果、入库维护。
@@ -77,7 +77,7 @@ dsh plugin --profile web add file:D:/path/to/dsh-pet/dsh-pet
 插件只发布一个 npm 包、一个素材格式（webm）；`files` 收敛为固定清单（lib / src / assets/webm / runtime/electron-helper / assets/fonts / assets/pic / assets/config.jsonc / scripts/ensure-electron.mjs / cordis.patch.yml，见 `prepare.js`；浏览器与桌面模式共用，包体最小）：
 
 ```sh
-cd dsh-pet
+cd dsh-fish-body
 npm publish --tag latest   # prepack 自动执行构建（完整产物 + 收敛 files），无需手动构建
 ```
 
@@ -129,7 +129,7 @@ npm publish --tag latest   # prepack 自动执行构建（完整产物 + 收敛 
   `skin/<素材根>-skin/<model>/` 存在就用它，缺失才回落到池里的同名资源（扁平池就是 `assets/pet/<model>/`）。
 - 动画同理：先 `skin/<素材根>-animation/webm/`，再池里平铺的 `assets/pet/*.webm`，最后 `assets/animation/webm/` 与包内素材。
 - 右键「模型 / 皮肤」子菜单里，池里的条目会标「（池）」，一眼看出它来自哪。
-- 想把旧布局搬进池：仓库里跑 `node dsh-pet/scripts/migrate-pool.mjs`（干跑，只打印清单），
+- 想把旧布局搬进池：仓库里跑 `node dsh-fish-body/scripts/migrate-pool.mjs`（干跑，只打印清单），
   确认后加 `--apply` 复制；**只搬不删**，旧布局照常可用。
 
 ## 音效

@@ -61,7 +61,7 @@
   const FALLBACK_SERVICES = ['petApi7340'];
 
   /**
-   * dsh-pet 客户端插件注册时用的 `name`（见 dsh-pet/src/client/app.ts 的 `const name = 'pet'`）。
+   * dsh-pet 客户端插件注册时用的 `name`（见 dsh-fish-body/src/client/app.ts 的 `const name = 'pet'`）。
    *
    * 用来把「本插件提供的服务」从 DSH 平台那几十个服务里挑出来：`Fiber.name` 会从最近的
    * 有名祖先继承，所以 dsh-pet 里 `ctx.provide()` 出来的服务，其 fiber.name 就是它。

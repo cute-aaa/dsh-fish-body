@@ -39,7 +39,7 @@ temp/
 .agents/worktrees/
 
 # ── dsh-pet 设置页截图产出（DSH_PET_UI_ARTIFACTS，跑 npm run test:ui 即可重生，不入仓库）──
-dsh-pet/artifacts/
+dsh-fish-body/artifacts/
 # 早期一轮在仓库根跑截图时留下的同批产出（同一原因：可重生）
 .ui-artifacts/
 
@@ -47,14 +47,14 @@ dsh-pet/artifacts/
 #   lib/                      tsdown bundle（lib/index.js、lib/client.js）+ tsc 声明（lib/types/*.d.ts，npm run types）
 #   runtime/electron-helper/shared-core.js  桌面共享纯逻辑（scripts/build-desktop-core.mjs 产出，window.PetShared）
 # （lib/types 曾是手写声明才保留跟踪；自 gen-types.mjs 起为生成产物，与 lib/*.js 同等对待）
-dsh-pet/lib/
-dsh-pet/runtime/electron-helper/shared-core.js
-dsh-pet/runtime/electron-helper/layered-core.js
+dsh-fish-body/lib/
+dsh-fish-body/runtime/electron-helper/shared-core.js
+dsh-fish-body/runtime/electron-helper/layered-core.js
 # live2d 的 UMD 依赖（pixi / pixi-live2d-display）由 scripts/prepare.js 从 node_modules 拷出，/vendor 路由供给
-dsh-pet/assets/vendor/
+dsh-fish-body/assets/vendor/
 
 # ── dsh-pet 桌宠应用打包产物（electron-builder 输出，`node scripts/dist.mjs` 可重生）──
-dsh-pet/dist-app/
+dsh-fish-body/dist-app/
 
 # ── IDE / 编辑器 ──
 .idea/

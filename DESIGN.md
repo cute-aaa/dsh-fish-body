@@ -1,7 +1,7 @@
 # DESIGN.md — 功能清单与变更前检查清单
 
 > 本文件是**改功能前的第一道闸**。它回答三件事：一个能力由哪些入口暴露、状态真源在哪、改它时必须守住什么。
-> 与之配套的可执行门禁：`cd dsh-pet && npm run check:design`（校验本文件与代码/契约是否还对齐，见末节）。
+> 与之配套的可执行门禁：`cd dsh-fish-body && npm run check:design`（校验本文件与代码/契约是否还对齐，见末节）。
 > 面向用户的功能列表在 `FEATURES.md`；多工作树与测试纪律在 `AGENTS.md`。
 
 ## 一、能力清单（能力 → 入口 → 状态真源 → 不变量）
@@ -52,7 +52,7 @@
 ## 四、可执行门禁
 
 ```bash
-cd dsh-pet
+cd dsh-fish-body
 npm run check:design     # 本文件与代码/契约的对齐校验
 ```
 
@@ -63,3 +63,22 @@ npm run check:design     # 本文件与代码/契约的对齐校验
 3. **必备小节**：本文件必须包含「能力清单」「状态真源规则」「变更前检查清单」「可执行门禁」四节。
 
 与其它门禁一起跑（提交前）：`npm test`、`npx tsc --noEmit`、`npx tsc -p tsconfig.test.json`、`npm run lint`、`npm run format:check`、`npm run check:cycles`、`npm run check:openapi`、`npm run check:design`、`npm run test:ui`（碰 UI 时）、`npx tsdown`。
+
+## 五、稳定兼容面（不可随便改的对外标识）
+
+这些名字出现在**用户已有的配置、数据目录、第三方脚本或本机进程参数**里。改它们不会让测试变红，但会让老用户的东西当场失效（配置读不到、皮肤消失、脚本调不通），而且是**静默**失效——所以列成一张表，改名之前先对照：
+
+| 标识 | 值 | 为什么不能改 |
+| --- | --- | --- |
+| 插件路由前缀 | `/dsh-pet-7340` | 浏览器端、桌面 Helper、第三方探针（`tools/cordis-probe`）都按它拼 URL；改了就全 404 |
+| 请求头 | `X-DSH-Pet-Token` | 桌面壳与页面之间用它做本机鉴权 |
+| 环境变量前缀 | `DSH_PET_*`（37 个） | 用户的启动脚本、CI、冒烟脚本已经在用 |
+| 数据根 | `<DSH_HOME>/fish-body` | 用户配置、皮肤、记忆都在这里 |
+| 旧数据根 | `<DSH_HOME>/dsh-pet` | 仍会被读取并在启动时迁移；删掉兼容分支等于让老用户丢配置 |
+| 样式去重标记 | `data-plugin-css="dsh-pet/<file>"` | 重复挂载靠它判重，改名会重复注入样式 |
+| localStorage 键 | `dsh-pet/settings-pet`、`dsh-pet/pick-dirs` | 用户的选择记忆，改名即清空 |
+| 设置备份 kind | `dsh-pet/settings-backup` | 旧备份文件的识别字段，改名后认不出老备份 |
+| 独立模式命令 | `dsh-pet-standalone` | 文档与用户脚本里的命令名 |
+| 独立模式默认端口 | `3080` | 与 DSH web 实例的约定，改了两者会抢端口 |
+
+新增同类标识（又一个 localStorage 键、又一个环境变量）时，**先在这张表里补一行**再动手；这张表本身不做自动校验，靠评审看。

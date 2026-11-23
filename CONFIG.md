@@ -24,7 +24,7 @@ DSH 设置 → 「桌宠配置」：
 
 ## 方式二：config.jsonc（单一来源）
 
-插件包内 `dsh-pet/assets/config.jsonc` 的 `pets` 数组定义**默认宠物**：
+插件包内 `dsh-fish-body/assets/config.jsonc` 的 `pets` 数组定义**默认宠物**：
 
 ```jsonc
 "pets": [
