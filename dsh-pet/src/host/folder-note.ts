@@ -79,17 +79,25 @@ export function writeFolderNote(input: FolderNoteInput): FolderNoteResult {
   const fs = input.fs ?? NODE_FS;
   const file = join(input.dir, INI_NAME);
   const text = desktopIniText(input.note);
+  const run = input.runAttrib ?? runAttribSync;
   try {
     if (fs.existsSync(file)) {
       const current = fs.readFileSync(file, 'utf8');
       if (current === text) return 'unchanged';
       // 别人的 desktop.ini：内容不是我们写的，就别覆盖（用户可能自己配了图标或注释）。
       if (!current.includes(NOTE_MARKER)) return 'skipped';
+      // 我们自己的备注文件是 **隐藏 + 系统**：Windows 上用 CREATE_ALWAYS（Node 的 trunc 写法）
+      // 覆盖带这两个属性的既有文件会被拒（EPERM），于是「文案改了却永远写不进去」。
+      // 先摘属性再写；摘不掉也接着试写（有的盘/受控目录本来就写不了）。
+      try {
+        run(['-h', '-s', file]);
+      } catch {
+        /* 摘属性失败不影响下一步尝试 */
+      }
     }
     fs.writeFileSync(file, text, 'utf8');
     // 属性是 Windows 让 Explorer 认这个文件的必要动作：desktop.ini 要隐藏+系统，目录要带系统位。
     // 失败无所谓（有的盘不认属性），所以只做 best-effort。
-    const run = input.runAttrib ?? runAttribSync;
     try {
       run(['+h', '+s', file]);
       run(['+s', input.dir]);

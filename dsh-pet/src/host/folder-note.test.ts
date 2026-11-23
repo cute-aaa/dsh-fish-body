@@ -125,6 +125,21 @@ describe('writeFolderNote', () => {
     assert.equal(files.get(file), desktopIniText('新文案'));
   });
 
+  test('重写既有备注前先摘 隐藏/系统 属性：Windows 上带这两个属性的文件无法被截断重写', () => {
+    // 真机症状：desktop.ini 已被打成 隐藏+系统，Node 的 writeFileSync（CREATE_ALWAYS）会被拒 EPERM，
+    // 备注文案改了却永远停在旧的那一句。这里钉住「先 -h -s，写完再 +h +s」的顺序。
+    const dir = join('C:', 'u', 'fish-body', 'assets', 'pet');
+    const file = join(dir, INI_NAME);
+    const { fs } = memoryFs({ [file]: desktopIniText('旧文案') });
+    const attrib = attribRecorder();
+    assert.equal(writeFolderNote({ dir, note: '新文案', platform: 'win32', fs, runAttrib: attrib.run }), 'written');
+    assert.deepEqual(attrib.calls, [
+      ['-h', '-s', file],
+      ['+h', '+s', file],
+      ['+s', dir],
+    ]);
+  });
+
   test('写盘抛错：failed，不向外抛', () => {
     const fs: NoteFs = {
       existsSync: () => false,
