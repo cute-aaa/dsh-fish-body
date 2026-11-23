@@ -48,8 +48,8 @@ dsh plugin --profile desktop add dsh-fish-body
 
 ```sh
 # ① clone 本仓库，进入插件目录
-git clone https://github.com/PC2005-cloud/dsh-pet.git
-cd dsh-pet/dsh-pet
+git clone https://github.com/cute-aaa/dsh-fish-body.git
+cd dsh-fish-body/dsh-pet
 
 # ② 安装依赖
 npm install
@@ -70,7 +70,7 @@ dsh plugin --profile web add file:D:/path/to/dsh-fish-body/dsh-pet
 
 ### 直接运行（Release 绿色版）
 
-1. 到 [Releases](https://github.com/PC2005-cloud/dsh-pet/releases) 页面挑一个版本，下载它的 `dsh-pet-win-x64.zip`（固定名）；
+1. 到 [Releases](https://github.com/cute-aaa/dsh-fish-body/releases) 页面挑一个版本，下载它的 `dsh-pet-win-x64.zip`（固定名）；
 2. 解压到任意目录，例如 `D:\dsh-pet`；
 3. 双击目录里的 `dsh-pet.exe`。
 

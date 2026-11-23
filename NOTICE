@@ -5,10 +5,10 @@
 
 ## 1. 归属与上游
 
-- 本仓库与 [`dsh-pet`](https://github.com/PC2005-cloud/dsh-pet) **同源同作者**（PC2005-cloud）：同一份提交历史，自 `v0.4.7` 起重命名为 `dsh-fish-body`——包名、插件 entry id 与仓库目录一并改名，原因是能力已分叉到无法与旧版互补兼容。**不是第三方 fork**，历史上游全部保留（`git log` 可查）。
-- 原名与历史地址：<https://github.com/PC2005-cloud/dsh-pet>（只作历史追溯，那份代码不再更新）。
-- 代码许可：**MIT**，Copyright (c) 2026 PC2005-cloud（原文见 [`LICENSE`](LICENSE) 与 [`dsh-pet/LICENSE`](dsh-pet/LICENSE)）。
-- 「二次创作约定」沿用：凡在本项目之上做衍生 / 改版 / 换皮并在公开渠道发布，请附上 <https://github.com/PC2005-cloud/dsh-pet> 与 <https://github.com/cute-aaa/dsh-fish-body>。
+- 本仓库是 [`dsh-pet`](https://github.com/PC2005-cloud/dsh-pet) 的 **fork（二次开发）**：以 `v0.4.7` 为基线，包名与插件 entry id 改为 `dsh-fish-body`，并加了 README 表格里那些能力。**上游代码与历史的著作权归原作者 PC2005-cloud；本 fork 的修改归 cute-aaa。**
+- 上游项目：<https://github.com/PC2005-cloud/dsh-pet>。上游历史完整保留在本仓库的 `git log` 中，每个改动都能追到出处；这不是「同名改写」，下游要追溯某个行为时以上游提交为准。
+- 代码许可：**MIT** —— 上游原作 `Copyright (c) 2026 PC2005-cloud`，本 fork 的修改部分见 [`LICENSE`](LICENSE) 顶部范围声明与版权行（另有 [`dsh-pet/LICENSE`](dsh-pet/LICENSE) 为上游原文）。
+- 「二次创作约定」按上游要求沿用：凡在本项目之上做衍生 / 改版 / 换皮并在公开渠道发布，请同时附上上游地址 <https://github.com/PC2005-cloud/dsh-pet> 与本仓库地址 <https://github.com/cute-aaa/dsh-fish-body>。
 
 ## 2. 素材许可（不随 MIT）
 

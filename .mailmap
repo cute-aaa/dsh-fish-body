@@ -1,5 +1,9 @@
 # 提交作者归并：把同一个人的多个显示名合并为规范名。
 # 格式：规范名 <规范邮箱> <历史提交里的名字或身份>
-# 只影响显示（git shortlog / git log），不改写历史 SHA。
-pc2005 <2194844980@qq.com> fish-dev <fish@local>
+# 只影响显示（git shortlog / git log / blame），不改写历史 SHA。
+#
+# 两个作者、两类提交，别混：
+#   pc2005 / PC2005-cloud —— 上游 dsh-pet 的原作者（fork 进来之前的历史）
+#   cute-aaa / fish-dev   —— 本 fork 的维护者（fork 之后的修改；fish-dev 是本机占位身份）
 pc2005 <2194844980@qq.com> PC2005-cloud <2194844980@qq.com>
+cute-aaa <cute-aaa@users.noreply.github.com> fish-dev <fish@local>

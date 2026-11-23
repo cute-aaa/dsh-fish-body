@@ -1,8 +1,8 @@
-# dsh-pet 🐾
+# dsh-fish-body 🐾
 
 一只住在 DeepSeek Harness 里的桌面宠物，一百余个透明动画，可多开、能上桌面。
 
-安装与完整文档：**<https://github.com/PC2005-cloud/dsh-pet>**
+安装与完整文档：**<https://github.com/cute-aaa/dsh-fish-body>**（fork 自 <https://github.com/PC2005-cloud/dsh-pet>，上游著作权归其原作者）
 
 ## 设置页源码地图
 

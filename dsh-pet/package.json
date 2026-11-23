@@ -104,7 +104,7 @@
     "check:runtime": "eslint --config eslint.runtime.config.js runtime/electron-helper"
   },
   "license": "MIT",
-  "author": "PC2005-cloud <2194844980@qq.com> (https://github.com/PC2005-cloud)",
+  "author": "cute-aaa <cute-aaa@users.noreply.github.com> (https://github.com/cute-aaa)",
   "publishConfig": {
     "access": "public"
   },

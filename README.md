@@ -1,15 +1,12 @@
-# dsh-pet 🐾
+# dsh-fish-body 🐾
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/dsh-pet"><img alt="npm version" src="https://img.shields.io/npm/v/dsh-pet?label=npm&color=blue"></a>
-  <a href="https://www.npmjs.com/package/dsh-pet"><img alt="npm monthly downloads" src="https://img.shields.io/npm/dm/dsh-pet?label=%E6%9C%88%E4%B8%8B%E8%BD%BD&color=brightgreen"></a>
-  <a href="https://www.npmjs.com/package/dsh-pet"><img alt="total downloads" src="https://img.shields.io/npm/dt/dsh-pet?label=%E6%80%BB%E4%B8%8B%E8%BD%BD&color=success"></a>
-  <a href="https://github.com/PC2005-cloud/dsh-pet/releases"><img alt="release downloads" src="https://img.shields.io/github/downloads/PC2005-cloud/dsh-pet/total?label=Release%20%E4%B8%8B%E8%BD%BD&color=5C6BC0"></a>
-  <a href="https://github.com/PC2005-cloud/dsh-pet"><img alt="stars" src="https://img.shields.io/github/stars/PC2005-cloud/dsh-pet?style=social"></a>
-  <a href="https://github.com/PC2005-cloud/dsh-pet/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/github/license/PC2005-cloud/dsh-pet?color=orange"></a>
+  <a href="https://github.com/cute-aaa/dsh-fish-body/releases"><img alt="release downloads" src="https://img.shields.io/github/downloads/cute-aaa/dsh-fish-body/total?label=Release%20%E4%B8%8B%E8%BD%BD&color=5C6BC0"></a>
+  <a href="https://github.com/cute-aaa/dsh-fish-body"><img alt="stars" src="https://img.shields.io/github/stars/cute-aaa/dsh-fish-body?style=social"></a>
+  <a href="https://github.com/cute-aaa/dsh-fish-body/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/github/license/cute-aaa/dsh-fish-body?color=orange"></a>
   <a href="https://awesome-dsh-plugin.com"><img alt="awesome dsh plugin" src="https://awesome-dsh-plugin.com/badge.svg"></a>
-  <a href="https://github.com/PC2005-cloud/dsh-pet"><img alt="repo size" src="https://img.shields.io/github/repo-size/PC2005-cloud/dsh-pet"></a>
-  <a href="https://github.com/PC2005-cloud/dsh-pet/issues"><img alt="issues" src="https://img.shields.io/github/issues/PC2005-cloud/dsh-pet"></a>
+  <a href="https://github.com/cute-aaa/dsh-fish-body"><img alt="repo size" src="https://img.shields.io/github/repo-size/cute-aaa/dsh-fish-body"></a>
+  <a href="https://github.com/cute-aaa/dsh-fish-body/issues"><img alt="issues" src="https://img.shields.io/github/issues/cute-aaa/dsh-fish-body"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-DeepSeek%20Harness%20Web-8A2BE2">
   <img alt="assets" src="https://img.shields.io/badge/assets-dynamic%20animations-ff69b4">
 </p>
@@ -27,9 +24,9 @@ AI 生成动画的配方     源视频 → 透明动画的管线    运行在 DS
 
 ---
 
-## 本仓库：`dsh-fish-body`
+## 本仓库：`dsh-fish-body`（`dsh-pet` 的 fork / 二次开发）
 
-本仓库与上游 [`dsh-pet`](https://github.com/PC2005-cloud/dsh-pet) **同源同作者**：同一份提交历史，自 `v0.4.7` 起重命名为 `dsh-fish-body`——包名、插件 entry id、仓库目录一并改名，原因是能力已分叉到无法与旧版互补兼容。上游的素材链（① 提示词 → ② 素材生成 → ③ 插件）原样保留。下表是**相对 v0.4.7** 的增量。
+本仓库 **fork 自 [`dsh-pet`](https://github.com/PC2005-cloud/dsh-pet)**（基线 `v0.4.7`，原作者 PC2005-cloud），包名与插件 entry id 改为 `dsh-fish-body`，并在上游之上加了下表这些能力。上游的素材链（① 提示词 → ② 素材生成 → ③ 插件）原样保留。上游历史完整保留在 `git log` 里，每个改动都能追到出处；上游代码的著作权归原作者，本 fork 的修改归本仓库维护者。
 
 | 相对上游的差异 | 说明                                                                                                                                                              |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -398,7 +395,7 @@ AI 提示词 → 绿幕视频 → 透明动画 → 插件，换角色、换动�
 
 ## 💬 反馈与发版节奏
 
-欢迎提 [issue](https://github.com/PC2005-cloud/dsh-pet/issues) 与 PR——bug、体验问题随时反馈。**新功能请先开 issue** 说明使用场景，确认后再动手，不要在确认前直接提交实现 PR。这个插件专注桌宠与 DSH 本身，偏离太远的需求一般不会做。动手前也请先翻一眼 [提交记录](https://github.com/PC2005-cloud/dsh-pet/commits/main)，确认不是已经修掉的同款问题（有些问题可能已经在 `main` 上修好了，只是还没发版）。
+欢迎提 [issue](https://github.com/cute-aaa/dsh-fish-body/issues) 与 PR——bug、体验问题随时反馈。**新功能请先开 issue** 说明使用场景，确认后再动手，不要在确认前直接提交实现 PR。这个插件专注桌宠与 DSH 本身，偏离太远的需求一般不会做。动手前也请先翻一眼 [提交记录](https://github.com/cute-aaa/dsh-fish-body/commits/main)，确认不是已经修掉的同款问题（有些问题可能已经在 `main` 上修好了，只是还没发版）。
 
 - **小修不单独发版**：不影响使用的小 bug 与优化会**累计**到下一个版本一起发，避免版本更迭过于频繁。所以「`main` 上已经修了」不等于「你装的这版已经包含」——`latest` 没更新时，以 `main` 的提交记录为准。
 - **想立刻用上未发布的修复**：按 [INSTALL.md](INSTALL.md) 的「从源码安装」把插件指向本地仓库即可；注意**宿主半侧**的代码改动要**重开 DSH** 才生效（浏览器半侧刷新页面即可）。
@@ -408,6 +405,6 @@ AI 提示词 → 绿幕视频 → 透明动画 → 插件，换角色、换动�
 
 - 代码：MIT
 - **素材（动画 / 提示词 / 源视频 / 分层皮肤 / live2d 模型 / 音效 / 表情包 / 图集）：不随 MIT，禁止商用**；允许开源使用，具体授权参考角色原型的形象授权（见下方「形象授权」）。第三方组件、字体与 Live2D Cubism Core 的许可逐项写在 [NOTICE](NOTICE) 里
-- **二次创作（二创）约定**：基于本项目的衍生 / 改版 / 换皮作品，在 **GitHub 仓库、产品官网等公开渠道**上须附上原作者 GitHub 地址：<https://github.com/PC2005-cloud/dsh-pet>
+- **二次创作（二创）约定**：基于本项目的衍生 / 改版 / 换皮作品，在 **GitHub 仓库、产品官网等公开渠道**上须附上上游原作者 GitHub 地址 <https://github.com/PC2005-cloud/dsh-pet> 与本 fork 地址 <https://github.com/cute-aaa/dsh-fish-body>
 - **形象出处**：宠物形象为社区二创的 DeepSeek「大肥鱼」（鲸鱼娘），**非 DeepSeek 官方形象**；原型「溟月」出自 B 站 [@上善无形](https://space.bilibili.com/4456176)，DeepSeek 版（女仆鲸鱼娘）设计出自 B 站 [@ZipZipPipe](https://space.bilibili.com/4168597)
 - **形象授权**：[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans)（署名 · 非商业 · 相同方式共享），[声明原文](https://www.bilibili.com/opus/1247156596114456581)：「大肥鱼是遵守CC BY-NC-SA 4.0协议的形象，不可以以任何形式商业化。若您非常喜爱该形象，希望其拥有实体，您可以自行定制。」
