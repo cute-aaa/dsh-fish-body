@@ -8,7 +8,7 @@
 import { ROUTE_PATH } from '../../../shared/constants.ts';
 import { bubbleAnchorY } from '../../../shared/bubble-anchor.ts';
 import { renderPixelSide } from '../../../shared/pet-size.ts';
-import { LAYERED_MANIFEST_PATHS, layeredBaseOf } from '../../../shared/layered-paths.ts';
+import { layeredBaseOf, resolveLayeredManifest } from '../../../shared/layered-paths.ts';
 import { skinMenuGroups } from '../../../shared/menu/renderer-actions.ts';
 import type { RendererActionGroup } from '../../../shared/menu/renderer-actions.ts';
 import type { Renderer, RendererMountOptions } from './types.ts';
@@ -63,28 +63,51 @@ async function loadImage(url: string): Promise<CanvasImageSource> {
 /** 装配动作名 → 触发哪种装配：词表在 layered/gestures.ts，与桌面 Helper 共用同一份。 */
 
 /**
+ * 拉一次可切换的分层皮肤清单（`/skin/<素材根>/skins`）。
+ *
+ * 与 live2d 的 `listModels` 同一形状：只用来给「配置的那套取不到」兜底，
+ * 拿不到就当没有（回落到原来的报错）。
+ *
+ * @param root - 素材根。
+ * @returns 皮肤 id 列表；请求失败时为空数组。
+ */
+async function listSkins(root: string): Promise<string[]> {
+  try {
+    const res = await fetch(skinUrl(root, 'skins'));
+    if (!res.ok) return [];
+    const body = (await res.json()) as { skins?: unknown };
+    return Array.isArray(body.skins) ? body.skins.filter((s): s is string => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * 找皮肤清单：先按 `pets[].model` 指的子目录，再根布局、后 `layered/` 子目录（见 shared/layered-paths）。
+ *
+ * 候选顺序与回落规则都在 `shared/layered-paths`：右键「渲染方式」的可用性探测读同一份，
+ * 两边各写一套就会漂移成「菜单说能用、点下去空画布」。
  *
  * @param root - 素材根。
  * @param skin - `pets[].model` 指皮肤 id（根布局为空串）；缺省或找不到时按候选表顺序探。
  * @returns 清单本体与它在素材根下的地址前缀；一处都没有时抛错。
  */
 async function loadManifest(root: string, skin?: string): Promise<{ parsed: SkinManifest; base: string }> {
-  // 选中某套皮肤：它自己的清单优先，找不到再退回「根 → layered/」的老口径
-  const paths =
-    skin !== undefined && skin !== '' ? [skin + '/manifest.json', ...LAYERED_MANIFEST_PATHS] : LAYERED_MANIFEST_PATHS;
-  let lastStatus = 0;
-  for (const path of paths) {
-    const res = await fetch(skinUrl(root, path));
-    if (!res.ok) {
-      lastStatus = res.status;
-      continue;
+  const getJson = async (path: string): Promise<unknown | undefined> => {
+    try {
+      const res = await fetch(skinUrl(root, path));
+      return res.ok ? ((await res.json()) as unknown) : undefined;
+    } catch {
+      return undefined;
     }
-    const parsed = parseSkinManifest((await res.json()) as unknown);
-    if (parsed === null) throw new Error('皮肤 manifest 解析失败：' + root + '/' + path);
-    return { parsed, base: layeredBaseOf(path) };
-  }
-  throw new Error('skin manifest HTTP ' + String(lastStatus) + ' ' + root);
+  };
+  const hit = await resolveLayeredManifest(skin, getJson, () => listSkins(root));
+  if (hit === null) throw new Error('皮肤清单取不到：' + root + (skin ? ' model=' + skin : ''));
+  const parsed = parseSkinManifest(hit.body);
+  if (parsed === null) throw new Error('皮肤 manifest 解析失败：' + root + '/' + hit.path);
+  // 配置的那套不在了才回落：写成一行告警，别让人以为用的是自己选的那套。
+  if (hit.fellBack) console.warn('[fish-body] 皮肤 ' + String(skin ?? '') + ' 取不到，已回落到 ' + hit.path);
+  return { parsed, base: layeredBaseOf(hit.path) };
 }
 
 /**

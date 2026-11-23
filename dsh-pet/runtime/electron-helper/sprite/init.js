@@ -43,14 +43,18 @@ Object.assign(PetSprite.prototype, {
   /**
    * 探测这只宠物实际可用的后端与模型清单（右键「渲染方式 / 模型」读它）。
    *
-   * layered 看皮肤清单能否取到（根布局或 `layered/` 子目录布局），live2d 看 `/models` 是否非空
-   * （200 + 空数组也算没有）；webm 恒可用——动画池来自配置。探测失败按「没有」处理：
+   * layered 看当前皮肤的清单能否取到（候选顺序与浏览器端、渲染器加载同一份，见 shared/layered-paths），
+   * live2d 看 `/models` 是否非空（200 + 空数组也算没有）；webm 恒可用——动画池来自配置。
+   * 判据本身在 `S.availableRenderers`，浏览器端读同一份。探测失败按「没有」处理：
    * 宁可置灰一项，也不给点下去黑屏的选项。
    */
   probeRenderOptions() {
     const dir = BASE + '/skin/' + encodeURIComponent(this.assetRoot) + '/';
+    // 候选路径与渲染器加载同一份（shared/layered-paths）；旧核心没有这个导出时退回根布局表。
+    const indexPath =
+      typeof S.layeredManifestPaths === 'function' ? S.layeredManifestPaths : () => S.LAYERED_MANIFEST_PATHS;
     const hasSkin = Promise.all(
-      S.LAYERED_MANIFEST_PATHS.map((path) =>
+      indexPath(this.pet.model).map((path) =>
         fetch(dir + path)
           .then((res) => res.ok)
           .catch(() => false),
@@ -67,10 +71,11 @@ Object.assign(PetSprite.prototype, {
     Promise.all([hasSkin, models, skins]).then(([skin, list, skinList]) => {
       this.modelOptions = list;
       this.skinOptions = skinList;
-      const options = ['webm'];
-      if (skin) options.push('layered');
-      if (list.length > 0) options.push('live2d');
-      this.rendererOptions = options;
+      // 判据在共享层（浏览器端读同一份）；旧核心没有这个导出时按「清单命中」这一条老口径。
+      this.rendererOptions =
+        typeof S.availableRenderers === 'function'
+          ? S.availableRenderers({ manifestHit: skin, models: list, skins: skinList })
+          : ['webm'].concat(skin ? ['layered'] : [], list.length > 0 ? ['live2d'] : []);
     });
   },
 

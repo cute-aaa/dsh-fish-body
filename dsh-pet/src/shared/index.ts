@@ -26,6 +26,7 @@ export * from './bubble-anchor.ts';
 export * from './body-box.ts';
 export * from './pet-size.ts';
 export * from './layered-paths.ts';
+export * from './renderer-availability.ts';
 export * from './chat/index.ts';
 export * from './physics.ts';
 export * from './score.ts';

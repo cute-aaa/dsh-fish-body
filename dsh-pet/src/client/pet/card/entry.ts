@@ -37,7 +37,8 @@ import {
 } from '../../../shared/menu.ts';
 import { readVoiceProviders, type VoiceProviderView } from '../../../shared/voice-providers.ts';
 import { ROUTE_PATH } from '../../../shared/constants.ts';
-import { LAYERED_MANIFEST_PATHS } from '../../../shared/layered-paths.ts';
+import { layeredManifestPaths } from '../../../shared/layered-paths.ts';
+import { availableRenderers } from '../../../shared/renderer-availability.ts';
 import { renderSizeOf } from '../../../shared/pet-size.ts';
 import { TOOLTIP_GAP_RATIO, tooltipPlacement } from '../../../shared/tooltip.ts';
 import type { MenuMoreItem } from '../../../shared/menu.ts';
@@ -147,15 +148,16 @@ export function createCardEntry(rt: CardEntryRuntime) {
     // 第三方语音实现的可切音色快照（/voice/voices 的 providers 段）：右键「音色」用它，挂载时拉一次。
     const providersRef = useRef<VoiceProviderView[]>([]);
 
-    // 素材探测：layered 看皮肤清单能否取到（根布局或 `layered/` 子目录布局），live2d 看模型清单是否非空
-    // （`/models` 空数组也算没有）；webm 恒可用——动画池来自配置，缺素材是配置问题而不是后端问题。
+    // 素材探测：layered 看当前皮肤的清单能否取到（候选顺序与渲染器加载同一份，见 shared/layered-paths），
+    // live2d 看模型清单是否非空（`/models` 空数组也算没有）；webm 恒可用——动画池来自配置，
+    // 缺素材是配置问题而不是后端问题。判据本身在 shared/renderer-availability，桌面端读同一份。
     // 探测失败按「没有」处理：给一个点下去黑屏的选项，比少一个灰项更糟。
     useEffect(() => {
       const cfg = cfgRef.current;
       const dir = ROUTE_PATH + '/skin/' + encodeURIComponent(cfg.assetRoot ?? cfg.id);
       let alive = true;
       const probeSkin = Promise.all(
-        LAYERED_MANIFEST_PATHS.map((path) =>
+        layeredManifestPaths(cfg.model).map((path) =>
           fetch(dir + '/' + path)
             .then((r) => r.ok)
             .catch(() => false),
@@ -181,10 +183,11 @@ export function createCardEntry(rt: CardEntryRuntime) {
         modelItemsRef.current = [...models.items];
         skinsRef.current = [...skins.skins];
         skinItemsRef.current = [...skins.items];
-        const kinds: RendererKind[] = ['webm'];
-        if (hasSkin) kinds.push('layered');
-        if (models.models.length > 0) kinds.push('live2d');
-        availableRef.current = kinds;
+        availableRef.current = availableRenderers({
+          manifestHit: hasSkin,
+          models: models.models,
+          skins: skins.skins,
+        });
       });
       return () => {
         alive = false;

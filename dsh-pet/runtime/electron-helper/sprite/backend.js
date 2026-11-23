@@ -80,26 +80,72 @@ function applyBubbleAnchor(sprite, ratio) {
 }
 
 /**
- * 找分层皮肤清单：先根布局后子目录布局（见 shared/layered-paths）。
+ * 加载清单时的候选路径：新核心给 `S.layeredManifestPaths`（与浏览器端同一份顺序），
+ * 旧核心只有根布局表，就地按老口径补上「选中的那套皮肤」。
+ *
+ * @param {string} skinId - `pets[].model` 指的皮肤 id（根布局为空串）。
+ * @returns {string[]} 候选相对路径，顺序即优先级。
+ */
+function manifestPathsOf(skinId) {
+  if (typeof S.layeredManifestPaths === 'function') return S.layeredManifestPaths(skinId);
+  return (skinId ? [skinId + '/manifest.json'] : []).concat(S.LAYERED_MANIFEST_PATHS);
+}
+
+/**
+ * 拉一次可切换的皮肤清单（`/skin/<素材根>/skins`）：当前这套取不到时按它的顺序兜底。
  *
  * @param {string} root - 素材根。
+ * @returns {Promise<string[]>} 皮肤 id 列表；请求失败时为空数组。
+ */
+async function listSkinIds(root) {
+  try {
+    const res = await fetch(skinUrlOf(root, 'skins'));
+    if (!res.ok) return [];
+    const body = await res.json();
+    return body && Array.isArray(body.skins) ? body.skins.filter((s) => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 找分层皮肤清单：先选中的那套，再根布局与 `layered/` 子目录，最后按 `/skins` 的顺序兜底
+ * （候选与回落规则都在 shared/layered-paths，与浏览器端同一份）。
+ *
+ * 为什么要回落：`pets[].model` 三种渲染方式共用一个字段，切到 layered 那一刻它可能还是
+ * live2d 的模型路径——直接失败就是「菜单里点得动、点完一片空白」。
+ *
+ * @param {string} root - 素材根。
+ * @param {string} skinId - `pets[].model` 指皮肤 id。
  * @returns {Promise<{skin: object, base: string}>} 解析好的清单与地址前缀。
  */
 async function loadLayeredManifest(root, skinId) {
-  let status = 0;
-  // 选中某套皮肤：它自己的清单优先，找不到再退回「根 → layered/」的老口径
-  const paths = skinId ? [skinId + '/manifest.json'].concat(S.LAYERED_MANIFEST_PATHS) : S.LAYERED_MANIFEST_PATHS;
-  for (const path of paths) {
-    const res = await fetch(skinUrlOf(root, path));
-    if (!res.ok) {
-      status = res.status;
-      continue;
+  const getJson = async (path) => {
+    try {
+      const res = await fetch(skinUrlOf(root, path));
+      return res.ok ? await res.json() : undefined;
+    } catch {
+      return undefined;
     }
-    const skin = window.PetLayered.parseSkinManifest(await res.json());
-    if (skin === null) throw new Error('皮肤 manifest 解析失败：' + root + '/' + path);
-    return { skin, base: S.layeredBaseOf(path) };
+  };
+  let hit = null;
+  if (typeof S.resolveLayeredManifest === 'function') {
+    hit = await S.resolveLayeredManifest(skinId, getJson, () => listSkinIds(root));
+  } else {
+    // 旧核心（没有共享回落）：只按候选路径试一遍，行为退化成改动前的样子。
+    for (const path of manifestPathsOf(skinId)) {
+      const body = await getJson(path);
+      if (body !== undefined) {
+        hit = { body, fellBack: false, path };
+        break;
+      }
+    }
   }
-  throw new Error('皮肤 manifest HTTP ' + status + '（' + root + '）');
+  if (hit === null) throw new Error('皮肤清单取不到：' + root + (skinId ? ' model=' + skinId : ''));
+  const skin = window.PetLayered.parseSkinManifest(hit.body);
+  if (skin === null) throw new Error('皮肤 manifest 解析失败：' + root + '/' + hit.path);
+  if (hit.fellBack) console.warn('[fish-body] 皮肤 ' + skinId + ' 取不到，已回落到 ' + hit.path);
+  return { skin, base: S.layeredBaseOf(hit.path) };
 }
 
 /** 取图：优先 createImageBitmap（零拷贝），退回 Image。 */
