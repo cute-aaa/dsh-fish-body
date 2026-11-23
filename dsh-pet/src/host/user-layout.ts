@@ -15,6 +15,8 @@
  */
 import { join } from 'node:path';
 
+import { POOL_SOUND_DIR } from '../shared/pool.ts';
+
 /** 素材组里动画的子目录名（与 `animSubdirFor` 的返回值一致：webm / mov）。 */
 const DEFAULT_ANIM_SUBDIRS: readonly string[] = ['webm', 'mov'];
 
@@ -146,10 +148,10 @@ export interface LayoutDirInput {
   readonly paths: UserPaths;
   /** 动画子目录名；缺省 `webm` 与 `mov`。 */
   readonly animSubdirs?: readonly string[];
-  /** 池的三个渲染方式层目录名（缺省取 `shared/pool` 的约定）。 */
-  readonly poolLayerDirs?: readonly string[];
-  /** 池的音效子目录名（缺省 `sound`）；渲染方式兜底音效与全局音效同用这一个名字。 */
-  readonly poolSoundDir?: string;
+  /** 用户皮肤目录下的渲染方式子目录名（缺省取 `shared/pool` 的约定）。 */
+  readonly skinLayerDirs?: readonly string[];
+  /** 用户皮肤目录下的音效子目录名（缺省 `sound`）。 */
+  readonly skinSoundDir?: string;
 }
 
 /**
@@ -158,14 +160,19 @@ export interface LayoutDirInput {
  * 顺序是「浅层在前」：根 → 六个分组 → 各自的约定子目录。只列目录，不列文件——
  * 空文件会参与读取分支，空目录不会（池对空目录与不存在同义）。
  *
+ * **只有 `skin/`（用户皮肤，按渲染方式分类）建这三类子目录**：内置池根（`assets/pet/`）是
+ * 扁平存放的（一套皮肤一个子目录 / 平铺 `.webm`），里头的 `layered/`、`live2d/`、`webm/`、`sound/`
+ * 一概不建——建出来等于替用户决定「内置皮肤也得按渲染方式分类」，还会把这个根判定成池布局，
+ * 反过来让真正扁平放进去的皮肤扫不到（见 host/pool/roots 的 layoutOf）。
+ *
  * @param input - 路径表与可选子目录名。
  * @returns 目录绝对路径，去重后按创建顺序排列。
  */
 export function layoutDirs(input: LayoutDirInput): string[] {
   const { paths } = input;
   const animSubdirs = input.animSubdirs ?? DEFAULT_ANIM_SUBDIRS;
-  const poolLayers = input.poolLayerDirs ?? [];
-  const poolSound = input.poolSoundDir ?? 'sound';
+  const skinLayers = input.skinLayerDirs ?? [];
+  const skinSound = input.skinSoundDir ?? POOL_SOUND_DIR;
   const out: string[] = [
     paths.root,
     paths.configDir,
@@ -179,7 +186,9 @@ export function layoutDirs(input: LayoutDirInput): string[] {
     paths.electronDir,
     paths.skinsDir,
     // 用户皮肤按渲染方式分三类目录：放进去就能在设置页选到（内置池是回落，见 poolRoots）。
-    ...poolLayers.map((layer) => join(paths.skinsDir, layer)),
+    ...skinLayers.map((layer) => join(paths.skinsDir, layer)),
+    // 皮肤自带的音效（`<名>-sound/` 之外的共享一层）：与渲染方式目录同级。
+    join(paths.skinsDir, skinSound),
     paths.assetsDir,
     paths.animationDir,
     ...animSubdirs.map((sub) => join(paths.animationDir, sub)),
@@ -187,9 +196,6 @@ export function layoutDirs(input: LayoutDirInput): string[] {
     paths.memesDir,
     paths.fishSkinDir,
     paths.poolDir,
-    ...poolLayers.map((layer) => join(paths.poolDir, layer)),
-    ...poolLayers.map((layer) => join(paths.poolDir, layer, poolSound)),
-    join(paths.poolDir, poolSound),
   ];
   return [...new Set(out)];
 }
@@ -208,19 +214,20 @@ export const LAYOUT_NOTES: LayoutNotes = {
   data: '对话记忆与待办。',
   cache: '缓存：语音合成结果、Electron 安装包、桌面窗口 profile。',
   runtime: '运行时：Electron 桌面窗口用。',
-  skin: '用户皮肤：每种一套 <名>-config.json + <名>-animation/ + <名>-sound/ + <名>-memes/。',
-  assets: '素材：动画、音效、表情、内置皮肤池、会话鱼皮肤。所有宠物共用。',
+  skin: '用户皮肤：每种一套 <名>-config.json + <名>-animation/ + <名>-sound/ + <名>-memes/；子目录按渲染方式分（layered / live2d / webm / sound）。',
+  assets: '素材：动画、音效、表情、内置皮肤、会话鱼皮肤。所有宠物共用。',
   'assets.animation': 'main 宠物的动画（webm / mov）；文件名就是动作名。',
   'assets.sound': '用户级音效：click.wav 这类无前缀文件对所有宠物生效。',
   'assets.memes': '用户级表情包图片；加图不必改包。',
-  'assets.pet': '内置皮肤池（layered / live2d / webm / sound）；所有宠物共用一份。',
+  'assets.pet':
+    '内置皮肤（扁平存放）：一套皮肤一个子目录（manifest.json / *.model3.json），平铺的 .webm 也认；同名时优先用 skin/ 里的。',
   'assets.sessionFish': '会话鱼皮肤：图片 / 动图 / 视频放进来，设置页点「重新扫描」即可选中。',
   logs: '运行日志（1 MB 上限，写满只留最新 512 KB）；反馈问题时附上它。',
 };
 
 /** 数据根自己的备注：一眼看出这个目录归谁、里面有什么。 */
 export const ROOT_NOTE =
-  'dsh-fish-body 数据根：config（设置）/ data（记忆待办）/ cache（缓存）/ runtime（Electron）/ skin（用户皮肤）/ assets（素材与内置皮肤池）。';
+  'dsh-fish-body 数据根：config（设置）/ data（记忆待办）/ cache（缓存）/ runtime（Electron）/ skin（用户皮肤）/ assets（素材与内置皮肤）。';
 
 /**
  * 目录 → 备注文案（初始化目录时逐个写进 `desktop.ini`）。

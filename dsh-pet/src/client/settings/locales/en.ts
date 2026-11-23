@@ -174,7 +174,7 @@ export const en: Record<Key, string> = {
   'fsDesc.assets.sound': 'User-level sound files; unprefixed names apply to every pet.',
   'fsDesc.assets.memes': 'User-level meme images.',
   'fsDesc.assets.pet':
-    'Built-in assets shipped with the package (layered / live2d / webm / sound); your own skins go in skin/ and win when the name matches.',
+    'Built-in skins, stored flat (one folder per skin holding manifest.json / *.model3.json; loose .webm files count too); your own skins go in skin/ and win when the name matches.',
   'fsDesc.assets.sessionFish': 'Session-fish skins: images, GIFs, videos.',
   'fsDesc.logs': 'Runtime log — the first thing to read when something goes wrong.',
   fsLocationChange: 'Change location…',

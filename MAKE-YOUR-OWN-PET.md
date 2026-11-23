@@ -94,8 +94,12 @@ npm publish --tag latest   # prepack 自动执行构建（完整产物 + 收敛 
 ├─ data/                               # 数据：memory.json / todos.json
 ├─ runtime/electron/                   # Electron 运行时（不属于缓存）
 ├─ cache/                              # 唯一允许随手删的目录（voice / download / desktop）
-├─ skin/                               # 文件宠物：一个 pack 一套素材
-│  ├─ pig-config.json                  #   <名>-config.json 定义一种「种类」
+├─ skin/                               # 你的皮肤目录：按渲染方式分类（前四行，启动时建）
+│  ├─ layered/<皮肤>/manifest.json + art/…   #   分层 PNG 皮肤，一个子目录一套
+│  ├─ live2d/<模型>/xx.model3.json
+│  ├─ webm/<动作>.webm                 #   平铺：一部动画一个文件
+│  ├─ sound/<皮肤>-click.wav           #   皮肤共享音效
+│  ├─ pig-config.json                  # 文件宠物：<名>-config.json 定义一种「种类」
 │  ├─ pig-skin/character1/…            #   皮肤 / 模型（layered / live2d）
 │  ├─ pig-animation/{webm,mov}/…       #   动画
 │  └─ pig-sound/…                      #   音效
@@ -104,11 +108,10 @@ npm publish --tag latest   # prepack 自动执行构建（完整产物 + 收敛 
    ├─ sound/                           #   用户级音效：无前缀的 click.wav 对所有宠物生效
    ├─ memes/                           #   用户级表情包
    ├─ session-fish/                    #   会话鱼皮肤
-   └─ skin/                            #   共享资源池：放一份，所有宠物都能用
-      ├─ layered/character1/{manifest.json, art/…, character1-click.wav}
-      ├─ live2d/model1/xx.model3.json + xx-click.wav
-      ├─ webm/movie1.webm + webm-click.wav
-      └─ sound/click.wav + common-drag.wav
+   └─ pet/                             #   内置皮肤池：**扁平**，一套皮肤一个子目录
+      ├─ character1/{manifest.json, art/…, character1-click.wav}
+      ├─ model1/xx.model3.json + xx-click.wav
+      └─ movie1.webm
 ```
 
 `cache/` 是缓存（语音合成结果、Electron 安装包、桌面窗口 profile），`runtime/` 放 Electron 运行时，`config/` + `data/` 是你的设置与数据（旧根 `<DSH_HOME>/dsh-pet/` 在启动时自动搬进这里，见 `docs/目录布局.md`）。
@@ -118,11 +121,13 @@ npm publish --tag latest   # prepack 自动执行构建（完整产物 + 收敛 
   换言之「这只宠物自带的那一套」放 `skin/`（安装、升级、迁移都跟着它走），
   「我自己补的皮肤 / 模型 / 动画 / 音效」放 `assets/pet/`（一份所有宠物共用，升级不覆盖、删了不影响别的）。
   宿主对 `pets[].model` 的解析是**先 pack 后池**，所以内置的那套永远优先，用户池只做补充与替换的落点。
-- 目录骨架不用手建：插件启动时会把 `<数据根>`、`assets/animation/webm|mov`、`assets/{sound,memes}` 与池的
-  `layered / live2d / webm / sound`（含各自的 `sound/` 兜底目录）建好，设置页「系统 → 文件与目录」点开就是它们。
+- 目录骨架不用手建：插件启动时会把 `<数据根>`、`assets/animation/webm|mov`、`assets/{sound,memes}` 与
+  皮肤目录下的 `layered / live2d / webm / sound` 建好，设置页「系统 → 文件与目录」点开就是它们。
+  池根 `assets/pet/` **只建它自己**：它是扁平存放的，不会替你建 `layered / live2d / webm / sound` 子目录
+  （那样等于把「按渲染方式分类」硬塞给内置素材）。
 - `pets[].model` 写 `character1` / `model1/xx.model3.json` 这样就行：宿主**先 pack 后池**——
-  `skin/<素材根>-skin/<model>/` 存在就用它，缺失才回落到池里的同名资源。
-- 动画同理：先 `skin/<素材根>-animation/webm/`，再 `assets/pet/webm/`，最后 `assets/animation/webm/` 与包内素材。
+  `skin/<素材根>-skin/<model>/` 存在就用它，缺失才回落到池里的同名资源（扁平池就是 `assets/pet/<model>/`）。
+- 动画同理：先 `skin/<素材根>-animation/webm/`，再池里平铺的 `assets/pet/*.webm`，最后 `assets/animation/webm/` 与包内素材。
 - 右键「模型 / 皮肤」子菜单里，池里的条目会标「（池）」，一眼看出它来自哪。
 - 想把旧布局搬进池：仓库里跑 `node dsh-pet/scripts/migrate-pool.mjs`（干跑，只打印清单），
   确认后加 `--apply` 复制；**只搬不删**，旧布局照常可用。
@@ -133,13 +138,16 @@ npm publish --tag latest   # prepack 自动执行构建（完整产物 + 收敛 
 
 ```
 # 共享资源池（推荐；一份素材所有宠物共用，池根 = assets.pool，默认 <数据根>/assets/pet）
-assets/pet/layered/<皮肤>/<皮肤>-click.wav     # 资源目录：目录名前缀（结构文件基名前缀也认）
-assets/pet/layered/<皮肤>/xxx-drag.wav         #           结构文件叫 xxx.json 时用它的基名
-assets/pet/live2d/<模型目录>/xx-click.wav      #           模型基名前缀（也认 <模型目录>-click.wav）
-assets/pet/layered/sound/layered-click.wav     # 该渲染方式的兜底
-assets/pet/webm/webm-click.wav                 # webm 的兜底（平铺目录，也认 assets/pet/webm/sound/webm-click.wav）
+assets/pet/<皮肤>/<皮肤>-click.wav             # 扁平池：资源目录是皮肤子目录，目录名前缀
+assets/pet/<皮肤>/xxx-drag.wav                 #           结构文件叫 xxx.json 时用它的基名
+assets/pet/model1/xx-click.wav                 #           live2d：模型基名前缀（也认 model1-click.wav）
 assets/pet/sound/click.wav                     # 全局：无前缀优先
-assets/pet/sound/common-drag.wav               # 全局：任意前缀次之
+assets/pet/sound/common-drag.wav               # 全局：任意前缀次之（同事件多份按文件名排序取第一个）
+
+# 按渲染方式分类的池布局（老布局照旧能用，只是不再自动创建目录）
+assets/pet/layered/<皮肤>/<皮肤>-click.wav
+assets/pet/layered/sound/layered-click.wav     # 该渲染方式的兜底
+assets/pet/webm/webm-click.wav                 # webm 的兜底（也认 assets/pet/webm/sound/webm-click.wav）
 
 # 文件宠物包（skin/<素材根>-*）自带的音效
 skin/<素材根>-skin/<皮肤>/click.wav      # 皮肤自带（目录即身份，不需要前缀）

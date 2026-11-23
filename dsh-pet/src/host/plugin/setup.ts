@@ -305,14 +305,16 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     allowedRoots: [userRoot, dshHome],
   });
 
-  // 初始化的目录结构：布局约定的那些目录 + 池的约定目录，启动时就建出来，并给每个目录写一句备注。
+  // 初始化的目录结构：布局约定的那些目录，启动时就建出来，并给每个目录写一句备注。
   // 这样「打开文件夹」永远不用先问「要不要创建」，用户也不必先去文档里抄目录名；
   // Explorer 里点开目录就能看到它是干什么的、能不能删。
+  // 只给 `skin/`（用户皮肤，按渲染方式分类）建子目录；内置池根 `assets/pet/` 是扁平存放的，
+  // 不在它下面建 layered / live2d / webm / sound——那会把用户自己的分类习惯塞进内置素材。
   // 失败只记一行日志：数据根在只读盘上时插件本身照常跑。
   const layout = ensureUserLayout({
     paths,
-    poolLayerDirs: Object.values(POOL_LAYER_DIR),
-    poolSoundDir: POOL_SOUND_DIR,
+    skinLayerDirs: Object.values(POOL_LAYER_DIR),
+    skinSoundDir: POOL_SOUND_DIR,
   });
   if (layout.created.length > 0) {
     log.info('[fish-body] 已初始化目录：' + layout.created.join('、'));

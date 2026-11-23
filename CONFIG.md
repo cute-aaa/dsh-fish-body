@@ -228,51 +228,49 @@ $DSH_HOME/fish-body/
 ├─ data/                          # 对话记忆与待办
 ├─ runtime/electron/              # Electron 运行时（桌面窗口的可执行文件）
 ├─ cache/                         # 缓存：voice（语音合成结果）/ download（安装包）/ desktop（窗口 profile）
-├─ skin/                          # 你自己的皮肤：<名>-config.json + <名>-animation/ + <名>-sound/ + <名>-memes/
+├─ skin/                          # 你自己的皮肤：按渲染方式分类（启动时建这四类子目录）
+│  ├─ layered/<皮肤>/manifest.json + art/…   # 分层 PNG 皮肤（一个子目录一套）
+│  ├─ live2d/<模型>/xx.model3.json
+│  ├─ webm/<动作>.webm            # 平铺：一部动画一个文件
+│  ├─ sound/<皮肤>-click.wav      # 皮肤共享音效
+│  ├─ <名>-config.json            # 文件宠物包：一套 <名>-config.json + <名>-animation/ -sound/ -memes/ -skin/
+│  └─ <名>-skin/…                 # pack 自带的皮肤 / 模型
 └─ assets/                        # 素材（所有宠物共用）
    ├─ animation/{webm,mov}/       # main 的动画
    ├─ sound/                      # 用户级共享音效
    ├─ memes/                      # 用户级表情包
    ├─ session-fish/               # 会话鱼皮肤
-   └─ pet/                        # 内置皮肤池（assets.pool 的默认值）
-      ├─ layered/
-      │  ├─ character1/
-      │  │  ├─ manifest.json        # 结构文件（任意名；manifest.json 优先，其次含 rig/schema 的 json）
-      │  │  ├─ art/…
-      │  │  ├─ character1-click.wav # 目录名前缀
-      │  │  └─ xxx-drag.wav         # 结构文件基名前缀（结构文件叫 xxx.json 时）
-      │  └─ sound/layered-click.wav # 该渲染方式的兜底音效
-      ├─ live2d/
-      │  ├─ model1/xx.model3.json
-      │  │  └─ xx-click.wav         # 模型基名前缀（也认 model1-click.wav）
-      │  └─ sound/live2d-click.wav
-      ├─ webm/                       # 平铺：一部动画一个文件，不建子目录
-      │  ├─ movie1.webm
-      │  └─ webm-click.wav           # 该渲染方式的兜底音效（也认 webm/sound/webm-click.wav）
-      └─ sound/
-         ├─ click.wav                # 全局音效：无前缀优先
-         └─ common-drag.wav          # 任意前缀次之（同事件多份按文件名排序取第一个）
+   └─ pet/                        # 内置皮肤（assets.pool 的默认值）：**扁平**，一套皮肤一个子目录
+      ├─ character1/manifest.json + art/…    # 分层皮肤
+      ├─ model1/xx.model3.json               # live2d 模型
+      └─ movie1.webm                         # 平铺动画
 ```
 
+- **`skin/` 分类、`assets/pet/` 扁平**：`skin/` 是用户组织素材的地方，按渲染方式分目录，放进去就知道归哪一类；
+  内置池根扁平存放（一套皮肤一个子目录 / 平铺 `.webm`），**不会**被建出 `layered` / `live2d` / `webm` / `sound`
+  子目录——建出来等于替用户决定内置皮肤也得分类，还会让这个根被判成池布局，反过来让平铺进去的皮肤扫不到
+  （判定见 `host/pool/roots` 的 `layoutOf`）。带分类子目录的老池布局照旧按池布局读，两种都认。
+- **音效前缀与兜底目录**：池里的音效必须带前缀（结构文件基名 / 目录名 / 渲染方式名 / 任意前缀）——池是共享的，
+  裸 `click.wav` 会串到别的宠物头上；无前缀写法只在 `<池>/sound/` 这一层认。按渲染方式的兜底
+  （`<池>/<渲染方式>/sound/`）与分类池的 `layered/<皮肤>/` 结构仍然支持，放进去就生效，只是不再自动创建。
 - **`pets[].model` 语义不变**，宿主按「先 pack 后池」解析：`skin/<素材根>-skin/<model>/` 存在就用它，
-  缺失才回落到 `assets/pet/layered/<model>/`（live2d 同理回落到 `assets/pet/live2d/<model 所在目录>`）。
-  动画同理：先 `skin/<素材根>-animation/webm/`，再 `assets/pet/webm/`，最后用户目录（`assets/animation/webm`）与包内素材。
+  缺失才回落到池里同名资源——扁平池是 `assets/pet/<model>/`，分类池是 `assets/pet/layered/<model>/`
+  （live2d 同理回落到模型所在目录）。动画同理：先 `skin/<素材根>-animation/webm/`，再池里的平铺动画，
+  最后用户目录（`assets/animation/webm`）与包内素材。
 - **`pool` 是保留字**：不能当 pet pack 的文件名前缀（`skin/pool-config.json` 会被跳过并告警一次，
   `POST /pet-config` 里传 `entry: "pool"` 会被拒）。
 - **`assets/pet` 不存在 = 空池**：不报错、不告警，行为与没有这段配置完全一样。
-  （插件启动时会把池根与 `layered / live2d / webm / sound` 建出来，所以「刚装好」看到的是空目录而不是不存在。）
+  （插件启动时会把池根建出来，所以「刚装好」看到的是空目录而不是不存在。）
 - **启动时初始化的目录**：数据根下六个分组（`config` / `data` / `cache` / `runtime` / `skin` / `assets`）、
-  `assets/animation/{webm,mov}`、`assets/{sound,memes,session-fish}`、池根的 `layered` / `live2d` / `webm` / `sound`
-  四个目录，以及各渲染方式的兜底音效目录（`<池>/layered/sound` 等）。只建目录、不写占位文件；
-  每个目录在 Windows 上还会写一句备注（`desktop.ini` 的 `InfoTip`，说明它存什么）。
+  `assets/animation/{webm,mov}`、`assets/{sound,memes,session-fish}`、用户皮肤目录下的
+  `layered` / `live2d` / `webm` / `sound` 四类子目录，以及池根本身（只建它自己，不建分类子目录）。
+  只建目录、不写占位文件；每个目录在 Windows 上还会写一句备注（`desktop.ini` 的 `InfoTip`，说明它存什么）。
   建不出来的只记一行日志，插件照常可用。
 - **`skin/<素材根>-*` 是内置素材，`assets/pet/` 是用户素材**：`skin/` 跟着 pack 安装/升级/迁移走，
   `assets/pet/` 是「我自己补的，一份给所有宠物用」。解析顺序仍是**先 pack 后池**，所以内置那套优先、
   池只做补充与替换的落点；右键「皮肤 / 模型」菜单里池里的条目带「（池）」标记。
-- 池里的音效**必须带前缀**（结构文件基名 / 目录名 / 渲染方式名 / 任意前缀）——池是共享的，
-  裸 `click.wav` 会串到别的宠物头上；只有 `assets/pet/sound/` 认无前缀写法。
 - 设置页「音效」分区每行第二行显示**实际命中的绝对路径**；没命中池时会提示「建议放这里：
-  `assets/pet/layered/<皮肤>/<皮肤>-click.wav`」。每行右侧都有「打开文件夹」：命中时打开该文件所在的
+  `<池>/<渲染方式>/<皮肤>/<皮肤>-click.wav`」。每行右侧都有「打开文件夹」：命中时打开该文件所在的
   那一类目录，未命中时打开建议落点；目录不存在会先问是否创建。
 - 设置页「系统 → 文件与目录」整棵树每行都有「打开文件夹」
   （走 `POST /open-folder?which=root|config|data|cache|runtime|skin-root|assets|…`，不需要宠物参数；

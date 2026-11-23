@@ -174,7 +174,7 @@ export const ja: Record<Key, string> = {
   'fsDesc.assets.sound': 'ユーザー共通の効果音。接頭辞なしの名前はすべてのペットに効きます。',
   'fsDesc.assets.memes': 'ユーザー共通のミーム画像。',
   'fsDesc.assets.pet':
-    'パッケージ同梱の内蔵素材（layered / live2d / webm / sound）。自分のスキンは skin/ に置きます（同名なら自分のものが優先）。',
+    '内蔵スキンはフラット配置（1 スキン = 1 フォルダ。manifest.json / *.model3.json を置く。直下の .webm も可）。自分のスキンは skin/ に置きます（同名なら自分のものが優先）。',
   'fsDesc.assets.sessionFish': 'セッション魚のスキン：画像・GIF・動画。',
   'fsDesc.logs': '実行ログ。困ったときはまずこれを見ます。',
   fsLocationChange: '場所を変更…',

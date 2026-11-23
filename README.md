@@ -350,7 +350,11 @@ AI 提示词 → 绿幕视频 → 透明动画 → 插件，换角色、换动�
 │  ├─ voice/                  语音合成缓存（命中即免合成）
 │  ├─ download/               Electron 安装包下载缓存
 │  └─ desktop/                桌面窗口的 Chromium profile
-├─ skin/                      文件宠物：一种一套
+├─ skin/                      你的皮肤目录：按渲染方式分类（前四行，启动时建）
+│  ├─ layered/<皮肤>/         分层 PNG 皮肤，一个子目录一套（manifest.json + art/…）
+│  ├─ live2d/<模型>/          Live2D 模型（*.model3.json + 贴图）
+│  ├─ webm/<动作>.webm        平铺动画（一部一个文件）
+│  ├─ sound/                  皮肤共享音效
 │  ├─ pig-config.json         <名>-config.json 定义一种「种类」
 │  ├─ pig-animation/{webm,mov} 同一前缀的动画目录
 │  ├─ pig-sound/              同一前缀的音效目录（可选）
@@ -359,7 +363,7 @@ AI 提示词 → 绿幕视频 → 透明动画 → 插件，换角色、换动�
    ├─ animation/{webm,mov}/   main 的动画（文件名即动作名）
    ├─ sound/                  用户级音效：无前缀的 click.wav 对所有宠物生效
    ├─ memes/                  用户级表情包图片
-   ├─ skin/                   共享皮肤池（layered / live2d / webm / sound）
+   ├─ pet/                    内置皮肤池：扁平存放，一套皮肤一个子目录（manifest.json / *.model3.json）
    └─ session-fish/           会话鱼皮肤（图片 / 动图 / 视频）
 ```
 

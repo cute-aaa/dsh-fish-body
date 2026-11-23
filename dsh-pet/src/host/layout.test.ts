@@ -12,8 +12,8 @@ import { join } from 'node:path';
 import { ensureUserLayout, userLayoutDirs } from './layout.ts';
 import { userPaths, type UserPaths } from './user-layout.ts';
 
-/** 池的三个渲染方式层（生产装配期传 `POOL_LAYER_DIR` 的值，这里只钉名字）。 */
-const POOL_LAYERS = ['layered', 'live2d', 'webm'] as const;
+/** 用户皮肤目录下的三个渲染方式子目录（生产装配期传 `POOL_LAYER_DIR` 的值，这里只钉名字）。 */
+const SKIN_LAYERS = ['layered', 'live2d', 'webm'] as const;
 
 /** 造一份临时用户根下的输入（`paths` 是唯一真源）。 */
 function layoutOf(root: string, pool?: string) {
@@ -26,10 +26,10 @@ function assertHas(dirs: readonly string[], dir: string): void {
 }
 
 describe('userLayoutDirs', () => {
-  test('六个分组、Electron 运行时、素材子目录、池的层目录都算上', () => {
+  test('六个分组、Electron 运行时、素材子目录、用户皮肤的分类目录都算上', () => {
     const root = join('C:', 'u', 'fish-body');
     const paths = userPaths(root);
-    const dirs = userLayoutDirs({ paths, poolLayerDirs: POOL_LAYERS });
+    const dirs = userLayoutDirs({ paths, skinLayerDirs: SKIN_LAYERS });
 
     assert.equal(dirs[0], paths.root);
     for (const dir of [
@@ -50,13 +50,11 @@ describe('userLayoutDirs', () => {
       paths.memesDir,
       paths.fishSkinDir,
       paths.poolDir,
-      join(paths.poolDir, 'layered'),
-      join(paths.poolDir, 'live2d'),
-      join(paths.poolDir, 'webm'),
-      // 渲染方式的兜底音效目录（`<池>/<渲染方式>/sound`）与全局音效（`<池>/sound`）
-      join(paths.poolDir, 'sound'),
-      join(paths.poolDir, 'layered', 'sound'),
-      join(paths.poolDir, 'live2d', 'sound'),
+      // 用户皮肤按渲染方式分类：三类目录 + 共享音效层都在 `skin/` 下
+      join(paths.skinsDir, 'layered'),
+      join(paths.skinsDir, 'live2d'),
+      join(paths.skinsDir, 'webm'),
+      join(paths.skinsDir, 'sound'),
     ]) {
       assertHas(dirs, dir);
     }
@@ -71,6 +69,21 @@ describe('userLayoutDirs', () => {
     assert.equal(paths.animationDir, join(root, 'assets', 'animation'));
     assert.equal(paths.poolDir, join(root, 'assets', 'pet'));
     assert.equal(paths.fishSkinDir, join(root, 'assets', 'session-fish'));
+  });
+
+  test('内置池根（assets/pet）只建自己：不替用户分 layered / live2d / webm / sound', () => {
+    const root = join('C:', 'u');
+    const paths = userPaths(root);
+    const dirs = userLayoutDirs({ paths, skinLayerDirs: SKIN_LAYERS });
+    // 它必须是**扁平**的：建出分类子目录会让 pool/roots 的 layoutOf 把这个根判成池布局，
+    // 反过来让用户直接平铺在 `assets/pet/<皮肤名>/` 的皮肤扫不到。
+    for (const name of ['layered', 'live2d', 'webm', 'sound']) {
+      assert.equal(
+        dirs.includes(join(paths.poolDir, name)),
+        false,
+        '不该建 ' + name + '：' + join(paths.poolDir, name),
+      );
+    }
   });
 
   test('去重：动画子目录关掉后清单里没有它，且全清单无重复', () => {
@@ -91,9 +104,12 @@ describe('userLayoutDirs', () => {
   test('池根配到绝对路径时按那份路径建，不建数据根下的默认池', () => {
     const root = join('C:', 'u');
     const pool = join('D:', 'pets', 'shared');
-    const dirs = userLayoutDirs({ ...layoutOf(root, pool), poolLayerDirs: POOL_LAYERS });
-    assertHas(dirs, join(pool, 'layered'));
-    assertHas(dirs, join(pool, 'sound'));
+    const dirs = userLayoutDirs({ ...layoutOf(root, pool), skinLayerDirs: SKIN_LAYERS });
+    assertHas(dirs, pool);
+    assertHas(dirs, join(root, 'skin', 'layered'));
+    // 池根只建自己（扁平）：分类目录永远在用户皮肤目录下，跟在不在数据根里无关。
+    assert.equal(dirs.includes(join(pool, 'layered')), false);
+    assert.equal(dirs.includes(join(pool, 'sound')), false);
     assert.equal(
       dirs.some((dir) => dir.startsWith(join(root, 'assets', 'pet'))),
       false,
@@ -105,7 +121,7 @@ describe('ensureUserLayout', () => {
   test('建出全部目录，第二次调用不再重复创建', () => {
     const root = mkdtempSync(join(tmpdir(), 'fish-body-layout-'));
     try {
-      const input = { ...layoutOf(root), poolLayerDirs: POOL_LAYERS, notes: false };
+      const input = { ...layoutOf(root), skinLayerDirs: SKIN_LAYERS, notes: false };
       const first = ensureUserLayout(input);
       assert.ok(first.created.length > 0);
       assert.deepEqual(first.failed, []);

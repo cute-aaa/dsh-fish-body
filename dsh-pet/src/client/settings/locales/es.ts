@@ -178,7 +178,7 @@ export const es: Record<Key, string> = {
   'fsDesc.assets.sound': 'Sonidos a nivel de usuario; un nombre sin prefijo vale para todas las mascotas.',
   'fsDesc.assets.memes': 'Imagenes de memes a nivel de usuario.',
   'fsDesc.assets.pet':
-    'Recursos integrados que vienen con el paquete (layered / live2d / webm / sound); tus pieles van en skin/ y ganan si el nombre coincide.',
+    'Pieles integradas, guardadas planas (una carpeta por piel con manifest.json / *.model3.json; los .webm sueltos también cuentan); tus pieles van en skin/ y ganan si el nombre coincide.',
   'fsDesc.assets.sessionFish': 'Skins del pez de sesion: imagenes, GIF, videos.',
   'fsDesc.logs': 'Registro de ejecucion: lo primero que mirar si algo falla.',
   fsLocationChange: 'Cambiar ubicacion…',

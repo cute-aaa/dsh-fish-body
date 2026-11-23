@@ -164,7 +164,7 @@ export const zh = {
   'fsDesc.assets.sound': '用户级音效，无前缀文件名对所有宠物生效。',
   'fsDesc.assets.memes': '用户级表情包图片。',
   'fsDesc.assets.pet':
-    '随包发布的内置素材（layered / live2d / webm / sound）；你自己的皮肤放 skin/，同名时优先用你的。',
+    '内置皮肤，扁平存放（一套皮肤一个子目录，放 manifest.json / *.model3.json；平铺的 .webm 也认）；你自己的皮肤放 skin/，同名时优先用你的。',
   'fsDesc.assets.sessionFish': '会话鱼皮肤：图片 / 动图 / 视频。',
   'fsDesc.logs': '运行日志，排障时看它。',
   fsLocationChange: '更改位置…',

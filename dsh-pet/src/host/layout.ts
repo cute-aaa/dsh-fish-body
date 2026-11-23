@@ -2,7 +2,7 @@
  * 用户目录的初始化：启动时把布局里约定的目录建出来，并给每个目录写一句备注。
  *
  * 存在意义是让「打开文件夹」永远不用先问「要不要创建」，也顺带把目录约定（`skin/` 怎么放、
- * `assets/pet` 里分哪几层）摆在用户眼前——目录本身就是自解释的说明书，比在文档里找树状图便宜。
+ * 内置池根 `assets/pet` 是扁平存放）摆在用户眼前——目录本身就是自解释的说明书，比在文档里找树状图便宜。
  * 只建目录、写备注，不写占位文件：空目录不参与任何扫描（池对空目录与不存在同义），删了下次启动会再建。
  * 任何一步失败都只记录、不抛：数据根落在只读盘或没有权限时，插件本身照常可用。
  * @module dsh-fish-body/src/host/layout
@@ -17,10 +17,10 @@ export interface LayoutInput {
   readonly paths: UserPaths;
   /** 动画子目录名；缺省 `webm` 与 `mov`（宿主按扩展名各用一条，见 `animSubdirFor`）。 */
   readonly animSubdirs?: readonly string[];
-  /** 池的渲染方式层目录名；缺省 `layered` / `live2d` / `webm`。 */
-  readonly poolLayerDirs?: readonly string[];
-  /** 池的音效子目录名（缺省 `sound`）。 */
-  readonly poolSoundDir?: string;
+  /** 用户皮肤目录下的渲染方式子目录名；缺省 `layered` / `live2d` / `webm`。 */
+  readonly skinLayerDirs?: readonly string[];
+  /** 用户皮肤目录下的音效子目录名（缺省 `sound`）。 */
+  readonly skinSoundDir?: string;
   /** 是否写文件夹备注；缺省 `true`（测试与特殊环境可关）。 */
   readonly notes?: boolean;
   /** 平台与替身（测试注入）。 */
@@ -53,8 +53,8 @@ export function userLayoutDirs(input: LayoutInput): string[] {
   return layoutDirs({
     paths: input.paths,
     ...(input.animSubdirs === undefined ? {} : { animSubdirs: input.animSubdirs }),
-    ...(input.poolLayerDirs === undefined ? {} : { poolLayerDirs: input.poolLayerDirs }),
-    ...(input.poolSoundDir === undefined ? {} : { poolSoundDir: input.poolSoundDir }),
+    ...(input.skinLayerDirs === undefined ? {} : { skinLayerDirs: input.skinLayerDirs }),
+    ...(input.skinSoundDir === undefined ? {} : { skinSoundDir: input.skinSoundDir }),
   });
 }
 
