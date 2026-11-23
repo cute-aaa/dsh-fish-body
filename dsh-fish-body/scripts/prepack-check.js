@@ -123,32 +123,40 @@ else fail('package.json missing dsh.bundle.patch');
 if (pkg.dsh?.client?.platform === 'web') ok('dsh.client.web declared');
 else fail('package.json missing dsh.client platform web');
 
-// 配图功能只读包内 assets/memes，漏发即整体失效。
-// scripts/prepare.js 每次发布都用硬编码白名单覆盖 package.json 的 files，
-// 只在 package.json 里加一行是无效的，故这里显式断言，防止再次静默漏发。
+// 配图（memes）、字体（fonts）、Cubism Core 自开源改造起一律**不进包**：
+// 它们改由运行期获取（extras 下载包 / 用户自备 / Live2D 官方 SDK），见 NOTICE 第 4、5 节。
+// 因此这里不再断言「必须在 files[] 里」；本地开发机可能还留着这些文件，只做提示。
 const memesDir = join(ROOT, 'assets', 'memes');
-if (Array.isArray(pkg.files) && pkg.files.includes('assets/memes')) ok('files includes assets/memes');
-else fail('package.json files must include assets/memes (meme images would not ship)');
 const memePngs = existsSync(memesDir) ? readdirSync(memesDir).filter((n) => n.endsWith('.png')) : [];
-if (memePngs.length > 0) ok(`meme images present (${memePngs.length} png)`);
-else fail('no png in assets/memes (whisper/chat 配图会整体失效)');
+if (memePngs.length === 0) {
+  console.log('[prepack-check] note: 包内不含 memes 图片 —— 由 extras 下载包提供，用户未下载前配图不可用');
+} else if (!Array.isArray(pkg.files) || !pkg.files.includes('assets/memes')) {
+  console.log(
+    `[prepack-check] note: 本地有 ${memePngs.length} 张 memes 图片，但不进包（extras 渠道分发）；` +
+      '若确实要随包发布，需同时改 scripts/prepare.js 的白名单',
+  );
+} else {
+  ok(`meme images shipped (${memePngs.length} png)`);
+}
 // memes 键 ↔ 图片文件对齐：缺图条目会被 host 静默剔除（设计如此，不阻断发布），
-// 但数字对不上值得发布前看一眼，故只提示
-try {
-  const conf = JSON.parse(stripJsonc(readFileSync(join(ROOT, 'assets', 'config.jsonc'), 'utf8')));
-  const keys = Object.keys(conf.memes ?? {});
-  const onDisk = new Set(memePngs.map((n) => n.slice(0, -'.png'.length)));
-  const missing = keys.filter((k) => !onDisk.has(k));
-  const extra = [...onDisk].filter((k) => !keys.includes(k));
-  if (!missing.length && !extra.length) ok(`memes mapping aligned (${keys.length} keys = ${memePngs.length} png)`);
-  else
-    console.log(
-      `[prepack-check] note: memes 键与图片不齐 —— 缺图 ${missing.length} 条${
-        missing.length ? `（${missing.join('、')}）` : ''
-      }；没写进配置的图 ${extra.length} 张${extra.length ? `（${extra.join('、')}）` : ''}`,
-    );
-} catch (e) {
-  console.log(`[prepack-check] note: 跳过 memes 键对齐核对（config.jsonc 解析失败：${e.message}）`);
+// 但数字对不上值得发布前看一眼，故只提示。仅在有图时才有意义。
+if (memePngs.length > 0) {
+  try {
+    const conf = JSON.parse(stripJsonc(readFileSync(join(ROOT, 'assets', 'config.jsonc'), 'utf8')));
+    const keys = Object.keys(conf.memes ?? {});
+    const onDisk = new Set(memePngs.map((n) => n.slice(0, -'.png'.length)));
+    const missing = keys.filter((k) => !onDisk.has(k));
+    const extra = [...onDisk].filter((k) => !keys.includes(k));
+    if (!missing.length && !extra.length) ok(`memes mapping aligned (${keys.length} keys = ${memePngs.length} png)`);
+    else
+      console.log(
+        `[prepack-check] note: memes 键与图片不齐 —— 缺图 ${missing.length} 条${
+          missing.length ? `（${missing.join('、')}）` : ''
+        }；没写进配置的图 ${extra.length} 张${extra.length ? `（${extra.join('、')}）` : ''}`,
+      );
+  } catch (e) {
+    console.log(`[prepack-check] note: 跳过 memes 键对齐核对（config.jsonc 解析失败：${e.message}）`);
+  }
 }
 
 // 角色参考图：/character 的包内兜底只读这张图，漏发则第三方拿不到任何官方参考图。
@@ -157,27 +165,22 @@ const characterFile = 'assets/main-character.png';
 if (Array.isArray(pkg.files) && pkg.files.includes(characterFile)) ok(`files includes ${characterFile}`);
 else fail(`package.json files must include ${characterFile} (character reference would not ship)`);
 
-// 估算将进包的总大小：跳过 node_modules、.git、脚本、母版目录与 preview，
-// 另不计 sourcemap 与 npm pack 遗留的 tarball。
+// 估算将进包的总大小：直接按 `files` 清单统计，不再扫全仓。
+// 素材改为运行期获取后，本地目录与「将进包的内容」不再一致（本机可能留着字体 / Cubism / 表情包），
+// 扫全仓会把没进包的文件算进体积，给出的数字反而误导。
 let total = 0;
-const walk = (dir) => {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const p = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      // 跳过不会进 npm 包的目录
-      // dist-app 是 electron-builder 的本地产物（.gitignore 已忽略、不进包），不参与体积估算。
-      if (
-        !['node_modules', '.git', 'scripts', 'step01', 'step02', 'step03', 'preview', 'dist-app'].includes(entry.name)
-      ) {
-        walk(p);
-      }
-    } else if (!entry.name.endsWith('.map')) {
-      // 打包产物 tarball（npm pack 遗留）不计入自查口径
-      if (!entry.name.endsWith('.tgz')) total += statSync(p).size; // sourcemap 不计
+const walkPkgEntry = (abs) => {
+  const st = statSync(abs, { throwIfNoEntry: false });
+  if (!st) return;
+  if (st.isDirectory()) {
+    for (const entry of readdirSync(abs, { withFileTypes: true })) {
+      const p = join(abs, entry.name);
+      if (entry.isDirectory()) walkPkgEntry(p);
+      else if (!entry.name.endsWith('.map') && !entry.name.endsWith('.tgz')) total += statSync(p).size;
     }
-  }
+  } else if (!abs.endsWith('.map') && !abs.endsWith('.tgz')) total += st.size;
 };
-walk(ROOT);
+for (const rel of Array.isArray(pkg.files) ? pkg.files : []) walkPkgEntry(join(ROOT, rel));
 const mb = (total / 1e6).toFixed(1);
 if (total > 200e6) fail(`package too large: ${mb}MB (limit 200MB)`);
 else ok(`package size ${mb}MB`);

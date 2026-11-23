@@ -75,15 +75,9 @@ const keep = [
   'src',
   'assets/webm',
   'runtime/electron-helper',
-  'assets/fonts',
   'assets/pic',
-  // 表情包：宿主半侧只从包内 assets/memes 读图，并与配置的 memes 键配对，漏掉即配图功能整体失效。
-  // 本数组每次发布都覆盖 package.json 的 files，所以必须加在这里，只在 package.json 里加一行无效。
-  'assets/memes',
-  // 点击音效：宿主半侧的 /sound 路由只读包内这一份，漏掉则点击静音；同 memes，必须加在本数组。
+  // 点击音效：宿主半侧的 /sound 路由只读包内这一份，漏掉则点击静音。
   'assets/sound',
-  // Live2D Cubism Core：/cubism 路由只读包内这一份（live2dcubismcore.min.js，wasm 内嵌单文件），漏掉 live2d 无法加载。
-  'assets/cubism',
   // live2d 的两个浏览器依赖（pixi / pixi-live2d-display UMD）：由本脚本从依赖里拷出，/vendor 路由只读包内这一份。
   'assets/vendor',
   'assets/config.jsonc',
@@ -95,6 +89,13 @@ const keep = [
   'scripts/ensure-electron.mjs',
   'cordis.patch.yml',
 ];
+// 有意不进包的三个素材目录——**不要加回上面的白名单**：
+//   assets/fonts  —— 商业字体已移除；内置 OFL 字体与用户自备字体都放数据根（`<数据根>/fonts/`），
+//                    包内留一份会让「字体授权」重新变成发布风险（见 NOTICE 第 5 节）。
+//   assets/memes  —— 表情包走 extras 下载包（NOTICE 第 7 节）；宿主半侧已支持从
+//                    `<数据根>/memes/` 优先读，包内不需要这份。
+//   assets/cubism —— Cubism Core 由用户从 Live2D 官方取得后指向本地（NOTICE 第 4 节），
+//                    随包分发会违反其许可第 6.2 条。
 writeFileSync(PKG, JSON.stringify({ ...pkg, files: keep }, null, 2) + '\n', 'utf8');
 console.log(`[prepare] ✓ package.json files=[${keep.join(', ')}]`);
 console.log('[prepare] ready to publish: npm publish --tag latest');
