@@ -5,16 +5,17 @@
 
 ## 1. 归属与上游
 
-- 本仓库是 [`dsh-pet`](https://github.com/PC2005-cloud/dsh-pet) `v0.4.7`（commit `be4536d`）的 **fork**，包名与插件 entry id 改为 `dsh-fish-body`。
+- 本仓库与 [`dsh-pet`](https://github.com/PC2005-cloud/dsh-pet) **同源同作者**（PC2005-cloud）：同一份提交历史，自 `v0.4.7` 起重命名为 `dsh-fish-body`——包名、插件 entry id 与仓库目录一并改名，原因是能力已分叉到无法与旧版互补兼容。**不是第三方 fork**，历史上游全部保留（`git log` 可查）。
+- 原名与历史地址：<https://github.com/PC2005-cloud/dsh-pet>（只作历史追溯，那份代码不再更新）。
 - 代码许可：**MIT**，Copyright (c) 2026 PC2005-cloud（原文见 [`LICENSE`](LICENSE) 与 [`dsh-pet/LICENSE`](dsh-pet/LICENSE)）。
-- 上游项目地址：<https://github.com/PC2005-cloud/dsh-pet> —— 按上游「二次创作约定」，凡在 GitHub 仓库、产品官网等公开渠道发布基于本项目的衍生 / 改版 / 换皮作品，须附上该地址。
+- 「二次创作约定」沿用：凡在本项目之上做衍生 / 改版 / 换皮并在公开渠道发布，请附上 <https://github.com/PC2005-cloud/dsh-pet> 与 <https://github.com/cute-aaa/dsh-fish-body>。
 
 ## 2. 素材许可（不随 MIT）
 
 - 动画（`dsh-pet/assets/webm`、`video/`、`prompts/`）、分层皮肤、live2d 模型、音效、表情包（`dsh-pet/assets/memes`）、图集（`dsh-pet/assets/pic`）等**全部素材不适用 MIT**：随动效与形象授权走，**禁止商用**。
 - 形象出处：宠物形象为社区二创的 DeepSeek「大肥鱼」（鲸鱼娘），**非 DeepSeek 官方形象**；原型「溟月」出自 B 站 [@上善无形](https://space.bilibili.com/4456176)，DeepSeek 版（女仆鲸鱼娘）设计出自 B 站 [@ZipZipPipe](https://space.bilibili.com/4168597)。
 - 形象授权：[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans)（署名 · 非商业 · 相同方式共享），[声明原文](https://www.bilibili.com/opus/1247156596114456581)：「大肥鱼是遵守 CC BY-NC-SA 4.0 协议的形象，不可以以任何形式商业化。」
-- 本 fork 自带的默认音效（`dsh-pet/assets/sound/*.wav`）**不是**外部素材：由 `dsh-pet/scripts/gen-sfx.mjs` 合成，随 MIT。
+- 本仓库自带的默认音效（`dsh-pet/assets/sound/*.wav`）**不是**外部素材：由 `dsh-pet/scripts/gen-sfx.mjs` 合成，随 MIT。
 
 ## 3. 第三方代码
 
@@ -35,14 +36,17 @@
 
 ## 4. Live2D Cubism Core
 
-- `dsh-pet/assets/cubism/live2dcubismcore.min.js` 是 Live2D Cubism Core 的运行时，受 **Live2D Proprietary Software License Agreement** 约束，**不是** MIT。
-- 它只能作为「在本插件内渲染 live2d 模型」的运行时使用：不得单独再分发、不得逆向、不得用于其它产品。
-- 商用 live2d 模型另需 Live2D 的发布许可（由模型与使用场景决定），本仓库不代为授权。
+- **本仓库与 npm 包都不再分发 Cubism Core。** 需要 live2d 渲染时，由使用者在自己的环境里从 Live2D 官方取得后指向本地文件（设置页「渲染方式 → live2d」提供入口）。
+- 官方说明：Cubism Core「不发布在 GitHub 上」，须从 Live2D 官网下载 Cubism SDK 包获得；其许可为 **Live2D Proprietary Software License Agreement**，**不是** MIT。该许可第 6.2 条禁止将本软件全部或部分分发、公开，或与衍生作品同捆。
+- 由此产生两项由**使用者**自行承担的义务：① 含 Live2D 模型的衍生作品若要出版，须按该许可第 2 条与 Live2D 签订「出版许可协议」；② 本插件支持加载任意模型，可能被认定为该许可第 1.5 条的「可扩展应用（Expandable Application）」，其出版须事前申请并经 Live2D 批准，且不适用第 2.2 条的一般用户 / 小规模事业者豁免。
+- 本仓库只提供加载器，不代为授权、不承担上述义务。
 
 ## 5. 字体
 
-- `dsh-pet/assets/fonts/上首软糖体.ttf` 是**第三方商业字体**（上首造字），本 fork **未取得再分发授权**，仅在本地自用范围内随附。
-- 公开分发、商用或以任何形式再发布本仓库（含 npm 包）前，须自行取得该字体的授权，或替换为开源字体（例如思源黑体 / 霞鹜文楷，OFL-1.1）。
+- **本仓库不再包含任何商业字体。** 此前随附的「上首软糖体」属第三方商业字体，未取得再分发授权，已移除；缺字体时回落系统字体。
+- 内置字体：思源柔黑（GenJyuuGothic）简体子集，**SIL Open Font License 1.1**，可自由使用与再分发——须保留其版权声明与 OFL 文本；若该字体声明了 Reserved Font Name，则改名后分发。
+- 可选字体（霞鹜文楷 / 悠哉 / 得意黑）：由设置页引导使用者从各项目官方发布页下载，本仓库不分发字体文件。
+- 使用者自行导入的字体（含已购商业字体）只写入本地数据根，本仓库不分发、不代为授权。
 
 ## 6. 语音服务
 
@@ -51,8 +55,12 @@
 
 ## 7. 表情包与图集
 
-`dsh-pet/assets/memes/**`、`dsh-pet/assets/pic/**` 中的图片沿用第 2 节的素材条款（非商业 · 署名 · 相同方式共享）。若你是这些图片的作者且不希望它们出现在本仓库，请开 issue，我们会移除。
+`dsh-pet/assets/memes/**`、`dsh-pet/assets/pic/**` 中的图片沿用第 2 节的素材条款（非商业 · 署名 · 相同方式共享）。表情包随源仓库 `dsh-pet` 迁入（首次入库提交 `70170a3`，2026-09-13）；这些文件本身不含任何来源元数据，因此按目录补了 `SOURCE.md` 作为唯一来源记录。
+
+若你是其中任一张图的作者且不希望它出现在本仓库或发布包中，请开 issue，我们会在下一个版本移除，**不需要你提供额外证明**。
 
 ## 8. 免责
 
 本仓库按「现状」提供，不附带任何担保。使用本仓库造成的账号、费用、数据或法律后果由使用者自行承担；素材与第三方运行时的授权范围以各自的权利人声明为准。
+
+代码与素材的许可分层见 [`LICENSE`](LICENSE) 顶部；Live2D 的出版许可与「可扩展应用」申请、第三方模型的商用授权，均由使用者自行办理。

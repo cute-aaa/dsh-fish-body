@@ -27,9 +27,9 @@ AI 生成动画的配方     源视频 → 透明动画的管线    运行在 DS
 
 ---
 
-## 本仓库：`dsh-fish-body`（`dsh-pet` 的 fork）
+## 本仓库：`dsh-fish-body`
 
-本仓库不是上游的发布分支，而是**本地 fork**：包名与插件 entry id 改为 `dsh-fish-body`，在 `dsh-pet v0.4.7` 之上加了下面这些能力。上游的素材链（① 提示词 → ② 素材生成 → ③ 插件）原样保留。
+本仓库与上游 [`dsh-pet`](https://github.com/PC2005-cloud/dsh-pet) **同源同作者**：同一份提交历史，自 `v0.4.7` 起重命名为 `dsh-fish-body`——包名、插件 entry id、仓库目录一并改名，原因是能力已分叉到无法与旧版互补兼容。上游的素材链（① 提示词 → ② 素材生成 → ③ 插件）原样保留。下表是**相对 v0.4.7** 的增量。
 
 | 相对上游的差异 | 说明                                                                                                                                                              |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -73,8 +73,8 @@ npm run build        # tsdown → lib/、desktop shared-core、tsc → lib/types
 
 两种装法，任选一种：
 
-- **图形化（桌面应用内）**：打开「插件管理」页，在安装框里填 `dsh-pet`，不用开终端。
-- **命令行**：`dsh plugin --profile <profile> add dsh-pet`，`<profile>` 按你在用的界面填——`dsh web` 填 `web`，桌面应用（Electron 版）填 `desktop`。
+- **图形化（桌面应用内）**：打开「插件管理」页，在安装框里填 `dsh-fish-body`，不用开终端。
+- **命令行**：`dsh plugin --profile <profile> add dsh-fish-body`，`<profile>` 按你在用的界面填——`dsh web` 填 `web`，桌面应用（Electron 版）填 `desktop`。
 
 **不想装 DSH？** Release 里提供 Windows x64 绿色包 `dsh-pet-win-x64.zip`，解压后双击 `dsh-pet.exe` 就能跑——那是独立模式，不依赖 DSH 环境。
 
