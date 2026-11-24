@@ -28,6 +28,22 @@ import type { RouteResult } from '../http.ts';
 /** 池里当皮肤根用的两个目录（`layered` / `live2d`），顺序即探测顺序。 */
 const POOL_SKIN_LAYERS: ReadonlyArray<'layered' | 'live2d'> = ['layered', 'live2d'];
 
+/** Cubism Core 的文件名（`/models` 的 `core` 判据与 `/cubism` 路由共用）。 */
+const CUBISM_CORE_FILE = 'live2dcubismcore.min.js';
+
+/**
+ * 找 Cubism Core：扩展根链（用户目录 / 资源包）优先，包内兜底。
+ *
+ * 路由与 `/models` 的 `core` 判据**必须**共用这一个函数——两边各写一遍就会漂移，
+ * 症状是「右键说不能用，实际取得到」或反过来（首轮切换真踩到过：路由 200、判据 false）。
+ * @param deps - 路由依赖。
+ * @param rel - 相对于 cubism 目录的路径。
+ * @returns 命中的绝对路径；都没有为 undefined。
+ */
+function cubismCorePath(deps: PetRouteDeps, rel: string): string | undefined {
+  return resolveExtraAsset(deps, 'cubism', rel) ?? resolveExisting(join(PACKAGE_ROOT, 'assets', 'cubism'), rel);
+}
+
 /** 判断一个 URL 段是不是池里的渲染方式目录名。 */
 function poolLayerOf(segment: string): 'layered' | 'live2d' | undefined {
   return (POOL_SKIN_LAYERS as readonly string[]).includes(segment) ? (segment as 'layered' | 'live2d') : undefined;
@@ -182,9 +198,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     // Cubism Core 不再随包分发（Live2D 许可禁止同捆）：用户把官方 SDK 里的
     // live2dcubismcore.min.js 放进 `<数据根>/cubism/`（或安装 cubism 资源包）后即可用。
     const cubismRel = restParts.join('/');
-    const cubismFile =
-      resolveExtraAsset(deps, 'cubism', cubismRel) ??
-      resolveExisting(join(PACKAGE_ROOT, 'assets', 'cubism'), cubismRel);
+    const cubismFile = cubismCorePath(deps, cubismRel);
     if (cubismFile === undefined)
       return {
         kind: 'text',
@@ -246,7 +260,8 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
           items: mergeEntryItems(packIds, poolIds),
           models: [...packIds, ...poolIds],
           // Cubism Core 不在包内：把「能不能找到它」一并告诉两端，右键才能把 live2d 置灰而不是点出一块空画布。
-          core: resolveExtraAsset(deps, 'cubism', 'live2dcubismcore.min.js') !== undefined,
+          // 判据与 `/cubism` 路由共用 cubismCorePath，两边不会漂移。
+          core: cubismCorePath(deps, CUBISM_CORE_FILE) !== undefined,
         },
       };
     }

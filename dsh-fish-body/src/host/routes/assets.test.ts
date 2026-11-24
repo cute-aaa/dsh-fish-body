@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 
 import { handleAssetsRoutes } from './assets.ts';
 import { savePetAvatar } from '../pet-avatar.ts';
+import { writeInstalled } from '../packs/state.ts';
 import type { RouteResult } from '../http.ts';
 import type { PetRouteDeps } from './types.ts';
 
@@ -322,5 +323,76 @@ describe('多素材根（assets.resourceDirs）—— 取文件按根序回退',
     const result = await readWith(multiDeps(extra), 'thumb/pool/extra-movie.webm');
     assert.ok(result !== undefined && result.kind === 'file');
     assert.equal(result.file, file);
+  });
+});
+
+describe('handleAssetsRoutes —— Cubism Core 的判据与路由不许漂移', () => {
+  /** 造一个「装了 cubism 包」的依赖桩。 */
+  function cubismDeps(userRoot: string): PetRouteDeps {
+    const packsRoot = join(userRoot, 'packs');
+    return {
+      petConfigDir: userRoot,
+      userRoot,
+      packsRoot,
+      poolRoot: () => join(userRoot, 'skin'),
+    } as unknown as PetRouteDeps;
+  }
+
+  /** 往资源包里放一个 Core（平铺布局，打 zip 常见的那种）。 */
+  function installCore(packsRoot: string): string {
+    const dir = join(packsRoot, 'cubism-core');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'live2dcubismcore.min.js'), '// core');
+    writeInstalled(dir, {
+      id: 'cubism-core',
+      sha256: 'd'.repeat(64),
+      bytes: 8,
+      files: 1,
+      at: '2026-11-24T00:00:00.000Z',
+    });
+    return join(dir, 'live2dcubismcore.min.js');
+  }
+
+  test('已装 cubism 包：/cubism 取到包内那份，/models 的 core 为 true', async () => {
+    const deps = cubismDeps(dir);
+    const file = installCore(join(dir, 'packs'));
+    const probe = await handleAssetsRoutes(deps, {
+      url: new URL('http://localhost/cubism/live2dcubismcore.min.js'),
+      rest: 'cubism/live2dcubismcore.min.js',
+      method: 'GET',
+    });
+    assert.ok(probe !== undefined && probe.kind === 'file');
+    assert.equal(probe.file, file);
+
+    const models = await handleAssetsRoutes(deps, {
+      url: new URL('http://localhost/skin/main/models'),
+      rest: 'skin/main/models',
+      method: 'GET',
+    });
+    assert.ok(models !== undefined && models.kind === 'json');
+    assert.equal((models.obj as { core?: unknown }).core, true);
+  });
+
+  test('不变量：core 恒等于 /cubism 的实际命中（两边共用一个查找链）', async () => {
+    for (const withPack of [false, true]) {
+      if (withPack) installCore(join(dir, 'packs'));
+      const deps = cubismDeps(dir);
+      const probe = await handleAssetsRoutes(deps, {
+        url: new URL('http://localhost/cubism/live2dcubismcore.min.js'),
+        rest: 'cubism/live2dcubismcore.min.js',
+        method: 'GET',
+      });
+      const models = await handleAssetsRoutes(deps, {
+        url: new URL('http://localhost/skin/main/models'),
+        rest: 'skin/main/models',
+        method: 'GET',
+      });
+      assert.ok(models !== undefined && models.kind === 'json');
+      assert.equal(
+        (models.obj as { core?: unknown }).core,
+        probe !== undefined && probe.kind === 'file',
+        'withPack=' + withPack,
+      );
+    }
   });
 });
