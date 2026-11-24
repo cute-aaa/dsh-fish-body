@@ -186,9 +186,9 @@ export async function installFromDir(id: string, sourceDir: string, deps: PackIn
       rmSync(tempDir, { recursive: true, force: true });
       return { ok: false, reason: 'empty-pack', message: '源目录里没有文件' };
     }
-    // 目录来源没有单一「包 sha」：用「id + 文件清单摘要」占位，仅供后续判断是否被换过。
-    const sha256 = await hashDirListing(tempDir);
-    return finalize(deps, id, tempDir, { id, sha256, bytes: 0 });
+    // 目录来源没有单一「包 sha」：用「相对路径 + 内容哈希」汇总成指纹，体积按文件字节数累加。
+    const { sha256, bytes } = await hashDirListing(tempDir);
+    return finalize(deps, id, tempDir, { id, sha256, bytes });
   } catch (error) {
     rmSync(tempDir, { recursive: true, force: true });
     const message = error instanceof Error ? error.message : String(error);
@@ -204,8 +204,9 @@ export async function installFromDir(id: string, sourceDir: string, deps: PackIn
  * @param dir - 目录绝对路径。
  * @returns 64 位十六进制摘要。
  */
-async function hashDirListing(dir: string): Promise<string> {
+async function hashDirListing(dir: string): Promise<{ sha256: string; bytes: number }> {
   const hash = createHash('sha256');
+  let bytes = 0;
   const walk = async (current: string, prefix: string): Promise<void> => {
     const entries = readdirSync(current, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1));
     for (const entry of entries) {
@@ -213,11 +214,12 @@ async function hashDirListing(dir: string): Promise<string> {
       const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory()) await walk(abs, rel);
       else if (entry.isFile()) {
+        bytes += statSync(abs).size;
         hash.update(rel);
         hash.update(await hashFile(abs));
       }
     }
   };
   await walk(dir, '');
-  return hash.digest('hex');
+  return { sha256: hash.digest('hex'), bytes };
 }

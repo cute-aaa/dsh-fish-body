@@ -81,6 +81,9 @@ const keep = [
   // live2d 的两个浏览器依赖（pixi / pixi-live2d-display UMD）：由本脚本从依赖里拷出，/vendor 路由只读包内这一份。
   'assets/vendor',
   'assets/config.jsonc',
+  // 资源包清单：`GET /packs` 读它，缺了就是「没有任何可获取素材」——功能上不崩，
+  // 但用户会以为下载入口坏了，所以必须随包发。
+  'assets/packs.json',
   // 插件图标：package.json 顶层 icon 指向这张图；缺图时读取方 dsh-app-boot 的 iconOf 会抛错、退回默认插画。
   'assets/logo.png',
   // 角色参考图：/character 的包内兜底只读 `<素材根>-character.<ext>`，漏发则第三方拿不到官方参考图。

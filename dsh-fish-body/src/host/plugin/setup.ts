@@ -23,6 +23,7 @@ import { migrateElectronRuntime, migrateLayout } from '../migrate-layout.ts';
 import { setRuntimeDir, setUserRoot } from '../helper-process.ts';
 import { readLocations, resolveSkinDir } from '../locations.ts';
 import { PERSONA_CHARACTERS_DIR, userPaths, type UserPaths } from '../user-layout.ts';
+import { packsRootOf } from '../packs/state.ts';
 import { resolveUserRoot, type RootLog } from '../user-root.ts';
 import { POOL_LAYER_DIR, POOL_SOUND_DIR, isReservedAssetRoot } from '../../shared/pool.ts';
 import { poolGlobalSoundDir, poolLayerDir, poolRendererSoundDir, resolvePoolRoots } from '../pool/resolve.ts';
@@ -80,6 +81,10 @@ export interface HostSetup {
   readonly thumbUserRoot: string;
   /** 用户表情包目录 */
   readonly memesUserRoot: string;
+  /** 资源包安装根（`<数据根>/packs`）：下载 / 导入的素材装在这里，不进插件包。 */
+  readonly packsRoot: string;
+  /** 资源包清单路径（包内 `assets/packs.json`）：随代码走。 */
+  readonly packManifestPath: string;
   /** 表情包目录链 */
   readonly memeDirsFor: (assetRoot: string) => string[];
   /** 音效搜索目录（池三层 / 皮肤根 / -sound / 用户共享 / 动画同目录 / 包内默认），见 host/sfx/scan。 */
@@ -458,6 +463,9 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     memeDirsFor,
     soundDirsFor,
     soundUserRoot,
+    // 资源包：安装根在数据根下（不进插件包），清单随代码走（见 NOTICE 第 4、5、7 节）。
+    packsRoot: packsRootOf(userRoot),
+    packManifestPath: join(PACKAGE_ROOT, 'assets', 'packs.json'),
     poolRoot: poolRootOf,
     poolRoots: poolRootsOf,
     fishSkinDirs: () => fishSkinDirs(userRoot),

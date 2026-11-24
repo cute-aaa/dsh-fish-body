@@ -225,4 +225,8 @@ export interface PetRouteDeps {
   readonly persona: PersonaSourceService;
   /** 角色库面：列表 / 写入 / 应用 / 删除（`/persona/characters*`）。与 `persona` 共享同一份 store。 */
   readonly characters: PersonaCharacterService;
+  /** 资源包安装根（`<数据根>/packs`）：下载/导入的素材装在这里，不进插件包。 */
+  readonly packsRoot: string;
+  /** 资源包清单路径（包内 `assets/packs.json`）：随代码走，声明「哪些素材可以获取」。 */
+  readonly packManifestPath: string;
 }

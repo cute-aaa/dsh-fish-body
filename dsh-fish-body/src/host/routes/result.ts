@@ -31,6 +31,7 @@ export type ResultReason =
   | 'no-electron'
   | 'no-sleep-animations'
   | 'not-found'
+  | 'pack-install-failed'
   | 'payload-too-large'
   | 'persona-readonly-entry'
   | 'persona-source-unavailable'

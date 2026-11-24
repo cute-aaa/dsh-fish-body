@@ -5953,6 +5953,92 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
+  /dsh-pet-7340/packs:
+    get:
+      tags: [Action]
+      operationId: listPacks
+      summary: 列出可获取的资源包与本机安装状态
+      description: |
+        清单来自包内 `assets/packs.json`（随代码走：声明哪些素材可以按需获取、每个包的 sha256 与许可）；
+        安装状态来自 `<数据根>/packs/<id>/installed.json`。
+
+        `upToDate` 为 `false` 表示已装但清单里的 `sha256` 变了（同一个包出了新版本）。
+        清单文件不存在按空清单处理（首次发布还没有素材包是正常状态）；文件存在但写坏返回失败实体。
+      responses:
+        "200":
+          description: |
+            `{ ok:true, packs:[{ id, kind, label, license, bytes, sha256, urls, files, note?, installed, upToDate }] }`；
+            `installed` 为 `null` 或 `{ id, sha256, bytes, files, at }`。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /dsh-pet-7340/packs/install:
+    post:
+      tags: [Action]
+      operationId: installPack
+      summary: 安装一个资源包（下载 / 本地 zip / 本地目录）
+      description: |
+        三种来源，优先级依次为 `zipPath`、`dir`、清单地址：
+
+        - `{ id }`：按清单里的 `urls` 依次尝试下载，体积不符才换镜像；`sha256` 不符立即中止（不静默换源）。
+        - `{ id, zipPath }`：手动导入本地 zip，sha256 取实际值记录（首次信任）。
+        - `{ id, dir }`：手动导入本地目录，整棵复制。
+
+        安装是**同步等待**的（几十 MB 的包会让请求挂一会儿）；返回后以 `GET /packs` 的状态为准。
+        失败一律 `200 + {ok:false, reason:'pack-install-failed', message}`，message 里带具体原因
+        （体积不符 / sha256 不符 / 解压失败 / 空包 / 非法来源）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  pattern: "^[a-z0-9][a-z0-9-]{0,31}$"
+                  description: 包 id（同时是 `<数据根>/packs/<id>/` 的目录名）。
+                zipPath:
+                  type: string
+                  description: 可选：本地 zip 绝对路径（给了就不走下载）。
+                dir:
+                  type: string
+                  description: 可选：本地目录绝对路径（给了就不走下载；与 zipPath 同时给时以 zipPath 为准）。
+      responses:
+        "200":
+          description: |
+            `{ ok:true, pack:{ id, sha256, bytes, files, at } }`；失败为失败实体。
+        "400":
+          description: 请求体不是合法 JSON 时返回 400；业务失败一律走 200 + 失败实体。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /dsh-pet-7340/packs/remove:
+    post:
+      tags: [Action]
+      operationId: removePack
+      summary: 删除一个已安装的资源包
+      description: |
+        连同 `<数据根>/packs/<id>/` 整个目录删掉，下次按未安装处理。
+        只删资源包，不碰用户自己的皮肤、配置与记忆。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  pattern: "^[a-z0-9][a-z0-9-]{0,31}$"
+      responses:
+        "200":
+          description: |
+            `{ ok:true, id }`；没装过时是失败实体（`reason` 为 `not-found`）。
+        "400":
+          description: 请求体不是合法 JSON 时返回 400；业务失败一律走 200 + 失败实体。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
 components:
   parameters:
     PetIdQuery:
