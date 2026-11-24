@@ -22,6 +22,14 @@ export interface RendererProbe {
   readonly skins: readonly string[];
   /** `/skin/<素材根>/models` 给出的 `.model3.json` 相对路径。 */
   readonly models: readonly string[];
+  /**
+   * Cubism Core 是否就位（`/models` 的 `core` 字段）。
+   *
+   * 缺省按 `true` 处理：老调用方与老测试没有这个字段，而 Core 缺失的真实症状由
+   * `models` 与运行时加载共同决定；这里只在**明确拿到 false** 时把 live2d 摘掉，
+   * 避免「探测失败」被误判成「不能用」而把功能永久置灰。
+   */
+  readonly core?: boolean;
 }
 
 /**
@@ -34,7 +42,8 @@ export function availableRenderers(probe: RendererProbe): RendererKind[] {
   const usable: Readonly<Record<RendererKind, boolean>> = {
     webm: true,
     layered: probe.manifestHit || probe.skins.length > 0,
-    live2d: probe.models.length > 0,
+    // 有模型还不够：Cubism Core 不在包内了，取不到它时点下去只会得到一块空画布。
+    live2d: probe.models.length > 0 && probe.core !== false,
   };
   return RENDERERS.filter((renderer) => usable[renderer]);
 }

@@ -165,11 +165,13 @@ export function createCardEntry(rt: CardEntryRuntime) {
       ).then((hits) => hits.some(Boolean));
       const probeModels = fetch(dir + '/models')
         .then((r) => (r.ok ? r.json() : null))
-        .then((b: { models?: unknown; items?: unknown } | null) => ({
+        .then((b: { models?: unknown; items?: unknown; core?: unknown } | null) => ({
           items: readEntryItems(b?.items),
           models: b && Array.isArray(b.models) ? b.models.filter((m): m is string => typeof m === 'string') : [],
+          // Cubism Core 不在包内：宿主把「找没找到」一并给出，缺了就不该让 live2d 可点。
+          core: typeof b?.core === 'boolean' ? b.core : undefined,
         }))
-        .catch(() => ({ items: [] as PoolEntryItem[], models: [] as string[] }));
+        .catch(() => ({ items: [] as PoolEntryItem[], models: [] as string[], core: undefined }));
       const probeSkins = fetch(dir + '/skins')
         .then((r) => (r.ok ? r.json() : null))
         .then((b: { skins?: unknown; items?: unknown } | null) => ({
@@ -187,6 +189,7 @@ export function createCardEntry(rt: CardEntryRuntime) {
           manifestHit: hasSkin,
           models: models.models,
           skins: skins.skins,
+          core: models.core,
         });
       });
       return () => {

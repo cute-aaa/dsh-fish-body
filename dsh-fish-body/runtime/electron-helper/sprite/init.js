@@ -66,16 +66,20 @@ Object.assign(PetSprite.prototype, {
       .catch(() => []);
     const models = fetch(dir + 'models')
       .then((res) => (res.ok ? res.json() : null))
-      .then((body) => (body && Array.isArray(body.models) ? body.models.filter((m) => typeof m === 'string') : []))
-      .catch(() => []);
-    Promise.all([hasSkin, models, skins]).then(([skin, list, skinList]) => {
-      this.modelOptions = list;
+      .then((body) => ({
+        list: body && Array.isArray(body.models) ? body.models.filter((m) => typeof m === 'string') : [],
+        // Cubism Core 不在包内：宿主在同一个响应里给出「找没找到」，缺了就不该让 live2d 可点。
+        core: body && typeof body.core === 'boolean' ? body.core : undefined,
+      }))
+      .catch(() => ({ list: [], core: undefined }));
+    Promise.all([hasSkin, models, skins]).then(([skin, modelProbe, skinList]) => {
+      this.modelOptions = modelProbe.list;
       this.skinOptions = skinList;
       // 判据在共享层（浏览器端读同一份）；旧核心没有这个导出时按「清单命中」这一条老口径。
       this.rendererOptions =
         typeof S.availableRenderers === 'function'
-          ? S.availableRenderers({ manifestHit: skin, models: list, skins: skinList })
-          : ['webm'].concat(skin ? ['layered'] : [], list.length > 0 ? ['live2d'] : []);
+          ? S.availableRenderers({ manifestHit: skin, models: modelProbe.list, skins: skinList, core: modelProbe.core })
+          : ['webm'].concat(skin ? ['layered'] : [], modelProbe.list.length > 0 ? ['live2d'] : []);
     });
   },
 

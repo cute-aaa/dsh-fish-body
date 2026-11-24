@@ -80,3 +80,24 @@ describe('源码守卫：判据与候选顺序两端都只能用共享那一份'
     }
   });
 });
+
+test('Core 明确不在时摘掉 live2d：有模型也不给点（点下去只会是空画布）', () => {
+  assert.deepEqual(availableRenderers({ manifestHit: false, models: ['a.model3.json'], skins: [], core: false }), [
+    'webm',
+  ]);
+});
+
+test('core 缺省按「未知即可用」：老调用方 / 老核心没有这个字段时不误伤', () => {
+  assert.deepEqual(availableRenderers({ manifestHit: false, models: ['a.model3.json'], skins: [] }), [
+    'webm',
+    'live2d',
+  ]);
+});
+
+test('core 为 true 时与旧行为一致', () => {
+  assert.deepEqual(availableRenderers({ manifestHit: true, models: ['a.model3.json'], skins: [], core: true }), [
+    'webm',
+    'layered',
+    'live2d',
+  ]);
+});

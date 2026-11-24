@@ -16,6 +16,7 @@ import { isModelSettingsFile, mergeModelExtras } from '../model-extras.ts';
 import { petAvatarFile } from '../pet-avatar.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { POOL_ASSET_ROOT, POOL_LAYER_DIR } from '../../shared/pool.ts';
+import { resolveExtraAsset } from '../packs/roots.ts';
 import { createPoolReader, poolLayerDirs } from '../pool/roots.ts';
 import { listLayeredIds, listModelIds, readRenderResources } from '../pool/inventory.ts';
 import { soundCandidateDirs } from '../sfx/order.ts';
@@ -99,8 +100,11 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   }
 
   if (scope === 'font') {
-    const fontRoot = join(PACKAGE_ROOT, 'assets', 'fonts');
-    const fontFile = resolveExisting(fontRoot, restParts.join('/'));
+    // 字体不在包内了（商业字体已移除）：先看用户目录与已安装的资源包，最后才是包内兜底。
+    // 顺序即语义——用户显式放进来的那份必须能盖过其它来源。
+    const fontRel = restParts.join('/');
+    const fontFile =
+      resolveExtraAsset(deps, 'fonts', fontRel) ?? resolveExisting(join(PACKAGE_ROOT, 'assets', 'fonts'), fontRel);
     if (fontFile === undefined) return { kind: 'text', status: 404, body: 'fish-body: font not found' };
     const ext = fontFile.slice(fontFile.lastIndexOf('.')).toLowerCase();
     return { kind: 'file', file: fontFile, contentType: MIME[ext] ?? 'application/octet-stream' };
@@ -175,9 +179,18 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   // Live2D Cubism Core：/dsh-pet-7340/cubism/<file> → 包内 assets/cubism（live2dcubismcore.min.js）。
   // 与 font 同一套扁平形式：只放行包内一份，客户端按需注入 <script> 后读 window.Live2DCubismCore。
   if (scope === 'cubism') {
-    const cubismRoot = join(PACKAGE_ROOT, 'assets', 'cubism');
-    const cubismFile = resolveExisting(cubismRoot, restParts.join('/'));
-    if (cubismFile === undefined) return { kind: 'text', status: 404, body: 'fish-body: cubism core not found' };
+    // Cubism Core 不再随包分发（Live2D 许可禁止同捆）：用户把官方 SDK 里的
+    // live2dcubismcore.min.js 放进 `<数据根>/cubism/`（或安装 cubism 资源包）后即可用。
+    const cubismRel = restParts.join('/');
+    const cubismFile =
+      resolveExtraAsset(deps, 'cubism', cubismRel) ??
+      resolveExisting(join(PACKAGE_ROOT, 'assets', 'cubism'), cubismRel);
+    if (cubismFile === undefined)
+      return {
+        kind: 'text',
+        status: 404,
+        body: 'fish-body: cubism core not found（把 live2dcubismcore.min.js 放进 <数据根>/cubism/，或在设置页安装 cubism 资源包）',
+      };
     const ext = cubismFile.slice(cubismFile.lastIndexOf('.')).toLowerCase();
     return { kind: 'file', file: cubismFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
@@ -229,7 +242,12 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
       return {
         kind: 'json',
         status: 200,
-        obj: { items: mergeEntryItems(packIds, poolIds), models: [...packIds, ...poolIds] },
+        obj: {
+          items: mergeEntryItems(packIds, poolIds),
+          models: [...packIds, ...poolIds],
+          // Cubism Core 不在包内：把「能不能找到它」一并告诉两端，右键才能把 live2d 置灰而不是点出一块空画布。
+          core: resolveExtraAsset(deps, 'cubism', 'live2dcubismcore.min.js') !== undefined,
+        },
       };
     }
     // /skin/<root>/skins：列出可切换的分层皮肤（清单所在子目录名，根布局为空串），
