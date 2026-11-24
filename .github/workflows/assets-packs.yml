@@ -1,0 +1,139 @@
+# ============================================================================
+# 素材包（extras）发版流水线
+#
+# 职责：把仓库里**不属于最小内置包的动画**打成 `anims-extra.zip`，算准 bytes / sha256 /
+# files，挂到一个固定 tag 的 Release 上。插件端在设置页「素材与字体」里点「下载」时
+# 按 `assets/packs.json` 里的地址取它。
+#
+# 为什么 zip 必须由 CI 产出、清单条目也必须由同一次运行产出：
+#   sha256 是 zip 字节的指纹。若本地打一个 zip、CI 再打一个（压缩算法/文件顺序不同），
+#   两者的 sha 就不一样，用户装包时会直接撞 checksum-mismatch。**清单与 zip 必须同源**。
+#   所以这里把生成的条目打印在 job 摘要里，作者把它抄进 `assets/packs.json` 再提交——
+#   而不是让 CI 反向提交（工作流拿不到写权限之外的推送权限，也没必要）。
+#
+# 触发：手动（workflow_dispatch）——素材稳定后再打一次，不做每次 push 的自动发版。
+#
+# 前置：无（本流水线自己重建 tag 与 Release，与 hevc-alpha 同一套固定 tag 策略）。
+# 权限：contents: write（重建 tag / 发 Release / 上传资产）。
+# ============================================================================
+
+name: assets-packs
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "发布用的固定 tag（改它会断掉已发布清单里的下载地址）"
+        required: true
+        default: assets-v1
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: assets-packs
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        # 插件在 dsh-fish-body/ 子目录
+        working-directory: dsh-fish-body
+    env:
+      TAG: ${{ github.event.inputs.tag }}
+      REPO: ${{ github.repository }}
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      # 清单脚本靠 `@electron-internal/extract-zip` 数包内文件（与发布链同一套依赖）。
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 生成 extras zip（核心 8 段以外的全部 webm）
+        shell: pwsh
+        run: |
+          $core = (Get-Content assets/core-anims.json -Raw | ConvertFrom-Json).core
+          if (-not $core -or $core.Count -eq 0) { Write-Error "core-anims.json 里 core 为空"; exit 1 }
+          $all = Get-ChildItem assets/webm -Filter *.webm -File
+          $extra = $all | Where-Object { $_.BaseName -notin $core }
+          if ($extra.Count -eq 0) { Write-Error "没有可打包的额外动画（core 已覆盖全部？）"; exit 1 }
+          "额外动画 $($extra.Count) 段 / 核心 $($core.Count) 段（共 $($all.Count)）"
+
+          $stage = Join-Path $env:RUNNER_TEMP 'anims-extra'
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          foreach ($file in $extra) { Copy-Item $file.FullName -Destination $stage }
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'anims-extra.zip'
+          # 素材是压缩过的视频，用最低压缩率即可：更快、且体积几乎不变。
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Fastest
+          "zip: $zip（{0:N1} MB）" -f ((Get-Item $zip).Length / 1MB)
+
+      - name: 生成清单条目（bytes / sha256 / files 由脚本实测）
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'anims-extra.zip'
+          $out = Join-Path $env:RUNNER_TEMP 'packs.json'
+          $url = "https://github.com/$env:REPO/releases/download/$env:TAG/anims-extra.zip"
+          node scripts/packs-manifest.mjs --zip $zip --id anims-extra --kind anims `
+            --label "额外动画（106 段）" --license "CC-BY-NC-SA-4.0" `
+            --url $url --out $out `
+            --note "下载后立即可播；不含随包发布的 8 段核心动作"
+          "===== 把下面这一条并进 assets/packs.json 的 packs 数组 ====="
+          Get-Content $out -Raw
+          "=========================================================="
+
+      - name: 漂移检查（仓库里的清单是否与本次 zip 一致；不一致只告警）
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'anims-extra.zip'
+          node scripts/packs-manifest.mjs --zip $zip --id anims-extra --check
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::assets/packs.json 里的 anims-extra 与本次 zip 不一致——把上面打印的条目抄进清单再提交"
+          }
+
+      - name: 上传构建产物（发布失败也能下载排查）
+        uses: actions/upload-artifact@v4
+        with:
+          name: anims-extra
+          path: |
+            anims-extra.zip
+            ${{ runner.temp }}/packs.json
+          retention-days: 7
+          if-no-files-found: error
+
+      # 固定 tag 策略同 hevc-alpha：先删旧 tag 与 Release，再用同名重建，
+      # 这样 `releases/download/<tag>/anims-extra.zip` 这条永久链接始终指向最新产物。
+      - name: 重建 tag 与 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release delete $env:TAG --yes --cleanup-tag 2>$null
+          gh release create $env:TAG --title "素材包 $env:TAG" --notes "素材 extras 包。下载地址由 assets/packs.json 引用，请勿手改 tag。" --prerelease
+
+      - name: 上传 zip 与清单副本
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'anims-extra.zip'
+          gh release upload $env:TAG $zip --clobber
+          gh release upload $env:TAG (Join-Path $env:RUNNER_TEMP 'packs.json') --clobber

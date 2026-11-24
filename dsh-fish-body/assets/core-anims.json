@@ -1,0 +1,18 @@
+{
+  "$comment": [
+    "默认随包发布的动画（最小内置包）：宠物要能站起来、能互动、能睡觉，这 8 段是底线。",
+    "其余动画放进 extras 包（`anims-extra`），由设置页「素材与字体」按需下载——",
+    "打包与发布见 .github/workflows/assets-packs.yml，清单条目由 scripts/packs-manifest.mjs 生成。",
+    "改这里要同步两处：scripts/prepare.js 的 files[]（决定包里带什么）、extras 包的 zip 内容（CI 自动取补集）。"
+  ],
+  "core": [
+    "待机呼吸休闲",
+    "东张西望",
+    "螃蟹走路",
+    "被鼠标拖拽悬空反馈",
+    "点击回应-开心跃动",
+    "睡觉-开始",
+    "睡觉-循环",
+    "睡觉-起来"
+  ]
+}

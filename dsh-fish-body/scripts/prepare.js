@@ -70,10 +70,25 @@ console.log(`[prepare] ✓ assets/vendor: ${vendorFiles.map(([, name]) => name).
 
 // files 收敛为发布清单：这是本脚本唯一的写操作，幂等，不备份旧值。
 const pkg = JSON.parse(readFileSync(PKG, 'utf8'));
+// 动画只发「最小内置包」：逐文件列进 files[]，而不是整目录。
+// 这样仓库里仍留着全部 106 段（CI 靠它们打 extras 包），但 npm 包只带这 8 段——
+// 想把目录整体加回来会让包重新长到 60MB+（见 assets/core-anims.json 的注释）。
+const CORE_ANIMS = JSON.parse(readFileSync(join(ROOT, 'assets', 'core-anims.json'), 'utf8')).core;
+if (!Array.isArray(CORE_ANIMS) || CORE_ANIMS.length === 0) {
+  console.error('[prepare] assets/core-anims.json 里 core 为空：最小内置包不能为 0 段');
+  process.exit(1);
+}
+const coreAnimFiles = CORE_ANIMS.map((name) => 'assets/webm/' + name + '.webm');
+for (const rel of coreAnimFiles) {
+  if (!existsSync(join(ROOT, rel))) {
+    console.error(`[prepare] 核心动画缺失：${rel}（清单与文件不一致，先补文件或改 core-anims.json）`);
+    process.exit(1);
+  }
+}
 const keep = [
   'lib',
   'src',
-  'assets/webm',
+  ...coreAnimFiles,
   'runtime/electron-helper',
   'assets/pic',
   // 点击音效：宿主半侧的 /sound 路由只读包内这一份，漏掉则点击静音。
@@ -84,6 +99,8 @@ const keep = [
   // 资源包清单：`GET /packs` 读它，缺了就是「没有任何可获取素材」——功能上不崩，
   // 但用户会以为下载入口坏了，所以必须随包发。
   'assets/packs.json',
+  // 最小内置包的清单本身也随包发：用户能看出「哪些动画是随包带的、其余要走 extras」。
+  'assets/core-anims.json',
   // 插件图标：package.json 顶层 icon 指向这张图；缺图时读取方 dsh-app-boot 的 iconOf 会抛错、退回默认插画。
   'assets/logo.png',
   // 角色参考图：/character 的包内兜底只读 `<素材根>-character.<ext>`，漏发则第三方拿不到官方参考图。

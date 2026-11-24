@@ -23,7 +23,7 @@ import { migrateElectronRuntime, migrateLayout } from '../migrate-layout.ts';
 import { setRuntimeDir, setUserRoot } from '../helper-process.ts';
 import { readLocations, resolveSkinDir } from '../locations.ts';
 import { PERSONA_CHARACTERS_DIR, userPaths, type UserPaths } from '../user-layout.ts';
-import { packsRootOf } from '../packs/state.ts';
+import { listInstalled, packsRootOf } from '../packs/state.ts';
 import { resolveUserRoot, type RootLog } from '../user-root.ts';
 import { POOL_LAYER_DIR, POOL_SOUND_DIR, isReservedAssetRoot } from '../../shared/pool.ts';
 import { poolGlobalSoundDir, poolLayerDir, poolRendererSoundDir, resolvePoolRoots } from '../pool/resolve.ts';
@@ -141,8 +141,7 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
   const startNotes: string[] = [];
   const noteSink: RootLog = { info: (m) => startNotes.push(m), warn: (m) => startNotes.push(m) };
   const rootResult = resolveUserRoot({ dshHome, log: noteSink });
-  const userRoot = rootResult.root;
-  // 运行时 / 下载缓存 / 桌面 profile 都跟着这个根走：选根回落到旧根时它们也必须留在同一个根里。
+  const userRoot = rootResult.root; // 运行时 / 下载缓存 / 桌面 profile 都跟着这个根走：选根回落到旧根时它们也必须留在同一个根里。
   setUserRoot(userRoot);
 
   // 内层布局：把继承自 dsh-pet 的平铺目录搬进 config/ data/ cache/ runtime/ pets/ assets/。
@@ -254,10 +253,16 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
    * 否则池里能选的名字路由取不到，气泡配图会图裂。
    * 素材根来自 URL 段，必须先过 resolveAsset，避免 Windows 上 %5C 解出的反斜杠逃出用户根。
    */
+  // 资源包安装根：字体 / 表情包 / 动画 / Cubism 都不进包，按需装在这里（见 NOTICE 第 4、5、7 节）。
+  const packsRoot = packsRootOf(userRoot);
+
   const memeDirsFor = (assetRoot: string): string[] => {
     const own = resolveAsset(petConfigDir, assetRoot + '-memes');
     if (own !== undefined && existsSync(own)) return [own];
-    return [memesUserRoot, PACKAGE_MEMES_DIR];
+    // 已安装的表情包资源包（`packs/<id>/`）排在用户目录之后、包内默认之前：
+    // 用户自己放的最优先，其次是按需下载的，最后才是随包的那一份。
+    const packDirs = listInstalled(packsRoot).map((item) => join(packsRoot, item.id));
+    return [memesUserRoot, ...packDirs, PACKAGE_MEMES_DIR];
   };
 
   // 用户级共享音效目录：main 链在没有专属文件时也查这里（加音效不必动包）。
@@ -464,7 +469,7 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     soundDirsFor,
     soundUserRoot,
     // 资源包：安装根在数据根下（不进插件包），清单随代码走（见 NOTICE 第 4、5、7 节）。
-    packsRoot: packsRootOf(userRoot),
+    packsRoot,
     packManifestPath: join(PACKAGE_ROOT, 'assets', 'packs.json'),
     poolRoot: poolRootOf,
     poolRoots: poolRootsOf,

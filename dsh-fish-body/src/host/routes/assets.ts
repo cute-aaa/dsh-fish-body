@@ -17,6 +17,7 @@ import { petAvatarFile } from '../pet-avatar.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { POOL_ASSET_ROOT, POOL_LAYER_DIR } from '../../shared/pool.ts';
 import { resolveExtraAsset } from '../packs/roots.ts';
+import { listInstalled } from '../packs/state.ts';
 import { createPoolReader, poolLayerDirs } from '../pool/roots.ts';
 import { listLayeredIds, listModelIds, readRenderResources } from '../pool/inventory.ts';
 import { soundCandidateDirs } from '../sfx/order.ts';
@@ -360,12 +361,15 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   const poolDirs = poolLayerDirs(poolRootList, 'webm');
   const extraAnimDir = fromPool ? undefined : resolveAsset(petConfigDir, petId + '-animation');
 
-  /** 按扩展名查同名素材（专属目录 → 池（多根按序）→ 用户根 → 包内根） */
+  /** 按扩展名查同名素材（专属目录 → 池（多根按序）→ 已装资源包 → 用户根 → 包内根） */
   const findAnim = (e: string): string | undefined => {
     const name = fileName.replace(/\.(webm|mov)$/i, '') + e;
     const candidates: string[] = [];
     if (extraAnimDir !== undefined && existsSync(extraAnimDir)) candidates.push(extraAnimDir);
     candidates.push(...poolDirs);
+    // 动画 extras 包（`packs/<id>/`，包根平铺 `*.webm`）：装进来就能播，与池同一档优先级。
+    // 只认「装好了」的包（listInstalled 读标记），半装目录不参与。
+    for (const pack of listInstalled(deps.packsRoot)) candidates.push(join(deps.packsRoot, pack.id));
     if (!fromPool && typeof userRootFor === 'function' && typeof assetRootFor === 'function') {
       candidates.push(userRootFor(e), assetRootFor(e));
     }
