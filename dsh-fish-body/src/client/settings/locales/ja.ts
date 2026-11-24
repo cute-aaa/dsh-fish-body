@@ -773,4 +773,18 @@ export const ja: Record<Key, string> = {
   skinDirsExpect: '期待：{list}',
   skinDirsBadgeEmpty: '空',
   skinDirsBadgeMissing: '欠け',
+  packsTitle: '素材とフォント',
+  packsHint:
+    'フォント・メモ・追加アニメ・Live2D ランタイムは同梱せず、必要時に取得します。各パッケージにはライセンスが表示されます。',
+  packsEmpty: 'マニフェストに取得可能な素材パッケージがありません（未公開、またはこの版がマニフェストを含みません）。',
+  packsInstall: 'ダウンロード',
+  packsRemove: '削除',
+  packsWorking: '処理中…',
+  packsNotInstalled: '未インストール',
+  packsInstalledState: 'インストール済み',
+  packsOutdated: '更新あり',
+  packsInstalled: 'インストールしました',
+  packsRemoved: '削除しました',
+  packsFontsHint:
+    '手持ちのフォント（購入した商用フォントを含む）は、データルートの fonts/ に置いて再読み込みするとフォント一覧に出ます。',
 };

@@ -777,4 +777,18 @@ export const en: Record<Key, string> = {
   skinDirsExpect: 'expects {list}',
   skinDirsBadgeEmpty: 'empty',
   skinDirsBadgeMissing: 'missing',
+  packsTitle: 'Assets & fonts',
+  packsHint:
+    'Fonts, memes, extra animations and the Live2D runtime are not bundled; fetch them on demand. Every pack states its license — check commercial use before downloading.',
+  packsEmpty: 'No asset packs in the manifest yet (none published, or this build predates the manifest).',
+  packsInstall: 'Download',
+  packsRemove: 'Remove',
+  packsWorking: 'Working…',
+  packsNotInstalled: 'Not installed',
+  packsInstalledState: 'Installed',
+  packsOutdated: 'Update available',
+  packsInstalled: 'Installed',
+  packsRemoved: 'Removed',
+  packsFontsHint:
+    'To use your own font (including a licensed commercial one), drop it into the fonts/ folder of the data root and refresh; it appears in the font list.',
 };

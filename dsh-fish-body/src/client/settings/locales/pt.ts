@@ -783,4 +783,18 @@ export const pt: Record<Key, string> = {
   skinDirsExpect: 'espera {list}',
   skinDirsBadgeEmpty: 'vazia',
   skinDirsBadgeMissing: 'ausente',
+  packsTitle: 'Recursos e fontes',
+  packsHint:
+    'Fontes, memes, animações extras e o runtime do Live2D não são incluídos: são baixados sob demanda. Cada pacote informa sua licença.',
+  packsEmpty: 'Ainda não há pacotes no manifesto (nenhum publicado ou esta versão não o inclui).',
+  packsInstall: 'Baixar',
+  packsRemove: 'Remover',
+  packsWorking: 'Processando…',
+  packsNotInstalled: 'Não instalado',
+  packsInstalledState: 'Instalado',
+  packsOutdated: 'Atualização disponível',
+  packsInstalled: 'Instalado',
+  packsRemoved: 'Removido',
+  packsFontsHint:
+    'Para usar sua própria fonte (inclusive comercial licenciada), coloque-a na pasta fonts/ da raiz de dados e recarregue.',
 };

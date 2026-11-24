@@ -728,6 +728,20 @@ export const zh = {
   skinDirsExpect: '期望：{list}',
   skinDirsBadgeEmpty: '空',
   skinDirsBadgeMissing: '缺失',
+  packsTitle: '素材与字体',
+  packsHint:
+    '字体、表情包、额外动画与 Live2D 运行时不随插件包分发，按需获取；每个包都标注许可，下载前先看清能不能商用。',
+  packsEmpty: '清单里还没有可获取的素材包（宿主未发布素材包，或本机版本不含清单）。',
+  packsInstall: '下载',
+  packsRemove: '删除',
+  packsWorking: '处理中…',
+  packsNotInstalled: '未安装',
+  packsInstalledState: '已安装',
+  packsOutdated: '有新版本',
+  packsInstalled: '已安装完成',
+  packsRemoved: '已删除',
+  packsFontsHint:
+    '想用手里的字体（含已购商业字体）：把它放进数据根的 fonts/ 目录，刷新页面后即可在「字体」下拉里选到。',
 };
 
 /** 文案键；zh 的键集即全集。 */

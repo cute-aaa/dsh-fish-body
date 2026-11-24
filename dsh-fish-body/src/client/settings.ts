@@ -68,6 +68,7 @@ import { useRevert } from './settings/use-revert.ts';
 import { useScreenSettings } from './settings/use-screen-settings.ts';
 import { useSessionFish } from './settings/use-session-fish.ts';
 import { useSettingsBackup } from './settings/use-settings-backup.ts';
+import { usePacks } from './settings/use-packs.ts';
 import { useSfxSettings } from './settings/use-sfx-settings.ts';
 import { useVoiceSettings } from './settings/use-voice-settings.ts';
 
@@ -221,6 +222,9 @@ export function makePetConfigSection(
       },
     });
 
+    // 资源包：字体 / 表情包 / 动画 / Cubism 都不进插件包，靠这里按需获取；状态真源在宿主。
+    const packs = usePacks(rt);
+
     // 配置没就绪（加载中 / 失败）时整页只读，避免在占位值上编辑再保存回去。
     const { loadState, retry } = useConfigLoad(rt, applyConfig);
     const busy = saving || loadState !== 'ready' || fish.busy;
@@ -364,6 +368,7 @@ export function makePetConfigSection(
       fish,
       perm: { msg: permission.message, test: permission.test },
       backup,
+      packs,
       screen,
       maintenance: { restart, restartNow, reset: write.requestReset },
       characters,

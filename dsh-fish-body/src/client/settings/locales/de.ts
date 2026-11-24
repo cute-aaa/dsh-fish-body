@@ -794,4 +794,17 @@ export const de: Record<Key, string> = {
   skinDirsExpect: 'erwartet {list}',
   skinDirsBadgeEmpty: 'leer',
   skinDirsBadgeMissing: 'fehlt',
+  packsTitle: 'Assets & Schriften',
+  packsHint:
+    'Schriften, Memes, Zusatzanimationen und die Live2D-Laufzeit werden nicht mitgeliefert, sondern bei Bedarf geladen. Jedes Paket nennt seine Lizenz.',
+  packsEmpty: 'Noch keine Asset-Pakete im Manifest (keine veröffentlicht oder diese Version kennt es nicht).',
+  packsInstall: 'Laden',
+  packsRemove: 'Entfernen',
+  packsWorking: 'Läuft…',
+  packsNotInstalled: 'Nicht installiert',
+  packsInstalledState: 'Installiert',
+  packsOutdated: 'Update verfügbar',
+  packsInstalled: 'Installiert',
+  packsRemoved: 'Entfernt',
+  packsFontsHint: 'Eigene Schrift (auch gekaufte) in den Ordner fonts/ des Datenverzeichnisses legen und neu laden.',
 };

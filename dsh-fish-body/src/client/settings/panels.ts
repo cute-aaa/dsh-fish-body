@@ -25,6 +25,7 @@ import type { HotkeysSettings } from './use-hotkeys-settings.ts';
 import type { RemoteData } from './use-remote-data.ts';
 import type { SessionFishState } from './use-session-fish.ts';
 import type { SettingsBackupState } from './use-settings-backup.ts';
+import type { PacksState } from './use-packs.ts';
 import type { ScreenSettings } from './use-screen-settings.ts';
 import type { SfxSettings } from './use-sfx-settings.ts';
 import type { ModelSettings } from './use-model-settings.ts';
@@ -70,6 +71,8 @@ export interface SettingsPanelDeps {
   readonly perm: { readonly msg: Feedback; test(): void };
   /** 备份与恢复。 */
   readonly backup: SettingsBackupState;
+  /** 资源包（字体 / 表情包 / 动画 / Cubism）清单与装删动作。 */
+  readonly packs: PacksState;
   /** 看屏幕与避让的十三项（「系统」分区的同一张卡）。 */
   readonly screen: ScreenSettings;
   /** 重启插件与重置设置。 */
@@ -156,6 +159,7 @@ export function makeSettingsPanels(
         remote: deps.remote,
         dirty: deps.dirty,
         backup: deps.backup,
+        packs: deps.packs,
         screen: deps.screen,
         maintenance: deps.maintenance,
       }),

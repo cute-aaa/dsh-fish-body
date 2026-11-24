@@ -800,4 +800,18 @@ export const fr: Record<Key, string> = {
   skinDirsExpect: 'attend {list}',
   skinDirsBadgeEmpty: 'vide',
   skinDirsBadgeMissing: 'manquant',
+  packsTitle: 'Ressources et polices',
+  packsHint:
+    'Les polices, mèmes, animations supplémentaires et le runtime Live2D ne sont pas fournis : ils se téléchargent à la demande. Chaque paquet indique sa licence.',
+  packsEmpty: "Aucun paquet dans le manifeste pour l'instant (aucun publié, ou cette version ne le connaît pas).",
+  packsInstall: 'Télécharger',
+  packsRemove: 'Supprimer',
+  packsWorking: 'En cours…',
+  packsNotInstalled: 'Non installé',
+  packsInstalledState: 'Installé',
+  packsOutdated: 'Mise à jour disponible',
+  packsInstalled: 'Installé',
+  packsRemoved: 'Supprimé',
+  packsFontsHint:
+    'Pour utiliser votre propre police (y compris commerciale sous licence), placez-la dans le dossier fonts/ de la racine de données puis rechargez.',
 };

@@ -782,4 +782,18 @@ export const ru: Record<Key, string> = {
   skinDirsExpect: 'ожидается {list}',
   skinDirsBadgeEmpty: 'пусто',
   skinDirsBadgeMissing: 'нет',
+  packsTitle: 'Ресурсы и шрифты',
+  packsHint:
+    'Шрифты, мемы, дополнительные анимации и среда Live2D не входят в пакет — загружаются по требованию. У каждого пакета указана лицензия.',
+  packsEmpty: 'В манифесте пока нет пакетов ресурсов (ничего не опубликовано или эта версия его не знает).',
+  packsInstall: 'Скачать',
+  packsRemove: 'Удалить',
+  packsWorking: 'Обработка…',
+  packsNotInstalled: 'Не установлен',
+  packsInstalledState: 'Установлен',
+  packsOutdated: 'Есть обновление',
+  packsInstalled: 'Установлено',
+  packsRemoved: 'Удалено',
+  packsFontsHint:
+    'Чтобы использовать свой шрифт (в том числе купленный коммерческий), положите его в папку fonts/ каталога данных и обновите страницу.',
 };

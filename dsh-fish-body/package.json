@@ -68,6 +68,7 @@
     "assets/sound",
     "assets/vendor",
     "assets/config.jsonc",
+    "assets/packs.json",
     "assets/logo.png",
     "assets/main-character.png",
     "scripts/ensure-electron.mjs",
