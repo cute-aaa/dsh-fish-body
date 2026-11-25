@@ -1,4 +1,18 @@
 {
   "schema": 1,
-  "packs": []
+  "packs": [
+    {
+      "id": "anims-extra",
+      "kind": "anims",
+      "label": "额外动画（106 段）",
+      "license": "CC-BY-NC-SA-4.0",
+      "bytes": 56957869,
+      "sha256": "96bdfeadcb72e8fa66f15311813028b5be00ed2d8fc2011e40233442404ea925",
+      "urls": [
+        "https://github.com/cute-aaa/dsh-fish-body/releases/download/assets-v1/anims-extra.zip"
+      ],
+      "files": 106,
+      "note": "下载后立即可播；不含随包发布的 8 段核心动作"
+    }
+  ]
 }
