@@ -27,6 +27,7 @@ import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { registerPersonaSync } from './plugin/persona-sync.ts';
 import { wireExternalMemory } from './plugin/external-memory.ts';
 import { createCoexistStore } from './plugin/coexist.ts';
+import { ScheduleDriver } from './schedule/driver.ts';
 import { createVoiceService } from './voice/speak.ts';
 import { createHearService } from './voice/hear.ts';
 import { openDirectory } from './open-folder.ts';
@@ -139,11 +140,31 @@ export function apply(ctx: any): void {
       sleep.enter(petId, names);
     },
   });
+  // 作息驱动：把人设正文里的作息文字（`23:00 睡觉，早上 08:00 起床`）变成 /rhythm 请求。
+  // 只动它自己设的那条（reason='schedule'），用户手动的与外部脚本的一律不碰。
+  const scheduleDriver = new ScheduleDriver({
+    rhythm,
+    readSources: () => {
+      const cfg = readAllConfig(configPaths);
+      const pets = Array.isArray(cfg.main?.pets) ? cfg.main.pets : [];
+      return pets
+        .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+        .map((item) => ({
+          petId: typeof item.id === 'string' ? item.id : '',
+          text: typeof item.whisperPrompt === 'string' ? item.whisperPrompt : '',
+        }))
+        .filter((item) => item.petId !== '');
+    },
+    log,
+  });
+
   // 到期由定时器主动回醒（查询时也会惰性清一遍）：否则没人来查就会一直睡着。
   // 每分钟一次，够用且不会让定时器成为唤醒源；unref 保证它不拖住宿主退出。
   const rhythmTimer = setInterval(() => {
     const expired = rhythm.expire();
     if (expired.length > 0) log.info('[fish-body] 节律到期回醒：' + expired.join(', '));
+    // 再按作息走一拍：进段设 sleeping、出段清掉（幂等，同一分钟调多次是安全的）
+    scheduleDriver.tick();
   }, 60_000);
   rhythmTimer.unref?.();
   ctx.effect(() => () => clearInterval(rhythmTimer), 'fish-body: rhythm expiry');
