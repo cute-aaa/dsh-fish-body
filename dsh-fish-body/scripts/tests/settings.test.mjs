@@ -219,11 +219,17 @@ async function open(
     // `pickFiles` / `lineSets` 按调用顺序消耗：一次「Pick a line…」取一个文件路径、取一份行集；
     // 取不到就当取消（`/pick-file` 回 `{ok:false,reason:'cancelled'}`）。
     voiceImport = null,
+    // 素材导入夹具：按调用顺序消费原生选择框结果，并记录卡片最终发出的 `/assets/import`。
+    assetImport = null,
     // 预置 localStorage（模拟「上次会话记下的目录」）：必须在首帧脚本之前写入，所以要 addInitScript。
     storage = null,
   } = {},
 ) {
   const voiceImportState = voiceImport === null ? null : { packs: [], pickCalls: [], lineCalls: [], ...voiceImport };
+  const assetImportState =
+    assetImport === null
+      ? null
+      : { imports: [], pickFiles: [], pickFolders: [], files: [], folders: [], ...assetImport };
   const context = await browser.newContext(reducedMotion ? { reducedMotion, viewport } : { viewport });
   t.after(() => context.close());
   const page = await context.newPage();
@@ -413,7 +419,34 @@ async function open(
       return route.fulfill({ json: { ok: true, which, path: '/test/fish-body/' + which, files: 2, bytes: 4194304 } });
     }
     if (path === '/dsh-pet-7340/pick-folder') {
+      if (assetImportState !== null) {
+        assetImportState.pickFolders.push(request.postDataJSON() ?? {});
+        const sourcePath = assetImportState.folders.shift();
+        return route.fulfill({
+          json: sourcePath === undefined ? { ok: false, reason: 'cancelled' } : { ok: true, path: sourcePath },
+        });
+      }
       return route.fulfill({ json: { ok: true, path: pickPath } });
+    }
+    if (assetImportState !== null && path === '/dsh-pet-7340/pick-file') {
+      assetImportState.pickFiles.push(request.postDataJSON() ?? {});
+      const sourcePath = assetImportState.files.shift();
+      return route.fulfill({
+        json: sourcePath === undefined ? { ok: false, reason: 'cancelled' } : { ok: true, path: sourcePath },
+      });
+    }
+    if (assetImportState !== null && path === '/dsh-pet-7340/assets/import') {
+      const body = request.postDataJSON() ?? {};
+      assetImportState.imports.push(body);
+      return route.fulfill({
+        json: {
+          ok: true,
+          imported: {
+            kind: body.kind,
+            relativePath: 'assets/imported-' + assetImportState.imports.length,
+          },
+        },
+      });
     }
     if (path === '/dsh-pet-7340/session-fish') {
       if (request.method() === 'PUT') {
@@ -537,6 +570,7 @@ async function open(
     movePosts,
     models,
     voiceImport: voiceImportState,
+    assetImport: assetImportState,
     setPickPath: (value) => {
       pickPath = value;
     },
@@ -1226,6 +1260,47 @@ test('T22: feel page shows render pair, three skin rows and window behaviour', a
       animations: 'disabled',
     });
   }
+});
+
+test('asset import buttons: pick a source, post it and refresh the affected library', async (t) => {
+  const { page, assetImport } = await open(t, {
+    viewport: { width: 900, height: 1000 },
+    assetImport: {
+      folders: ['/test/import/layered-demo'],
+      files: ['/test/import/click.wav', '/test/import/session-fish.png'],
+    },
+  });
+
+  const imported = async (button) => {
+    const response = page.waitForResponse(
+      (entry) => new URL(entry.url()).pathname === '/dsh-pet-7340/assets/import' && entry.request().method() === 'POST',
+    );
+    await button.click();
+    assert.equal((await (await response).json()).ok, true);
+  };
+
+  await tab(page, 'Look & feel').click();
+  const layered = page.locator('.dsh-pet-cfg__treeRow', { hasText: 'layered/' });
+  await imported(layered.getByRole('button', { name: 'Import', exact: true }));
+  await page.getByText('Imported: assets/imported-1', { exact: true }).waitFor();
+
+  await tab(page, 'Sound').click();
+  await imported(page.getByRole('button', { name: 'Import shared sound', exact: true }));
+  await page.getByText('Imported: assets/imported-2', { exact: true }).waitFor();
+
+  await tab(page, 'Session fish').click();
+  await imported(page.getByRole('button', { name: 'Import skin', exact: true }));
+  await page.getByText(/Scan finished:/).waitFor();
+
+  assert.equal(assetImport.pickFolders.length, 1);
+  assert.equal(assetImport.pickFolders[0].title, 'Choose skin file / folder');
+  assert.deepEqual(assetImport.pickFiles[0].extensions, ['.wav', '.ogg', '.mp3', '.m4a']);
+  assert.deepEqual(assetImport.pickFiles[1].extensions, ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.webm', '.mp4']);
+  assert.deepEqual(assetImport.imports, [
+    { kind: 'skin', renderer: 'layered', sourcePath: '/test/import/layered-demo' },
+    { kind: 'sfx', sourcePath: '/test/import/click.wav', target: 'shared' },
+    { kind: 'session-fish', sourcePath: '/test/import/session-fish.png' },
+  ]);
 });
 
 /** 云端 TTS 骨架（T3.5）的 provider 形状：只有声明式 fields，没有音色可切。 */
