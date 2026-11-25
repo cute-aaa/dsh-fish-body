@@ -1,0 +1,36 @@
+/**
+ * 记忆端点：`GET /memory` 告诉你「外部记忆接上了没有、读到几条、为什么没生效」。
+ *
+ * 记忆后端是单槽（同时只能有一个实现改内容），所以「装了却没生效」是常态而不是故障。
+ * 这个端点把三种情况拆开：
+ * 1. 没装任何记忆插件 → `provider: null` + 候选全是 `installed: false`
+ * 2. 装了但槽被别的实现占着 → `provider: null` + `slotTakenByOther: true`
+ * 3. 接上了 → `provider: { id, dir, notes, skipped, lastReadAt }`
+ * @module dsh-fish-body/src/host/routes/memory
+ */
+import { memoryView } from '../memory/status.ts';
+import { okResult } from './result.ts';
+import type { PetRouteDeps, RouteInput } from './types.ts';
+import type { RouteResult } from '../http.ts';
+
+/** 记忆领域：未命中返回 undefined，命中返回应答。 */
+export async function handleMemoryRoutes(_deps: PetRouteDeps, input: RouteInput): Promise<RouteResult | undefined> {
+  const { method, rest } = input;
+  // 与字面量直接比较：check-openapi 按这种写法收集宿主实现的路由
+  const isMemory = rest === 'memory';
+  if (!isMemory) return undefined;
+  if (method !== 'GET') {
+    return {
+      kind: 'json',
+      status: 405,
+      obj: { ok: false, reason: 'method-not-allowed', message: 'method not allowed' },
+    };
+  }
+  const view = memoryView();
+  return okResult({
+    ok: true,
+    provider: view.provider,
+    candidates: view.candidates,
+    slotTakenByOther: view.slotTakenByOther,
+  });
+}

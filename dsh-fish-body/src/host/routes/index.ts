@@ -14,16 +14,19 @@ import { handleAvatarRoutes } from './avatar.ts';
 import { handleBalanceRoutes } from './balance.ts';
 import { handleCharacterRoutes } from './character.ts';
 import { handleChatRoutes } from './chat.ts';
+import { handleCoexistRoutes } from './coexist.ts';
 import { handleConfigRoutes } from './config/index.ts';
 import { handleDesktopRoutes } from './desktop.ts';
 import { handleInteractionRoutes } from './interaction.ts';
 import { handleLayoutRoutes } from './layout.ts';
+import { handleMemoryRoutes } from './memory.ts';
 import { handleMenuRoutes } from './menu.ts';
 import { handleMotionRoutes } from './motion.ts';
 import { handleOpenFolderRoutes } from './open-folder.ts';
 import { handlePacksRoutes } from './packs.ts';
 import { handlePersonaRoutes } from './persona.ts';
 import { handlePlaybackRoutes } from './playback.ts';
+import { handleRhythmRoutes } from './rhythm.ts';
 import { handlePluginRestart } from './plugin-restart.ts';
 import { handleScreenRoutes } from './screen.ts';
 import { handleSessionRoutes } from './session.ts';
@@ -54,6 +57,9 @@ const HANDLERS: readonly RouteHandler[] = [
   handleAppearanceRoutes,
   handlePlaybackRoutes,
   handleSleepRoutes,
+  handleRhythmRoutes,
+  handleMemoryRoutes,
+  handleCoexistRoutes,
   handleChatRoutes,
   handleAttachmentRoutes,
   handleTodoRoutes,

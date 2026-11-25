@@ -17,12 +17,16 @@ import { createBalancePoll } from './plugin/balance-poll.ts';
 import { createChatMemory } from './plugin/chat-memory.ts';
 import { createSessionNotify } from './plugin/session-notify.ts';
 import { createPetLookup } from './plugin/pet-lookup.ts';
+import { RhythmStore } from './rhythm.ts';
+import { pickSleepNames } from './sleep.ts';
 import { createDownloadReport } from './plugin/download-report.ts';
 import { createWorkStatusBridge } from './plugin/work-status-bridge.ts';
 import { createSessionFishBridge, registerSessionFish } from './plugin/session-fish.ts';
 import { registerTodoReminders } from './plugin/todo-reminders.ts';
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { registerPersonaSync } from './plugin/persona-sync.ts';
+import { wireExternalMemory } from './plugin/external-memory.ts';
+import { createCoexistStore } from './plugin/coexist.ts';
 import { createVoiceService } from './voice/speak.ts';
 import { createHearService } from './voice/hear.ts';
 import { openDirectory } from './open-folder.ts';
@@ -110,6 +114,39 @@ export function apply(ctx: any): void {
   const { reportDownload, stopDownloadSlotTimer } = downloadReport;
   const petLookup = createPetLookup({ state, configPaths });
   const { lock, sleep, sleepRefusalText } = petLookup;
+  /**
+   * 节律：外部（soul 项目 / 用户脚本 / 计划任务）指定「现在该睡还是该醒」，到点自动回醒。
+   *
+   * 只驱动 SleepStore 这一个执行态——睡觉动画与「睡着时拒聊」的闸门因此和 `/sleep` 完全同源，
+   * 不会出现两套并行的睡眠状态。挑哪套动画的兜底也在下面：配置里没有睡觉动画时按醒来处理，
+   * 不让请求表里留下一个「说是睡着、其实没播」的假状态。
+   */
+  // 共存：探测谁也在驱动宠物（surfcore 的 pet/、Coopanion 的 Habits）。缺省 auto 只报告；
+  // 要让位就 POST /coexist {mode:'body-only'}，那时只停周期碎碎念，手动触发照常。
+  const coexist = createCoexistStore();
+
+  const rhythm = new RhythmStore({
+    onChange: (petId, request) => {
+      if (request.state !== 'sleeping') {
+        sleep.wake(petId);
+        return;
+      }
+      const names = pickSleepNames(readAllConfig(configPaths).main?.animations);
+      if (names === null) {
+        log.warn('[fish-body] 节律要求入睡，但没有配置睡觉动画（animations.sleep）：pet=' + petId);
+        return;
+      }
+      sleep.enter(petId, names);
+    },
+  });
+  // 到期由定时器主动回醒（查询时也会惰性清一遍）：否则没人来查就会一直睡着。
+  // 每分钟一次，够用且不会让定时器成为唤醒源；unref 保证它不拖住宿主退出。
+  const rhythmTimer = setInterval(() => {
+    const expired = rhythm.expire();
+    if (expired.length > 0) log.info('[fish-body] 节律到期回醒：' + expired.join(', '));
+  }, 60_000);
+  rhythmTimer.unref?.();
+  ctx.effect(() => () => clearInterval(rhythmTimer), 'fish-body: rhythm expiry');
   const sessionNotify = createSessionNotify({ ctx, publishWorkStatus, state, workStatus });
   const {
     pushNotifyFrame,
@@ -134,6 +171,8 @@ export function apply(ctx: any): void {
     userRoot,
     // 外观真值来自渲染端上报（petLookup 持有的快照表）；提示词里的「你现在挂着什么」读它。
     appearance: petLookup.appearance,
+    // 共存让位：body-only 时停掉周期碎碎念（手动触发的不受影响）
+    allowAutoWhisper: () => coexist.allowAutoWhisper(),
   });
   const { lastWhisperAt, publishWhisper, publishSleepTalk, chatWithPet, getActivePetId, setActivePetId } = chatMemory;
 
@@ -159,6 +198,8 @@ export function apply(ctx: any): void {
   const deps: PetRouteDeps = {
     ...setup,
     ...petLookup,
+    rhythm,
+    coexist,
     ...workStatusBridge,
     ...chatMemory,
     ...balancePoll,
@@ -260,6 +301,11 @@ export function apply(ctx: any): void {
 
   // 人设同步：注册内置 fish-soul 来源并启动 watcher（改卡不重启即生效），卸载时随 effect 收尾。
   registerPersonaSync(ctx, [userRoot, resolveDshHome()]);
+
+  // 外部记忆：记忆插件的产物接进对话的召回钩子（单槽，不抢占已有的实现）。
+  // 与人格来源分开挂：rofm / suzu-memory 不产人设，只贡献记忆。
+  const externalMemory = wireExternalMemory({ log });
+  ctx.effect(() => () => externalMemory.dispose(), 'fish-body: external memory');
 
   // 路由就绪后拉起桌面 Helper（Electron 缺失时仅告警，不影响 DSH 与浏览器 overlay）
   startHelper();

@@ -16,6 +16,8 @@ import type { FileLogger } from '../log-file.ts';
 import type { MenuRegistry } from '../menu.ts';
 import type { PlaybackStore } from '../playback.ts';
 import type { PoseStore } from '../pose.ts';
+import type { CoexistStore } from '../coexist.ts';
+import type { RhythmStore } from '../rhythm.ts';
 import type { SleepStore } from '../sleep.ts';
 import type { SessionFishStore } from '../session-fish/store.ts';
 import type { SessionFishSettingsStore } from '../session-fish/settings.ts';
@@ -51,7 +53,8 @@ export type GeneratedReply =
   | { ok: true; text: string; image?: string }
   | {
       ok: false;
-      reason: 'provider-missing' | 'generate-error' | 'unknown-pet' | 'unknown-image';
+      /** `coexist-body-only` = 共存让位期间，周期碎碎念被主动跳过（不是失败）。 */
+      reason: 'provider-missing' | 'generate-error' | 'unknown-pet' | 'unknown-image' | 'coexist-body-only';
       message?: string;
     };
 
@@ -137,6 +140,19 @@ export interface PetRouteDeps {
   readonly lock: LockStore;
   /** 睡觉状态（进睡 / 醒来由 /sleep 与 /wake 驱动）。 */
   readonly sleep: SleepStore;
+  /**
+   * 节律请求表（外部指定「现在该睡还是该醒」+ 到期时间）。
+   *
+   * 可选：精简测试桩与老调用方没有它时，`/rhythm` 直接视为「该宿主没这个能力」，
+   * 由后面的处理器兜底——不为一个新增能力去改所有既有测试桩。
+   */
+  readonly rhythm?: RhythmStore;
+  /**
+   * 共存状态（检测到的同伴 + 让位模式）。
+   *
+   * 可选：精简测试桩没有它时 `/coexist` 直接视为「该宿主没这个能力」。
+   */
+  readonly coexist?: CoexistStore;
   /** 睡觉闸门：在睡且未持锁时拒绝并弹拒绝台词；放行回 null。 */
   readonly sleepBlocked: (petId: string, params: URLSearchParams) => RouteResult | null;
   /** 插件日志出口（文件 + 终端）。 */

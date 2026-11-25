@@ -16,6 +16,7 @@ export type ResultReason =
   | 'bad-request'
   | 'busy'
   | 'character-in-use'
+  | 'coexist-body-only'
   | 'generate-error'
   | 'extract-failed'
   | 'internal-error'

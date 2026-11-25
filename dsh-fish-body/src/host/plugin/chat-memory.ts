@@ -67,6 +67,12 @@ export type ChatMemoryInput = {
   Pick<HostSetup, 'userRoot'> & {
     /** 外观/动作的当前状态（渲染端上报的真值）：提示词里的「你现在挂着什么」读它。 */
     appearance: AppearanceStore;
+    /**
+     * 周期碎碎念此刻允不允许跑（共存 `body-only` 时为 false）。
+     *
+     * 可选：缺省 = 永远允许。只挡自动来源，手动触发的那条路径不经过它。
+     */
+    allowAutoWhisper?: () => boolean;
   };
 
 /** 这一份意图是否真的动了外观：三个「改法」全空就什么都不做（保持当前挂着的那批）。 */
@@ -92,7 +98,8 @@ function expressionLeafOf(names: readonly string[], ttlMs?: number): string {
  * 创建对话与记忆。
  */
 export function createChatMemory(deps: ChatMemoryInput) {
-  const { appearance, ctx, configPaths, log, memeDirsFor, playback, poolRoots, state, userRoot } = deps;
+  const { allowAutoWhisper, appearance, ctx, configPaths, log, memeDirsFor, playback, poolRoots, state, userRoot } =
+    deps;
   // 命令「当前桌宠」（/pet 选择、/chat 使用）：全局单值不分会话；进程内内存，重启回默认第一只
   let activePetId = '';
 
@@ -249,8 +256,17 @@ export function createChatMemory(deps: ChatMemoryInput) {
     kind: 'whisper' | 'manual' = 'manual',
   ): Promise<
     | { ok: true; text: string; image?: string }
-    | { ok: false; reason: 'provider-missing' | 'generate-error' | 'unknown-pet' | 'unknown-image'; message?: string }
+    | {
+        ok: false;
+        reason: 'provider-missing' | 'generate-error' | 'unknown-pet' | 'unknown-image' | 'coexist-body-only';
+        message?: string;
+      }
   > => {
+    // 共存让位：`body-only` 只停**自动来源**（周期碎碎念）。手动点的碎碎念、对话、点击回应照常——
+    // 用户主动要的不该被共存设置吞掉。判断放在读配置之前：这条路径连配置都不必读。
+    if (kind === 'whisper' && allowAutoWhisper?.() === false) {
+      return { ok: false, reason: 'coexist-body-only', message: '共存模式 body-only：周期碎碎念已让位' };
+    }
     const cfg = readAllConfig(configPaths);
     const found = findPetInstance(cfg, petId);
     // 宠物可能在「校验那次读」与这里之间被删（配置随时会变，两次读之间就是窗口）：
