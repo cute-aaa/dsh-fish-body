@@ -113,4 +113,18 @@ contextBridge.exposeInMainWorld('petBridge', {
   onForeground(cb) {
     ipcRenderer.on('pet:foreground', (e, payload) => cb(payload));
   },
+  // 位置记忆：**同步**读写主进程那份落盘文件（`main/position-file.js`）。
+  //
+  // 为什么同步：切渲染方式/模型会重启 Helper，Windows 上是硬杀（TerminateProcess），
+  // 渲染端 `localStorage` 那时还没刷盘——「拖完立刻切皮肤」就丢位置。同步 IPC 保证返回时
+  // 磁盘上已经有了。只在位置落定时调一次，不在逐帧路径上。
+  readPosition(petId, sig) {
+    return ipcRenderer.sendSync('pet:pos-get', { petId, sig }) ?? null;
+  },
+  savePosition(petId, pos, sig) {
+    return ipcRenderer.sendSync('pet:pos-set', { petId, pos, sig }) === true;
+  },
+  clearPosition(petId) {
+    return ipcRenderer.sendSync('pet:pos-del', { petId }) === true;
+  },
 });

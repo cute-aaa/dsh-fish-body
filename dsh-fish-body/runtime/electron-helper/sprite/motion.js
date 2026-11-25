@@ -33,7 +33,7 @@ Object.assign(PetSprite.prototype, {
         this.moveRef = requestAnimationFrame(step);
       } else {
         this.moveRef = null;
-        this.customPos = { rx: targetRatio, ry: startYRatio };
+        this.setCustomPos({ rx: targetRatio, ry: startYRatio });
       }
     };
     this.moveRef = requestAnimationFrame(step);
@@ -174,7 +174,7 @@ Object.assign(PetSprite.prototype, {
       if (res.atRest) {
         this.throwRef = null;
         this.throwState = null;
-        this.customPos = { rx: (this.pos.x + this.halfW) / VIEW.w, ry: (this.pos.y + this.halfH) / VIEW.h };
+        this.setCustomPos({ rx: (this.pos.x + this.halfW) / VIEW.w, ry: (this.pos.y + this.halfH) / VIEW.h });
         window.__dshPetDebug.lastDragRelease = { x: this.pos.x, y: this.pos.y };
         return;
       }
@@ -213,7 +213,7 @@ Object.assign(PetSprite.prototype, {
     const py = c.y - this.halfH;
     if (mode === 'instant' || (mode === 'line' && duration <= 0)) {
       this.sendBounds(px, py);
-      this.customPos = { rx: fx, ry: fy };
+      this.setCustomPos({ rx: fx, ry: fy });
       return;
     }
     const token = ++this.posFollowToken;
@@ -229,7 +229,7 @@ Object.assign(PetSprite.prototype, {
           // 精确落位：终点不留残余偏差（弹簧那条靠收敛阈值收尾，这条靠 p 到 1）
           this.posFollow = null;
           this.sendBounds(px, py);
-          this.customPos = { rx: fx, ry: fy };
+          this.setCustomPos({ rx: fx, ry: fy });
           return;
         }
         this.sendBounds(fromX + (px - fromX) * p, fromY + (py - fromY) * p);
@@ -257,7 +257,7 @@ Object.assign(PetSprite.prototype, {
       if (Math.abs(px - x) < 0.5 && Math.abs(py - y) < 0.5 && Math.abs(vel.vx) < 1 && Math.abs(vel.vy) < 1) {
         this.posFollow = null;
         this.sendBounds(px, py);
-        this.customPos = { rx: fx, ry: fy };
+        this.setCustomPos({ rx: fx, ry: fy });
         return;
       }
       this.posFollow = requestAnimationFrame(step);

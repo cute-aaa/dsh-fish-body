@@ -132,7 +132,101 @@ Object.assign(PetSprite.prototype, {
     this.moveRef = null;
     this.moveToken = 0;
     this.pendingMove = null;
-    this.customPos = null; // 拖拽后的会话内位置（{rx, ry} 比例）；restart 回角落
+    // 拖拽后的位置（{rx, ry} 归一化中心）。**会跨重启保留**：切渲染方式 / 模型走的是「改配置 →
+    // 重启 Helper」，以前这里恒为 null，于是切个皮肤就把人摆的位置弹回配置角落（用户报的缺陷）。
+    // 恢复是有条件的——记录里带位置配置签名，改了角落/边距就不认旧坐标（那才是「放这里」）。
+    this.customPos = this.readStoredPosition();
+  },
+
+  /**
+   * 从**主进程**的位置文件读回上次的位置（首选）。
+   *
+   * 为什么优先走桥而不是 localStorage：切渲染方式/模型会重启 Helper，Windows 上是硬杀，
+   * 渲染端的 localStorage 那时还没刷盘，位置就丢了（实测拖完 0.4 秒切皮肤读到的是上一个位置）。
+   * 桥那边是同步落盘，返回时磁盘上已经有了。
+   *
+   * @returns {{rx: number, ry: number}|null} 可用坐标；没桥（网页/独立模式）或不适用时 null。
+   */
+  bridgePosition() {
+    const bridge = window.petBridge;
+    if (!bridge || typeof bridge.readPosition !== 'function') return null;
+    try {
+      const hit = bridge.readPosition(this.pet.id, PetPositionStore.signatureOf(this.pet.position));
+      if (hit && typeof hit === 'object' && typeof hit.rx === 'number' && typeof hit.ry === 'number') {
+        return { rx: hit.rx, ry: hit.ry };
+      }
+    } catch {
+      // 同步 IPC 失败（主进程没注册这条通道 / 正在退出）：退回 localStorage。
+    }
+    return null;
+  },
+
+  /**
+   * 从本地存储读回上次的位置（没有桥时的退路：网页 overlay 与独立模式仍走 localStorage）。
+   *
+   * @returns {{rx: number, ry: number}|null} 可用坐标；没记过 / 读坏 / 位置配置改过一律 null。
+   */
+  readStoredPosition() {
+    const sig = PetPositionStore.signatureOf(this.pet.position);
+    const bridge = window.petBridge;
+    if (bridge && typeof bridge.readPosition === 'function') return this.bridgePosition();
+    return PetPositionStore.readPetPosition(this.positionStorage(), this.pet.id, sig);
+  },
+
+  /**
+   * 位置记忆用的存储句柄。
+   *
+   * `file://` 页面里可能被禁用（企业策略 / 隐私模式），拿不到就当没有——位置记忆坏了不该让宠物起不来。
+   *
+   * @returns {Storage|null} localStorage 或 null。
+   */
+  positionStorage() {
+    try {
+      return window.localStorage ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * 记下当前位置（唯一写入口：所有 `this.customPos = …` 都该走它，否则重启后丢位置）。
+   *
+   * 有桥就同步落盘（抗硬杀），没有桥退回 localStorage（网页 overlay / 独立模式）。
+   *
+   * @param {{rx: number, ry: number}} pos - 归一化中心（与 `position()` 的 customPos 同一套语义）。
+   * @returns {void}
+   */
+  setCustomPos(pos) {
+    this.customPos = pos;
+    const sig = PetPositionStore.signatureOf(this.pet.position);
+    const bridge = window.petBridge;
+    if (bridge && typeof bridge.savePosition === 'function') {
+      try {
+        bridge.savePosition(this.pet.id, pos, sig);
+        return;
+      } catch {
+        // 主进程那边还没注册 / 正在退出：落到下面用 localStorage 兜一层。
+      }
+    }
+    PetPositionStore.writePetPosition(this.positionStorage(), this.pet.id, pos, sig);
+  },
+
+  /**
+   * 忘掉位置并回角落（菜单「回到原位」）：连存储一起清，否则下次重启又跳回旧坐标。
+   *
+   * @returns {void}
+   */
+  clearCustomPos() {
+    this.customPos = null;
+    const bridge = window.petBridge;
+    if (bridge && typeof bridge.clearPosition === 'function') {
+      try {
+        bridge.clearPosition(this.pet.id);
+      } catch {
+        // 忽略：下面再用 localStorage 清一次（两条路互相兜底）。
+      }
+    }
+    PetPositionStore.clearPetPosition(this.positionStorage(), this.pet.id);
   },
 
   /** 菜单、气泡、提示、余额、碎碎念、工作状态、占用锁与对话弹窗的开关状态。 */

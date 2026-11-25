@@ -70,6 +70,8 @@ function loadSprite(manual: boolean): {
   const proto = runInNewContext(script + '\nPetSprite.prototype', context) as object;
   const sprite = Object.create(proto) as Sprite;
   // 只补 position()/relayout() 真正读到的状态：vm 里的方法按属性随时现取，补齐即可跑。
+  // `setCustomPos` / `clearCustomPos` 是 init.js 挂在原型上的写入口（唯一出口，顺带落存储），
+  // 这里只装 sprite.js，所以补一份等价的桩：赋值本身，不碰存储。
   Object.assign(sprite as unknown as Record<string, unknown>, {
     size: PET_SIZE,
     halfW: PET_SIZE / 2,
@@ -80,6 +82,12 @@ function loadSprite(manual: boolean): {
     throwRef: null,
     pos: { x: 0, y: 0 },
     stopMove: (): void => undefined,
+    setCustomPos: (pos: { rx: number; ry: number }): void => {
+      sprite.customPos = pos;
+    },
+    clearCustomPos: (): void => {
+      sprite.customPos = null;
+    },
     sendBounds: (x: number, y: number): void => {
       sprite.pos = { x, y };
     },

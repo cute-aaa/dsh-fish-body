@@ -234,7 +234,7 @@ Object.assign(PetSprite.prototype, {
           // 看着像宠物向界内倒抽一段。
           const land = this.clampBodyToArea(px, py);
           // customPos 语义 = 宠物中心的比例（position() 用 rx*W - halfW 还原左上角）
-          this.customPos = { rx: (land.x + this.halfW) / VIEW.w, ry: (land.y + this.halfH) / VIEW.h };
+          this.setCustomPos({ rx: (land.x + this.halfW) / VIEW.w, ry: (land.y + this.halfH) / VIEW.h });
           this.position();
           // 释放后的最终窗口位置：冒烟断言「释放不位移」用
           window.__dshPetDebug.lastDragRelease = { x: this.pos.x, y: this.pos.y };

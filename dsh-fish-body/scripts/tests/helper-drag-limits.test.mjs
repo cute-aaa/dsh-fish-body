@@ -99,6 +99,14 @@ function makeSprite(Sprite, o = {}) {
     dragTrail: [],
     dragState: { active: false },
     customPos: null,
+    // 位置的唯一写入口（真实现挂在 sprite/init.js 的原型上，还会顺手落盘）；这里是只装
+    // input.js 的桩，等价语义 = 赋值本身。
+    setCustomPos(pos) {
+      sprite.customPos = pos;
+    },
+    clearCustomPos() {
+      sprite.customPos = null;
+    },
     sleeping: false,
     tipOn: false,
     justDragged: false,

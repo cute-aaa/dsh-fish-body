@@ -479,11 +479,12 @@ Object.assign(PetSprite.prototype, {
     if (!this.menuOpen && !this.chatOpen) this.setInteractive(false);
   },
 
-  // 「回到初始位置」菜单：停掉漫游/移动，清掉会话位置，回到配置角落
+  // 「回到初始位置」菜单：停掉漫游/移动，清掉记住的位置（连存储一起），回到配置角落。
+  // 必须走 clearCustomPos：只把字段置 null 的话，下次重启 Helper 又会从存储里把旧坐标读回来。
   goHome() {
     this.stopThrow();
     this.stopMove();
-    this.customPos = null;
+    this.clearCustomPos();
     this.position();
   },
 

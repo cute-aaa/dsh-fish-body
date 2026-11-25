@@ -33,8 +33,9 @@ function rectOf(value) {
  * @param deps.shell - Electron shell（打开站点）。
  * @param deps.openTarget - 菜单首项的去向：desktop 唤起桌面应用；其余形态交给默认浏览器打开已鉴权地址。
  * @param deps.petRoute - 宠物路由前缀。
+ * @param deps.positions - 位置记忆（`main/position-file.js` 的句柄）；缺省不注册相关频道。
  */
-function registerIpc({ ipcMain, petWindows, shell, openTarget, petRoute }) {
+function registerIpc({ ipcMain, petWindows, shell, openTarget, petRoute, positions }) {
   // 宠物窗口跟随：renderer 逐帧上报窗口内容区位置/尺寸
   ipcMain.on('pet:set-bounds', (event, bounds) => {
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -252,6 +253,30 @@ function registerIpc({ ipcMain, petWindows, shell, openTarget, petRoute }) {
       scaleFactor: shot.scaleFactor,
     };
   });
+  /**
+   * 位置记忆：渲染端经 `sendSync` 同步读写（见 `preload.js` 的 savePosition / readPosition）。
+   *
+   * 为什么是同步：切渲染方式/模型会重启 Helper，而 Windows 上是硬杀（TerminateProcess）——
+   * 渲染端的 localStorage 还没刷盘进程就没了，「拖完立刻切皮肤」会丢最后那段位置。
+   * 这里的写是同步落盘，返回时磁盘上已经有了，被杀也不影响。
+   */
+  if (positions) {
+    // 三条都按 `sendSync` 用：必须给 `returnValue`，否则渲染端那边会拿到 undefined（等于静默失败）。
+    ipcMain.on('pet:pos-get', (event, payload) => {
+      const petId = typeof payload?.petId === 'string' ? payload.petId : '';
+      const sig = typeof payload?.sig === 'string' ? payload.sig : '';
+      event.returnValue = petId === '' ? null : positions.read(petId, sig);
+    });
+    ipcMain.on('pet:pos-set', (event, payload) => {
+      const petId = typeof payload?.petId === 'string' ? payload.petId : '';
+      const sig = typeof payload?.sig === 'string' ? payload.sig : '';
+      event.returnValue = petId !== '' && positions.write(petId, payload?.pos, sig);
+    });
+    ipcMain.on('pet:pos-del', (event, payload) => {
+      const petId = typeof payload?.petId === 'string' ? payload.petId : '';
+      event.returnValue = petId !== '' && positions.clear(petId);
+    });
+  }
 }
 
 module.exports = { registerIpc };

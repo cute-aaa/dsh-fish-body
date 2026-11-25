@@ -54,6 +54,7 @@ const { createPickDialog } = require('./main/dialog.js');
 const { createTray } = require('./main/tray.js');
 const { createWindows } = require('./main/windows.js');
 const { registerIpc } = require('./main/ipc.js');
+const { createPositionFile } = require('./main/position-file.js');
 const { createHideAllHotkey } = require('./main/shortcut.js');
 const { startForegroundWatch, stopForegroundWatch } = require('./main/foreground.js');
 const { createDisplaySync } = require('./main/displays.js');
@@ -389,7 +390,9 @@ app.whenReady().then(() => {
   powerMonitor.on('resume', reassertTaskbar);
   powerMonitor.on('unlock-screen', reassertTaskbar);
 
-  registerIpc({ ipcMain, petWindows, shell, openTarget: OPEN_TARGET, petRoute: PET_ROUTE });
+  // 位置记忆的落盘句柄：和窗口同一条 userData（切皮肤重启 Helper 时它得活下来）。
+  const positions = createPositionFile({ dir: app.getPath('userData') });
+  registerIpc({ ipcMain, petWindows, shell, openTarget: OPEN_TARGET, petRoute: PET_ROUTE, positions });
 
   /**
    * 避让采集与落点。

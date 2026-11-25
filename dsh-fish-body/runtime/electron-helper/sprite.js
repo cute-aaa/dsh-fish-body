@@ -262,7 +262,7 @@ class PetSprite {
       const from = prevView || VIEW;
       const centerOld = { x: this.pos.x + this.halfW, y: this.pos.y + this.halfH };
       const center = S.rebaseCenter(centerOld, from, VIEW, AREAS);
-      this.customPos = { rx: center.x / VIEW.w, ry: center.y / VIEW.h };
+      this.setCustomPos({ rx: center.x / VIEW.w, ry: center.y / VIEW.h });
     }
     this.position();
   }

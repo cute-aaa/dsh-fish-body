@@ -116,6 +116,8 @@ const scriptGlobals = {
   FISH_BUMP_MIN_SPEED: 'readonly',
   FISH_BUMP_GAP_MS: 'readonly',
   FISH_BUMP_VOLUME: 'readonly',
+  // sprite/position-store.js：位置记忆（换皮肤重启后不把人挪走；读/写/清 + 配置签名）
+  PetPositionStore: 'readonly',
 };
 
 export default defineConfig([

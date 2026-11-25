@@ -4,6 +4,22 @@
 0.4.x 及更早的历史不在这里重复，见上游仓库的 Releases。版本号规则：`MAJOR.MINOR.PATCH`，
 用户能感知的行为变化进 MINOR，修 bug 进 PATCH；破坏性的接口/配置变化在条目末尾标 **BREAKING**。
 
+## v0.6.1
+
+### 修复
+
+- **切皮肤不再重置坐标**：桌面端改渲染方式 / 模型走的是「改配置 → 重启 Helper」，而位置原本是会话内状态
+  （`this.customPos`），一重启就回到配置角落——用户拖到哪儿、切个皮肤就被弹回去。现在「当前摆在哪」由
+  Helper 主进程**同步落盘**（`runtime/electron-helper/main/position-file.js` → `<userData>/pet-positions.json`，
+  渲染端经 `preload.js` 的 `sendSync` 读写），重建窗口后原位恢复。
+  - **为什么不用 `localStorage`**：宿主重启 Helper 在 Windows 上是硬杀（TerminateProcess），Chromium 来不及
+    把 localStorage 刷进 leveldb —— 实测「拖完 0.4 秒切皮肤」读回来的仍是上一个位置。改成同步写文件后，
+    同样的试验（0.3 秒内重启）位置准确保住。localStorage 作为无桥形态（网页 overlay / 独立模式）的退路保留。
+  - 记录里带 `corner|marginX|marginY` 签名：**只切皮肤 → 签名不变 → 恢复**；**改角落 / 边距 → 签名变了 → 不认旧坐标**
+    （那本来就是明确的「放这里」，与网页端 `runtime.ts` 的同一条规则一致）。
+  - `setCustomPos` / `clearCustomPos` 是唯一写入口；菜单「回到原位」连存储一起清，不然下次重启又跳回旧坐标。
+  - 文件读坏、目录不可写、IPC 缺通道一律降级成「这次没记住」，不抛异常、不让宠物起不来（`+27` 条单测）。
+
 ## v0.6.0
 
 第一个以 `dsh-fish-body` 名义发布的版本（仓库名、包名、数据目录名、接口前缀一并从 `dsh-pet`
