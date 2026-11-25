@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 import { handleAssetsRoutes } from './assets.ts';
 import { savePetAvatar } from '../pet-avatar.ts';
@@ -394,5 +395,77 @@ describe('handleAssetsRoutes —— Cubism Core 的判据与路由不许漂移',
         'withPack=' + withPack,
       );
     }
+  });
+});
+
+describe('内置分层皮肤（包内只读池）', () => {
+  /** 仓库包根：从本测试文件向上三级（src/host/routes → 包根）。 */
+  const PACKAGE_PET = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'assets', 'pet');
+  /** `core-skins.json` 声明的内置皮肤 id。 */
+  const declared = (): string[] => {
+    const raw: unknown = JSON.parse(readFileSync(join(dirname(PACKAGE_PET), 'core-skins.json'), 'utf8'));
+    const skins = (raw as { skins?: unknown }).skins;
+    return Array.isArray(skins) ? skins.filter((id): id is string => typeof id === 'string') : [];
+  };
+  /** 用户池是空的（干净数据根）→ 内置那份必须自己撑起列表。 */
+  const emptyUserPool = (): PetRouteDeps =>
+    ({
+      petConfigDir: dir,
+      poolRoot: () => join(dir, 'skin'),
+      poolRoots: () => [join(dir, 'skin'), PACKAGE_PET],
+    }) as unknown as PetRouteDeps;
+
+  test('用户池空着时 /skins 恰好是全部内置皮肤（没有把目录里的杂项算成皮肤）', async () => {
+    const ids = declared();
+    assert.ok(ids.length > 0, 'core-skins.json 不能为空：内置皮肤是 layered 的开箱素材');
+    const result = await handleAssetsRoutes(emptyUserPool(), {
+      url: new URL('http://localhost/skin/main/skins'),
+      rest: 'skin/main/skins',
+      method: 'GET',
+    });
+    assert.ok(result !== undefined && result.kind === 'json');
+    const skins = (result.obj as { skins?: unknown }).skins;
+    assert.ok(Array.isArray(skins));
+    assert.deepEqual([...skins].sort(), [...ids].sort());
+  });
+
+  test('每套内置皮肤都能取到清单与第一张图层（清单里的 file 路径真的落在包内）', async () => {
+    for (const id of declared()) {
+      const manifest = await handleAssetsRoutes(emptyUserPool(), {
+        url: new URL(`http://localhost/skin/main/${id}/manifest.json`),
+        rest: `skin/main/${id}/manifest.json`,
+        method: 'GET',
+      });
+      // 清单走静态文件分支（只有 `.model3.json` 才被改写成 json 应答），所以这里断言 file。
+      assert.ok(manifest !== undefined && manifest.kind === 'file', `${id} 的清单取不到`);
+      const layers = (JSON.parse(readFileSync(manifest.file, 'utf8')) as { layers?: readonly { file?: unknown }[] })
+        .layers;
+      assert.ok(Array.isArray(layers) && layers.length > 0, `${id} 的清单没有图层`);
+      const first = layers[0]?.file;
+      assert.equal(typeof first, 'string');
+      const art = await handleAssetsRoutes(emptyUserPool(), {
+        url: new URL(`http://localhost/skin/main/${id}/${String(first)}`),
+        rest: `skin/main/${id}/${String(first)}`,
+        method: 'GET',
+      });
+      assert.ok(art !== undefined && art.kind === 'file', `${id} 的图层 ${String(first)} 取不到`);
+      assert.ok(art.file.startsWith(PACKAGE_PET), `${id} 的图层没落在包内只读池：${art.file}`);
+    }
+  });
+
+  test('用户放了同名皮肤时用户那份优先（内置只作兜底）', async () => {
+    const ids = declared();
+    const first = ids[0];
+    assert.ok(first !== undefined);
+    const userSkin = join(dir, 'skin', 'layered', first);
+    mkdirSync(userSkin, { recursive: true });
+    writeFileSync(join(userSkin, 'manifest.json'), JSON.stringify({ schema: 2, rig: 'layered', marker: 'user' }));
+    const result = await handleAssetsRoutes(emptyUserPool(), {
+      url: new URL(`http://localhost/skin/main/${first}/manifest.json`),
+      rest: `skin/main/${first}/manifest.json`,
+      method: 'GET',
+    });
+    assert.ok(result !== undefined && result.kind === 'file');
+    assert.equal(result.file, join(userSkin, 'manifest.json'), '用户同名皮肤没压过内置那份');
   });
 });

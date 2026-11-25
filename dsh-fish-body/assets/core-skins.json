@@ -1,0 +1,10 @@
+{
+  "$comment": [
+    "默认随包发布的分层皮肤（layered 渲染的开箱素材）：装完就能在右键「渲染方式 → layered」里选到。",
+    "放在 assets/pet/layered/<id>/（清单 + art/），由宿主当作包内只读池的最后一项读出；",
+    "用户在自己的 skin/layered/<id>/ 放同名皮肤时用户那份优先，内置这份只作兜底。",
+    "体积代价约 4 MB（PNG 已压过，gzip 只省一成），所以只收两套：一套换帽子、一套换音效的同一形象。",
+    "改这里要同步两处：scripts/prepare.js 的 files[]（决定包里带什么）、scripts/prepack-check.js 的存在性断言。"
+  ],
+  "skins": ["feiyu-05", "feiyu-muyu"]
+}

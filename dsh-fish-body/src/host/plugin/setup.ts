@@ -26,7 +26,13 @@ import { PERSONA_CHARACTERS_DIR, userPaths, type UserPaths } from '../user-layou
 import { listInstalled, packsRootOf } from '../packs/state.ts';
 import { resolveUserRoot, type RootLog } from '../user-root.ts';
 import { POOL_LAYER_DIR, POOL_SOUND_DIR, isReservedAssetRoot } from '../../shared/pool.ts';
-import { poolGlobalSoundDir, poolLayerDir, poolRendererSoundDir, resolvePoolRoots } from '../pool/resolve.ts';
+import {
+  appendPackagePoolRoot,
+  poolGlobalSoundDir,
+  poolLayerDir,
+  poolRendererSoundDir,
+  resolvePoolRoots,
+} from '../pool/resolve.ts';
 import { poolEntryDirAcross } from '../pool/roots.ts';
 import { poolStructureBaseOf } from '../pool/scan.ts';
 import type { RendererKind } from '../../shared/types.ts';
@@ -277,19 +283,22 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
    * 刻意没有「旧位置回落」：`<数据根>/skin/` 在新布局里是用户皮肤目录，
    * 再拿它当池读等于把用户的皮肤当内置素材，比池空着更糟（迁移那一步会把旧池搬到 assets/pet）。
    *
-   * 返回的是**根序表**：主根（`assets.pool`）在前，其后是 `assets.resourceDirs` 里的外部素材根。
-   * 顺序即优先级——同 id 资源先到先得，取文件也按这个顺序试。
+   * 返回的是**根序表**：主根（`assets.pool`）在前，其后是 `assets.resourceDirs` 里的外部素材根，
+   * 最后一项是**包内只读池**（`<包根>/assets/pet`，随包发布的内置皮肤）。顺序即优先级——
+   * 同 id 资源先到先得，取文件也按这个顺序试，所以用户改过的同名皮肤永远压过内置那份。
    */
   const builtinPoolRoots = (): string[] => {
+    let userPools: string[];
     try {
-      return resolvePoolRoots(userRoot, readAllConfig(configPaths).main?.assets);
+      userPools = resolvePoolRoots(userRoot, readAllConfig(configPaths).main?.assets);
     } catch {
-      return resolvePoolRoots(userRoot, undefined);
+      userPools = resolvePoolRoots(userRoot, undefined);
     }
+    return appendPackagePoolRoot(userPools, PACKAGE_ROOT);
   };
   const poolRootsOf = (): string[] => {
     // 用户皮肤目录（`<根>/skin`）排在池根之前：用户放进 `skin/<渲染方式>/<id>/` 的资源优先，
-    // 内置池 `assets/pet/<渲染方式>/<id>/` 只作回落。渲染方式子目录由 `poolLayerDirs` 拼。
+    // 池（用户根 `assets/pet` → resourceDirs → 包内只读池）依次回落。渲染方式子目录由 `poolLayerDirs` 拼。
     /** 用户皮肤根：`locations.skin` 指针优先，否则 `<根>/skin`。 */
     const userSkin = resolveSkinDir(userRoot, locations);
     const out = [userSkin, ...builtinPoolRoots()];
@@ -299,6 +308,7 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
    * 内置池根（多数调用点只关心它：根级的 sound/ 与渲染兜底目录仍按内置池取）。
    *
    * 注意不能用 `poolRootsOf()[0]`——那已经是用户的 `skin/`，内置动画与音效不在那里。
+   * 也不能取末尾——那是包内只读池（只有内置皮肤，没有用户的 sound/）。
    */
   const poolRootOf = (): string => builtinPoolRoots()[0] ?? '';
 

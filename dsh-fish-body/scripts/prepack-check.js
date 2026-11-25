@@ -165,6 +165,22 @@ const characterFile = 'assets/main-character.png';
 if (Array.isArray(pkg.files) && pkg.files.includes(characterFile)) ok(`files includes ${characterFile}`);
 else fail(`package.json files must include ${characterFile} (character reference would not ship)`);
 
+// 内置分层皮肤：`<包根>/assets/pet` 是池根序表的最后一项，漏发则「装完就能试 layered」落空——
+// 而这类漏发不会让任何东西报错，只会让右键「皮肤」菜单空着，所以发布前点名。
+const coreSkinsPath = join(ROOT, 'assets', 'core-skins.json');
+const petDir = join(ROOT, 'assets', 'pet');
+if (!existsSync(coreSkinsPath)) {
+  console.log('[prepack-check] note: 没有 assets/core-skins.json —— 包内不含内置分层皮肤');
+} else {
+  const declared = JSON.parse(readFileSync(coreSkinsPath, 'utf8')).skins;
+  const ids = Array.isArray(declared) ? declared.filter((id) => typeof id === 'string') : [];
+  const missing = ids.filter((id) => !existsSync(join(petDir, 'layered', id, 'manifest.json')));
+  if (missing.length > 0) fail(`core-skins.json 声明的皮肤缺清单：${missing.join('、')}`);
+  else if (!Array.isArray(pkg.files) || !pkg.files.includes('assets/pet'))
+    fail('package.json files must include assets/pet (built-in layered skins would not ship)');
+  else ok(`built-in layered skins shipped (${ids.length}: ${ids.join(', ')})`);
+}
+
 // 估算将进包的总大小：直接按 `files` 清单统计，不再扫全仓。
 // 素材改为运行期获取后，本地目录与「将进包的内容」不再一致（本机可能留着字体 / Cubism / 表情包），
 // 扫全仓会把没进包的文件算进体积，给出的数字反而误导。

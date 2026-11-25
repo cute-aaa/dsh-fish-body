@@ -97,6 +97,28 @@ export function resolvePoolRoots(userRoot: string, assets: unknown): string[] {
   return [primary, ...resolveResourceDirs(userRoot, assets, primary)];
 }
 
+/** 包内只读池的相对分量（`<包根>/assets/pet`）：随包发布的内置皮肤落在这里。 */
+export const PACKAGE_POOL_SEGMENTS: readonly string[] = ['assets', 'pet'];
+
+/**
+ * 把包内只读池接到根序表末尾。
+ *
+ * 用户皮肤根与用户池永远排在前面，包里那份只作兜底：同一个 id 用户改过就用用户的，
+ * 用户没动过才露出内置的那份——这样「内置」不会挡住用户在 `skin/` 里的同名皮肤。
+ * 已经有人把包内路径配进 `resourceDirs` 时不重复追加（同一目录扫两遍会让同名资源互相告警）。
+ *
+ * @param roots - 现有根序表（调用方已按优先级排好）。
+ * @param packageRoot - 本插件包根（`PACKAGE_ROOT`）。
+ * @returns 新数组；包内池已在表里时原样返回一份拷贝。
+ */
+export function appendPackagePoolRoot(roots: readonly string[], packageRoot: string): string[] {
+  const packaged = join(packageRoot, ...PACKAGE_POOL_SEGMENTS);
+  /** Windows 路径大小写不敏感：去重按小写比，与 {@link resolveResourceDirs} 同一口径。 */
+  const key = (value: string): string => normalize(value).toLowerCase();
+  const seen = new Set(roots.map(key));
+  return seen.has(key(packaged)) ? [...roots] : [...roots, packaged];
+}
+
 /**
  * 把相对片段拼进根目录并确认没逃出去。
  *

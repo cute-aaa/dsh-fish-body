@@ -85,10 +85,27 @@ for (const rel of coreAnimFiles) {
     process.exit(1);
   }
 }
+// 分层皮肤（layered 渲染）随最小内置包一起发：这是「装完就能试第二种渲染」的唯一一份。
+// 两套都按 `<皮肤 id>/manifest.json` 校验——少了清单就只是一堆读不到的 PNG。
+const CORE_SKINS = JSON.parse(readFileSync(join(ROOT, 'assets', 'core-skins.json'), 'utf8')).skins;
+if (!Array.isArray(CORE_SKINS) || CORE_SKINS.length === 0) {
+  console.error('[prepare] assets/core-skins.json 里 skins 为空：layered 将无素材可选');
+  process.exit(1);
+}
+for (const id of CORE_SKINS) {
+  const manifest = 'assets/pet/layered/' + id + '/manifest.json';
+  if (!existsSync(join(ROOT, manifest))) {
+    console.error(`[prepare] 内置皮肤缺失：${manifest}（清单与目录不一致，先补文件或改 core-skins.json）`);
+    process.exit(1);
+  }
+}
 const keep = [
   'lib',
   'src',
   ...coreAnimFiles,
+  // 内置分层皮肤（整目录随包发）：`<包根>/assets/pet` 是池根序表的最后一项，
+  // `/skin/<素材根>/skins` 靠它列出内置皮肤。逐套列太脆（新增一套就漏发），整目录更稳。
+  'assets/pet',
   'runtime/electron-helper',
   'assets/pic',
   // 点击音效：宿主半侧的 /sound 路由只读包内这一份，漏掉则点击静音。
@@ -101,6 +118,8 @@ const keep = [
   'assets/packs.json',
   // 最小内置包的清单本身也随包发：用户能看出「哪些动画是随包带的、其余要走 extras」。
   'assets/core-anims.json',
+  // 内置分层皮肤的清单：与 core-anims.json 同一用途（内置了什么、其余去哪里拿）。
+  'assets/core-skins.json',
   // 插件图标：package.json 顶层 icon 指向这张图；缺图时读取方 dsh-app-boot 的 iconOf 会抛错、退回默认插画。
   'assets/logo.png',
   // 角色参考图：/character 的包内兜底只读 `<素材根>-character.<ext>`，漏发则第三方拿不到官方参考图。

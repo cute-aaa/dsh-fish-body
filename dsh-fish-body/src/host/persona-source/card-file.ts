@@ -1,5 +1,12 @@
 /**
- * 卡片文件来源工厂：把「某个目录下的 persona.json（单卡）/ personas/*.json|*.png（多角色）」包成一个人格来源。
+ * 卡片文件来源工厂：把「某个目录下的人格产物」包成一个人格来源。
+ *
+ * 认三种布局，**同一份规则只在这里**：
+ * 1. `<目录>/persona.json` —— 单卡（SillyTavern v2，含 PNG 卡的 `tEXt chara`）；
+ * 2. `<目录>/personas/*.{json,png,md}` —— 一文件一角色（多角色池）；
+ * 3. `<目录>/*.md` —— Markdown 人格文档族：一份就是单角色，多份（`SOUL.md`/`IDENTITY.md`/
+ *    `AGENTS.md` 那类五件套）**合并成一个角色**，按文件名给每份定语义（见 ./markdown-card）。
+ *    顶层有 `persona.json` 时不再看顶层 md（两者都是「单角色」语义，同时生效会有两个身份）。
  *
  * fish-soul / dsh-soul / dsh-rofm / dsh-suzu-memory / 自定义路径都只是这一个工厂的不同参数，
  * 扫卡规则因此只有一份：改目录约定就只改这里，不牵动角色库、路由与设置页。
@@ -9,8 +16,9 @@
  */
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { fingerprintOf } from '../persona/characters/ids.ts';
+import { isNotPersonaDoc, markdownCardOf, markdownCardOfOne, type MarkdownDoc } from './markdown-card.ts';
 import { parseCardBytes, projectCard, readCardFile } from './card-reader.ts';
 import type {
   PersonaScanResult,
@@ -29,8 +37,8 @@ const MULTI_CARD_DIR = 'personas';
 /** 单个卡片文件的上限：超过就不读，进 `skipped/too-large`（读整份 100 MB 的图只会拖死扫描）。 */
 const MAX_CARD_BYTES = 1024 * 1024;
 
-/** 卡片文件允许的扩展名（小写）。 */
-const CARD_EXTS = ['.json', '.png'];
+/** 卡片文件允许的扩展名（小写）：角色卡两种 + Markdown 人格文档。 */
+const CARD_EXTS = ['.json', '.png', '.md'];
 
 /** 工厂参数。 */
 export interface CardFileSourceSpec {
@@ -90,15 +98,35 @@ async function readOne(path: string): Promise<{ character: PersonaScannedCharact
   } catch {
     return { skip: { path, reason: 'invalid-card' } };
   }
-  const data = parseCardBytes(bytes);
+  // 按扩展名分派：`.md` 走 Markdown 归一路径，其余（json / png）走角色卡解码。
+  // 不按内容嗅探——文件名已经是作者给的声明，嗅探只会在两者都像的时候给出更难解释的结论。
+  const isMarkdown = path.toLowerCase().endsWith('.md');
+  const data = isMarkdown ? markdownCardOfOne(basename(path), new TextDecoder().decode(bytes)) : parseCardBytes(bytes);
   if (!data) return { skip: { path, reason: 'invalid-card' } };
   const text = projectCard(data);
   if (text === '') return { skip: { path, reason: 'empty' } };
   return { character: { name: data.name, text, path, data } };
 }
 
+/** 顶层可当人格的 Markdown 文档（排除 README 那类项目文档，排序稳定）。 */
+function markdownDocsIn(dir: string): string[] {
+  let names: string[];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return [];
+  }
+  return names
+    .filter((name) => name.toLowerCase().endsWith('.md'))
+    .filter((name) => !name.startsWith('.'))
+    .filter((name) => !isNotPersonaDoc(name))
+    .filter((name) => kindOf(join(dir, name)) === 'file')
+    .sort();
+}
+
 /**
- * 扫一个目录：先 `persona.json`，再 `personas/*.{json,png}`；按正文指纹去重。
+ * 扫一个目录：先 `persona.json`；没有单卡时看顶层 Markdown（多份合并成一个角色）；
+ * 再 `personas/*.{json,png,md}`；按正文指纹去重。
  *
  * @param dir - 约定目录（绝对路径）。
  * @returns 角色与被跳过的文件；目录不存在时两者皆空。
@@ -106,7 +134,6 @@ async function readOne(path: string): Promise<{ character: PersonaScannedCharact
 async function scanDir(dir: string): Promise<PersonaScanResult> {
   const characters: PersonaScannedCharacter[] = [];
   const skipped: PersonaScanSkip[] = [];
-  const seen = new Set<string>();
 
   const accept = (result: Awaited<ReturnType<typeof readOne>>): void => {
     if ('skip' in result) {
@@ -122,9 +149,46 @@ async function scanDir(dir: string): Promise<PersonaScanResult> {
     seen.add(fingerprint);
     characters.push(result.character);
   };
+  const seen = new Set<string>();
 
   const single = join(dir, SINGLE_CARD);
-  if (kindOf(single) === 'file') accept(await readOne(single));
+  const hasSingle = kindOf(single) === 'file';
+  if (hasSingle) accept(await readOne(single));
+
+  // 顶层 Markdown：单份 = 单角色；多份 = 合并成一个角色（五件套那种形态）。
+  // 有 persona.json 时跳过——两者都是「单角色」语义，同时生效会让模型收到两个身份。
+  if (!hasSingle) {
+    const docs = markdownDocsIn(dir);
+    if (docs.length > 0) {
+      const loaded: MarkdownDoc[] = [];
+      for (const name of docs) {
+        const path = join(dir, name);
+        let size: number;
+        try {
+          size = statSync(path).size;
+        } catch {
+          skipped.push({ path, reason: 'invalid-card' });
+          continue;
+        }
+        if (size > MAX_CARD_BYTES) {
+          skipped.push({ path, reason: 'too-large' });
+          continue;
+        }
+        try {
+          loaded.push({ name, text: await readFile(path, 'utf8') });
+        } catch {
+          skipped.push({ path, reason: 'invalid-card' });
+        }
+      }
+      if (loaded.length > 0) {
+        const card = markdownCardOf(loaded);
+        const text = projectCard(card);
+        // 来源记目录而不是某一份文件：这一角色由多份合成，指着一份说「来自这里」是错的。
+        if (text === '') skipped.push({ path: dir, reason: 'empty' });
+        else characters.push({ name: card.name, text, path: dir, data: card });
+      }
+    }
+  }
 
   const multiDir = join(dir, MULTI_CARD_DIR);
   if (kindOf(multiDir) === 'dir') {
@@ -151,7 +215,8 @@ export function createCardFileSource(spec: CardFileSourceSpec): PersonaSource {
   const probe = async (options?: PersonaSourceOptions): Promise<PersonaSourceAvailability> => {
     const explicit = (options?.path ?? '').trim();
     if (explicit !== '') return { installed: existsSync(explicit), path: explicit };
-    const installed = kindOf(expected) === 'file' || kindOf(join(dir, MULTI_CARD_DIR)) === 'dir';
+    const installed =
+      kindOf(expected) === 'file' || kindOf(join(dir, MULTI_CARD_DIR)) === 'dir' || markdownDocsIn(dir).length > 0;
     return { installed, path: expected };
   };
 

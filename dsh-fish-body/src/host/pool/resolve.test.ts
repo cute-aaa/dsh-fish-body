@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { isAbsolute, join, resolve, sep } from 'node:path';
 
 import {
+  appendPackagePoolRoot,
   displayPathOf,
   insideRoot,
   poolEntryDir,
@@ -148,5 +149,31 @@ describe('resolvePoolRoots —— 根序表', () => {
   test('assets.pool 写绝对路径时主根跟着走，去重仍生效', () => {
     const custom = join(sep, 'mnt', 'mypool');
     assert.deepEqual(resolvePoolRoots(USER, { pool: custom, resourceDirs: [custom, 'x'] }), [custom, join(USER, 'x')]);
+  });
+});
+
+describe('appendPackagePoolRoot —— 包内只读池排在最后', () => {
+  const PKG = resolve(sep, 'pkg', 'dsh-fish-body');
+
+  test('追加到末尾，前面的用户根顺序不动', () => {
+    const roots = [join(USER, 'skin'), join(USER, 'assets', 'pet')];
+    assert.deepEqual(appendPackagePoolRoot(roots, PKG), [...roots, join(PKG, 'assets', 'pet')]);
+  });
+
+  test('空表也给出包内池（内置皮肤不依赖用户配过池）', () => {
+    assert.deepEqual(appendPackagePoolRoot([], PKG), [join(PKG, 'assets', 'pet')]);
+  });
+
+  test('已经在表里就不重复追加：大小写与分隔符差异都算同一个', () => {
+    const packaged = join(PKG, 'assets', 'pet');
+    assert.deepEqual(appendPackagePoolRoot([packaged], PKG), [packaged]);
+    assert.deepEqual(appendPackagePoolRoot([packaged.toUpperCase()], PKG), [packaged.toUpperCase()]);
+    assert.deepEqual(appendPackagePoolRoot([packaged.replace(/\\/g, '/')], PKG), [packaged.replace(/\\/g, '/')]);
+  });
+
+  test('不改原数组（调用方可能持有上一帧的结果）', () => {
+    const roots = [join(USER, 'skin')];
+    appendPackagePoolRoot(roots, PKG);
+    assert.deepEqual(roots, [join(USER, 'skin')]);
   });
 });
