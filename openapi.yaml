@@ -1724,6 +1724,173 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 
+  /dsh-pet-7340/rhythm:
+    get:
+      tags: [Action]
+      operationId: getPetRhythm
+      summary: 查外部设下的节律请求（该睡还是该醒，以及何时到期）
+      description: |
+        读 `POST /rhythm` 设下的那条请求。没设过 → `rhythm: null`（默认就是醒着）。
+
+        这个端点存在的意义是给**外部调度方**（soul 项目、用户脚本、计划任务）一个可查询的真相：
+        真实项目的作息形态互不相同（每日闹钟、驱动力 + 下次触发时刻、一句自然语言），
+        本插件不统一时刻表，只提供「两态 + 到期时间」，谁算得出谁来调。
+      parameters:
+        - $ref: "#/components/parameters/PetIdQuery"
+      responses:
+        "200":
+          description: |
+            恒为 200。`rhythm` 为 `null` 或
+            `{ state, since, until, reason, source, expired }`——`since` / `until` 是毫秒时间戳，
+            `until` 为 `null` 表示不定时；`source` 是 `external`（外部调用）或 `user`（用户手动覆盖）。
+            失败通过 `ok: false` 表达（`pet-required` / `unknown-pet`）。
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    post:
+      tags: [Action]
+      operationId: setPetRhythm
+      summary: 让外部指定桌宠现在该睡还是该醒（可带到期时间，到点自动回醒）
+      description: |
+        `sleeping` 走与 `POST /sleep` **完全相同**的执行链：从 `animations.sleep` 挑一整套写进叶子、
+        渲染端播「开始 → 循环」，睡着期间拒绝打扰类端点。`awake` 等价于 `POST /wake`。
+        所以两套端点不会出现并行的睡眠状态。
+
+        `until` 到期后自动回到 `awake`（宿主每分钟检查一次；任何一次 `GET /rhythm` 也会顺手清掉
+        已到期的条目）。**不设 `until` 就一直有效**，直到被覆盖或下一次宿主重启——
+        这条状态是进程内内存态，重启即回到醒着。
+
+        **幂等**：同 `state` 且同 `until` 的重复调用回 `changed: false`，不重播动画。
+
+        该条目没配 `animations.sleep` 时 `sleeping` 会被提前拒绝（`no-sleep-animations`），
+        而不是记下一个不会生效的状态。
+      parameters:
+        - $ref: "#/components/parameters/PetIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state:
+                  type: string
+                  enum: [awake, sleeping]
+                until:
+                  description: 到期时刻；ISO 8601 字符串或毫秒时间戳。缺省 = 不定时。
+                  oneOf:
+                    - type: string
+                      format: date-time
+                    - type: number
+                reason:
+                  type: string
+                  description: 自由文本原因，会原样出现在 `GET /rhythm` 与日志里（排障用）。
+                source:
+                  type: string
+                  enum: [external, user]
+                  description: 谁要求的；缺省 `external`。
+      responses:
+        "200":
+          description: |
+            成功带 `changed` 与生效后的 `rhythm`（形状同 GET）。失败通过 `ok: false` 表达，
+            `reason` 可能是 `bad-request`（state / until / reason / source 非法）、`pet-required`、
+            `unknown-pet`、`no-sleep-animations`、`generate-error`。
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/memory:
+    get:
+      tags: [State]
+      operationId: getExternalMemory
+      summary: 外部记忆的接线状态（接上了没有、读到几条、为什么没生效）
+      description: |
+        记忆后端是**单槽**（`ChatMemoryProvider`：同时只能有一个实现改内容），所以「装了却没生效」是常态而不是故障。
+        这个端点把三种情况拆开：
+
+        1. 没装任何记忆插件 → `provider: null`，`candidates` 里全 `installed: false`
+        2. 装了但槽被别的实现占着 → `provider: null` + `slotTakenByOther: true`
+        3. 接上了 → `provider: { id, dir, registeredAt, notes, skipped, lastReadAt }`
+
+        候选来自 `dsh-rofm`（归档在 `<DSH_HOME>/dsh-rofm/memory/`）与 `dsh-suzu-memory`。
+        这两个**不再注册成人格来源**——它们不产人设，只贡献记忆。
+      responses:
+        "200":
+          description: "恒为 200。失败通过 `ok: false` 表达（只有 405 例外）。"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/coexist:
+    get:
+      tags: [State]
+      operationId: getCoexist
+      summary: 谁也在驱动这只宠物，以及当前是否让位
+      description: |
+        检测已知会与本插件职责重叠的项目，只认硬证据：
+
+        - `surfcore`：`<DSH_HOME>/surfcore/pet/host.json` 存在（它真的在跑自己的宠物宿主）
+        - `coopanion`：工作区里有 `PARTNER.md`（装过并初始化过）
+
+        模式 `auto`（缺省）**只报告，不改变任何行为**——自动静音会让用户以为宠物坏了。
+      responses:
+        "200":
+          description: |
+            `{ mode, partners: [{ id, label, evidence, risk }], autoWhisperPaused }`。
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    post:
+      tags: [Action]
+      operationId: setCoexist
+      summary: 显式让位（body-only）或恢复全功能
+      description: |
+        `body-only` 只停**周期碎碎念**（自动来源）：手动触发的碎碎念、对话、点击回应照常——
+        用户主动要的不该被共存设置吞掉。模式是进程内状态，重启回到 `auto`。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode:
+                  type: string
+                  enum: [auto, full, body-only]
+      responses:
+        "200":
+          description: "成功带 `changed` 与生效后的视图；非法 mode → `ok: false` + `bad-request`。"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
   /dsh-pet-7340/pose:
     get:
       tags: [Action]
