@@ -15,6 +15,7 @@ import type { DirtyQuery } from './dirty.ts';
 import type { Feedback } from './feedback.ts';
 import { makeFsCard } from './fs-card.ts';
 import { makeMaintenanceCard } from './maintenance-card.ts';
+import { makeCompatCard } from './compat-card.ts';
 import { makePacksCard } from './packs-card.ts';
 import type { PacksState } from './use-packs.ts';
 import type { MaintenanceActions } from './panels.ts';
@@ -70,6 +71,7 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
   const FsCard = makeFsCard(rt);
   const ScreenCard = makeScreenCard(rt);
   const PacksCard = makePacksCard(rt);
+  const CompatCard = makeCompatCard(rt);
 
   return function SystemTab(props: SystemTabProps) {
     const { busy, global, hotkeys, perm, remote, dirty, backup, maintenance, screen, packs } = props;
@@ -102,6 +104,8 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
         // 素材与字体：字体、表情包、Cubism Core 都不进插件包（授权与体积原因），
         // 由这里按需获取；它不产生「未保存改动」，所以放在编辑性卡片之后、维护组之前。
         h(PacksCard, { key: 'packs', busy, packs }),
+        // 兼容与记忆：谁也在驱动这只宠物、记忆插件接上了没有。即时生效，不产生未保存改动。
+        h(CompatCard, { key: 'compat', busy }),
         // 维护动作一组：备份与恢复 → 文件与目录 → 插件维护。
         // 三者都不产生「未保存改动」，都是「配一次就不动」，所以聚在一处并沉到页尾；
         // 组内顺序按风险递增：只读的备份 → 会搬目录的文件卡 → 破坏性的重启 / 重置。
