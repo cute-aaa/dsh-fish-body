@@ -27,10 +27,10 @@ dsh --version   # 验证 dsh 命令可用
 
 `--profile <profile>` 指定装进哪个 profile，按你在用的界面填：
 
-| 你在用的界面 | `--profile` 的值 |
-| --- | --- |
-| `dsh web`（浏览器） | `web` |
-| 桌面应用（Electron 版） | `desktop` |
+| 你在用的界面            | `--profile` 的值 |
+| ----------------------- | ---------------- |
+| `dsh web`（浏览器）     | `web`            |
+| 桌面应用（Electron 版） | `desktop`        |
 
 ```sh
 # dsh web
@@ -39,6 +39,19 @@ dsh plugin --profile web add dsh-fish-body
 # 桌面应用（Electron 版）
 dsh plugin --profile desktop add dsh-fish-body
 ```
+
+> **npm 上架前的临时装法**：直接装 Release 里的 tarball，内容与 npm 包一致（`v0.6.0` 起每个 Release 都附一份）：
+>
+> ```sh
+> dsh plugin --profile web add https://github.com/cute-aaa/dsh-fish-body/releases/download/v0.6.0/dsh-fish-body-0.6.0.tgz
+> ```
+>
+> **装/卸插件时正在跑的那个实例会被关掉**：`dsh-purge` 注入在宿主入口的 preflight 认「argv 里出现 `web` 这个词」
+> （`--profile web` 也算），于是会 `taskkill` 掉监听 3080 的 `dsh web`。属于已知行为，装完重新打开即可；
+> 想避免就先关界面再装。
+>
+> **profile 里必须有 `@deepseek-ai/dsh-web-app`**（`web` / `desktop` 模板默认就有）：只装本插件、不装 web-app 的
+> 最小 profile 里，插件会停在 `pending（waiting for services: webServer, connection）` —— 它要宿主给这两个服务才能跑。
 
 > **兼容性**：本插件当前在 dsh **`0.2.2-rc.1`** 下开发并测试（`dsh --version` 可查看你的版本）。建议使用相同版本；其他版本如遇问题欢迎反馈。
 
