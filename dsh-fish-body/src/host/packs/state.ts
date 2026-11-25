@@ -24,6 +24,9 @@ export const PACKS_DIR_NAME = 'packs';
 /** 安装标记文件名。 */
 export const INSTALLED_MARKER = 'installed.json';
 
+/** 解压临时目录前缀（`install.ts` 的 `.tmp-<id>-<uuid>`，与这里共用一套命名）。 */
+export const TEMP_DIR_PREFIX = '.tmp-';
+
 /** 一条已安装记录（即标记文件的内容）。 */
 export interface InstalledPack {
   readonly id: string;
@@ -54,6 +57,37 @@ export function packDirOf(packsRoot: string, id: string): string {
   // id 会变成目录名：这里再挡一次，避免调用方漏校验时把 `../x` 拼进来。
   if (!isValidPackId(id)) throw new Error(`非法的包 id：${id}`);
   return join(packsRoot, id);
+}
+
+/**
+ * 清掉上次被强制终止留下的解压临时目录。
+ *
+ * `install.ts` 把包解压到 `<packsRoot>/.tmp-<id>-<uuid>/` 再原子换名，正常收尾会自己删掉；
+ * 但进程被强杀（关窗口、任务管理器结束、断电）时这一步不会执行，残留的空目录会一直堆在资源根里。
+ * 它们不会被当成已装包（没有标记文件），只是脏。
+ *
+ * 只删 `.tmp-` 开头的**目录**：同名前缀的文件不归本模块管，删不掉就留着下次再来（不抛异常）。
+ * @param packsRoot - 资源根。
+ * @returns 实际删掉的目录名（按磁盘顺序），便于日志区分「清过」与「本来就干净」。
+ */
+export function sweepTempDirs(packsRoot: string): string[] {
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(packsRoot, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const removed: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !entry.name.startsWith(TEMP_DIR_PREFIX)) continue;
+    try {
+      rmSync(join(packsRoot, entry.name), { recursive: true, force: true });
+      removed.push(entry.name);
+    } catch {
+      // 占用中 / 权限不足：留着，下次启动再来；这里不该让宿主启动失败。
+    }
+  }
+  return removed;
 }
 
 /**

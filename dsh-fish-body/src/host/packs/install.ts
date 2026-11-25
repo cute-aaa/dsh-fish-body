@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import type { PackEntry } from '../../shared/packs.ts';
 import { isValidPackId } from '../../shared/packs.ts';
 import { downloadViaProxy, proxyOf, type CurlRunner, type ProxySpec } from './download.ts';
-import { countFiles, hashFile, packDirOf, writeInstalled, type InstalledPack } from './state.ts';
+import { countFiles, hashFile, packDirOf, writeInstalled, TEMP_DIR_PREFIX, type InstalledPack } from './state.ts';
 
 /**
  * 单个镜像的 fetch 截止时间（毫秒）。
@@ -67,7 +67,7 @@ async function defaultExtractZip(zipPath: string, destDir: string): Promise<void
 
 /** 临时目录路径（与最终目录同卷、同父，rename 才是原子的）。 */
 function tempDirOf(packsRoot: string, id: string): string {
-  return join(packsRoot, `.tmp-${id}-${randomUUID()}`);
+  return join(packsRoot, `${TEMP_DIR_PREFIX}${id}-${randomUUID()}`);
 }
 
 /**

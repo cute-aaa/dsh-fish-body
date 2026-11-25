@@ -19,6 +19,8 @@ import { live2dCatalogOf } from '../live2d-catalog.ts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { composeSystemPrompt, petPersona } from '../persona.ts';
+import { voiceCapabilityNote } from '../voice/capability.ts';
+import { voiceProviderStatuses } from '../voice/registry.ts';
 import { findPetInstance, readAllConfig, removeRoundsByTs, sliceMemoryRounds } from '../config.ts';
 import type { PetImageRef } from '../image-attachment.ts';
 import { limitPool, matchMeme, pickMeme, readMemePool } from '../memes.ts';
@@ -152,12 +154,17 @@ export function createChatMemory(deps: ChatMemoryInput) {
   };
 
   /** 某宠物的最终人设 system：实例级 `pets[].whisperPrompt` 优先，没写回落到所属条目的那份。
-   *  拼装在 ./persona（纯函数）：人设正文 + 名字声明 + 一行时间背景，时间每次现算；
+   *  拼装在 ./persona（纯函数）：人设正文 + 名字声明 +「你的声音」能力声明 + 一行时间背景，时间每次现算；
    *  对话路径传 `{ historyTimes: true }` 追加【历史】说明，碎碎念没有历史，不传。
    *  收 `findPetInstance` 的命中结果而不是 (petId, cfg)：调用方都已解析过，再查只会多一处
-   *  「查不到就兜底 main」的不可达分支。 */
+   *  「查不到就兜底 main」的不可达分支。
+   *
+   *  能力声明（`./voice/capability`）让桌宠被问「你有什么声音」时答得出真话：它自己不说话时
+   *  并不知道本机接了哪些语音实现，只能现编（`docs/待验证项.md` V1）。来源是 `/voice/voices` 同源的
+   *  `voiceProviderStatuses()`——那次调用里的音色扫描由 GSV 自己缓存（15s 软过期），不会每条消息都读盘。 */
   const petSystemPrompt = (
     found: { conf: Record<string, unknown>; pet: Record<string, unknown> },
+    main: Record<string, unknown> | undefined,
     options: { historyTimes?: boolean } = {},
   ): string =>
     composeSystemPrompt({
@@ -166,6 +173,12 @@ export function createChatMemory(deps: ChatMemoryInput) {
       id: String(found.pet.id ?? ''),
       now: new Date(),
       ...(options.historyTimes === true ? { historyTimes: true } : {}),
+      capability: voiceCapabilityNote({
+        providers: voiceProviderStatuses(),
+        edgeVoice: String(main?.voiceName ?? ''),
+        replyVoiceOn: main?.voiceEnabled === true,
+        whisperVoiceOn: main?.voiceWhisperEnabled === true,
+      }),
     });
 
   /** 对话记忆轮数（1 轮 = 1 问 1 答）：该宠物所属条目的 chatMemoryRounds（合并器已填默认）。
@@ -279,7 +292,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
     const manualVoiceOn = cfg.main?.voiceEnabled === true;
     const voiceOn = kind === 'whisper' ? whisperVoiceOn : whisperVoiceOn || manualVoiceOn;
     const target = voiceOn ? (voiceTo ?? voiceTargetFor(found.pet)) : undefined;
-    const system = petSystemPrompt(found);
+    const system = petSystemPrompt(found, cfg.main);
     // 池只算一次：点名的图与随机抽图共用同一份（含文件存在性判定）。
     const pool = readMemePool(found.conf.memes, memeDirsFor(found.entry));
     // 点名了却没命中 = 配置写错或图已被删：明确失败，不静默换成另一张（点了 A 却看到 B 会以为坏了）。
@@ -328,7 +341,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
     const cfg = readAllConfig(configPaths);
     const found = findPetInstance(cfg, petId);
     if (!found) return false;
-    const system = petSystemPrompt(found);
+    const system = petSystemPrompt(found, cfg.main);
     const result = await generateWhisper(ctx, {
       system,
       preferred: configuredModel(found.conf, 'whisperModel'),
@@ -418,7 +431,7 @@ export function createChatMemory(deps: ChatMemoryInput) {
       const list = sliceMemoryRounds(entry.messages, rounds);
       // 人设：实例级 whisperPrompt 优先，没写回落所属条目（与碎碎念同一拼装）。
       // 有历史才追加【历史】段：没有历史时那段话在描述不存在的前缀，只会误导模型。
-      const system = petSystemPrompt(found, { historyTimes: list.length > 0 });
+      const system = petSystemPrompt(found, cfg.main, { historyTimes: list.length > 0 });
       // 图片只记尺寸与字节数（不记 base64）：模型不支持读图时 dsh-llm 会把它投影成占位文本，靠这行日志定位
       if (image !== undefined) {
         log.info(

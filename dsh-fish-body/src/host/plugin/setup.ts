@@ -23,7 +23,7 @@ import { migrateElectronRuntime, migrateLayout } from '../migrate-layout.ts';
 import { setRuntimeDir, setUserRoot } from '../helper-process.ts';
 import { readLocations, resolveSkinDir } from '../locations.ts';
 import { PERSONA_CHARACTERS_DIR, userPaths, type UserPaths } from '../user-layout.ts';
-import { listInstalled, packsRootOf } from '../packs/state.ts';
+import { listInstalled, packsRootOf, sweepTempDirs } from '../packs/state.ts';
 import { resolveUserRoot, type RootLog } from '../user-root.ts';
 import { POOL_LAYER_DIR, POOL_SOUND_DIR, isReservedAssetRoot } from '../../shared/pool.ts';
 import {
@@ -261,6 +261,13 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
    */
   // 资源包安装根：字体 / 表情包 / 动画 / Cubism 都不进包，按需装在这里（见 NOTICE 第 4、5、7 节）。
   const packsRoot = packsRootOf(userRoot);
+  // 上次被强杀留下的解压半成品（`.tmp-<id>-<uuid>/`）：启动时清掉。
+  // 它们本来就不会被当成已装包（没有标记文件），但会在资源根里越堆越多；
+  // 清理失败不抛（占用中下次再来），也不影响任何已装包。
+  const swept = sweepTempDirs(packsRoot);
+  if (swept.length > 0) {
+    log.info(`[fish-body] 资源根清掉 ${swept.length} 个上次残留的解压临时目录`);
+  }
 
   const memeDirsFor = (assetRoot: string): string[] => {
     const own = resolveAsset(petConfigDir, assetRoot + '-memes');

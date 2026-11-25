@@ -20,6 +20,8 @@ import {
   packsRootOf,
   readInstalled,
   removePack,
+  sweepTempDirs,
+  TEMP_DIR_PREFIX,
   writeInstalled,
 } from './state.ts';
 
@@ -126,4 +128,30 @@ test('countFiles 递归数普通文件，目录不存在时为 0', async () => {
     assert.equal(countFiles(join(root, 'x')), 2);
     assert.equal(countFiles(join(root, 'nope')), 0);
   });
+});
+
+test('sweepTempDirs 删掉上次残留的解压临时目录，已装包与用户文件不受影响', async () => {
+  await withRoot((_root, packsRoot) => {
+    writeInstalled(packDirOf(packsRoot, RECORD.id), RECORD);
+    // 半成品：进程被强杀时留下的那种（目录里有文件也得一起删）
+    const leftover = join(packsRoot, `${TEMP_DIR_PREFIX}${RECORD.id}-1b9d6bcd`);
+    mkdirSync(join(leftover, 'inner'), { recursive: true });
+    writeFileSync(join(leftover, 'inner', 'half.webm'), 'x');
+    // 干扰项：不带前缀的目录、带前缀的普通文件，都不该被这条清理波及
+    mkdirSync(join(packsRoot, 'keep-me'), { recursive: true });
+    writeFileSync(join(packsRoot, `${TEMP_DIR_PREFIX}not-a-dir`), 'x');
+
+    const removed = sweepTempDirs(packsRoot);
+    assert.deepEqual(removed, [`${TEMP_DIR_PREFIX}${RECORD.id}-1b9d6bcd`]);
+    assert.equal(readInstalled(packsRoot, RECORD.id)?.sha256, RECORD.sha256, '已装包必须留着');
+    assert.equal(countFiles(join(packsRoot, 'keep-me')), 0);
+    assert.equal(countFiles(packsRoot) > 0, true, '不带前缀的文件应原样保留');
+
+    // 幂等：第二次没有可清的了
+    assert.deepEqual(sweepTempDirs(packsRoot), []);
+  });
+});
+
+test('sweepTempDirs 资源根不存在时静默返回空（首次启动、还没装过任何包）', () => {
+  assert.deepEqual(sweepTempDirs(join(tmpdir(), 'dsh-packs-missing-' + String(Date.now()))), []);
 });

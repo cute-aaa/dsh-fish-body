@@ -44,6 +44,13 @@ export interface SystemPromptParts {
   now: Date;
   /** 历史消息是否带时间前缀；缺省 false（碎碎念没有历史，不该出现【历史】段） */
   historyTimes?: boolean;
+  /**
+   * 能力声明（如「你现在说话的嗓子是什么」）。
+   *
+   * 由调用方从运行时状态现算（见 `./voice/capability`），缺省不加这一段：
+   * 拿不到状态时宁缺，也不能把过时/编造的能力写进提示词。
+   */
+  capability?: string;
 }
 
 /**
@@ -57,6 +64,9 @@ export function composeSystemPrompt(parts: SystemPromptParts): string {
   const name = String(parts.name || parts.id);
   const nameLine = name ? '你的名字是“' + name + '”。' : '';
   const lines = [parts.prompt, nameLine].filter((line) => line !== '');
+  // 能力声明是「关于你自己能做什么」的稳定事实，放在时间背景之前：
+  // 时间每轮都变，能力不会，把稳定的放前面便于人（和模型）按段读。
+  if (typeof parts.capability === 'string' && parts.capability.trim() !== '') lines.push(parts.capability);
   const time = timeContextOf(parts.now);
   if (time) {
     lines.push(time);

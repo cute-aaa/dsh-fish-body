@@ -120,4 +120,32 @@ describe('composeSystemPrompt —— 分段拼装', () => {
     assert.match(b, /晚上/);
     assert.notEqual(a, b);
   });
+
+  test('capability：排在名字之后、时间之前（稳定事实在前，每轮变化的时间在后）', () => {
+    const out = composeSystemPrompt({
+      prompt: '你是小女仆',
+      name: '蓝毛',
+      id: 'main',
+      now: new Date(2026, 9, 21, 9, 0),
+      capability: '【你的声音】edge',
+    });
+    const lines = out.split('\n');
+    assert.equal(lines[0], '你是小女仆');
+    assert.equal(lines[1], '你的名字是“蓝毛”。');
+    assert.equal(lines[2], '【你的声音】edge');
+    assert.match(lines[3] ?? '', /现在/);
+  });
+
+  test('capability 缺省 / 空串 / 全空白 → 不占行、不留空行', () => {
+    for (const capability of [undefined, '', '   ']) {
+      const out = composeSystemPrompt({
+        prompt: '你是小女仆',
+        name: '蓝毛',
+        id: 'main',
+        now: new Date('nope'),
+        ...(capability === undefined ? {} : { capability }),
+      });
+      assert.equal(out, '你是小女仆\n你的名字是“蓝毛”。');
+    }
+  });
 });

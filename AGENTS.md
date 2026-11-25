@@ -23,6 +23,7 @@
 
 - token 从该实例自己的启动行取：`logs\dsh-3099*.out.log` 里的 `dsh web: http://127.0.0.1:3099/?token=...`；**旧 token 会 401**，不要复用历史记录里的。
 - 重启 3099 前后必须断言目标命令行含 `--profile fish` 与 `--port 3099`，且 PID ≠ web 实例的 PID。
+- ⚠️ **绝对不要执行任何形式的 `dsh web …`（连 `dsh web --help` 都不行）**：`D:\NodeJs\node_modules\@deepseek-ai\dsh\lib\dsh-purge-web-preflight.js` 被注入在宿主 `lib/bin.js` 顶部、在 commander 解析参数**之前**执行，判断条件是「argv 里有没有 `web` 这个词」（L88）且没给 `--port` 时端口默认 **3080**（L94），命中就 `taskkill /F` 监听者（L133-140）。于是「只想看一眼帮助」也会把用户的 3080/3081/8790 实例杀掉（2026-11-25 因此连续两次误杀，PID 44984 → 31252 → 44180）。要查 CLI 参数就 `dsh --help` / 读 `bin.js` 源码；要起 fish 实例用 `node D:\NodeJs\node_modules\@deepseek-ai\dsh\lib\bin.js --profile fish --port 3099`（无 `web` token，preflight 直接 return）。另外 `dsh web` 本身就是 `--profile web` 的简写，所以 `dsh web --profile fish` 会报「select a profile only once」。
 
 ## 三、开工前三步（每次会话都做，30 秒）
 
@@ -62,8 +63,8 @@ git -C G:\Projnew\ai\dsh-fish-body log --oneline <当前分支>..main
 
 ## 六、测试与数据安全纪律
 
-- 破坏性测试默认在**真实 `fish` 数据根**上做，必须走「快照 → 实测 → 还原 + 四项基线双判」：主配置 `md5`、`data/persona-characters` 条目数、`skin/{layered,live2d,webm}` 条目数、`skin/*-config.json` 清单；另加 web 实例 PID 不变。
-- **条目数一律按非隐藏文件计**（`Get-ChildItem <dir> -File`，或显式排除 `Hidden`/`System`）：带 `-Force` 会把 `desktop.ini` 这类系统文件数成一条，使该项永远 ≥1 ——「角色被删光」也会读成「前后一致」，基线双判在这一项上直接失效。当前真实基线：`data/persona-characters` = **0 个角色 + 1 个隐藏 `desktop.ini`**；`skin/{layered,live2d,webm}` = 0/0/0；`skin/*-config.json` = 7。
+- 破坏性测试默认在**真实 `fish` 数据根**上做，必须走「快照 → 实测 → 还原 + 四项基线双判」：主配置 `md5`、`data/persona-characters` 条目数、`skin/{layered,live2d,webm}` 条目数、`config/` 下的配置文件清单（2026-11-25 的布局迁移之后，旧的 `skin/*-config.json` 已不存在，配置全部落在 `config/`）；另加 web 实例 PID 不变。
+- **条目数一律按非隐藏文件计**（`Get-ChildItem <dir> -File`，或显式排除 `Hidden`/`System`）：带 `-Force` 会把 `desktop.ini` 这类系统文件数成一条，使该项永远 ≥1 ——「角色被删光」也会读成「前后一致」，基线双判在这一项上直接失效。2026-11-25 真机实测基线（用户已自己加过皮肤，属正常漂移，不要"还原"）：`config/main-config.jsonc` md5 `2BD041DDF2CA964BAA0288E12F9AB7A3`、`data/memory.json` md5 `72F1FF45C94FE3EA0012496E739DED39`、`data/persona-characters` = **0 个角色 + 1 个隐藏 `desktop.ini`**、`skin/{layered,live2d,webm}` = 8/3/274、`config/` = `main-config.jsonc` + `session-fish.json` + `voice-providers.json`（各自带一份 `.bak-*`）、`packs/` 为空目录。
 - 快照只保内容、**不保链接拓扑**：`skin/` 下若有 junction，`/MIR` 会在快照侧落成普通空目录，别声称「链接也还原了」。
 - 虚拟桌面（`dshv-*`）：`/vdesk/input` **不校验桌面名**，历史上因此误关过用户的浏览器窗口。使用前必须 ①目标桌面在 `/vdesk/desktops` 里 ②`/vdesk/frame` 拿到有内容的帧 ③该用例确实需要 OS 级输入；**禁止探测式点击**。截图优先走 CDP（DComp 窗口不进 BitBlt 帧）。
 - 路由失败约定：本仓不少接口是 **`200 + {ok:false,reason,message}`**，`400` 只留给非法 JSON；断言要写 `body.ok === false`，别按 4xx 写。

@@ -30,13 +30,13 @@
     "exports['./client'] —— 浏览器半侧入口，DSH 模块系统按它提供 /plugins/dsh-fish-body/client.js",
     "dsh.bundle.patch —— 声明本包是 bundle，patch 文件是 cordis.patch.yml（安装后自动进层栈）",
     "dsh.client —— 声明浏览器半侧的注入依赖和平台（web）",
-    "dsh.compatibility.dshReleases —— 对官方 DSH 完整版本逐项声明 compatible/incompatible/unknown；只写宽泛范围不算证据，商城最新三版至少需要一个 compatible。列表只保最新三版，新增一版就删最旧一版：DSH 自己只按 engines.dsh 与 peerDependencies 判定能不能装，这份列表不进安装闸门，无限叠加只会变成维护负担",
+    "dsh.compatibility.dshReleases —— 对官方 DSH 完整版本逐项声明 compatible/incompatible/unknown；只写宽泛范围不算证据，商城最新三版至少需要一个 compatible。列表只保最新三版，新增一版就删最旧一版：DSH 自己只按 engines.dsh 与 peerDependencies 判定能不能装，这份列表不进安装闸门，无限叠加只会变成维护负担。**写 unknown 不是偷懒**：这是「没在这个版本上真机跑过」，不能因为同 minor 就写 compatible——一旦用户因此装上却坏了，这份列表就成了假证据。rc.1 是日常在跑的版本，所以它留着 compatible",
     "files —— npm publish 只发这些目录/文件（assets/webm 播放资源（VP9-alpha，浏览器 Chrome/Edge/Firefox 与桌面模式共用）；Safari/HEVC 兼容由仓库流水线支持、fork 定制，不随包发布；assets/preview 的 GIF 仅 README 展示、不入包）",
     "scripts.encode:webm —— 转码管线（step03 母版 → assets/webm 640×360 VP9-alpha）",
     "scripts.build —— 构建完整产物 + files 收敛（node scripts/prepare.js）。克隆后手动跑一次；npm publish / npm pack 由 prepack 自动调用",
     "scripts.prepack —— 发布前链：build（构建）→ typecheck/lint/format → prepack-check（素材健康检查）→ check:openapi。构建只挂这里：npm 11 会把 prepare 判为未批准的安装脚本，而 scripts/prepare.js 不随包发布（files 白名单只留 ensure-electron.mjs），用户一旦按提示批准就必然 ENOENT 失败",
     "bin.dsh-pet-standalone —— 独立模式 CLI（构建产物 lib/standalone.js）：不打开 DSH 直接跑桌宠，把插件的宿主半边跑在伪 ctx 上；tsdown 的第二个入口负责构建，源码见 src/standalone/。命令名沿用 dsh-pet-standalone 属稳定面，改名会打断已有脚本",
-    "peerDependencies —— 运行时由宿主（DSH）提供的模块，本包不打包它们",
+    "peerDependencies —— 运行时由宿主（DSH）提供的模块，本包不打包它们。dsh-* 的写法是「按次版本列举」而不是 `^0.2.0-rc.1`：semver 规定预发布版本只满足「同一 major.minor.patch 且带预发布」的范围，所以 `^0.2.0-rc.1` 匹配不到 0.2.1-rc.5 / 0.2.2-rc.5 这类宿主。宿主侧闸门用 includePrerelease 比对，两种写法都能过，但 npm 用户装包时走的是严格 semver，会 ERESOLVE。新增一个次版本的预发布就在这条 OR 链里补一段",
     "engines —— Node.js 兼容下限（由运行依赖 @electron/get@5.1.0 的 engines 决定）",
     "author / publishConfig —— author 写规范身份（与仓库根 .mailmap 的规范名同一人）；publishConfig.access=public 让首次 npm publish 不必再加 --access public",
     "================================================"
@@ -136,9 +136,10 @@
     },
     "compatibility": {
       "dshReleases": {
-        "0.2.1-rc.3": "compatible",
-        "0.2.2-alpha.2": "compatible",
-        "0.2.2-rc.1": "compatible"
+        "0.2.2-rc.1": "compatible",
+        "0.2.2-rc.3": "unknown",
+        "0.2.2-rc.4": "unknown",
+        "0.2.2-rc.5": "unknown"
       }
     },
     "client": {
@@ -150,15 +151,15 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.4",
-    "@deepseek-ai/dsh-agent-default-model": "^0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-connection": "^0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-ui-primitives": "^0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.2.0-rc.1",
-    "@deepseek-ai/dsh-commands": "^0.2.0-rc.1",
-    "@deepseek-ai/dsh-credentials": "^0.2.0-rc.1",
-    "@deepseek-ai/dsh-home-paths": "^0.2.0-rc.1",
-    "@deepseek-ai/dsh-host-webserver": "^0.2.0-rc.1",
-    "@deepseek-ai/dsh-llm": "^0.2.0-rc.1",
+    "@deepseek-ai/dsh-agent-default-model": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-connection": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.1",
+    "@deepseek-ai/dsh-commands": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.1",
+    "@deepseek-ai/dsh-credentials": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.1",
+    "@deepseek-ai/dsh-home-paths": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.1",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.1",
+    "@deepseek-ai/dsh-llm": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
