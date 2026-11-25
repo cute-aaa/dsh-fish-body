@@ -14,14 +14,21 @@
  * @module dsh-fish-body/src/host/packs/install
  */
 import { createHash, randomUUID } from 'node:crypto';
-import { cpSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PackEntry } from '../../shared/packs.ts';
 import { isValidPackId } from '../../shared/packs.ts';
+import { downloadViaProxy, proxyOf, type CurlRunner, type ProxySpec } from './download.ts';
 import { countFiles, hashFile, packDirOf, writeInstalled, type InstalledPack } from './state.ts';
 
-/** 单个镜像的下载截止时间（毫秒）。素材包最大几十 MB，2 分钟足够；超时按该镜像失败处理。 */
-const DOWNLOAD_TIMEOUT_MS = 120_000;
+/**
+ * 单个镜像的 fetch 截止时间（毫秒）。
+ *
+ * 60 MB 的素材包走代理可能要好几分钟（实测：120 秒只下到 39.7/56.9 MB 就被掐掉），
+ * 所以给到 10 分钟；curl 兜底那条路更精确（按「停滞」判失败，见 `download.ts`），
+ * 这里的总量超时只负责防挂死。
+ */
+const DOWNLOAD_TIMEOUT_MS = 600_000;
 
 /** 安装失败的原因（wire 词汇，路由层直接透给 UI）。 */
 export type InstallFailureReason =
@@ -38,6 +45,14 @@ export interface PackInstallDeps {
   readonly packsRoot: string;
   /** 下载实现，缺省用全局 `fetch`。 */
   readonly fetchImpl?: typeof fetch;
+  /**
+   * 代理（缺省现算：环境变量 → Windows 注册表）。
+   *
+   * Node 的 `fetch` 不读系统代理，用户点下载会直接超时；知道代理时走 `curl -x` 兜底一次。
+   */
+  readonly proxy?: ProxySpec;
+  /** curl 执行器（测试注入，不真的起进程）。 */
+  readonly runCurl?: CurlRunner;
   /** zip 解压，缺省用 `@electron-internal/extract-zip`（与 Electron 运行时同一套）。 */
   readonly extractZip?: (zipPath: string, destDir: string) => Promise<void>;
   /** 过程日志（失败原因也会走这里，便于用户回看）。 */
@@ -107,14 +122,34 @@ export async function installFromUrls(entry: PackEntry, deps: PackInstallDeps): 
   for (const url of entry.urls) {
     const tempDir = tempDirOf(deps.packsRoot, entry.id);
     try {
-      const response = await fetchImpl(url, { redirect: 'follow', signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const buffer = Buffer.from(await response.arrayBuffer());
+      let buffer: Buffer;
+      mkdirSync(tempDir, { recursive: true });
+      const zipPath = join(tempDir, 'pack.zip');
+      try {
+        const response = await fetchImpl(url, { redirect: 'follow', signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        buffer = Buffer.from(await response.arrayBuffer());
+      } catch (error) {
+        // fetch 失败：Node 的 fetch 不读系统代理，而大多数国内用户的代理只配在系统里。
+        // 知道代理就用 curl 兜底一次（`download.ts` 里写了为什么不自己实现 CONNECT）。
+        const proxy = deps.proxy ?? proxyOf();
+        if (proxy === undefined) throw error;
+        const via = await downloadViaProxy(url, zipPath, proxy, {
+          ...(deps.runCurl === undefined ? {} : { runCurl: deps.runCurl }),
+        });
+        if (!via.ok) {
+          const original = error instanceof Error ? error.message : String(error);
+          // 带上 cause：外层只读 message，排障时仍能从 cause 看到原始 fetch 错误
+          throw new Error(`${original}；走代理 ${proxy.host}:${String(proxy.port)} 重试也失败：${via.message}`, {
+            cause: error,
+          });
+        }
+        deps.log?.(`[packs] fetch 失败，已用系统代理 ${proxy.host}:${String(proxy.port)} 下载成功`);
+        buffer = readFileSync(zipPath);
+      }
       if (buffer.byteLength !== entry.bytes) {
         throw new Error(`体积不符：清单 ${entry.bytes}，实得 ${buffer.byteLength}`);
       }
-      mkdirSync(tempDir, { recursive: true });
-      const zipPath = join(tempDir, 'pack.zip');
       writeFileSync(zipPath, buffer);
       const actual = await hashFile(zipPath);
       if (actual !== entry.sha256) {
