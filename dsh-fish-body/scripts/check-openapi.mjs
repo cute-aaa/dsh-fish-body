@@ -1,10 +1,11 @@
 /**
  * OpenAPI 文档校验，随发布链的 prepack 门禁运行：YAML 可解析、所有 $ref 都能解析到、
- * 路径/操作/响应符合 3.1 基本要求、文档里每条路径都真实存在于宿主半侧的路由实现里（防文档漂移）。
+ * 路径/操作/响应符合 3.1 基本要求、文档里每条路径都真实存在于宿主半侧的路由实现里（防文档漂移）、
+ * 品牌与数据布局没停在改名/迁移之前的旧值上、素材端点的错误正文与实现逐字一致。
  * 只做静态比对，不起服务、不发请求，也不校验示例内容的语义。
- * 路径一律从本文件位置解析而非 CWD：文档在仓库根，本文件在 dsh-pet/scripts/。
+ * 路径一律从本文件位置解析而非 CWD：文档在仓库根，本文件在 dsh-fish-body/scripts/。
  * 必须始终：任何一项失败都以非零退出码结束，坏文档不能进发布链。
- * @module dsh-pet/scripts/check-openapi
+ * @module dsh-fish-body/scripts/check-openapi
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -14,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const yaml = require('js-yaml');
 
-const HERE = dirname(fileURLToPath(import.meta.url)); // dsh-pet/scripts
+const HERE = dirname(fileURLToPath(import.meta.url)); // dsh-fish-body/scripts
 const SPEC_PATH = join(HERE, '..', '..', 'openapi.yaml'); // 仓库根
 const ROUTES_DIR = join(HERE, '..', 'src', 'host', 'routes');
 
@@ -28,6 +29,37 @@ for (const key of ['info', 'paths', 'components', 'servers', 'tags']) {
   if (!doc[key]) fail.push(`缺少顶层字段 ${key}`);
 }
 if (!doc.info?.title || !doc.info?.version) fail.push('info.title / info.version 缺失');
+
+// ---- 品牌与布局防漂 ----
+// 这份契约最容易说谎的地方不是接口，而是「名字」：仓库从 dsh-pet 改名成 dsh-fish-body、数据根从
+// `<DSH_HOME>/dsh-pet` 迁到 `<DSH_HOME>/fish-body/config|skin|assets|…` 之后，正文里的旧路径
+// 还留着，读文档的人照着去磁盘上找就是个空目录。所以把这几条硬绑上门禁，而不是靠人记着改。
+const pkg = JSON.parse(readFileSync(join(HERE, '..', 'package.json'), 'utf8'));
+if (doc.info.version !== pkg.version) {
+  fail.push(
+    `info.version（${doc.info.version}）≠ package.json 的 version（${pkg.version}）：契约跟着包版本走，发版时一起改`,
+  );
+} else ok.push(`info.version 与包版本一致（${pkg.version}）`);
+if (!String(doc.info.title ?? '').includes('dsh-fish-body')) fail.push(`info.title 未随仓库改名：${doc.info.title}`);
+if (doc.externalDocs?.url !== 'https://github.com/cute-aaa/dsh-fish-body') {
+  fail.push(`externalDocs.url 应指向本 fork 仓库，实际 ${doc.externalDocs?.url}`);
+}
+
+const specText = readFileSync(SPEC_PATH, 'utf8');
+// 三处旧名是**故意冻结的线上契约**（路由前缀 / 桌面 scheme / 备份文件的 kind），先抹掉再查残留。
+const FROZEN = [/\/dsh-pet-7340/g, /dsh-pet-bridge:/g, /dsh-pet\/settings-backup/g];
+const stripped = FROZEN.reduce((text, re) => text.replace(re, '@@frozen@@'), specText);
+const STALE = [
+  ['旧数据根 $DSH_HOME/dsh-pet', /\$DSH_HOME\/dsh-pet|<DSH_HOME>\/dsh-pet/g],
+  ['旧错误正文前缀 dsh-pet:（实现输出的是 fish-body:）', /dsh-pet: /g],
+  // 池根 `assets/pet/` 与外部项目 `surfcore/pet/` 是真路径，皮肤目录才叫 `skin/`。
+  ['迁移前的皮肤目录 pet/（现为 skin/）', /(?<!assets\/)(?<!surfcore\/)pet\//g],
+];
+for (const [label, re] of STALE) {
+  const hit = stripped.match(re);
+  if (hit) fail.push(`文档里还有${label}，共 ${hit.length} 处`);
+  else ok.push(`无${label}`);
+}
 
 /** 按 JSON Pointer 解析文档内引用（含 ~1/~0 反转义），解析不到返回 undefined。 */
 const deref = (ref) => {
@@ -114,6 +146,17 @@ for (const seg of implemented) {
   if (!documented.has(seg)) fail.push(`host 实现了 /${seg}，但文档里没有`);
 }
 ok.push(`路由对齐：${[...documented].sort().join(', ')}`);
+
+// 素材端点把 404 / 400 的正文写成纯文本，第三方就是按这串字面量分支的：文档里写的那种正文，
+// 必须在实现里逐字存在，否则改代码的人一改名，契约就悄悄断了。
+const implText = routeSources(join(HERE, '..', 'src'))
+  .map((file) => readFileSync(file, 'utf8'))
+  .join('\n');
+const bodies = new Set([...specText.matchAll(/`(fish-body: [^`\n]+)`/g)].map((m) => m[1]));
+for (const body of bodies) {
+  if (!implText.includes(body)) fail.push(`文档里的错误正文在实现中不存在：${body}`);
+}
+if (bodies.size) ok.push(`${bodies.size} 条错误正文与实现逐字一致`);
 
 // 组件 schema 要么自带类型组合、要么引用别处，否则消费者无法据此生成代码。
 for (const [name, s] of Object.entries(doc.components.schemas)) {

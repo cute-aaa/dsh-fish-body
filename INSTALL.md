@@ -40,7 +40,8 @@ dsh plugin --profile web add dsh-fish-body
 dsh plugin --profile desktop add dsh-fish-body
 ```
 
-> **npm 上架前的临时装法**：直接装 Release 里的 tarball，内容与 npm 包一致（`v0.6.0` 起每个 Release 都附一份）：
+> **npm 上架前的临时装法**：直接装 Release 里的 tarball，内容与 npm 包一致（`v0.6.0` 起每个 Release 都附一份；
+> 下面的 `v0.6.0` / `0.6.0` 换成你要装的版本号，最新一版看 `releases/latest`）：
 >
 > ```sh
 > dsh plugin --profile web add https://github.com/cute-aaa/dsh-fish-body/releases/download/v0.6.0/dsh-fish-body-0.6.0.tgz

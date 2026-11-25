@@ -20,6 +20,18 @@
   - `setCustomPos` / `clearCustomPos` 是唯一写入口；菜单「回到原位」连存储一起清，不然下次重启又跳回旧坐标。
   - 文件读坏、目录不可写、IPC 缺通道一律降级成「这次没记住」，不抛异常、不让宠物起不来（`+27` 条单测）。
 
+### 文档与契约
+
+- **对外契约按实现纠正**：`openapi.yaml` 里 6 处错误正文还写着 `dsh-pet: … not found`，实现输出的是
+  `fish-body: …`；素材端点返的是纯文本，第三方按这串字面量分支，照文档写会一条都匹配不上。
+- **数据根路径全篇换到真实布局**：`<DSH_HOME>/dsh-pet/…`（单层平铺）已不存在，实际是
+  `<DSH_HOME>/fish-body/{config,data,cache,runtime,skin,assets}/…`；皮肤目录也从 `pet/` 改名为 `skin/`，
+  文档与 37 处源码注释一并跟过来。
+- **三处旧名冻结、写进文档**：路由前缀 `/dsh-pet-7340`、桌面 scheme `dsh-pet-bridge://`、备份
+  `kind: dsh-pet/settings-backup` —— 改了会断已安装客户端与已导出的备份。
+- **门禁加固**：`check:openapi` 现在会拦「`info.version` 与包版本不一致」「title/externalDocs 没跟着改名」
+  「正文出现旧数据根 / 旧错误前缀 / 旧皮肤目录」「文档里的错误正文字面量在实现中不存在」这四类漂移。
+
 ## v0.6.0
 
 第一个以 `dsh-fish-body` 名义发布的版本（仓库名、包名、数据目录名、接口前缀一并从 `dsh-pet`

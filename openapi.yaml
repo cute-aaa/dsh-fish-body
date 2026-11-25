@@ -1,11 +1,11 @@
 openapi: 3.1.0
 
 info:
-  title: dsh-pet HTTP API
-  version: 0.4.7
+  title: dsh-fish-body HTTP API
+  version: 0.6.1
   summary: DSH 桌宠插件的宿主 HTTP 接口
   description: |
-    dsh-pet 的宿主（host）半侧通过 DSH 的 `webServer` 服务注册**一条前缀路由** `/dsh-pet-7340`，
+    dsh-fish-body（`dsh-pet` 的 fork）的宿主（host）半侧通过 DSH 的 `webServer` 服务注册**一条前缀路由** `/dsh-pet-7340`，
     浏览器半侧、桌面 Electron 半侧、以及设置页全都消费同一份实现（`handlePetRoute`）。
     本文件是该路由的公开契约：任何第三方插件 / 脚本都可以按此访问桌宠能力。
 
@@ -20,6 +20,19 @@ info:
       请勿把该端口转发/代理到公网。
     - 桌面半侧不走 HTTP，而是 `dsh-pet-bridge://` 自定义 scheme 经主进程管道转发到**同一个**
       `handlePetRoute`。所以下表所有路径对两端行为完全一致。
+
+    ## 命名：哪些地方还是 `dsh-pet`
+
+    仓库名、包名、数据根都已是 `dsh-fish-body` / `<DSH_HOME>/fish-body/`，但下面三处**故意保留旧名**，
+    它们是线上契约的一部分，不要照着本文档去"改名"：
+
+    - 路由前缀 `/dsh-pet-7340`——改前缀会让已安装的浏览器端、设置页与桌面 helper 的连接全断；
+    - 桌面自定义 scheme `dsh-pet-bridge://`——已在 Electron 侧注册为特权 scheme；
+    - 设置备份里的 `kind: dsh-pet/settings-backup`——已经导出的备份文件要还能导入。
+
+    除此之外对外可见的字符串都已是 `fish-body:` 前缀（见各响应 404/400 的正文）与
+    `<DSH_HOME>/fish-body/` 数据根。上游时期的数据根（`dsh-pet`）会在启动时被迁移过来，
+    迁移失败只告警、源目录原样保留。
 
     ## 两分钟上手
 
@@ -73,7 +86,7 @@ info:
 
 externalDocs:
   description: 项目仓库与使用说明
-  url: https://github.com/PC2005-cloud/dsh-pet
+  url: https://github.com/cute-aaa/dsh-fish-body
 
 servers:
   - url: http://127.0.0.1:{port}
@@ -156,7 +169,7 @@ paths:
           浏览器端只能靠这个信号知道。
           配置本体太大，不能塞进每秒一次的 `/state`，所以这里只放一个信号。
           保存 / 同步配置（`PUT` / `POST /config`）**不写它**：它们的调用方自己就拿到了成品聚合。
-          **用户手工编辑 `main-config.jsonc` / `pet/*.json` 不会被感知**——宿主不再读盘比对 mtime
+          **用户手工编辑 `main-config.jsonc` / `skin/*.json` 不会被感知**——宿主不再读盘比对 mtime
           （那等于每拍读一次盘），改完需要重载。
         - **`counter` 是整份 S 的版本号**（顶层，**不是叶子**）：它就是"最后一次写入的编号"。
           把它回传成 `?since=` 表达"我手里这份是哪个版本"——长轮询靠它判断要不要挂起。
@@ -683,7 +696,7 @@ paths:
         - `pet` **必填**，且必须是一只真实存在的桌宠（没给 → `pet-required`，不存在 → `unknown-pet`）；
         - **配图两种形态，二选一**（issue #122 第 1 条的"资源注册"）：
           - `image`：只接受**该桌宠条目表情包池内**的名称（即该条目 `memes` 里、且在其表情包目录链
-            —— `pet/<素材根>-memes/`（独占）或 `memes/` → 包内 `assets/memes/` ——里真实存在的键）。
+            —— `skin/<素材根>-memes/`（独占）或 `memes/` → 包内 `assets/memes/` ——里真实存在的键）。
             池外名称 → `ok: false` + `reason: unknown-image`（与对话选图共用同一份校验）；
           - `url`：**第三方自带的配图地址**，完整 URL，不查池——素材在调用方手里，池里当然没有。
             scheme 只放行 `http` / `https`（`file:` 会让桌面端渲染进程能读本地任意文件）。
@@ -897,7 +910,7 @@ paths:
 
         **多宠物：动画池是按「条目」分的，不是全局一份**
 
-        主配置里的宠物共用 `main` 条目的池；`pet/<名>-config.json` 定义的每个种类各用自己
+        主配置里的宠物共用 `main` 条目的池；`skin/<名>-config.json` 定义的每个种类各用自己
         文件里的 `animations`（同种类的多只实例共享同一份池）。所以"这只宠物能点播什么"必须
         按它所属的条目取——**拿主宠物的名字去点播 pet pack 宠物必然 `unknown-animation`**：
 
@@ -906,7 +919,7 @@ paths:
         3. 该条目的 `animations` 就是这只宠物的可点播集合（`idle` / `turn` / `drag` / `clicks` /
            `moves.actions` / `categories` / `events` 七类池子的并集，去重后与右键菜单一致）。
 
-        另外 **pet pack 的素材是独占的**（`pet/<素材根>-animation/`，不回落主素材池）：名字还得
+        另外 **pet pack 的素材是独占的**（`skin/<素材根>-animation/`，不回落主素材池）：名字还得
         真实存在于该目录里，否则宿主会放行（校验只看池），但播放端取素材 404，表现为"点了没反应"。
 
         **注意**：`once` 语义是"插播一段"——播完会回到正常的动画链（与菜单点一下相同）。
@@ -1410,12 +1423,12 @@ paths:
           in: query
           required: true
           description: |
-            目录类别。素材类（需要 `?pet=`）：旧布局五项：`sound`（`pet/<素材根>-sound/`）、
+            目录类别。素材类（需要 `?pet=`）：旧布局五项：`sound`（`skin/<素材根>-sound/`）、
             `skin`（皮肤目录，live2d 取模型所在层）、`animation`（动画同目录）、`user`（用户共享
             `main-sound/`，仅 main 链）、`package`（包内 `assets/sound/`）；共享资源池五项（A 方案，
-            池根见 `assets.pool`，默认 `<用户根>/assets/pet`）：`pool-layered`（`pet/layered/<皮肤>`）、
-            `pool-live2d`（`pet/live2d/<模型目录>`）、`pool-webm`（`pet/webm/`）、
-            `pool-sound`（`pet/<渲染方式>/sound/`）、`pool-global-sound`（`pet/sound/`）。
+            池根见 `assets.pool`，默认 `<用户根>/assets/pet`）：`pool-layered`（`assets/pet/layered/<皮肤>`）、
+            `pool-live2d`（`assets/pet/live2d/<模型目录>`）、`pool-webm`（`assets/pet/webm/`）、
+            `pool-sound`（`assets/pet/<渲染方式>/sound/`）、`pool-global-sound`（`assets/pet/sound/`）。
             池的素材类别只在宠物自己的渲染方式下有效，否则回 `not-found`。
 
             全局类（**不需要** `?pet=`，设置页「落盘位置」卡的按钮用）：`pool-root`（池根）、
@@ -1471,7 +1484,7 @@ paths:
                             example: sound
                           path:
                             type: string
-                            example: 'D:\DSH\dsh-pet\main-sound'
+                            example: 'D:\DSH\fish-body\main-sound'
                           created:
                             type: boolean
                             description: 仅 `create=1` 且这次真的建了目录时出现。
@@ -2619,7 +2632,7 @@ paths:
       summary: 读取合并后的成品配置
       description: |
         返回**合并成品**：内置默认（`assets/config.jsonc`）与用户层
-        （`$DSH_HOME/dsh-pet/main-config.jsonc`）深度合并后的结果，
+        （`$DSH_HOME/fish-body/config/main-config.jsonc`）深度合并后的结果，
         每个条目的字段都已填满（动画池、权重、物理参数、工作状态文案等），
         浏览器/桌面/设置页直接消费，**无需任何校验或兜底**。
 
@@ -2628,7 +2641,7 @@ paths:
         **一个条目 = 一个「种类」**：动画池（`animations`）、播放权重、人设（`whisperPrompt`）、
         表情包（`memes`）、模型等都属于条目，条目下的 `pets[]` 是它的实例——同种类的多只共享
         同一份池与素材。所以"某只宠物能播什么动画 / 能配哪张表情包"要**先按它的 id 找到所属条目**
-        再取：`main` 条目由内置默认 + 用户层合并而来，`pet/<名>-config.json` 的条目由该种类文件
+        再取：`main` 条目由内置默认 + 用户层合并而来，`skin/<名>-config.json` 的条目由该种类文件
         覆盖。没有一份对所有宠物生效的全局动画池。
       responses:
         "200":
@@ -2769,7 +2782,7 @@ paths:
 
         **层归属由宿主反查，调用方不要传**：`id` 在合并后是**全局唯一**的（`mergePet` 会跳过
         重复实例），宿主用 `findPetInstance` 定位后按条目归属决定写哪个文件——`main` 条目写
-        `$DSH_HOME/dsh-pet/main-config.jsonc`，文件宠物写 `pet/<前缀>-config.json`（`.jsonc` 同样支持）。
+        `$DSH_HOME/fish-body/config/main-config.jsonc`，文件宠物写 `skin/<前缀>-config.json`（`.jsonc` 同样支持）。
 
         写入语义与 `PUT /config` 一致：白名单重建 + 磁盘原值透传（不抹掉手写的精调字段）。
         写盘后同样**异步**重启桌面 Helper、不阻塞响应——响应可能来不及送达（发起者往往就是
@@ -2878,7 +2891,7 @@ paths:
         （与 `GET /config` 同一份）。
 
         补的是两个既有写端点之间的空档：`PUT /config` 只写用户主配置，`POST /pet-display`
-        只改单只的 `display`。这条按「条目」写：`entry` 是 `pet/<名>-config.json` 的文件名
+        只改单只的 `display`。这条按「条目」写：`entry` 是 `skin/<名>-config.json` 的文件名
         前缀（= 素材根），目标文件由宿主定位，调用方不要传路径。
 
         必须知道的几点：
@@ -2890,7 +2903,7 @@ paths:
         - **不接受全局字段**：`notificationsEnabled`/`physics`/`font`/`whisperModel` 等即使传了
           也不写这一层——全局字段只归 `main`，经 `PUT /config` 写。
         - **`entry: "main"` 被拒绝**：main 层还要带全局字段，必须走 `PUT /config`。
-        - **写回会丢注释**：`pet/*.jsonc` 里的 `//` 注释会被抹成纯 JSON（与 `POST /pet-display`
+        - **写回会丢注释**：`skin/*.jsonc` 里的 `//` 注释会被抹成纯 JSON（与 `POST /pet-display`
           一致）。
         - **id 跨条目全局唯一**：与其它种类重名的实例 id 会在写盘前被拒（`bad-request`），
           否则读取时会因重复被静默跳过。
@@ -2906,7 +2919,7 @@ paths:
                 entry:
                   type: string
                   description: |
-                    条目名 = `pet/<名>-config.json(c)` 的文件名前缀 = 素材根。
+                    条目名 = `skin/<名>-config.json(c)` 的文件名前缀 = 素材根。
                     不接受 `main`，也不能含路径分隔符等非法字符。
                 pets:
                   type: array
@@ -3033,7 +3046,7 @@ paths:
                     description: |
                       内置皮肤池根绝对路径（`assets.pool`，默认 `<数据根>/assets/pet`）。
                       池里按 `layered/`、`live2d/`、`webm/`、`sound/` 四类放素材，所有宠物共用。
-                      旧默认值（`skin` / `assets/skin`）按默认处理，避免升级后指向一个空目录。
+                      旧默认值（`skin` / `assets/pet`）按默认处理，避免升级后指向一个空目录。
                   todos:
                     type: string
                     description: |
@@ -3452,7 +3465,7 @@ paths:
       operationId: getAnimation
       summary: 获取宠物动画素材
       description: |-
-        按「是否存在该宠物的独立素材目录 `pet/<petId>-animation/`」决定素材归属，池永远排在它后面：
+        按「是否存在该宠物的独立素材目录 `skin/<petId>-animation/`」决定素材归属，池永远排在它后面：
 
         - **存在**（pet pack 宠物）：先查该目录，缺失再查共享资源池 `<池>/webm/`，
           仍未命中才落到主素材链。
@@ -3497,7 +3510,7 @@ paths:
               schema:
                 type: string
         "404":
-          description: "素材不存在（`dsh-pet: asset not found`）"
+          description: "素材不存在（`fish-body: asset not found`）"
           content:
             text/plain:
               schema:
@@ -4331,10 +4344,10 @@ paths:
       description: |
         按素材根回一张角色参考图（通常是三视图），给第三方插件自己做生图时保持角色一致用。
 
-        **dsh-pet 不代调生图模型**：这个端点只交付「什么叫像这只角色」，出图、模型、key 与
+        **dsh-fish-body 不代调生图模型**：这个端点只交付「什么叫像这只角色」，出图、模型、key 与
         计费都在调用方。所以它不需要图像服务商配置，也不消耗宿主的额度。
 
-        查找顺序：`pet/<素材根>-character.<ext>`（pet pack 自带）→ 包内
+        查找顺序：`skin/<素材根>-character.<ext>`（pet pack 自带）→ 包内
         `assets/<素材根>-character.<ext>`（随包发布）。扩展名按 png / jpg / jpeg / webp / gif
         依次探测，命中第一个即返回；扩展名同时决定 `content-type`。
 
@@ -4345,7 +4358,7 @@ paths:
           in: query
           required: true
           description: |
-            素材根（`pet/<名>-config.json(c)` 的文件名前缀）——**必填**，没有缺省值：
+            素材根（`skin/<名>-config.json(c)` 的文件名前缀）——**必填**，没有缺省值：
             猜一个默认值会让调用方静默拿到别只宠物的脸。含路径分隔符等非法字符 → 400。
           schema:
             type: string
@@ -4374,7 +4387,7 @@ paths:
         "400":
           description: 缺 `root`，或 `root` 含路径分隔符等非法字符（`text/plain`）。
         "404":
-          description: "该素材根没有角色参考图（`text/plain`，正文 `dsh-pet: character not found`）。"
+          description: "该素材根没有角色参考图（`text/plain`，正文 `fish-body: character not found`）。"
 
   /dsh-pet-7340/logo:
     get:
@@ -4385,7 +4398,7 @@ paths:
         不带参数时回包内 `assets/logo.png`。只放行这一个文件——`assets/` 根下还有配置文件，
         不开放成静态目录，所以路径不接受额外段（多一段是 400）。
 
-        带 `root=<素材根>` 时先找该 pet pack 上传的头像（`pet/<素材根>-avatar.<ext>`，
+        带 `root=<素材根>` 时先找该 pet pack 上传的头像（`skin/<素材根>-avatar.<ext>`，
         扩展名由文件头判定，可为 png / jpg / webp / gif）；没上传过就回退包内 logo。
         `root=main`（内置条目）**不查**自定义文件，永远回包内 logo。
 
@@ -4399,7 +4412,7 @@ paths:
           in: query
           required: false
           description: |
-            素材根（`pet/<名>-config.json(c)` 的文件名前缀）。缺省或 `main` → 回包内 logo。
+            素材根（`skin/<名>-config.json(c)` 的文件名前缀）。缺省或 `main` → 回包内 logo。
             含路径分隔符等非法字符 → 400。
           schema:
             type: string
@@ -4442,7 +4455,7 @@ paths:
       operationId: uploadPetAvatar
       summary: 上传 / 覆盖 pet pack 的头像
       description: |
-        把一张图片写成 `pet/<素材根>-avatar.<ext>`，覆盖同一素材根的旧头像。
+        把一张图片写成 `skin/<素材根>-avatar.<ext>`，覆盖同一素材根的旧头像。
         扩展名由**文件头的魔数**决定（png / jpg / webp / gif），不信文件名；换格式时会清掉旧的
         其它扩展名，多份并存读取时也按修改时间取最新那份。
 
@@ -4450,7 +4463,7 @@ paths:
 
         必须知道的几点：
 
-        - **只属于 pet pack**：`root=main`（内置条目）直接拒绝——`pet/` 目录不接内置的头像，
+        - **只属于 pet pack**：`root=main`（内置条目）直接拒绝——`skin/` 目录不接内置的头像，
           内置永远用插件默认 logo。
         - **上限 768 KiB（解码后）**：请求体上限 1 MiB，base64 膨胀 4/3，所以原图约 750 KB 封顶；
           设置页会先把图缩到长边 512 再上传。
@@ -4462,7 +4475,7 @@ paths:
           in: query
           required: true
           description: |
-            素材根（`pet/<名>-config.json(c)` 的文件名前缀）——**必填**，且不能是 `main`。
+            素材根（`skin/<名>-config.json(c)` 的文件名前缀）——**必填**，且不能是 `main`。
           schema:
             type: string
           example: baimao
@@ -4560,7 +4573,7 @@ paths:
                 type: string
                 format: binary
         "404":
-          description: "音效不存在（`dsh-pet: sound not found`）"
+          description: "音效不存在（`fish-body: sound not found`）"
           content:
             text/plain:
               schema:
@@ -4583,7 +4596,7 @@ paths:
                 type: string
                 format: binary
         "404":
-          description: "字体不存在（`dsh-pet: font not found`）"
+          description: "字体不存在（`fish-body: font not found`）"
           content:
             text/plain:
               schema:
@@ -4600,9 +4613,9 @@ paths:
         - `/dsh-pet-7340/pic/<名>.png` → **包内** `assets/pic/`（方形 png，系统通知图标用）。
         - `/dsh-pet-7340/pic/memes/<素材根>/<名>.png` → 表情包（碎碎念/对话配图用的图），
           按素材根决定**素材归属**，与动画（`/thumb`）同一套语义：
-          1. `pet/<素材根>-memes/` 存在（种类自带表情包）：**只查该目录**，查不到即 `404` 显式报错，
+          1. `skin/<素材根>-memes/` 存在（种类自带表情包）：**只查该目录**，查不到即 `404` 显式报错，
              **绝不回落**别的目录；
-          2. 不存在：用户目录 `$DSH_HOME/dsh-pet/memes/` 优先，其次包内 `assets/memes/`（逐文件合并，
+          2. 不存在：用户目录 `$DSH_HOME/fish-body/assets/memes/` 优先，其次包内 `assets/memes/`（逐文件合并，
              与 `main-animation/<ext> → 包内 assets/<ext>` 的主素材链同构）。
 
           素材根 = 该宠物的条目 key（`assetRoot`：主配置宠物为 `main`，文件宠物为配置文件前缀）。
@@ -4634,13 +4647,13 @@ paths:
                 type: string
                 format: binary
         "400":
-          description: "素材根含非法字符（`dsh-pet: invalid asset root`）"
+          description: "素材根含非法字符（`fish-body: invalid asset root`）"
           content:
             text/plain:
               schema:
                 type: string
         "404":
-          description: "图片不存在（`dsh-pet: pic not found`）"
+          description: "图片不存在（`fish-body: pic not found`）"
           content:
             text/plain:
               schema:
@@ -4867,7 +4880,7 @@ paths:
       summary: 读取待办清单
       description: |
         返回全部待办，已按「未完成在前、到期越近越靠前、无期限垫底、已完成最后」排序。
-        数据落在插件的用户目录（`<DSH_HOME>/dsh-pet/todos.json`），浏览器端与桌面端共用同一份。
+        数据落在插件的用户目录（`<DSH_HOME>/fish-body/data/todos.json`），浏览器端与桌面端共用同一份。
 
         **提醒由宿主定时器驱动，不依赖页面是否打开**：距到期越近提醒越密——
         进入 7 天内开始提醒（24h → 12h → 4h → 1h → 20m → 5m 逐级变密），
@@ -5054,7 +5067,7 @@ paths:
       operationId: getSkinFile
       summary: 取分层皮肤或 live2d 模型的素材文件
       description: |
-        `/skin/<素材根>/<file>` → `$DSH_HOME/dsh-pet/pet/<素材根>-skin/`，缺失时回落到共享资源池
+        `/skin/<素材根>/<file>` → `$DSH_HOME/fish-body/skin/<素材根>-skin/`，缺失时回落到共享资源池
         （`<池>/layered/…` 再 `<池>/live2d/…`）——先 pack 后池。含分隔符或保留字符即 400。
 
         `root=pool` 是池的保留虚拟素材根：`/skin/pool/<渲染方式>/<file>` 指定桶，
@@ -5093,7 +5106,7 @@ paths:
       operationId: listSkinModels
       summary: 列出皮肤目录下的 live2d 模型
       description: |
-        递归列出 `pet/<素材根>-skin/` 下全部 `.model3.json`（相对路径、posix 分隔符、排序稳定），
+        递归列出 `skin/<素材根>-skin/` 下全部 `.model3.json`（相对路径、posix 分隔符、排序稳定），
         并合并共享资源池里的 live2d 资源（`<池>/live2d/<模型目录>/*.model3.json`）。
         `models` 是去重后的 id 列表（旧布局在前、池在后，同名只留旧布局那一份）；
         `items` 带来源（`pack` / `pool`），右键「模型」菜单据此给池里的模型标「（池）」。
@@ -5140,7 +5153,7 @@ paths:
       operationId: listLayeredSkins
       summary: 列出可切换的分层皮肤
       description: |
-        列出 `pet/<素材根>-skin/` 里带清单的皮肤（根布局记空串，子目录布局记目录名），
+        列出 `skin/<素材根>-skin/` 里带清单的皮肤（根布局记空串，子目录布局记目录名），
         并合并共享资源池里的 layered 资源（一级子目录且能判定结构文件）。
         `skins` 是去重后的 id 列表（旧布局在前、池在后）；`items` 带来源。
         `pets[].model` 写这里的值；layered 右键「皮肤」子菜单用它。
@@ -5904,7 +5917,7 @@ paths:
         把三份**用户可编辑的设置原文**打成一份快照返回：
 
         - `main-config.jsonc`（用户主配置，JSONC 原文，含注释与宠物列表）
-        - `pet/<名>-config.json(c)`（每个文件宠物的种类配置原文）
+        - `skin/<名>-config.json(c)`（每个文件宠物的种类配置原文）
         - `session-fish.json`（会话鱼设置原文）
 
         存原文而不是解析后的对象：导出 → 恢复之后，用户手写的注释与字段顺序仍然是同一份文件。
@@ -7243,7 +7256,7 @@ components:
         ——两者都可能不是发起页面自己的配置改动。保存 / 同步配置（`PUT` / `POST /config`）不写它，
         因为它们的调用方自己就拿到了成品聚合。
 
-        **用户手工编辑 `main-config.jsonc` / `pet/*.json` 不会被感知**：宿主不再读盘比对 mtime
+        **用户手工编辑 `main-config.jsonc` / `skin/*.json` 不会被感知**：宿主不再读盘比对 mtime
         （早先的做法等于每拍读一次盘），改完需要重载。
       properties:
         counter:

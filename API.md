@@ -1,11 +1,14 @@
-# dsh-pet 对外 HTTP 接口一览
+# dsh-fish-body 对外 HTTP 接口一览
 
-dsh-pet 的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由** `/dsh-pet-7340`，浏览器端、
+`dsh-fish-body`（`dsh-pet` 的 fork）的宿主半侧向 DSH 自己的 Web 服务注册了**一条前缀路由** `/dsh-pet-7340`，浏览器端、
 桌面端、设置页与第三方插件全都访问同一份实现。本文只做**功能预览**（接口名 + 一句话），
 完整契约——参数、响应体、字段含义、错误码与示例——见根目录的 [`openapi.yaml`](openapi.yaml)。
 
 - **基址**：`http://127.0.0.1:<port>/dsh-pet-7340`，`<port>` 是 DSH Web 服务实际监听的端口
 - **只监听 127.0.0.1，且没有鉴权**：任何能访问本机该端口的进程都能调用，请勿转发到公网
+- **三处旧名是冻结的**（改了就断已有客户端）：路由前缀 `/dsh-pet-7340`、桌面 scheme `dsh-pet-bridge://`、
+  设置备份里的 `kind: dsh-pet/settings-backup`。其余对外字符串与磁盘布局都已是 `fish-body` 这一套：
+  响应正文用 `fish-body:` 前缀，数据根是 `<DSH_HOME>/fish-body/`（`config/` `data/` `cache/` `runtime/` `skin/` `assets/`）。
 
 ---
 
