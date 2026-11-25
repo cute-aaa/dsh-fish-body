@@ -88,8 +88,16 @@ describe('不认的写法（误判成本高于漏判）', () => {
     assert.deepEqual(extractSchedule('十一点睡觉'), []);
   });
 
-  test('中文数字 + 时段词也不认：晚上十一点', () => {
-    assert.deepEqual(extractSchedule('晚上十一点睡，早上八点起'), []);
+  test('中文数字**不带时段前缀**不认：十一点睡 → 空（11 点还是 23 点无从判断）', () => {
+    assert.deepEqual(extractSchedule('十一点睡'), []);
+  });
+
+  test('中文数字带时段前缀 → 归一后认：晚上十一点睡，早上八点起', () => {
+    const entries = extractSchedule('晚上十一点睡，早上八点起');
+    assert.equal(entries.length, 1, '方向配对成一段');
+    assert.equal(entries[0]?.from, '23:00');
+    assert.equal(entries[0]?.to, '08:00');
+    assert.equal(entries[0]?.state, 'sleeping');
   });
 
   test('只有时刻、附近没有睡眠词：23:00 加班 → 空', () => {
