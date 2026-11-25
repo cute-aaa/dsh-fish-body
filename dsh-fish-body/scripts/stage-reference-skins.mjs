@@ -16,7 +16,7 @@
  *
  * 导入项默认 display=none：它们是候选皮肤，一次只在页面上留一只宠物。
  * 想让某一套上屏，导入时给 --display，或在设置页把该种类的显示方式改成 web/desktop。
- * @module dsh-pet/scripts/stage-reference-skins
+ * @module dsh-fish-body/scripts/stage-reference-skins
  */
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';

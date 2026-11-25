@@ -19,7 +19,7 @@ import { readPetSelection, resolveSelection, savePetSelection } from './selectio
 
 /** 种类条的一项。 */
 export interface PetKind {
-  /** 条目名：`main` 或 pet/<前缀>-config.json 的前缀。 */
+  /** 条目名：`main` 或 skin/<前缀>-config.json 的前缀。 */
   readonly entry: string;
   /** `main` 显示为「内置」，其余直接显示前缀。 */
   readonly kind: 'main' | 'pack';

@@ -49,10 +49,10 @@ export async function handleCharacterRoutes(deps: PetRouteDeps, input: RouteInpu
 }
 
 /**
- * 按素材根找角色图：`pet/` 优先，包内兜底。
+ * 按素材根找角色图：`skin/` 优先，包内兜底。
  *
  * 扩展名只走白名单，不按目录扫描：用户目录里可能有别的文件，扫描会把无关文件当成角色图。
- * @param petDir - `pet/` 目录（pet pack 素材根所在处）。
+ * @param petDir - `skin/` 目录（pet pack 素材根所在处）。
  * @param assetRoot - 已校验的素材根。
  * @returns 命中的文件；都没有时 undefined。
  */

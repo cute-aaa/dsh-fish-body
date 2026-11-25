@@ -166,7 +166,7 @@ export interface PetRouteDeps {
     /** Cordis 服务查找：取 `hmr` 等可选服务（缺失时返回 undefined）。 */
     get?: (name: string) => unknown;
   };
-  /** 文件宠物目录（`pet/`）。 */
+  /** 文件宠物目录（`skin/`）。 */
   readonly petConfigDir: string;
   /** 把最新工作状态写进轮询快照。 */
   readonly publishWorkStatus: () => void;

@@ -67,7 +67,7 @@ export function makePetTab(rt: SettingsRuntime): FunctionComponent<PetTabProps> 
     const current = list.pets.find((pet) => pet.id === list.selId) ?? null;
     // 头像只能属于 pet pack：main（含没有 assetRoot 的实例）用插件默认 logo，不给上传入口。
     const avatarEditable = current !== null && current.assetRoot !== undefined && current.assetRoot !== 'main';
-    // 另 n 个种类来自 pet/ 目录：只在真有文件宠物时提一句，普通用户不被打扰。
+    // 另 n 个种类来自 skin/ 目录：只在真有文件宠物时提一句，普通用户不被打扰。
     const packCount = list.kinds.filter((item) => item.kind === 'pack').length;
 
     return h('div', {
@@ -77,7 +77,7 @@ export function makePetTab(rt: SettingsRuntime): FunctionComponent<PetTabProps> 
           key: 'picker',
           className: 'dsh-pet-cfg__picker',
           children: [
-            // 种类：条目名可能很长（pet/ 下的目录前缀），所以用下拉而不是再排一排按钮。
+            // 种类：条目名可能很长（skin/ 下的目录前缀），所以用下拉而不是再排一排按钮。
             h('div', {
               key: 'kind',
               className: 'dsh-pet-cfg__kindPicker',

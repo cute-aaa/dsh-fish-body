@@ -1,10 +1,10 @@
 /**
  * 分层皮肤的清单位置：一个素材根里可以同时放分层皮肤与 live2d 模型。
  *
- * `manifest.json` 在根上是老布局（`pet/<素材根>-skin/manifest.json`）；
+ * `manifest.json` 在根上是老布局（`skin/<素材根>-skin/manifest.json`）；
  * 新布局把它收进子目录，好让同一个素材根既装 `.model3.json` 又装分层美术：
- *   pet/<素材根>-skin/live2d/<模型>.model3.json
- *   pet/<素材根>-skin/layered/manifest.json
+ *   skin/<素材根>-skin/live2d/<模型>.model3.json
+ *   skin/<素材根>-skin/layered/manifest.json
  * 清单里的图片路径相对清单自身，所以子目录里的 `art/x.png` 不用改写。
  *
  * 除了「根布局 / `layered/` 子目录」这两种**素材根级**的位置，`pets[].model` 指的那套皮肤

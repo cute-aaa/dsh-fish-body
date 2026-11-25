@@ -106,7 +106,7 @@ async function uploadAvatar(assetRoot, file, result, image) {
 function avatarRow(pet) {
   // 条目名就是素材根（/config 的 pets 上没有 assetRoot，那是客户端拍平时补的）。
   const assetRoot = pet.assetRoot || state.entry;
-  // pet/ 只归 pet pack：内置条目用包内 logo，只给预览不给上传，与服务端的拒绝保持一致。
+  // skin/ 只归 pet pack：内置条目用包内 logo，只给预览不给上传，与服务端的拒绝保持一致。
   const editable = assetRoot !== 'main';
   const image = make('img', { class: 'avatarImg', alt: '头像' });
   void loadAvatar(image, editable ? assetRoot : '');

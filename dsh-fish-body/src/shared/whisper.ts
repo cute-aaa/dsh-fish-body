@@ -26,7 +26,7 @@ export function whisperBubbleView(state: WhisperState): WhisperBubbleRow[] {
 }
 
 /** 表情包图片 URL，与视频同一套拼法：`<base>/pic/memes/<素材根>/<名称>.png`（素材根与名称都需编码）。
- *  带素材根是为了表达这张图属于哪只宠物：`pet/<素材根>-memes/` 存在时该种类只认自己的目录，
+ *  带素材根是为了表达这张图属于哪只宠物：`skin/<素材根>-memes/` 存在时该种类只认自己的目录，
  *  否则走用户目录与包内 assets/memes；assetRoot 为空则退回两段形式，未打标的宠物与老宿主仍能取到图。
  *  base 已含 /dsh-pet-7340 前缀（与视频的 assetBase 一致），函数内不得再拼一次，否则桌面端图裂。
  *  桌面页面是 file:// 加载的，相对路径会解析成 file:/// 而必然失败，所以桌面传绝对基址。 */

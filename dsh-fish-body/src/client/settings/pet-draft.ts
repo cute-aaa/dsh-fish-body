@@ -14,7 +14,7 @@ import { SIZE_PERCENT_DEFAULT } from '../../shared/pet-size.ts';
  * 从 2 起：`-1` 通常已被该种类的首只占用（`daily1` 这类手工 id 不占号）。
  *
  * @param list - 全条目的实例列表，只读。
- * @param kind - 条目名（`main` 或 pet/<前缀>-config.json 的前缀）；缺省按 main。
+ * @param kind - 条目名（`main` 或 skin/<前缀>-config.json 的前缀）；缺省按 main。
  * @returns 形如 `pet-2` / `daily-2` 的空闲 id。
  */
 export function nextPetId(list: readonly Pet[], kind = 'main'): string {

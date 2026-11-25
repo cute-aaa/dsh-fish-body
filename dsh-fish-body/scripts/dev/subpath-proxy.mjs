@@ -5,7 +5,7 @@
  * 只改写 Host，因此浏览器在 DSH 站点上已有的登录态可直接复用。
  * 端口、目标与前缀分别取 argv[2..4]，默认 9090 → http://127.0.0.1:8080 → /app/DeepSeek-Harness/fngateway；
  * 入口是 npm run dev:subpath。
- * @module dsh-pet/scripts/dev/subpath-proxy
+ * @module dsh-fish-body/scripts/dev/subpath-proxy
  */
 import { createServer, request } from 'node:http';
 import { connect } from 'node:net';

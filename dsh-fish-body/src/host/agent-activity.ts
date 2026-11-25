@@ -6,7 +6,7 @@
  *
  * 必须始终成立：这里记的是**最近一次会话事件**的时刻，不是「宠物说过话」的时刻；
  * 时钟回拨时 `agentIdleForMs` 归零（宁可判成刚活动过，也别判成永久空闲）。
- * @module dsh-pet/src/host/agent-activity
+ * @module dsh-fish-body/src/host/agent-activity
  */
 
 /** 最近一次会话事件的时间戳（毫秒）；0 = 插件起来之后还没见过任何事件。 */

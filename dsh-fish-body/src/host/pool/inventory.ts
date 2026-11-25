@@ -88,7 +88,7 @@ export interface RenderResourcesInput {
   readonly poolRoot: string;
   /** 全部皮肤根（用户 `skin/` 在前、内置池在后）；给了就按根序合并，`dir` 报第一个根。 */
   readonly poolRoots?: readonly string[];
-  /** 用户的皮肤目录（`pet/<素材根>-skin/`）；不存在时按 undefined 传。 */
+  /** 用户的皮肤目录（`skin/<素材根>-skin/`）；不存在时按 undefined 传。 */
   readonly packSkinDir?: string;
   /** 平铺动画（webm）的候选目录，按「先 pack 后池」顺序。 */
   readonly animDirs?: readonly RenderAnimDir[];

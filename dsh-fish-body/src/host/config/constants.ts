@@ -91,10 +91,10 @@ export function warnOnce(key: string, message: string): void {
 export interface ConfigPaths {
   /** 包内 assets/config.jsonc（内置默认，绝对正确） */
   defaultFile: string;
-  /** ~/.dsh/dsh-pet/main-config.jsonc（用户主配置，可编辑层；JSONC——允许注释） */
+  /** `<数据根>/config/main-config.jsonc`（用户主配置，可编辑层；JSONC——允许注释） */
   userFile: string;
-  /** 旧路径 ~/.dsh/dsh-pet/main-config.json：读取回落 + 启动时迁移（见 migrateUserConfig） */
+  /** 旧扩展名 `<数据根>/config/main-config.json`：读取回落 + 启动时迁移（见 migrateUserConfig） */
   legacyUserFile?: string;
-  /** ~/.dsh/dsh-pet/pet（文件宠物目录） */
+  /** `<数据根>/skin`（文件宠物的种类配置目录） */
   petDir: string;
 }

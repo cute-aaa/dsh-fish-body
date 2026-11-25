@@ -6,7 +6,7 @@
  * 必须是经典 script（iife）而非 ESM：Helper 页面走 file://，Chromium 对它的 ES module 有 CORS 限制。
  * 两份产物都先于 renderer.js 加载，页面直接读全局，不另建模块系统。
  * 只产构建产物，不做类型检查、不写声明；由发布链的 npm run build:desktop-core 调用。
- * @module dsh-pet/scripts/build-desktop-core
+ * @module dsh-fish-body/scripts/build-desktop-core
  */
 import { rolldown } from 'rolldown';
 import { readFileSync, writeFileSync } from 'node:fs';

@@ -7,7 +7,7 @@
  * 不下载 Electron：找不到可执行文件即提示先跑 npm run ensure:electron。
  * 环境变量与宿主拉起时一致：配置地址、缩放倍数、Electron 路径。
  * 必须始终：删掉 ELECTRON_RUN_AS_NODE，并带上 DSH_PET_HOST_PID，让 Helper 在本进程退出后自行收尾。
- * @module dsh-pet/scripts/start-desktop
+ * @module dsh-fish-body/scripts/start-desktop
  */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';

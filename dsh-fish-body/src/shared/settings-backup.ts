@@ -24,7 +24,7 @@ export const SETTINGS_BACKUP_MAX_PETS = 64;
 /** 条目名（= 文件名前缀）长度上限，与宿主 config 的标识符上限同一口径。 */
 const MAX_ENTRY_LENGTH = 64;
 
-/** 条目名里不能出现的字符：路径分隔符与 Windows 保留符（防写盘逃出 pet/ 目录）。 */
+/** 条目名里不能出现的字符：路径分隔符与 Windows 保留符（防写盘逃出 `skin/` 目录）。 */
 // eslint-disable-next-line no-control-regex -- 拦的就是控制字符，去掉匹配等于放行
 const UNSAFE_ENTRY = /[\\/:*?"<>|\x00-\x1f]/;
 

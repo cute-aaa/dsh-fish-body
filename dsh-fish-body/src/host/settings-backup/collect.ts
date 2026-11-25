@@ -2,7 +2,7 @@
  * 设置备份的采集：把三份用户可编辑的配置原文读成一份快照。
  *
  * 三份东西分别是：用户主配置（`main-config.jsonc`，JSONC 带注释）、会话鱼设置
- * （`session-fish.json`）、以及每个文件宠物的种类配置（`pet/<名>-config.json(c)`）。
+ * （`session-fish.json`）、以及每个文件宠物的种类配置（`skin/<名>-config.json(c)`）。
  * 只读原文，不解析、不校验、不做合并——备份的意义就是「原样」，任何加工都会在恢复时丢东西。
  * 文件不存在时对应位置是空串（含义：拍摄这份快照时没有这一层，恢复时清掉）。
  * @module dsh-fish-body/src/host/settings-backup/collect
@@ -43,7 +43,7 @@ function readText(file: string | undefined): string {
 
 /** 采集所需的两条路径。 */
 export interface BackupSources {
-  /** 配置路径集（主配置 + pet/ 目录）。 */
+  /** 配置路径集（主配置 + skin/ 目录）。 */
   readonly configPaths: ConfigPaths;
   /** 用户数据根（会话鱼设置与其它用户级文件都在这里）。 */
   readonly userRoot: string;

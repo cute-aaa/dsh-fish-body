@@ -16,7 +16,7 @@
  *   pet/<pack>-skin/<子目录>/ 都没有                    → 跳过（认不出是哪类素材，不猜）
  *   pet/<pack>-animation/webm/*.webm                   → <池>/webm/
  *   <用户根>/main-sound/*                              → <池>/sound/
- * @module dsh-pet/scripts/migrate-pool
+ * @module dsh-fish-body/scripts/migrate-pool
  */
 import { cpSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';

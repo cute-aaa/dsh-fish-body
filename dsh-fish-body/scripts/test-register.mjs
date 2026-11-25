@@ -13,7 +13,7 @@
  *
  * 除这两个环境变量外，本模块不改解析策略、不注入其它全局。
  * 由 package.json 的 test 脚本以 --import 引入，仅对测试进程生效。
- * @module dsh-pet/scripts/test-register
+ * @module dsh-fish-body/scripts/test-register
  */
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

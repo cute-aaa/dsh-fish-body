@@ -11,9 +11,9 @@ import { SFX_AUDIO_EXTS } from '../../shared/sfx/types.ts';
 
 /** 扫描需要的目录（缺省的目录不存在或不适用）。 */
 export interface SfxDirs {
-  /** 皮肤目录根 `pet/<素材根>-skin/`；皮肤自己的音频放在它的一级子目录里。 */
+  /** 皮肤目录根 `skin/<素材根>-skin/`；皮肤自己的音频放在它的一级子目录里。 */
   readonly skinDir?: string;
-  /** 素材根自有声音目录 `pet/<素材根>-sound/`。 */
+  /** 素材根自有声音目录 `skin/<素材根>-sound/`。 */
   readonly soundDir?: string;
   /** 用户级共享声音目录 `<数据根>/assets/sound/`（仅 main 链有）。 */
   readonly userSoundDir?: string;
@@ -146,7 +146,7 @@ export function listAudio(dir: string | undefined): string[] {
 /**
  * 列皮肤目录下的一级子目录名（= 皮肤 id）。
  *
- * @param skinDir - `pet/<素材根>-skin/`；不存在时返回空数组。
+ * @param skinDir - `skin/<素材根>-skin/`；不存在时返回空数组。
  * @returns 子目录名，排序稳定。
  */
 export function listSkinIds(skinDir: string | undefined): string[] {

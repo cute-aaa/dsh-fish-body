@@ -89,7 +89,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
   const poolBase = poolRootList[0] ?? '';
 
   // 动画素材：/thumb/<素材根>/<file>，扩展名 webm（默认）/ mov（macOS 定制）。
-  // 存在 `pet/<素材根>-animation/` 的宠物先查自己的目录，再查共享资源池（`<池>/webm/`），
+  // 存在 `skin/<素材根>-animation/` 的宠物先查自己的目录，再查共享资源池（`<池>/webm/`），
   // 仍未命中才走主素材链：用户 assets/animation/<ext> → 包内 assets/<ext>（所有主配置宠物共用）。
   // mov（HEVC-with-Alpha）不随包发布，用户从 GitHub Release 下载后放 assets/animation/mov/，
   // 并把客户端播放常量 ANIMATION_EXT 改为 .mov。
@@ -98,9 +98,9 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
 
   // 插件 logo / 宠物头像：/logo → 包内 assets/logo.png。只放行这一个文件——不把 assets 根开放成静态目录
   // （同目录还有 config.jsonc）。对话面板拿它当宠物头像。
-  // 带 ?root=<素材根> 时先找该宠物的自定义头像（pet/<素材根>-avatar.<ext>），没有就回退包内 logo：
+  // 带 ?root=<素材根> 时先找该宠物的自定义头像（skin/<素材根>-avatar.<ext>），没有就回退包内 logo：
   // 「没上传过」与「上传后又删掉」都由这一处兜底，前端不必区分。
-  // main 不查自定义文件：pet/ 只归 pet pack，内置条目永远用包内 logo。
+  // main 不查自定义文件：skin/ 只归 pet pack，内置条目永远用包内 logo。
   // 参数叫 root 而不是 pet：这里要的是素材根（目录前缀），不是 pets[].id。
   if (scope === 'logo') {
     if (restParts.length > 0) return { kind: 'text', status: 400, body: 'fish-body: expected /dsh-pet-7340/logo' };
@@ -220,7 +220,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     return { kind: 'file', file: vendorFile, contentType: MIME[ext] ?? 'application/octet-stream' };
   }
 
-  // 分层 / live2d 皮肤：/skin/<素材根>/<file> → pet/<素材根>-skin/（manifest.json + art/*.png / .moc3 / 纹理）。
+  // 分层 / live2d 皮肤：/skin/<素材根>/<file> → skin/<素材根>-skin/（manifest.json + art/*.png / .moc3 / 纹理）。
   // 素材根写 `pool`（保留虚拟根）时只查共享资源池：`/skin/pool/<渲染方式>/<file>` 指定桶，
   // `/skin/pool/<file>` 依次试 layered → live2d。普通素材根先查自己的目录，缺失再回落到池（先 pack 后池）。
   // 路径一律过 resolveExisting（规范化后必须留在根内），素材根含分隔符/保留字符即 400。
@@ -289,7 +289,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
         const extraAnimDir = resolveAsset(petConfigDir, assetRoot + '-animation');
         if (extraAnimDir !== undefined) animDirs.push({ dir: extraAnimDir, source: 'pack' });
       }
-      // 每个皮肤根都要试：用户 skin/webm 在前，内置池 ssets/pet/webm 在后。
+      // 每个皮肤根都要试：用户 skin/webm 在前，内置池 assets/pet/webm 在后。
       for (const root of poolRootList) animDirs.push({ dir: join(root, POOL_LAYER_DIR.webm), source: 'pool' });
       if (!fromPool && typeof userRootFor === 'function' && typeof assetRootFor === 'function') {
         // 两条共享素材链不算「这只宠物的专属目录」，按池同一来源标注。
@@ -336,7 +336,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     return { kind: 'text', status: 400, body: 'fish-body: expected /dsh-pet-7340/thumb/<petId>/<file>' };
   }
 
-  // petId 是标识符（= pet/<名>-animation/ 的 <名>，来源是 pet/ 下的文件名前缀），不是路径片段：
+  // petId 是标识符（= skin/<名>-animation/ 的 <名>，来源是 skin/ 下的文件名前缀），不是路径片段：
   // 含分隔符/保留字符即显式 400，早于任何路径拼接判定。合法名（含中文）照常——
   // 用非法字符类而不是 ASCII 白名单。非法输入不再静默回落到主素材池（攻击尝试与「没有独立素材」可区分），
   // 也给下面的 resolveAsset 之外再留一道结构性防线。
@@ -352,7 +352,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
     return { kind: 'text', status: 400, body: 'fish-body: unsupported animation format (expected .webm or .mov)' };
   }
 
-  // 素材归属：`pet/<素材根>-animation/` 存在则先查它；随后查共享资源池的平铺动画（`<池>/webm/`）；
+  // 素材归属：`skin/<素材根>-animation/` 存在则先查它；随后查共享资源池的平铺动画（`<池>/webm/`）；
   // 仍未命中走主素材链（用户根 → 包内根）。extraAnimDir 必须先过 resolveAsset：petId 是解码后的 URL 段，
   // Windows 上 %5C 解出的反斜杠不会被 split('/') 切开，直接 join 会让 `..\..\x` 逃出用户根读盘。
   // 素材根写 `pool` 时只查池（虚拟根没有 pack）。

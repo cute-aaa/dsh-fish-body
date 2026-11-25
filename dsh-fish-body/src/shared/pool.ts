@@ -48,7 +48,7 @@ export const POOL_SOUND_DIR = 'sound';
  * 这个素材根是不是池的保留虚拟根。
  *
  * 只用于「素材根」判定（URL 段、目录前缀）；宠物 id / 条目 key 的叫法不受限制——
- * `isValidPetId('pool')` 仍然为真，被拦的是 `pet/pool-*` 这套素材目录前缀。
+ * `isValidPetId('pool')` 仍然为真，被拦的是 `skin/pool-*` 这套素材目录前缀。
  *
  * @param value - 待判定的素材根。
  * @returns 是池根时返回 true。

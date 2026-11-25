@@ -37,13 +37,13 @@ interface PetFileEntry {
   path: string;
 }
 
-/** 扫描 pet/ 目录：<名>-config.(json|jsonc) → 条目（按文件名排序） */
+/** 扫描 skin/ 目录：<名>-config.(json|jsonc) → 条目（按文件名排序） */
 function scanPetFiles(petDir: string): PetFileEntry[] {
   let entries;
   try {
     entries = readdirSync(petDir, { withFileTypes: true });
   } catch {
-    return []; // pet/ 目录不存在 = 无文件宠物
+    return []; // skin/ 目录不存在 = 无文件宠物
   }
   return (
     entries
@@ -51,11 +51,11 @@ function scanPetFiles(petDir: string): PetFileEntry[] {
       .map((e) => e.name)
       .filter((name) => /^.+?-config\.(json|jsonc)$/.test(name))
       // 保留字：`pool` 是共享资源池在 URL / 配置里的虚拟素材根，不能同时当 pack 名
-      // （`pet/pool-skin/` 与池根 `<用户根>/skin/` 的语义会互相顶掉）。整条条目跳过 + 告警一次。
+      // （`skin/pool-skin/` 与池根 `<用户根>/skin/` 的语义会互相顶掉）。整条条目跳过 + 告警一次。
       .filter((name) => {
         const prefix = name.replace(/-config\.(json|jsonc)$/, '');
         if (prefix !== POOL_ASSET_ROOT) return true;
-        warnOnce('entry:pool', 'pet/' + name + ' 与资源池的保留字 pool 冲突，已跳过该条目（请换个文件名前缀）');
+        warnOnce('entry:pool', 'skin/' + name + ' 与资源池的保留字 pool 冲突，已跳过该条目（请换个文件名前缀）');
         return false;
       })
       .sort()
@@ -70,7 +70,7 @@ function scanPetFiles(petDir: string): PetFileEntry[] {
  * 读取侧同一份，否则备份会漏掉或多收一个条目。
  *
  * @param paths - 配置路径集。
- * @returns 条目名（文件名前缀）与绝对路径；`pet/` 不存在时为空数组。
+ * @returns 条目名（文件名前缀）与绝对路径；`skin/` 不存在时为空数组。
  */
 export function listPetConfigFiles(paths: ConfigPaths): Array<{ entry: string; path: string }> {
   return scanPetFiles(paths.petDir).map((file) => ({ entry: file.prefix, path: file.path }));
@@ -110,7 +110,7 @@ export function readAllConfig(paths: ConfigPaths): Record<string, Record<string,
   }
   out.main = mergeEntry(base, mainOverlay, 'main-config.jsonc', basePets, seenIds);
 
-  // 文件宠物条目：pet/<名>-config.json，一个文件一个条目（key = 文件名前缀 = 素材根）。
+  // 文件宠物条目：skin/<名>-config.json，一个文件一个条目（key = 文件名前缀 = 素材根）。
   // 基座 = 内置默认，但白名单字段（用户级成本/偏好/环境）取用户层——「全局默认 + 种类可覆盖」。
   const filePetBase = packBase(base, mainOverlay);
   for (const file of scanPetFiles(paths.petDir)) {

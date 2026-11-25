@@ -6,7 +6,7 @@
  * 素材一律从包内 assets/webm 读，petId 只作归属标识、不映射到独立素材目录。
  * 必须始终：thumb 解析出的路径要留在素材根内，越界即 400。
  * 端口取第一个参数，默认 8231；入口是 npm run dev:mock。
- * @module dsh-pet/scripts/dev/mock-server
+ * @module dsh-fish-body/scripts/dev/mock-server
  */
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs';

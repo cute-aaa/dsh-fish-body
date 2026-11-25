@@ -150,7 +150,7 @@ export function readMainConfig(merged: MergedConfig): MainConfigPatch | null {
 
 /** 一个条目（种类）与它的全部实例；`key` 即素材根。 */
 export interface ConfigEntry {
-  /** 条目名：`main`，或 `pet/<前缀>-config.json(c)` 的前缀。 */
+  /** 条目名：`main`，或 `skin/<前缀>-config.json(c)` 的前缀。 */
   readonly key: string;
   /** `main` 由设置页连同全局字段整包写；`pack` 单独写回自己的配置文件。 */
   readonly kind: 'main' | 'pack';

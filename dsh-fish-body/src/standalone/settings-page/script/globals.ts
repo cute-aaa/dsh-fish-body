@@ -21,7 +21,7 @@ function globalFlagsCard() {
   const g = state.globals;
   return card('全局开关', '对所有宠物生效；保存后立即写盘。', [
     toggleRow('g-notify', '系统通知', '对话完成、生成失败、权限申请等事件弹出系统通知。', g.notificationsEnabled, (value) => setGlobal('notificationsEnabled', value)),
-    toggleRow('g-sfx', '音效总开关', '按配置与自动匹配到的素材出音；关掉即全程静音。素材放皮肤目录或 pet/<素材根>-sound/ 即自动匹配。', g.sfxEnabled, (value) => setGlobal('sfxEnabled', value)),
+    toggleRow('g-sfx', '音效总开关', '按配置与自动匹配到的素材出音；关掉即全程静音。素材放皮肤目录或 skin/<素材根>-sound/ 即自动匹配。', g.sfxEnabled, (value) => setGlobal('sfxEnabled', value)),
     toggleRow('g-sfx-keepalive', '音效常驻预热', '用一个听不见的极小音源一直占着音频设备，久不发声后的第一下也不缺音头；代价是设备不闲置。', g.sfxKeepAlive, (value) => setGlobal('sfxKeepAlive', value)),
     numberField('g-sfx-volume', '音效总音量（0–1）', g.sfxVolume, (value) => setGlobal('sfxVolume', clampNumber(value, 0, 1, 0.5)), { min: 0, max: 1, step: 0.05 }),
     toggleRow('g-whisper-image', '碎碎念配图', '碎碎念时允许模型挑一张表情包。', g.whisperImageEnabled, (value) => setGlobal('whisperImageEnabled', value)),

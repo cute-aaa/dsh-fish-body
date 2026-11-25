@@ -41,8 +41,8 @@ async function acceptUpload(deps: PetRouteDeps, input: RouteInput): Promise<Rout
   if (assetRoot === '') return failResult('bad-request', '缺少 root 参数（素材根）');
   // 素材根是标识符不是路径片段：含分隔符/保留字符即拒，早于任何路径拼接。
   if (!isValidPetId(assetRoot)) return failResult('bad-request', '素材根不合法');
-  // pet/ 只归 pet pack：内置条目用插件默认 logo，不接受写入（也不该在 pet/ 里留下 main 的文件）。
-  if (assetRoot === 'main') return failResult('bad-request', '内置条目不能换头像：main 不写入 pet/ 目录');
+  // skin/ 只归 pet pack：内置条目用插件默认 logo，不接受写入（也不该在 skin/ 里留下 main 的文件）。
+  if (assetRoot === 'main') return failResult('bad-request', '内置条目不能换头像：main 不写入 skin/ 目录');
 
   let raw: unknown;
   try {

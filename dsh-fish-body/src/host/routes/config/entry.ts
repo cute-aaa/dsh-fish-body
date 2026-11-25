@@ -68,8 +68,8 @@ export async function savePetLayer(deps: PetRouteDeps, input: RouteInput): Promi
     return invalidJson();
   }
   const entry = typeof payload.entry === 'string' ? payload.entry.trim() : '';
-  if (!entry) return failResult('bad-request', 'entry 必填：要写哪个种类（pet/<名>-config.json 的文件名前缀）');
-  // 先挡非法字符再查文件：entry 会被拼成路径片段，不能让配置值逃出 pet/ 目录。
+  if (!entry) return failResult('bad-request', 'entry 必填：要写哪个种类（skin/<名>-config.json 的文件名前缀）');
+  // 先挡非法字符再查文件：entry 会被拼成路径片段，不能让配置值逃出 skin/ 目录。
   if (!isValidPetId(entry)) return failResult('bad-request', `entry 不能当路径片段用：${entry}`);
   if (entry === MAIN_ENTRY) return failResult('bad-request', 'main 条目请用 PUT /config：它还要带全局字段');
   // 保留字：`pool` 是共享资源池的虚拟素材根（`/skin/pool/…`、`/sound/pool/…`），不能当 pack 名。
