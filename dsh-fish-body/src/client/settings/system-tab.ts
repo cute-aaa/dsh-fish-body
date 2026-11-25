@@ -18,6 +18,7 @@ import { makeMaintenanceCard } from './maintenance-card.ts';
 import { makeCompatCard } from './compat-card.ts';
 import { makePacksCard } from './packs-card.ts';
 import type { PacksState } from './use-packs.ts';
+import type { IntegrationsState } from './use-integrations.ts';
 import type { MaintenanceActions } from './panels.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeScreenCard } from './screen-card.ts';
@@ -52,6 +53,8 @@ export interface SystemTabProps {
   readonly screen: ScreenSettings;
   /** 资源包清单与装删动作（字体 / 表情包 / 动画 / Cubism 都不进包，靠这里补齐）。 */
   readonly packs: PacksState;
+  /** persona / memory 接入配置。 */
+  readonly integrations: IntegrationsState;
 }
 
 /**
@@ -74,7 +77,7 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
   const CompatCard = makeCompatCard(rt);
 
   return function SystemTab(props: SystemTabProps) {
-    const { busy, global, hotkeys, perm, remote, dirty, backup, maintenance, screen, packs } = props;
+    const { busy, global, hotkeys, perm, remote, dirty, backup, maintenance, screen, packs, integrations } = props;
     return h('div', {
       className: 'dsh-pet-cfg__group',
       children: [
@@ -105,7 +108,7 @@ export function makeSystemTab(rt: SettingsRuntime, ctx: ShortcutHost): FunctionC
         // 由这里按需获取；它不产生「未保存改动」，所以放在编辑性卡片之后、维护组之前。
         h(PacksCard, { key: 'packs', busy, packs }),
         // 兼容与记忆：谁也在驱动这只宠物、记忆插件接上了没有。即时生效，不产生未保存改动。
-        h(CompatCard, { key: 'compat', busy }),
+        h(CompatCard, { key: 'compat', busy, integrations }),
         // 维护动作一组：备份与恢复 → 文件与目录 → 插件维护。
         // 三者都不产生「未保存改动」，都是「配一次就不动」，所以聚在一处并沉到页尾；
         // 组内顺序按风险递增：只读的备份 → 会搬目录的文件卡 → 破坏性的重启 / 重置。

@@ -1836,8 +1836,9 @@ paths:
         2. 装了但槽被别的实现占着 → `provider: null` + `slotTakenByOther: true`
         3. 接上了 → `provider: { id, dir, registeredAt, notes, skipped, lastReadAt }`
 
-        候选来自 `dsh-rofm`（归档在 `<DSH_HOME>/dsh-rofm/memory/`）与 `dsh-suzu-memory`。
-        这两个**不再注册成人格来源**——它们不产人设，只贡献记忆。
+        自动模式候选来自 `dsh-rofm`（归档在 `<DSH_HOME>/dsh-rofm/memory/`）与
+        `dsh-suzu-memory`；也可以在 `/integrations` 里切到用户自定义目录。
+        这两个**不是人格来源**——它们不产人设，只贡献记忆。
       responses:
         "200":
           description: "恒为 200。失败通过 `ok: false` 表达（只有 405 例外）。"
@@ -1846,6 +1847,70 @@ paths:
               schema:
                 oneOf:
                   - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/integrations:
+    get:
+      tags: [State]
+      operationId: getIntegrations
+      summary: 读取 persona / memory 外部接入配置
+      description: |
+        配置固定落 `<数据根>/config/integrations.json`。路径经过绝对路径、realpath 与允许根校验；
+        数据根 / DSH_HOME 外的路径只有在用户显式确认后才可作为外部来源。
+      responses:
+        "200":
+          description: "`{ ok, integrations: { persona, memory } }`；不可用时通过 `ok:false` 表达。"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                  - $ref: "#/components/schemas/FailureResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    put:
+      tags: [Action]
+      operationId: updateIntegrations
+      summary: 保存 persona / memory 外部接入路径
+      description: |
+        只接受 persona / memory 的局部补丁。外部路径必须带 `approvedExternal: true`；
+        保存 memory 选择时会同步重连单槽 provider，单槽被第三方占用时不会抢占。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                persona:
+                  type: object
+                  properties:
+                    customPath:
+                      type: string
+                      nullable: true
+                    approvedExternal:
+                      type: boolean
+                memory:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum: [auto, custom]
+                    customDir:
+                      type: string
+                      nullable: true
+                    approvedExternal:
+                      type: boolean
+      responses:
+        "200":
+          description: "成功带最新 integrations 视图；路径或外部授权不合法时 `ok:false`。"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
                   - $ref: "#/components/schemas/FailureResponse"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
@@ -5359,7 +5424,7 @@ paths:
               properties:
                 source:
                   type: string
-                  description: 来源 id（`fish-soul` / `dsh-soul` / `dsh-rofm` / `dsh-suzu-memory` / `custom`）
+                  description: 来源 id（`fish-soul` / `dsh-soul` / `surfcore` / `coopanion` / `custom`）
                 path:
                   type: string
                   description: 显式路径（文件或目录）；`custom` 必填，其余可选
@@ -6217,6 +6282,78 @@ paths:
             `{ ok:true, id }`；没装过时是失败实体（`reason` 为 `not-found`）。
         "400":
           description: 请求体不是合法 JSON 时返回 400；业务失败一律走 200 + 失败实体。
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /dsh-pet-7340/assets/import:
+    post:
+      tags: [Action]
+      operationId: importAsset
+      summary: 把用户选择的皮肤、音效或会话鱼素材原子导入数据根
+      description: |
+        `skin`：layered / live2d 选择目录，webm 选择文件；目标默认是
+        `<数据根>/skin/<renderer>/<id>`。`sfx`：支持 shared / slot / hook 三种目标；
+        slot 必须带 `?pet=`，由宿主按当前皮肤计算建议落点。`session-fish` 导入
+        `<数据根>/assets/session-fish/`。同名目标默认冲突，只有 `overwrite:true` 才覆盖。
+      parameters:
+        - name: pet
+          in: query
+          required: false
+          schema:
+            type: string
+          description: slot 音效导入所需的宠物 id。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [kind, renderer, sourcePath]
+                  properties:
+                    kind:
+                      const: skin
+                    renderer:
+                      type: string
+                      enum: [webm, layered, live2d]
+                    sourcePath:
+                      type: string
+                    overwrite:
+                      type: boolean
+                - type: object
+                  required: [kind, sourcePath, target]
+                  properties:
+                    kind:
+                      const: sfx
+                    sourcePath:
+                      type: string
+                    target:
+                      type: string
+                      enum: [shared, slot, hook]
+                    slot:
+                      type: string
+                    hook:
+                      type: string
+                    overwrite:
+                      type: boolean
+                - type: object
+                  required: [kind, sourcePath]
+                  properties:
+                    kind:
+                      const: session-fish
+                    sourcePath:
+                      type: string
+                    overwrite:
+                      type: boolean
+      responses:
+        "200":
+          description: "成功带 `imported {path, relativePath, files, bytes}`；业务失败为 `ok:false`。"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                  - $ref: "#/components/schemas/FailureResponse"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 components:

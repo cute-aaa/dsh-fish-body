@@ -24,6 +24,10 @@ export interface SfxHooksProps {
   readonly sfx: SfxSettings;
   /** 未保存改动查询口：被改过的那一条自己亮一颗圆点。 */
   readonly dirty?: DirtyQuery;
+  /** 给一个 hook 导入音频；缺省时不渲染导入按钮。 */
+  readonly onImportHook?: (name: string) => void;
+  /** 当前导入动作键。 */
+  readonly importBusy?: string;
 }
 
 /**
@@ -107,7 +111,24 @@ export function makeSfxHooks(rt: SettingsRuntime): FunctionComponent<SfxHooksPro
                 className: 'dsh-pet-cfg__mono',
                 children: view.file === '' ? t('sfxNone') : view.file,
               }),
-              h(FolderButton, { key: 'open', which: view.which, disabled: busy }),
+              props.onImportHook === undefined
+                ? h(FolderButton, { key: 'open', which: view.which, disabled: busy })
+                : h('div', {
+                    key: 'actions',
+                    className: 'dsh-pet-cfg__actions',
+                    children: [
+                      h('button', {
+                        key: 'import',
+                        type: 'button',
+                        className: 'dsh-pet-cfg__btn is-text',
+                        disabled: busy || (props.importBusy ?? '') !== '',
+                        onClick: () => props.onImportHook?.(view.name),
+                        children:
+                          props.importBusy === 'sfx:hook:' + view.name ? t('assetImportWorking') : t('sfxSlotImport'),
+                      }),
+                      h(FolderButton, { key: 'open', which: view.which, disabled: busy }),
+                    ],
+                  }),
             ],
           }),
         ],

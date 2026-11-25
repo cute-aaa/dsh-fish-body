@@ -45,6 +45,7 @@ import { SessionFishStore } from '../session-fish/store.ts';
 import { fishSkinDirs, type FishSkinDirs } from '../session-fish/skins.ts';
 import { SessionFishSettingsStore, sessionFishSettingsPath } from '../session-fish/settings.ts';
 import { createPersonaServices, type PersonaCharacterService, type PersonaSourceService } from '../persona/service.ts';
+import { configuredPersonaPath } from '../integrations/store.ts';
 import type { StandaloneWhisperPolicy } from '../whisper-policy.ts';
 
 /** 装配期需要的宿主上下文：只有 logger / effect / provide 三处能力。 */
@@ -330,6 +331,7 @@ export function createHostSetup(ctx: HostSetupContext): HostSetup {
     userConfigPath,
     // 自定义来源的允许根：数据根与 DSH_HOME（其它位置一律拒，见 persona-source/path-guard）。
     allowedRoots: [userRoot, dshHome],
+    customPath: () => configuredPersonaPath(userRoot, [userRoot, dshHome]),
   });
 
   // 初始化的目录结构：布局约定的那些目录，启动时就建出来，并给每个目录写一句备注。

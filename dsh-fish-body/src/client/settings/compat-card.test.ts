@@ -61,7 +61,16 @@ function render(snapshot: CompatSnapshot | null): unknown {
     useRef: <T>(initial: T) => ({ current: initial }),
     useCallback: (<T>(fn: T) => fn) as never,
   } as never);
-  return Card({ busy: false });
+  const integrations = {
+    view: null,
+    busy: false,
+    message: '',
+    failed: false,
+    reload: () => undefined,
+    savePersona: async () => ({ ok: false, reason: 'network', message: '' }),
+    saveMemory: async () => ({ ok: false, reason: 'network', message: '' }),
+  };
+  return Card({ busy: false, integrations: integrations as never });
 }
 
 /** 一份「检测到 surfcore、记忆没接上」的快照。 */
@@ -74,6 +83,10 @@ const SNAPSHOT: CompatSnapshot = {
     autoWhisperPaused: false,
   },
   memory: {
+    mode: 'auto',
+    customDir: null,
+    reason: 'no-source',
+    message: '',
     provider: null,
     candidates: [
       { id: 'dsh-rofm', label: 'dsh-rofm', dir: 'D:/x', installed: false, evidence: '没有记忆文件' },
@@ -140,6 +153,10 @@ describe('CompatCard —— 记忆', () => {
     const live: CompatSnapshot = {
       ...SNAPSHOT,
       memory: {
+        mode: 'auto',
+        customDir: null,
+        reason: null,
+        message: '',
         provider: { id: 'dsh-rofm', dir: 'D:/x', registeredAt: '', notes: 7, skipped: 0, lastReadAt: '' },
         candidates: SNAPSHOT.memory!.candidates,
         slotTakenByOther: false,

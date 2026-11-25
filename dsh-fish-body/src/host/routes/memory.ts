@@ -27,8 +27,29 @@ export async function handleMemoryRoutes(_deps: PetRouteDeps, input: RouteInput)
     };
   }
   const view = memoryView();
+  const selection = _deps.integrations?.memorySelection() ?? { mode: 'auto' as const, customDir: null };
+  const reason =
+    view.provider !== null
+      ? null
+      : view.slotTakenByOther
+        ? 'slot-taken'
+        : selection.mode === 'custom'
+          ? 'custom-empty'
+          : 'no-source';
+  const message =
+    reason === null
+      ? ''
+      : reason === 'slot-taken'
+        ? '记忆槽已被另一个实现占用，本插件不会抢占'
+        : reason === 'custom-empty'
+          ? '自定义记忆目录里没有可读的 md / txt / json 记忆文件'
+          : '没有检测到可用的记忆来源';
   return okResult({
     ok: true,
+    mode: selection.mode,
+    customDir: selection.customDir,
+    reason,
+    message,
     provider: view.provider,
     candidates: view.candidates,
     slotTakenByOther: view.slotTakenByOther,

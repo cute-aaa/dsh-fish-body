@@ -27,6 +27,7 @@ import { DEFAULT_FISH_SKIN, fishSkinView } from './fish-skins.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit, numberInputProps } from './ui.ts';
 import type { SessionFishState } from './use-session-fish.ts';
+import type { AssetImportsState } from './use-asset-imports.ts';
 
 /** 会话鱼分区的输入。 */
 export interface FishTabProps {
@@ -38,6 +39,8 @@ export interface FishTabProps {
   readonly dirty: DirtyQuery;
   /** 从「声音」分区跳过来时要聚焦的锚点（目前只有 'fish.speak'）。 */
   readonly focusAnchor?: string | null;
+  /** 会话鱼皮肤导入。 */
+  readonly assetImports?: AssetImportsState;
 }
 
 /** 数字夹取（UI 侧先夹一次，宿主仍会严格校验）。 */
@@ -89,7 +92,7 @@ export function makeFishTab(rt: SettingsRuntime): FunctionComponent<FishTabProps
   const FishFields = makeFishFields(rt);
 
   return function FishTab(props: FishTabProps) {
-    const { busy, fish, dirty } = props;
+    const { busy, fish, dirty, assetImports } = props;
     const { cardHead, field, toggleCell, switchGrid, section, note } = makeUiKit({ h, t }, dirty);
     // 皮肤量到真实尺寸后重排一次预览（第一帧按 16:9 排）。
     const [, setAspectTick] = useState(0);
@@ -207,6 +210,12 @@ export function makeFishTab(rt: SettingsRuntime): FunctionComponent<FishTabProps
                 skins,
                 update,
                 onRescan: fish.rescan,
+                ...(assetImports === undefined
+                  ? {}
+                  : {
+                      onImport: () => void assetImports.importSessionFish().then((ok) => ok && fish.rescan()),
+                      importBusy: assetImports.busy === 'session-fish',
+                    }),
                 skinBusy: fish.skinBusy,
               }),
             ]),

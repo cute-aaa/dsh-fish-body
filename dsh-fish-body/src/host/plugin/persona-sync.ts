@@ -46,7 +46,11 @@ const SOUL_PROJECTS: readonly { id: string; name: string }[] = [
  * @param dshHome - DSH 数据根（只用来给工厂一个永远不用的占位目录）。
  * @returns 只在显式路径下可用的来源。
  */
-function createCustomSource(dshHome: string, allowedRoots: readonly string[]): PersonaSource {
+function createCustomSource(
+  dshHome: string,
+  allowedRoots: readonly string[],
+  configuredPath: () => string | null,
+): PersonaSource {
   const scanner = createCardFileSource({
     id: 'custom',
     name: '自定义路径',
@@ -58,13 +62,20 @@ function createCustomSource(dshHome: string, allowedRoots: readonly string[]): P
     name: '自定义路径',
     kind: 'custom',
     probe: async (options) => {
-      const explicit = (options?.path ?? '').trim();
+      const configured = configuredPath();
+      const explicit = (options?.path ?? '').trim() || configured || '';
       if (explicit === '') return { installed: false, path: '' };
+      if (configured !== null && explicit === configured) return { installed: true, path: explicit };
       // 与 service.scan 同一份闸门：相对路径 / 根外路径一律当「不可用」，绝不按 cwd 去读。
       const guard = resolveCardPathInput(explicit, allowedRoots);
       return guard.ok ? { installed: true, path: guard.path } : { installed: false, path: '' };
     },
-    scan: (options) => scanner.scan?.(options) ?? Promise.resolve({ characters: [], skipped: [] }),
+    scan: (options) => {
+      const configured = configuredPath();
+      const withConfigured =
+        options?.path === undefined && configured !== null ? { ...options, path: configured } : options;
+      return scanner.scan?.(withConfigured) ?? Promise.resolve({ characters: [], skipped: [] });
+    },
     resolve: () => scanner.resolve(),
   };
 }
@@ -84,7 +95,11 @@ const EDITOR_SOURCE: PersonaSource = {
 };
 
 /** 注册全部来源；卸载时反注册（注册表是模块级单例，漏了它插件一重载就撞 id 重复）。 */
-export function registerPersonaSync(ctx: PersonaSyncContext, allowedRoots: readonly string[] = []): void {
+export function registerPersonaSync(
+  ctx: PersonaSyncContext,
+  allowedRoots: readonly string[] = [],
+  configuredPath: () => string | null = () => null,
+): void {
   const dshHome = resolveDshHome();
   const home = homedir();
   const appData = process.env.APPDATA ?? join(home, 'AppData', 'Roaming');
@@ -98,7 +113,7 @@ export function registerPersonaSync(ctx: PersonaSyncContext, allowedRoots: reado
     // surfcore 的角色目录带 `character.json` 自述路径，Coopanion 的工作区由 Electron 运行时决定。
     registerPersonaSource(createSurfcoreSource({ dshHome })),
     registerPersonaSource(createCoopanionSource({ dshHome, home, appData })),
-    registerPersonaSource(createCustomSource(dshHome, allowedRoots)),
+    registerPersonaSource(createCustomSource(dshHome, allowedRoots, configuredPath)),
     registerPersonaSource(EDITOR_SOURCE),
   ];
   ctx.effect(

@@ -211,6 +211,23 @@ $DSH_HOME/fish-body/
 换角色不会动别的宠物：应用只替换 `id === pet` 的那一只，其余实例原样带回。想回退到「没有角色」，
 把该实例的 `personaCharacter` 删掉即可；误覆盖了手写正文，用「系统 → 备份与恢复」回滚整包。
 
+## 外部接入配置（`config/integrations.json`）
+
+persona 自定义路径和 memory 自定义目录单独存在 `$DSH_HOME/fish-body/config/integrations.json`，不写进带注释的 `main-config.jsonc`：
+
+```jsonc
+{
+  "version": 1,
+  "persona": { "customPath": "D:/soul/persona.md", "approvedExternal": true },
+  "memory": { "mode": "auto", "customDir": null, "approvedExternal": false },
+}
+```
+
+- `mode: auto` 时按内置规则探测 `dsh-rofm` / `dsh-suzu-memory`；`mode: custom` 时只读 `customDir`。
+- 数据根 / `DSH_HOME` 内的路径不需要外部授权；外部路径必须由用户在设置页确认后才会写入 `approvedExternal: true`。
+- 路径读取使用 realpath 后的真实路径；相对路径、越界路径和不存在的目录都会在设置页给出可操作提示。
+- 该文件损坏时按默认值运行，不会静默覆盖原文件；重新在设置页保存即可修复。
+
 ## 资源池（assets）——共享皮肤 / 模型 / 动画 / 音效
 
 旧的平铺布局（`pet/<材料根>-skin|sound|animation`）在启动时**自动搬进 `skin/` 与 `assets/`**（不覆盖、不删源，见 `docs/目录布局.md`）；在此之外还有一个可选的共享池：

@@ -16,6 +16,7 @@ import { readMemoryNotes } from '../memory/external.ts';
 import { createExternalMemoryProvider, type ExternalMemoryProvider } from '../memory/external.ts';
 import {
   detectMemoryCandidates,
+  hasMemoryFiles,
   resetMemoryStatus,
   setMemoryCandidates,
   setMemoryProviderStatus,
@@ -49,23 +50,43 @@ export interface ExternalMemoryLogger {
 export function wireExternalMemory(options: {
   readonly log: ExternalMemoryLogger;
   readonly dshHome?: string;
+  /** 自定义记忆目录；给了就只走这一份，不再回落到自动候选。 */
+  readonly customDir?: string;
   readonly now?: () => Date;
 }): ExternalMemoryWiring {
   const { log } = options;
   const now = options.now ?? ((): Date => new Date());
-  let dshHome: string;
-  try {
-    dshHome = options.dshHome ?? resolveDshHome();
-  } catch (error) {
-    log.warn('[fish-body] 外部记忆：取不到 DSH 数据根，跳过（' + errorText(error) + '）');
-    return { providerId: null, dispose: () => undefined };
+  const customDir = options.customDir?.trim() ?? '';
+  let dshHome = '';
+  if (customDir === '') {
+    try {
+      dshHome = options.dshHome ?? resolveDshHome();
+    } catch (error) {
+      log.warn('[fish-body] 外部记忆：取不到 DSH 数据根，跳过（' + errorText(error) + '）');
+      return { providerId: null, dispose: () => undefined };
+    }
   }
-
-  const candidates = detectMemoryCandidates(dshHome);
+  const customInstalled = customDir !== '' && hasMemoryFiles(customDir);
+  const candidates =
+    customDir === ''
+      ? detectMemoryCandidates(dshHome)
+      : [
+          {
+            id: 'custom-memory',
+            label: '自定义记忆目录',
+            dir: customDir,
+            installed: customInstalled,
+            evidence: customInstalled ? '自定义目录' : '没有记忆文件',
+          },
+        ];
   setMemoryCandidates(candidates);
   const hit = candidates.find((item) => item.installed);
   if (hit === undefined) {
-    log.info('[fish-body] 外部记忆：没有可用的记忆来源（rofm / suzu-memory 都未装）');
+    log.info(
+      customDir === ''
+        ? '[fish-body] 外部记忆：没有可用的记忆来源（rofm / suzu-memory 都未装）'
+        : '[fish-body] 外部记忆：自定义目录里没有可用记忆文件',
+    );
     return {
       providerId: null,
       dispose: () => {

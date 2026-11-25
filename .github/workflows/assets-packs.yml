@@ -61,7 +61,7 @@ jobs:
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11
+          version: "10.31.0"
 
       # 清单脚本靠 `@electron-internal/extract-zip` 数包内文件（与发布链同一套依赖）。
       - name: 安装依赖

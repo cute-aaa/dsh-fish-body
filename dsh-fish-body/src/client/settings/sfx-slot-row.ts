@@ -49,6 +49,10 @@ export interface SfxSlotListProps {
   readonly sfx: SfxSettings;
   /** 未保存改动查询口：谁被改过，谁自己那颗圆点就亮起来。 */
   readonly dirty?: DirtyQuery;
+  /** 导入一个槽位的音效；缺省时不渲染导入按钮。 */
+  readonly onImportSlot?: (slot: SfxEventSlot) => void;
+  /** 当前导入动作键。 */
+  readonly importBusy?: string;
 }
 
 /**
@@ -157,7 +161,24 @@ export function makeSfxSlotMeta(rt: SettingsRuntime): FunctionComponent<SfxSlotL
                   className: 'dsh-pet-cfg__mono',
                   children: t('sfxSlotPattern').replace('{name}', slotFileStem(view.slot)),
                 }),
-                h(FolderButton, { key: 'open', which: view.which, disabled: busy }),
+                props.onImportSlot === undefined
+                  ? h(FolderButton, { key: 'open', which: view.which, disabled: busy })
+                  : h('div', {
+                      key: 'actions',
+                      className: 'dsh-pet-cfg__actions',
+                      children: [
+                        h('button', {
+                          key: 'import',
+                          type: 'button',
+                          className: 'dsh-pet-cfg__btn is-text',
+                          disabled: busy || (props.importBusy ?? '') !== '',
+                          onClick: () => props.onImportSlot?.(view.slot),
+                          children:
+                            props.importBusy === 'sfx:slot:' + view.slot ? t('assetImportWorking') : t('sfxSlotImport'),
+                        }),
+                        h(FolderButton, { key: 'open', which: view.which, disabled: busy }),
+                      ],
+                    }),
               ],
             }),
           ],

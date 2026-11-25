@@ -65,13 +65,35 @@ export function makePacksCard(rt: SettingsRuntime): FunctionComponent<PacksCardP
               // 许可紧挨名字：这是「能不能商用」的唯一提示，不能塞进折叠区。
               h('span', { key: 'license', className: 'dsh-pet-cfg__badge', children: pack.license }),
               pack.installed === null
-                ? h('button', {
+                ? h('div', {
                     key: 'install',
-                    type: 'button',
-                    className: 'dsh-pet-cfg__btn',
-                    disabled,
-                    onClick: () => packs.install(pack.id),
-                    children: acting ? t('packsWorking') : t('packsInstall'),
+                    className: 'dsh-pet-cfg__actions',
+                    children: [
+                      h('button', {
+                        key: 'online',
+                        type: 'button',
+                        className: 'dsh-pet-cfg__btn',
+                        disabled,
+                        onClick: () => packs.install(pack.id),
+                        children: acting ? t('packsWorking') : t('packsInstall'),
+                      }),
+                      h('button', {
+                        key: 'zip',
+                        type: 'button',
+                        className: 'dsh-pet-cfg__btn is-text',
+                        disabled,
+                        onClick: () => packs.installLocal(pack.id, 'zip'),
+                        children: t('packsInstallZip'),
+                      }),
+                      h('button', {
+                        key: 'dir',
+                        type: 'button',
+                        className: 'dsh-pet-cfg__btn is-text',
+                        disabled,
+                        onClick: () => packs.installLocal(pack.id, 'dir'),
+                        children: t('packsInstallDir'),
+                      }),
+                    ],
                   })
                 : h('button', {
                     key: 'remove',

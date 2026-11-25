@@ -13,6 +13,7 @@ import type { SettingsRuntime } from './runtime.ts';
 import { makeTreeRow } from './tree-row.ts';
 import { makeUiKit } from './ui.ts';
 import type { RenderResourcesState } from './use-render-resources.ts';
+import type { AssetImportsState } from './use-asset-imports.ts';
 
 /** 三行的固定顺序与目录前缀。 */
 const ROWS: readonly { renderer: RendererKind; prefix: string }[] = [
@@ -26,6 +27,7 @@ export interface SkinDirsProps {
   /** 三桶清单与重新扫描。 */
   readonly resources: RenderResourcesState;
   readonly busy: boolean;
+  readonly assetImports?: AssetImportsState;
 }
 
 /**
@@ -40,7 +42,7 @@ export function makeSkinDirs(rt: SettingsRuntime): FunctionComponent<SkinDirsPro
   const TreeRow = makeTreeRow(rt);
 
   return function SkinDirs(props: SkinDirsProps) {
-    const { resources, busy } = props;
+    const { resources, busy, assetImports } = props;
     const { cardHead } = makeUiKit({ h, t });
     const list = resources.resources?.renderers;
 
@@ -89,7 +91,33 @@ export function makeSkinDirs(rt: SettingsRuntime): FunctionComponent<SkinDirsPro
             ...(badge === undefined ? {} : { badgeText: badge }),
             keepOpenWithBadge: true,
             exists: status !== 'missing',
-            open: h(FolderButton, { key: 'open', which: ('pool-bucket-' + renderer) as never, disabled: busy }),
+            open:
+              assetImports === undefined
+                ? h(FolderButton, { key: 'open', which: ('pool-bucket-' + renderer) as never, disabled: busy })
+                : h('div', {
+                    key: 'actions',
+                    className: 'dsh-pet-cfg__actions',
+                    children: [
+                      h('button', {
+                        key: 'import',
+                        type: 'button',
+                        className: 'dsh-pet-cfg__btn is-text',
+                        disabled: busy || assetImports.busy !== '',
+                        onClick: () => {
+                          void assetImports.importSkin(renderer).then((ok) => {
+                            if (ok) resources.reload();
+                          });
+                        },
+                        children:
+                          assetImports.busy === 'skin:' + renderer ? t('assetImportWorking') : t('skinDirsImport'),
+                      }),
+                      h(FolderButton, {
+                        key: 'open',
+                        which: ('pool-bucket-' + renderer) as never,
+                        disabled: busy,
+                      }),
+                    ],
+                  }),
           });
         }),
       ],

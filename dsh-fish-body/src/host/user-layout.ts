@@ -56,6 +56,8 @@ export interface UserPaths {
   readonly sessionFish: string;
   /** 本地语音接入配置。 */
   readonly voiceProviders: string;
+  /** 外部 persona / memory 接入配置。 */
+  readonly integrations: string;
   /** 位置指针（皮肤目录 / 运行时目录可改到数据根之外，记在这里）。 */
   readonly locations: string;
   /** 数据目录：对话记忆与待办。 */
@@ -122,6 +124,7 @@ export function userPaths(root: string, options: UserLayoutOptions = {}): UserPa
     legacyMainConfig: join(configDir, 'main-config.json'),
     sessionFish: join(configDir, 'session-fish.json'),
     voiceProviders: join(configDir, 'voice-providers.json'),
+    integrations: join(configDir, 'integrations.json'),
     locations: join(configDir, 'locations.json'),
     dataDir,
     memory: join(dataDir, 'memory.json'),

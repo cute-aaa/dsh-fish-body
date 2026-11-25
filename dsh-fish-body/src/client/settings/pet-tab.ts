@@ -19,6 +19,8 @@ import type { PersonaCharactersState } from './use-persona-characters.ts';
 import type { PersonaImportState } from './use-persona-import.ts';
 import type { PersonaPolishState } from './use-persona-polish.ts';
 import type { PetPatch } from './pet-card-parts.ts';
+import type { IntegrationsState } from './use-integrations.ts';
+import type { Feedback } from './feedback.ts';
 
 /** 头像预览的一格。 */
 export interface PetAvatarView {
@@ -45,6 +47,8 @@ export interface PetTabProps {
     readonly persona: PersonaCharactersState;
     readonly importer: PersonaImportState;
     readonly polish: PersonaPolishState;
+    readonly integrations?: IntegrationsState;
+    readonly report?: (feedback: Feedback) => void;
   };
   /** 实例字段补丁（角色应用 / 导入后回填草稿）。 */
   readonly onChange: (patch: PetPatch) => void;

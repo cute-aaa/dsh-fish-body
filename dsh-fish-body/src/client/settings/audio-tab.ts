@@ -17,6 +17,8 @@ import { makeUiKit } from './ui.ts';
 import type { GlobalSettings } from './use-global-settings.ts';
 import type { SfxSettings } from './use-sfx-settings.ts';
 import type { VoiceSettings } from './use-voice-settings.ts';
+import type { AssetImportsState } from './use-asset-imports.ts';
+import type { Feedback } from './feedback.ts';
 import { makeVoiceTab } from './voice-tab.ts';
 
 /** 声音分区的输入。 */
@@ -27,6 +29,10 @@ export interface AudioTabProps {
   readonly global: GlobalSettings;
   /** 八个事件槽与 hook 登记。 */
   readonly sfx: SfxSettings;
+  /** 音效导入动作。 */
+  readonly assetImports?: AssetImportsState;
+  /** 设置页统一反馈出口。 */
+  readonly report: (feedback: Feedback) => void;
   /** 语音播报与本地接入。 */
   readonly voice: VoiceSettings;
   /** 未保存改动查询口。 */
@@ -48,7 +54,7 @@ export function makeAudioTab(rt: SettingsRuntime): FunctionComponent<AudioTabPro
   const VoiceTab = makeVoiceTab(rt);
 
   return function AudioTab(props: AudioTabProps) {
-    const { busy, global, sfx, voice, dirty, onSelectTab } = props;
+    const { busy, global, sfx, voice, dirty, onSelectTab, assetImports } = props;
     const { section, note } = makeUiKit({ h, t }, dirty);
     return h('div', {
       className: 'dsh-pet-cfg__group',
@@ -63,7 +69,7 @@ export function makeAudioTab(rt: SettingsRuntime): FunctionComponent<AudioTabPro
             onVolume: global.setSfxVolume,
             dirty,
           }),
-          h(SfxCard, { key: 'sfx', busy, sfx, dirty }),
+          h(SfxCard, { key: 'sfx', busy, sfx, dirty, assetImports }),
         ]),
         section(t('secVoice'), [h(VoiceTab, { key: 'voice', busy, voice, dirty })]),
         // 会话鱼的播报开关只住在「会话鱼」分区：这里给一行只读引用 + 跳转，不复制第二个开关。

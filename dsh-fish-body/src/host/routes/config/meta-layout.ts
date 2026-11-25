@@ -93,6 +93,7 @@ export function layoutNodes(input: MetaLayoutInput): MetaNode[] {
     file('config.main', paths.mainConfig, 2),
     file('config.sessionFish', paths.sessionFish, 2),
     file('config.voiceProviders', paths.voiceProviders, 2),
+    file('config.integrations', paths.integrations, 2),
     dir('data', paths.dataDir, 1, 'data'),
     file('data.memory', paths.memory, 2),
     file('data.todos', paths.todos, 2),

@@ -71,6 +71,8 @@ import { useSettingsBackup } from './settings/use-settings-backup.ts';
 import { usePacks } from './settings/use-packs.ts';
 import { useSfxSettings } from './settings/use-sfx-settings.ts';
 import { useVoiceSettings } from './settings/use-voice-settings.ts';
+import { useIntegrations } from './settings/use-integrations.ts';
+import { useAssetImports } from './settings/use-asset-imports.ts';
 
 // 字典与桥的真源都在 settings/ 里：宿主的 locale 注册、容器与测试夹具都经这里取，不各自深路径引用。
 export { dicts, NS } from './settings/locales/index.ts';
@@ -181,6 +183,8 @@ export function makePetConfigSection(
       assetRoot: current?.assetRoot ?? 'main',
       report: setMsg,
     });
+    const integrations = useIntegrations(rt);
+    const assetImports = useAssetImports(rt, setMsg);
 
     // 首次读取与恢复默认必须更新同一组控件，避免下一次保存回写过期值。
     // 每个分区只认自己那几项，这里按分区派发，不逐字段 setState；同时推进基线。
@@ -372,6 +376,9 @@ export function makePetConfigSection(
       screen,
       maintenance: { restart, restartNow, reset: write.requestReset },
       characters,
+      integrations,
+      assetImports,
+      report: setMsg,
       personaImport,
       polish,
       resources,

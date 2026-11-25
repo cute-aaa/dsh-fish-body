@@ -1,0 +1,127 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: dsh-fish-body
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.31.0"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: dsh-fish-body/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Import cycles
+        run: npm run check:cycles
+
+      - name: Runtime lint
+        run: npm run check:runtime
+
+      - name: OpenAPI contract
+        run: npm run check:openapi
+
+      - name: Design gates
+        run: npm run check:design
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Settings browser E2E
+        run: npm run test:ui
+
+      - name: Build distributable artifacts
+        run: npm run build
+
+      - name: Prepack health check
+        run: node scripts/prepack-check.js
+
+      - name: Real-host user journey E2E
+        run: npm run test:e2e
+
+      - name: Package dry run
+        run: npm pack --dry-run --ignore-scripts
+
+      - name: Generated package manifest is stable
+        working-directory: .
+        run: git diff --exit-code -- dsh-fish-body/package.json
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: dsh-fish-body
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.31.0"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: dsh-fish-body/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build distributable artifacts
+        run: npm run build
+
+      - name: Prepack health check
+        run: node scripts/prepack-check.js
+
+      - name: Package dry run
+        run: npm pack --dry-run --ignore-scripts
+
+      - name: Generated package manifest is stable
+        working-directory: .
+        run: git diff --exit-code -- dsh-fish-body/package.json

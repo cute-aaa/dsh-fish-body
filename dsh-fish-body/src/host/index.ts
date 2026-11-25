@@ -25,7 +25,9 @@ import { createSessionFishBridge, registerSessionFish } from './plugin/session-f
 import { registerTodoReminders } from './plugin/todo-reminders.ts';
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { registerPersonaSync } from './plugin/persona-sync.ts';
-import { wireExternalMemory } from './plugin/external-memory.ts';
+import { createMemoryController, memorySelectionOf, type MemoryController } from './memory/controller.ts';
+import { createIntegrationsController } from './integrations/controller.ts';
+import { configuredPersonaPath, readIntegrations } from './integrations/store.ts';
 import { createCoexistStore } from './plugin/coexist.ts';
 import { ScheduleDriver } from './schedule/driver.ts';
 import { createVoiceService } from './voice/speak.ts';
@@ -216,6 +218,15 @@ export function apply(ctx: any): void {
   });
   const { startHelper, stopHelper, markDisposed } = desktopHelper;
 
+  const dshHome = resolveDshHome();
+  const integrationRoots = [userRoot, dshHome];
+  const memoryRef: { current: MemoryController | undefined } = { current: undefined };
+  const integrationsController = createIntegrationsController({
+    userRoot,
+    roots: integrationRoots,
+    applyMemory: (selection) => memoryRef.current?.apply(selection) ?? { ok: false, message: '记忆控制器尚未就绪' },
+  });
+
   const deps: PetRouteDeps = {
     ...setup,
     ...petLookup,
@@ -227,6 +238,7 @@ export function apply(ctx: any): void {
     ...desktopHelper,
     ...sessionNotify,
     ctx,
+    integrations: integrationsController,
     todos,
     publishSessionFish,
     // 「打开素材文件夹」：平台文件管理器由这里的子进程拉起，路由只给类别名
@@ -320,13 +332,18 @@ export function apply(ctx: any): void {
     stopWorkStatusFlush,
   });
 
-  // 人设同步：注册内置 fish-soul 来源并启动 watcher（改卡不重启即生效），卸载时随 effect 收尾。
-  registerPersonaSync(ctx, [userRoot, resolveDshHome()]);
+  // 人设同步：注册内置 fish-soul 来源与设置页保存的自定义路径，卸载时随 effect 收尾。
+  registerPersonaSync(ctx, integrationRoots, () => configuredPersonaPath(userRoot, integrationRoots));
 
   // 外部记忆：记忆插件的产物接进对话的召回钩子（单槽，不抢占已有的实现）。
   // 与人格来源分开挂：rofm / suzu-memory 不产人设，只贡献记忆。
-  const externalMemory = wireExternalMemory({ log });
-  ctx.effect(() => () => externalMemory.dispose(), 'fish-body: external memory');
+  const memory = createMemoryController({
+    log,
+    dshHome,
+    initial: memorySelectionOf(readIntegrations(userRoot).config.memory),
+  });
+  memoryRef.current = memory;
+  ctx.effect(() => () => memory.dispose(), 'fish-body: external memory');
 
   // 路由就绪后拉起桌面 Helper（Electron 缺失时仅告警，不影响 DSH 与浏览器 overlay）
   startHelper();

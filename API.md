@@ -361,12 +361,14 @@ DeepSeek 密钥**（否则把 baseURL 指到陌生服务，就等于把宿主的
 记忆后端是**单槽**（`ChatMemoryProvider`：同时只能有一个实现改内容，两个 recall 会互相冲突），
 所以「装了却没生效」是常态而不是故障。这个端点把三种情况拆开。
 
-| 接口                       | 功能                                                                                                                                                                                               |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /dsh-pet-7340/memory` | `{provider, candidates[], slotTakenByOther}`。`provider` 为 `null` 时看 `candidates` 的 `installed` 与 `slotTakenByOther` 判断原因；接上时带 `{id, dir, registeredAt, notes, skipped, lastReadAt}` |
+| 接口                       | 功能                                                                                                                                                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /dsh-pet-7340/memory` | `{mode, customDir, reason, message, provider, candidates[], slotTakenByOther}`。`provider` 为 `null` 时看 `candidates` 的 `installed`、`slotTakenByOther` 与 `reason` 判断原因；接上时带 `{id, dir, registeredAt, notes, skipped, lastReadAt}` |
 
 - 候选来自 `dsh-rofm`（优先读 `<DSH_HOME>/dsh-rofm/memory/` 归档）与 `dsh-suzu-memory`；
   这两个**不是人格来源**（它们不产人设），只贡献记忆。
+- 也可以在设置页切到「自定义目录」，由 `PUT /integrations` 保存；自定义模式下只读该目录，
+  不再回落到自动候选。外部目录必须显式确认读取授权。
 - 外部记忆作为「过去的事」**追加**到 system 末尾，并带一句「可能已过时，与当前对话冲突时以当前为准」。
 
 ---
@@ -409,6 +411,53 @@ DeepSeek 密钥**（否则把 baseURL 指到陌生服务，就等于把宿主的
   10 KB/s 才重试/失败。
 - **残留清理**：解压先落 `<数据根>/packs/.tmp-<id>-<uuid>/` 再原子换名；进程被强杀留下的 `.tmp-*`
   在下次启动时清掉（不影响已装包）。
+
+---
+
+## 十八、接入配置与用户素材导入
+
+| 接口                               | 功能                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `GET /dsh-pet-7340/integrations`   | 读 persona / memory 的外部接入配置、路径状态与外部授权状态            |
+| `PUT /dsh-pet-7340/integrations`   | 局部更新 `{persona?, memory?}`；外部路径需 `approvedExternal:true`    |
+| `POST /dsh-pet-7340/assets/import` | 导入皮肤 / 音效 / 会话鱼；`slot` 音效可带 `?pet=`，由宿主计算建议落点 |
+
+### 接入配置
+
+配置固定落 `<数据根>/config/integrations.json`，与带注释的 `main-config.jsonc` 分开，版本为 1：
+
+```jsonc
+{
+  "version": 1,
+  "persona": { "customPath": "D:/soul/persona.md", "approvedExternal": true },
+  "memory": {
+    "mode": "custom",
+    "customDir": "D:/memory",
+    "approvedExternal": true,
+  },
+}
+```
+
+- 数据根 / `DSH_HOME` 内的路径不需要外部授权；外部路径必须由用户显式确认。
+- 保存前做绝对路径、realpath、存在性与类型校验；符号链接按真实路径判断。
+- memory 写入成功后会重连单槽 provider；重连失败不会写坏上一份配置。
+
+### 素材导入
+
+`assets/import` 的请求是判别联合：
+
+```jsonc
+{ "kind": "skin", "renderer": "layered", "sourcePath": "D:/skins/demo", "overwrite": false }
+{ "kind": "sfx", "target": "slot", "slot": "click", "sourcePath": "D:/click.ogg" }
+{ "kind": "session-fish", "sourcePath": "D:/fish.png" }
+```
+
+- `skin`：layered / live2d 选择目录，webm 选择文件；落到 `<数据根>/skin/<renderer>/<id>`。
+- `sfx`：`shared` 落用户共享音效目录；`slot` 按当前皮肤的建议落点命名；`hook` 落共享目录的
+  `hook-<name>.<ext>`。
+- `session-fish`：落到 `<数据根>/assets/session-fish/`。
+- 同名目标默认返回 `import-conflict`；只有请求显式 `overwrite:true` 才覆盖。
+- 目录导入拒绝符号链接；音频单文件上限 20 MiB，会话鱼 50 MiB，皮肤目录 512 MiB / 5000 文件。
 
 ---
 

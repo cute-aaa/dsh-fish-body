@@ -33,6 +33,7 @@ import type { HearService } from '../voice/hear.ts';
 import type { VoiceService } from '../voice/speak.ts';
 import type { WorkStatusStore } from '../work-status.ts';
 import type { RendererKind } from '../../shared/types.ts';
+import type { IntegrationsController } from '../integrations/controller.ts';
 
 /** 一次路由调用的输入：URL 已解析，`rest` 是去掉前缀并解码后的路径。 */
 export interface RouteInput {
@@ -245,4 +246,6 @@ export interface PetRouteDeps {
   readonly packsRoot: string;
   /** 资源包清单路径（包内 `assets/packs.json`）：随代码走，声明「哪些素材可以获取」。 */
   readonly packManifestPath: string;
+  /** persona / memory 接入配置；精简测试桩可以不给，路由据此返回不可用。 */
+  readonly integrations?: IntegrationsController;
 }

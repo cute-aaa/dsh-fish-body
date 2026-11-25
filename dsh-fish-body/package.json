@@ -42,6 +42,7 @@
     "================================================"
   ],
   "type": "module",
+  "packageManager": "pnpm@10.31.0",
   "main": "lib/index.js",
   "bin": {
     "dsh-pet-standalone": "lib/standalone.js"
@@ -102,6 +103,7 @@
     "migrate:pool": "node scripts/migrate-pool.mjs",
     "rollback": "node scripts/rollback.mjs",
     "test": "node --experimental-strip-types --import ./scripts/test-register.mjs --test \"src/**/*.test.ts\"",
+    "test:e2e": "node --test \"scripts/tests/e2e/*.test.mjs\"",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "types": "node scripts/gen-types.mjs",
     "lint": "eslint .",

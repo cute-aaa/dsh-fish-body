@@ -12,6 +12,9 @@ import type { DirtyQuery } from './dirty.ts';
 import { makeSelect } from './panel/select.ts';
 import type { PersonaImportState } from './use-persona-import.ts';
 import type { PersonaCharactersState } from './use-persona-characters.ts';
+import { NO_INTEGRATIONS, type IntegrationsState } from './use-integrations.ts';
+import type { Feedback } from './feedback.ts';
+import { pickFile, pickFolder } from './layout-api.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { INPUT_CLASS, makeUiKit } from './ui.ts';
 
@@ -26,6 +29,10 @@ export interface CharacterCardProps {
   readonly persona: PersonaCharactersState;
   /** 文档导入草稿。 */
   readonly importer: PersonaImportState;
+  /** persona 自定义路径与外部授权。 */
+  readonly integrations?: IntegrationsState;
+  /** 设置页统一反馈出口。 */
+  readonly report?: (feedback: Feedback) => void;
   /** 应用成功后回填草稿（装配根把它接到 `list.update` + 基线推进）。 */
   readonly onChange: (patch: { whisperPrompt?: string; name?: string; personaCharacter?: string }) => void;
 }
@@ -42,11 +49,15 @@ export function makeCharacterCard(rt: SettingsRuntime): FunctionComponent<Charac
 
   return function CharacterCard(props: CharacterCardProps) {
     const { pet, busy, dirty, persona, importer } = props;
+    const integrations = props.integrations ?? NO_INTEGRATIONS;
+    const report = props.report ?? (() => undefined);
     const { cardHead, field, note } = makeUiKit({ h, t }, dirty);
     const [writeName, setWriteName] = useState(true);
     const [sourceId, setSourceId] = useState<string | null>(null);
     // 角色选择只在本地：点「应用」才把 personaCharacter + 正文（+ 可选名字）一起写进草稿。
     const [pickedId, setPickedId] = useState<string | null>(null);
+    const [customDraft, setCustomDraft] = useState<string | null>(null);
+    const [needsExternalApproval, setNeedsExternalApproval] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const at = 'pets.' + props.petIndex;
     const writable = persona.scope?.writable === true;
@@ -55,6 +66,35 @@ export function makeCharacterCard(rt: SettingsRuntime): FunctionComponent<Charac
     const disabled = busy || !persona.ready;
     const chosenSourceId = sourceId ?? persona.sources.find((item) => item.scannable && item.installed)?.id ?? '';
     const selectedSource = persona.sources.find((item) => item.id === chosenSourceId) ?? null;
+    const customPath = customDraft ?? integrations.view?.persona.path ?? '';
+    const isCustomSource = selectedSource?.id === 'custom';
+
+    /** 保存自定义路径后立即扫描；外部路径由服务端要求二次确认。 */
+    const saveCustomAndScan = async (path: string, approve: boolean): Promise<void> => {
+      const saved = await integrations.savePersona(path.trim(), approve);
+      if (!saved.ok) {
+        setNeedsExternalApproval(saved.reason === 'external-approval-required');
+        report({ kind: 'err', text: saved.message });
+        return;
+      }
+      setNeedsExternalApproval(false);
+      // 保存后让服务端从持久化配置取路径：外部授权过的路径不应再走「本次请求必须落在默认根内」的闸门。
+      await persona.scan('custom');
+    };
+
+    const pickCustom = async (kind: 'file' | 'folder'): Promise<void> => {
+      const outcome =
+        kind === 'file'
+          ? await pickFile(t('characterCustomPickFile'), ['.json', '.png', '.md', '.txt'])
+          : await pickFolder(t('characterCustomPickFolder'));
+      if (outcome.kind === 'picked') {
+        setCustomDraft(outcome.path);
+        setNeedsExternalApproval(false);
+        return;
+      }
+      if (outcome.kind === 'unsupported')
+        report({ kind: 'err', text: outcome.message || t('characterCustomPickFailed') });
+    };
 
     /** 来源下拉：未安装项置灰并显示期望路径。 */
     const sourceOptions = persona.sources.map((source) => ({
@@ -73,6 +113,7 @@ export function makeCharacterCard(rt: SettingsRuntime): FunctionComponent<Charac
         label: item.name + ' · ' + item.source.kind,
       })),
     ];
+    const customNote = isCustomSource ? (integrations.view?.persona.message ?? '') : '';
 
     return h('div', {
       className: 'dsh-pet-cfg__card',
@@ -115,13 +156,97 @@ export function makeCharacterCard(rt: SettingsRuntime): FunctionComponent<Charac
                 className: 'dsh-pet-cfg__btn is-sm',
                 disabled: disabled || selectedSource === null || persona.busy,
                 onClick: () => {
-                  if (selectedSource !== null) void persona.scan(selectedSource.id);
+                  if (selectedSource === null) return;
+                  if (selectedSource.id === 'custom' && customPath.trim() !== '') {
+                    void saveCustomAndScan(customPath, false);
+                    return;
+                  }
+                  void persona.scan(selectedSource.id);
                 },
                 children: t('characterScan'),
               }),
             }),
           ],
         }),
+        isCustomSource
+          ? h('div', {
+              key: 'custom-path',
+              className: 'dsh-pet-cfg__pair',
+              children: [
+                field(
+                  t('characterCustomPath'),
+                  h('input', {
+                    type: 'text',
+                    className: INPUT_CLASS,
+                    value: customPath,
+                    placeholder: t('characterCustomPathHint'),
+                    disabled: disabled || integrations.busy,
+                    onChange: (e: ChangeEvent<HTMLInputElement>) => {
+                      setCustomDraft(e.target.value);
+                      setNeedsExternalApproval(false);
+                    },
+                  }),
+                  t('characterCustomPathHint'),
+                ),
+                h('div', {
+                  key: 'custom-actions',
+                  className: 'dsh-pet-cfg__actions',
+                  children: [
+                    h('button', {
+                      key: 'file',
+                      type: 'button',
+                      className: 'dsh-pet-cfg__btn is-sm',
+                      disabled: disabled || integrations.busy,
+                      onClick: () => void pickCustom('file'),
+                      children: t('characterCustomPickFile'),
+                    }),
+                    h('button', {
+                      key: 'folder',
+                      type: 'button',
+                      className: 'dsh-pet-cfg__btn is-sm',
+                      disabled: disabled || integrations.busy,
+                      onClick: () => void pickCustom('folder'),
+                      children: t('characterCustomPickFolder'),
+                    }),
+                    h('button', {
+                      key: 'save',
+                      type: 'button',
+                      className: 'dsh-pet-cfg__btn is-primary is-sm',
+                      disabled: disabled || integrations.busy || customPath.trim() === '',
+                      onClick: () => void saveCustomAndScan(customPath, false),
+                      children: integrations.busy ? t('characterCustomSaving') : t('characterCustomSaveScan'),
+                    }),
+                  ],
+                }),
+              ],
+            })
+          : null,
+        isCustomSource && needsExternalApproval
+          ? h('div', {
+              key: 'external-approval',
+              className: 'dsh-pet-cfg__banner is-warn',
+              children: [
+                h('span', { key: 'text', children: t('characterCustomExternalWarning') }),
+                h('button', {
+                  key: 'approve',
+                  type: 'button',
+                  className: 'dsh-pet-cfg__btn is-sm is-primary',
+                  disabled: integrations.busy,
+                  onClick: () => void saveCustomAndScan(customPath, true),
+                  children: t('characterCustomApprove'),
+                }),
+                h('button', {
+                  key: 'cancel',
+                  type: 'button',
+                  className: 'dsh-pet-cfg__btn is-sm',
+                  onClick: () => setNeedsExternalApproval(false),
+                  children: t('cancel'),
+                }),
+              ],
+            })
+          : null,
+        customNote !== '' ? note(customNote, integrations.view?.persona.state !== 'ok') : null,
+        integrations.message !== '' ? note(integrations.message, integrations.failed) : null,
         // 未安装来源的期望路径：逐条列出（路径只由宿主给，客户端不拼）
         ...persona.sources
           .filter((source) => !source.installed && source.expectedPath !== null)

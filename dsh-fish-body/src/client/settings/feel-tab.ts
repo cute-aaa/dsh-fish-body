@@ -21,6 +21,8 @@ import { makeUiKit } from './ui.ts';
 import type { AppearanceSettings } from './use-appearance-settings.ts';
 import type { GlobalSettings } from './use-global-settings.ts';
 import type { RenderResourcesState } from './use-render-resources.ts';
+import type { AssetImportsState } from './use-asset-imports.ts';
+import type { Feedback } from './feedback.ts';
 import { makeWindowBehavior } from './window-behavior.ts';
 
 /** 外观与手感分区的输入。 */
@@ -36,6 +38,10 @@ export interface FeelTabProps {
   readonly petIndex: number;
   /** 三桶渲染资源清单。 */
   readonly resources: RenderResourcesState;
+  /** 皮肤导入动作。 */
+  readonly assetImports?: AssetImportsState;
+  /** 设置页统一反馈出口。 */
+  readonly report: (feedback: Feedback) => void;
   /** 全局开关（窗口行为卡的「锁定在当前屏幕」）。 */
   readonly global: GlobalSettings;
   /** 实例字段补丁（渲染方式 / 模型 / 位置 / 尺寸）。 */
@@ -58,7 +64,7 @@ export function makeFeelTab(rt: SettingsRuntime): FunctionComponent<FeelTabProps
   const WindowBehavior = makeWindowBehavior(rt);
 
   return function FeelTab(props: FeelTabProps) {
-    const { busy, look, dirty, pet, resources } = props;
+    const { busy, look, dirty, pet, resources, assetImports } = props;
     const { section } = makeUiKit({ h, t });
     return h('div', {
       className: 'dsh-pet-cfg__group',
@@ -74,7 +80,7 @@ export function makeFeelTab(rt: SettingsRuntime): FunctionComponent<FeelTabProps
               resources,
               onChange: props.onChange,
             }),
-        h(SkinDirs, { key: 'skinDirs', resources, busy }),
+        h(SkinDirs, { key: 'skinDirs', resources, busy, assetImports }),
         h(WindowBehavior, {
           key: 'window',
           pet,

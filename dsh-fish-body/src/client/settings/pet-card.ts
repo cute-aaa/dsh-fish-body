@@ -16,6 +16,8 @@ import { INPUT_CLASS, makeUiKit } from './ui.ts';
 import type { PersonaImportState } from './use-persona-import.ts';
 import type { PersonaPolishState } from './use-persona-polish.ts';
 import type { PersonaCharactersState } from './use-persona-characters.ts';
+import type { IntegrationsState } from './use-integrations.ts';
+import type { Feedback } from './feedback.ts';
 
 /** 折叠正文的 id：与标题按钮的 `aria-controls` 成对。 */
 const PERSONA_BODY_ID = 'pet-cfg-persona';
@@ -25,6 +27,8 @@ export interface PetCharacterDeps {
   readonly persona: PersonaCharactersState;
   readonly importer: PersonaImportState;
   readonly polish: PersonaPolishState;
+  readonly integrations?: IntegrationsState;
+  readonly report?: (feedback: Feedback) => void;
   /** 应用 / 导入成功后回填草稿（装配根接到 `list.update` + 基线推进）。 */
   readonly onChange: (patch: PetPatch) => void;
 }
@@ -123,6 +127,8 @@ export function makePetCard(rt: SettingsRuntime): FunctionComponent<PetCardProps
               dirty,
               persona: character.persona,
               importer: character.importer,
+              integrations: character.integrations,
+              report: character.report,
               onChange: character.onChange,
             }),
 

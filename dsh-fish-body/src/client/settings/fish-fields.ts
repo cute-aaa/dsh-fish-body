@@ -35,6 +35,10 @@ export interface FishFieldsProps {
   onRescan(): void;
   /** 皮肤扫描进行中。 */
   readonly skinBusy: boolean;
+  /** 导入一张会话鱼皮肤；成功后调用方重新扫描。 */
+  readonly onImport?: () => void;
+  /** 导入动作进行中。 */
+  readonly importBusy?: boolean;
 }
 
 /** 整数夹取（UI 侧先夹一次，宿主仍会严格校验）。 */
@@ -99,6 +103,16 @@ export function makeFishFields(rt: SettingsRuntime): FunctionComponent<FishField
                 onClick: props.onRescan,
                 children: props.skinBusy ? t('fish.skinRescan') + '…' : t('fish.skinRescan'),
               }),
+              props.onImport === undefined
+                ? null
+                : h('button', {
+                    key: 'import',
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn is-text',
+                    disabled: busy || props.importBusy === true,
+                    onClick: props.onImport,
+                    children: props.importBusy === true ? t('assetImportWorking') : t('fish.skinImport'),
+                  }),
               // 打开目录走共用的 FolderButton：目录还没建时先问再建、失败给一句说明。
               // 这里曾经直接 `openFolderOf(..., create = true)`：静默建目录，失败也没人告诉用户。
               h(FolderButton, {

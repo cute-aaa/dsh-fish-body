@@ -46,6 +46,14 @@ export interface MemoryProvider {
 
 /** `GET /memory` 的视图。 */
 export interface MemoryView {
+  /** 当前模式：自动探测已知项目，或只读自定义目录。 */
+  readonly mode: 'auto' | 'custom';
+  /** 自定义目录；自动模式为 null。 */
+  readonly customDir: string | null;
+  /** 未接上时的稳定原因；接上时为 null。 */
+  readonly reason: string | null;
+  /** 未接上时可直接显示的原因。 */
+  readonly message: string;
   readonly provider: MemoryProvider | null;
   readonly candidates: readonly MemoryCandidate[];
   readonly slotTakenByOther: boolean;
@@ -78,6 +86,10 @@ export async function loadCompat(): Promise<CompatSnapshot> {
       memory === null
         ? null
         : {
+            mode: memory.mode === 'custom' ? 'custom' : 'auto',
+            customDir: typeof memory.customDir === 'string' ? memory.customDir : null,
+            reason: typeof memory.reason === 'string' ? memory.reason : null,
+            message: typeof memory.message === 'string' ? memory.message : '',
             provider: memory.provider ?? null,
             candidates: arrayOf<MemoryCandidate>(memory.candidates),
             slotTakenByOther: memory.slotTakenByOther === true,

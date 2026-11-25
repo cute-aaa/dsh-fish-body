@@ -35,6 +35,8 @@ import type { PersonaCharactersState } from './use-persona-characters.ts';
 import type { PersonaImportState } from './use-persona-import.ts';
 import type { PersonaPolishState } from './use-persona-polish.ts';
 import type { RenderResourcesState } from './use-render-resources.ts';
+import type { IntegrationsState } from './use-integrations.ts';
+import type { AssetImportsState } from './use-asset-imports.ts';
 
 /**
  * 维护动作（重启 / 重置）：只在系统分区末尾的「维护动作」一组里出现。
@@ -79,6 +81,12 @@ export interface SettingsPanelDeps {
   readonly maintenance: MaintenanceActions;
   /** 角色库（来源 / 角色 / 应用 / 删除）。 */
   readonly characters: PersonaCharactersState;
+  /** persona / memory 接入配置。 */
+  readonly integrations: IntegrationsState;
+  /** 皮肤、音效、会话鱼导入动作。 */
+  readonly assetImports: AssetImportsState;
+  /** 设置页统一反馈出口。 */
+  readonly report: (feedback: Feedback) => void;
   /** 文档导入草稿。 */
   readonly personaImport: PersonaImportState;
   /** AI 润色预览。 */
@@ -125,7 +133,13 @@ export function makeSettingsPanels(
         avatar: deps.avatar,
         busy: deps.busy,
         dirty: deps.dirty,
-        character: { persona: deps.characters, importer: deps.personaImport, polish: deps.polish },
+        character: {
+          persona: deps.characters,
+          importer: deps.personaImport,
+          polish: deps.polish,
+          integrations: deps.integrations,
+          report: deps.report,
+        },
         onChange: deps.list.update,
       }),
     feel: () =>
@@ -136,6 +150,8 @@ export function makeSettingsPanels(
         pet: deps.list.pets.find((pet) => pet.id === deps.list.selId) ?? null,
         petIndex: deps.list.pets.findIndex((pet) => pet.id === deps.list.selId),
         resources: deps.resources,
+        assetImports: deps.assetImports,
+        report: deps.report,
         global: deps.global,
         onChange: deps.list.update,
       }),
@@ -144,12 +160,21 @@ export function makeSettingsPanels(
         busy: deps.busy,
         global: deps.global,
         sfx: deps.sfx,
+        assetImports: deps.assetImports,
+        report: deps.report,
         voice: deps.voice,
         dirty: deps.dirty,
         onSelectTab: deps.onSelectTab,
       }),
     chat: () => h(ModelTab, { busy: deps.busy, model: deps.model, remote: deps.remote, dirty: deps.dirty }),
-    fish: () => h(FishTab, { busy: deps.busy, fish: deps.fish, dirty: deps.dirty, focusAnchor: deps.focusAnchor }),
+    fish: () =>
+      h(FishTab, {
+        busy: deps.busy,
+        fish: deps.fish,
+        dirty: deps.dirty,
+        focusAnchor: deps.focusAnchor,
+        assetImports: deps.assetImports,
+      }),
     system: () =>
       h(SystemTab, {
         busy: deps.busy,
@@ -160,6 +185,7 @@ export function makeSettingsPanels(
         dirty: deps.dirty,
         backup: deps.backup,
         packs: deps.packs,
+        integrations: deps.integrations,
         screen: deps.screen,
         maintenance: deps.maintenance,
       }),

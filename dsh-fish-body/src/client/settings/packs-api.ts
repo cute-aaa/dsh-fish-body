@@ -83,6 +83,20 @@ export async function installPack(id: string): Promise<PackOutcome> {
 }
 
 /**
+ * 从本地 zip 或目录安装一个已登记的资源包。
+ *
+ * @param id - 清单里的包 id。
+ * @param source - 本地 zip 文件或目录的绝对路径。
+ * @returns 结论；校验与落点全由宿主决定。
+ */
+export async function installPackFrom(
+  id: string,
+  source: { readonly kind: 'zip' | 'dir'; readonly path: string },
+): Promise<PackOutcome> {
+  return post('/packs/install', source.kind === 'zip' ? { id, zipPath: source.path } : { id, dir: source.path });
+}
+
+/**
  * 删除一个已安装的包。
  * @param id - 包 id。
  * @returns 结论。

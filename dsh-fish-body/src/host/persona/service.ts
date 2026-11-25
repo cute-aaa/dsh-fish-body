@@ -88,6 +88,8 @@ export interface PersonaServiceInput {
   readonly userConfigPath: string;
   /** 自定义来源允许的根（数据根、DSH_HOME）；缺省时只允许 characterDir 的上两级。 */
   readonly allowedRoots?: readonly string[];
+  /** 设置页保存的自定义路径；扫描 custom 来源且请求未显式给路径时使用。 */
+  readonly customPath?: () => string | null;
 }
 
 /** 空卡片字段（来源只给正文时的降级填充）。 */
@@ -148,18 +150,23 @@ export function createPersonaServices(input: PersonaServiceInput): {
       if (typeof source.scan !== 'function') {
         return { ok: false, reason: 'bad-request', message: `来源「${source.name}」不支持扫描` };
       }
-      const explicit = (path ?? '').trim();
+      const requested = (path ?? '').trim();
+      const configured = requested === '' && source.kind === 'custom' ? (input.customPath?.() ?? '') : '';
+      const explicit = requested !== '' ? requested : configured;
       // `custom` 没有约定目录：不给路径就无从扫起（回 bad-request，而不是「来源未安装」）。
       if (source.kind === 'custom' && explicit === '') {
         return { ok: false, reason: 'bad-request', message: '自定义来源需要指定路径' };
       }
       // 显式路径一律过闸门：绝对路径 + 允许根内。绝不交给 cwd 相对解析（那等于读任意文件）。
       let resolvedPath: string | undefined;
-      if (explicit !== '') {
+      if (requested !== '') {
         const roots = input.allowedRoots ?? [dirname(dirname(input.characterDir))];
-        const guard = resolveCardPathInput(explicit, roots);
+        const guard = resolveCardPathInput(requested, roots);
         if (!guard.ok) return { ok: false, reason: guard.reason, message: guard.message };
         resolvedPath = guard.path;
+      } else if (configured !== '') {
+        // 持久化路径已经在设置页写入时做过 realpath 与外部授权校验，这里直接使用规范化结果。
+        resolvedPath = configured;
       }
       const options = resolvedPath === undefined ? undefined : { path: resolvedPath };
       if (typeof source.probe === 'function') {

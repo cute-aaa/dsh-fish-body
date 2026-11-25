@@ -66,8 +66,8 @@ cp step04/*.webm dsh-fish-body/assets/webm/   # 播放格式（VP9-alpha）
 
 # 本地安装插件（--profile 填实际在用的那个：dsh web → web，桌面应用 → desktop；
 # 详见 INSTALL.md 的「从源码安装」；
-# file: 指向插件目录 dsh-fish-body/dsh-pet）
-dsh plugin --profile web add file:D:/path/to/dsh-fish-body/dsh-pet
+# file: 指向插件目录 dsh-fish-body/dsh-fish-body）
+dsh plugin --profile web add file:D:/path/to/dsh-fish-body/dsh-fish-body
 ```
 
 > 中间产物（step01-04）由脚本生成、不入仓库；`video/` 源视频和脚本是成果、入库维护。

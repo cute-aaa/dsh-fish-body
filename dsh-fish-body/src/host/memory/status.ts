@@ -58,8 +58,13 @@ const SOURCES: readonly { id: string; label: string }[] = [
   { id: 'dsh-suzu-memory', label: 'dsh-suzu-memory（会话记忆）' },
 ];
 
-/** 目录里是否有至少一个记忆文件（只看一层，够判断「装没装」）。 */
-function hasMemoryFile(dir: string): boolean {
+/**
+ * 目录里是否有至少一个记忆文件（只看一层，够判断「装没装」）。
+ *
+ * @param dir - 记忆目录。
+ * @returns 至少有一个可读的 md/txt/json 文件时为 true。
+ */
+export function hasMemoryFiles(dir: string): boolean {
   let names: string[];
   try {
     names = readdirSync(dir);
@@ -94,8 +99,8 @@ export function detectMemoryCandidates(dshHome: string): MemoryCandidate[] {
     const root = join(dshHome, source.id);
     const archive = join(root, 'memory');
     // 归档子目录优先：它才是「记忆」所在，根目录里通常还混着插件自己的设置
-    const dir = hasMemoryFile(archive) ? archive : root;
-    const installed = hasMemoryFile(dir);
+    const dir = hasMemoryFiles(archive) ? archive : root;
+    const installed = hasMemoryFiles(dir);
     out.push({
       id: source.id,
       label: source.label,

@@ -11,6 +11,8 @@
  */
 import type { FunctionComponent } from 'react';
 import { loadCompat, setCoexistMode, type CompatSnapshot, type CoexistMode } from './compat-api.ts';
+import { NO_INTEGRATIONS, type IntegrationsState } from './use-integrations.ts';
+import { pickFolder } from './layout-api.ts';
 import type { SettingsRuntime } from './runtime.ts';
 import { makeUiKit } from './ui.ts';
 
@@ -18,6 +20,8 @@ import { makeUiKit } from './ui.ts';
 export interface CompatCardProps {
   /** 保存中或配置未就绪时禁用模式按钮。 */
   readonly busy: boolean;
+  /** persona / memory 接入配置。 */
+  readonly integrations?: IntegrationsState;
 }
 
 /** 三个模式的显示顺序与 i18n 键。 */
@@ -37,10 +41,14 @@ export function makeCompatCard(rt: SettingsRuntime): FunctionComponent<CompatCar
 
   return function CompatCard(props: CompatCardProps) {
     const { cardHead, note } = makeUiKit({ h, t });
+    const integrations = props.integrations ?? NO_INTEGRATIONS;
     const [snapshot, setSnapshot] = useState<CompatSnapshot | null>(null);
     const [message, setMessage] = useState('');
     const [failed, setFailed] = useState(false);
     const [pending, setPending] = useState<CoexistMode | ''>('');
+    const [draftDir, setDraftDir] = useState<string | null>(null);
+    const [draftMode, setDraftMode] = useState<'auto' | 'custom' | null>(null);
+    const [needsApproval, setNeedsApproval] = useState(false);
 
     // 挂载拉一次：两个端点都只读、零副作用，不需要轮询
     useEffect(() => {
@@ -72,6 +80,40 @@ export function makeCompatCard(rt: SettingsRuntime): FunctionComponent<CompatCar
     const disabled = props.busy || pending !== '';
     const coexist = snapshot?.coexist ?? null;
     const memory = snapshot?.memory ?? null;
+    const mode = draftMode ?? integrations.view?.memory.mode ?? memory?.mode ?? 'auto';
+    const customDir = draftDir ?? integrations.view?.memory.path ?? memory?.customDir ?? '';
+
+    const refreshMemory = (): void => {
+      void loadCompat().then((next) => setSnapshot(next));
+    };
+
+    const saveMemory = async (nextMode: 'auto' | 'custom', dir: string | null, approve: boolean): Promise<void> => {
+      const outcome = await integrations.saveMemory(nextMode, dir, approve);
+      if (!outcome.ok) {
+        setNeedsApproval(outcome.reason === 'external-approval-required');
+        setMessage(outcome.message);
+        setFailed(true);
+        return;
+      }
+      setNeedsApproval(false);
+      setMessage('');
+      setFailed(false);
+      setDraftMode(null);
+      refreshMemory();
+    };
+
+    const pickMemoryDir = async (): Promise<void> => {
+      const picked = await pickFolder(t('compatMemoryPick'));
+      if (picked.kind === 'picked') {
+        setDraftDir(picked.path);
+        setNeedsApproval(false);
+        return;
+      }
+      if (picked.kind === 'unsupported') {
+        setMessage(picked.message || t('compatMemoryPickFailed'));
+        setFailed(true);
+      }
+    };
 
     /** 共存段：检测到的同伴 + 三个模式按钮。 */
     const coexistBlock = [
@@ -136,6 +178,103 @@ export function makeCompatCard(rt: SettingsRuntime): FunctionComponent<CompatCar
             ),
           ];
 
+    const memoryControls = [
+      h('div', {
+        key: 'memory-modes',
+        className: 'dsh-pet-cfg__actions',
+        children: [
+          h('button', {
+            key: 'auto',
+            type: 'button',
+            className: 'dsh-pet-cfg__btn is-sm' + (mode === 'auto' ? ' is-primary' : ' is-text'),
+            disabled: disabled || integrations.busy,
+            onClick: () => {
+              setDraftMode('auto');
+              void saveMemory('auto', null, false);
+            },
+            children: t('compatMemoryAuto'),
+          }),
+          h('button', {
+            key: 'custom',
+            type: 'button',
+            className: 'dsh-pet-cfg__btn is-sm' + (mode === 'custom' ? ' is-primary' : ' is-text'),
+            disabled: disabled || integrations.busy,
+            onClick: () => {
+              setDraftMode('custom');
+              if (customDir.trim() !== '') void saveMemory('custom', customDir, false);
+            },
+            children: t('compatMemoryCustom'),
+          }),
+        ],
+      }),
+      mode === 'custom'
+        ? h('div', {
+            key: 'memory-path',
+            className: 'dsh-pet-cfg__pair',
+            children: [
+              h('input', {
+                key: 'input',
+                type: 'text',
+                className: 'dsh-pet-cfg__inp',
+                value: customDir,
+                placeholder: t('compatMemoryPathHint'),
+                disabled: disabled || integrations.busy,
+                onChange: (e: { target: { value: string } }) => {
+                  setDraftDir(e.target.value);
+                  setNeedsApproval(false);
+                },
+              }),
+              h('div', {
+                key: 'actions',
+                className: 'dsh-pet-cfg__actions',
+                children: [
+                  h('button', {
+                    key: 'pick',
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn is-sm',
+                    disabled: disabled || integrations.busy,
+                    onClick: () => void pickMemoryDir(),
+                    children: t('compatMemoryPick'),
+                  }),
+                  h('button', {
+                    key: 'save',
+                    type: 'button',
+                    className: 'dsh-pet-cfg__btn is-sm is-primary',
+                    disabled: disabled || integrations.busy || customDir.trim() === '',
+                    onClick: () => void saveMemory('custom', customDir, false),
+                    children: integrations.busy ? t('compatWorking') : t('compatMemoryReconnect'),
+                  }),
+                ],
+              }),
+            ],
+          })
+        : null,
+      mode === 'custom' && needsApproval
+        ? h('div', {
+            key: 'memory-approval',
+            className: 'dsh-pet-cfg__banner is-warn',
+            children: [
+              h('span', { key: 'text', children: t('compatMemoryExternalWarning') }),
+              h('button', {
+                key: 'approve',
+                type: 'button',
+                className: 'dsh-pet-cfg__btn is-sm is-primary',
+                disabled: integrations.busy,
+                onClick: () => void saveMemory('custom', customDir, true),
+                children: t('compatMemoryApprove'),
+              }),
+              h('button', {
+                key: 'cancel',
+                type: 'button',
+                className: 'dsh-pet-cfg__btn is-sm',
+                onClick: () => setNeedsApproval(false),
+                children: t('cancel'),
+              }),
+            ],
+          })
+        : null,
+    ];
+
     return h('div', {
       className: 'dsh-pet-cfg__card',
       children: [
@@ -143,6 +282,7 @@ export function makeCompatCard(rt: SettingsRuntime): FunctionComponent<CompatCar
         ...coexistBlock,
         message !== '' ? note(message, failed) : null,
         h('div', { key: 'mem-head', className: 'dsh-pet-cfg__rowMeta', children: t('compatMemoryTitle') }),
+        ...memoryControls,
         ...memoryLines,
       ],
     });

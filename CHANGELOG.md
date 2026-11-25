@@ -4,6 +4,20 @@
 0.4.x 及更早的历史不在这里重复，见上游仓库的 Releases。版本号规则：`MAJOR.MINOR.PATCH`，
 用户能感知的行为变化进 MINOR，修 bug 进 PATCH；破坏性的接口/配置变化在条目末尾标 **BREAKING**。
 
+## 未发布
+
+### 新增
+
+- **接入配置**：新增 `config/integrations.json` 与 `/integrations`，persona 自定义路径和 memory 自定义目录都能在设置页保存；外部路径需要显式授权，memory 切换会重连单槽 provider。
+- **本地资源导入**：设置页支持从本地 ZIP / 目录安装素材包，支持导入 layered / live2d / webm 皮肤、音效槽位 / 共享音效 / hook 和会话鱼皮肤；同名目标默认不覆盖。
+- **CI 门禁**：新增 Linux + Windows GitHub Actions；Linux 跑静态检查、单测、浏览器 E2E、构建后真实宿主旅程，Windows 跑单测与构建发布链。
+- **完整用户手册**：新增 `docs/用户操作手册.md`，并把安装、资源、soul、memory、备份和排障收敛到同一份入口。
+
+### 修复
+
+- 修复安装文档中残留的 `dsh-pet` 源码目录路径；安装时指向实际的 `dsh-fish-body/dsh-fish-body`。
+- 自定义 persona 路径现在可以持久化并由扫描链路使用，不再只支持一次性的 API 请求。
+
 ## v0.6.1
 
 ### 修复

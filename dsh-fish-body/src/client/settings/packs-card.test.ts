@@ -3,7 +3,7 @@
  *
  * 三条契约：
  *   1. 许可徽标必须在行内可见（用户点之前就要知道能不能商用）；
- *   2. 未安装只给「下载」、已装只给「删除」——不给两个同时存在的按钮；
+ *   2. 未安装给在线下载与本地 zip / 目录三个入口，已装只给「删除」；
  *   3. 有包在动时，所有按钮都禁用且文案变成「处理中…」。
  */
 import { describe, test } from 'node:test';
@@ -62,15 +62,20 @@ const state = (items: readonly PackView[], busyId = '') =>
     failed: false,
     reload: () => {},
     install: () => {},
+    installLocal: () => {},
     remove: () => {},
   }) as const;
 
 describe('PacksCard —— 素材与字体', () => {
-  test('未安装：只给「下载」按钮，许可与体积在行内可见', () => {
+  test('未安装：在线下载与本地导入都在，许可与体积在行内可见', () => {
     const tree = PacksCard({ busy: false, packs: state([pack()]) } as never);
     const found = buttons(tree);
-    assert.equal(found.length, 1);
+    assert.equal(found.length, 3);
     assert.equal(found[0].props.children as string, 'packsInstall');
+    assert.deepEqual(
+      found.map((button) => button.props.children),
+      ['packsInstall', 'packsInstallZip', 'packsInstallDir'],
+    );
     const all = texts(tree);
     assert.ok(all.includes('OFL-1.1'), '许可必须直接可见');
     assert.ok(
@@ -104,7 +109,7 @@ describe('PacksCard —— 素材与字体', () => {
       packs: state([pack(), pack({ id: 'memes', label: '表情包', kind: 'memes' })], 'fonts-rouhei'),
     } as never);
     const found = buttons(tree);
-    assert.equal(found.length, 2);
+    assert.equal(found.length, 6);
     for (const button of found) assert.equal(button.props.disabled, true);
     assert.ok(found.some((button) => button.props.children === 'packsWorking'));
   });

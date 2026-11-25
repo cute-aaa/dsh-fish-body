@@ -63,7 +63,7 @@ dsh plugin --profile desktop add dsh-fish-body
 ```sh
 # ① clone 本仓库，进入插件目录
 git clone https://github.com/cute-aaa/dsh-fish-body.git
-cd dsh-fish-body/dsh-pet
+cd dsh-fish-body/dsh-fish-body
 
 # ② 安装依赖
 npm install
@@ -73,7 +73,7 @@ npm run build       # 必须手动跑一次（克隆后 npm install 不再自动
 
 # ④ 安装到 DSH（file: 指向**插件目录**——上面 cd 进去的那一层，用构建好的 lib）
 #    --profile 填实际在用的那个：dsh web → web；桌面应用 → desktop
-dsh plugin --profile web add file:D:/path/to/dsh-fish-body/dsh-pet
+dsh plugin --profile web add file:D:/path/to/dsh-fish-body/dsh-fish-body
 ```
 
 > 注：`npm run build`（即 `scripts/prepare.js`）才产出**完整可安装**的 lib——除 tsdown 构建外还构建桌面共享核心（`shared-core.js`）、生成类型声明并收敛发布 `files` 清单；裸 `tsdown` 构建会缺桌面运行时与类型。发布与打包（`npm publish` / `npm pack`）时由 `prepack` 自动调用它，克隆仓库后需手动跑一次。
@@ -179,5 +179,6 @@ dsh plugin --profile <profile> remove dsh-fish-body
 
 ## 下一步
 
+- 完整安装、资源导入、soul / memory 接入与排障：见 [docs/用户操作手册.md](docs/用户操作手册.md)
 - 大小、位置、多开、物理参数等配置：见 [CONFIG.md](CONFIG.md)
 - 想自己生成一只宠物：见 [MAKE-YOUR-OWN-PET.md](MAKE-YOUR-OWN-PET.md)

@@ -6,7 +6,8 @@
  * 刷新也能看到，而不会出现「界面说不存在、磁盘上有」。
  * @module dsh-fish-body/src/client/settings/use-packs
  */
-import { installPack, listPacks, removePack, type PackView } from './packs-api.ts';
+import { installPack, installPackFrom, listPacks, removePack, type PackView } from './packs-api.ts';
+import { pickFile, pickFolder } from './layout-api.ts';
 import type { SettingsRuntime } from './runtime.ts';
 
 /** 卡片要读的全部状态与动作。 */
@@ -20,6 +21,7 @@ export interface PacksState {
   readonly failed: boolean;
   reload(): void;
   install(id: string): void;
+  installLocal(id: string, kind: 'zip' | 'dir'): void;
   remove(id: string): void;
 }
 
@@ -87,5 +89,22 @@ export function usePacks(rt: SettingsRuntime): PacksState {
     [act, rt],
   );
 
-  return { items, busyId, message, failed, reload, install, remove };
+  const installLocal = rt.useCallback(
+    (id: string, kind: 'zip' | 'dir') => {
+      const picker = kind === 'zip' ? pickFile(rt.t('packsInstallZip'), ['.zip']) : pickFolder(rt.t('packsInstallDir'));
+      void picker.then((picked) => {
+        if (picked.kind === 'picked') {
+          act(id, () => installPackFrom(id, { kind, path: picked.path }), rt.t('packsInstalled'));
+          return;
+        }
+        if (picked.kind === 'unsupported' && alive.current) {
+          setFailed(true);
+          setMessage(picked.message || rt.t('packsPickFailed'));
+        }
+      });
+    },
+    [act, rt],
+  );
+
+  return { items, busyId, message, failed, reload, install, installLocal, remove };
 }

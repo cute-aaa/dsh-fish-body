@@ -16,6 +16,7 @@ const TREE_NOTES: Readonly<Record<string, Key>> = {
   'config.main': 'fsDesc.config.main',
   'config.sessionFish': 'fsDesc.config.sessionFish',
   'config.voiceProviders': 'fsDesc.config.voiceProviders',
+  'config.integrations': 'fsDesc.config.integrations',
   data: 'fsDesc.data',
   'data.memory': 'fsDesc.data.memory',
   'data.todos': 'fsDesc.data.todos',
