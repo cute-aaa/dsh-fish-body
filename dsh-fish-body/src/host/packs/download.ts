@@ -12,7 +12,7 @@
  * 3. **curl 不存在就当没有兜底**：`spawnSync` 报错一律按失败处理，把原始 fetch 错误一起报出去。
  * @module dsh-fish-body/src/host/packs/download
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 
 /** 一个 HTTP 代理地址（SOCKS 不支持：curl 的 `-x` 对 socks 需要不同写法，且我们没实测过）。 */
@@ -24,8 +24,19 @@ export interface ProxySpec {
 /** 下载结论。 */
 export type ProxyDownloadResult = { readonly ok: true } | { readonly ok: false; readonly message: string };
 
-/** 运行 curl 的注入点（测试不真的起进程）。 */
-export type CurlRunner = (args: readonly string[]) => { readonly status: number | null; readonly stderr: string };
+/**
+ * 运行 curl 的注入点（测试不真的起进程）。
+ *
+ * 允许返回 Promise：真实实现必须是**异步**的——同步执行会把宿主事件循环堵住，
+ * 下载 54 MB 的包时宠物会僵住好几分钟（见 `runCurlDefault` 的注释）。
+ */
+export type CurlRunner = (args: readonly string[]) => CurlRunResult | Promise<CurlRunResult>;
+
+/** 一次 curl 运行的结果。 */
+export interface CurlRunResult {
+  readonly status: number | null;
+  readonly stderr: string;
+}
 
 /**
  * 解析 `http://host:port` / `host:port` 形式的代理值。
@@ -94,11 +105,23 @@ export function proxyOf(options?: {
   }
 }
 
-/** 默认的 curl 执行器。 */
-const runCurlDefault: CurlRunner = (args) => {
-  const run = spawnSync('curl', [...args], { encoding: 'utf8', windowsHide: true });
-  return { status: run.status, stderr: typeof run.stderr === 'string' ? run.stderr : '' };
-};
+/**
+ * 默认的 curl 执行器（**异步**）。
+ *
+ * 用 `spawnSync` 会把宿主的事件循环堵死——下载 54 MB 的包要好几分钟，那段时间里
+ * `/state` 不响应、宠物僵住不播动画（实测过）。stderr 只留尾部：正常没有输出，失败时就几行。
+ */
+const runCurlDefault: CurlRunner = (args) =>
+  new Promise<CurlRunResult>((resolve) => {
+    const child = spawn('curl', [...args], { windowsHide: true });
+    let stderr = '';
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk: string) => {
+      stderr = (stderr + chunk).slice(-2000);
+    });
+    child.on('error', (error) => resolve({ status: null, stderr: error.message }));
+    child.on('close', (code) => resolve({ status: code, stderr }));
+  });
 
 /**
  * 经代理把 URL 下载到文件（curl `-x` + 跟随重定向 + 失败即非零退出）。
@@ -140,9 +163,9 @@ export async function downloadViaProxy(
     dest,
     url,
   ];
-  let result: { readonly status: number | null; readonly stderr: string };
+  let result: CurlRunResult;
   try {
-    result = runCurl(args);
+    result = await runCurl(args);
   } catch (error) {
     return { ok: false, message: 'curl 无法执行：' + (error instanceof Error ? error.message : String(error)) };
   }

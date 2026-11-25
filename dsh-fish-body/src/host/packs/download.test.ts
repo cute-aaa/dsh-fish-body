@@ -144,16 +144,16 @@ describe('downloadViaProxy', () => {
     if (!result.ok) assert.ok(result.message.includes('ENOENT'));
   });
 
-  test('超时按秒传（--max-time）', async () => {
+  test('按「停滞」判失败，不按总时长（慢但在下载时不该被掐）', async () => {
     await downloadViaProxy(
       'https://example.test/a.zip',
       join(ROOT, 't.zip'),
       { host: 'h', port: 1 },
       {
-        timeoutMs: 30_000,
         runCurl: (args) => {
-          const at = args.indexOf('--max-time');
-          assert.equal(args[at + 1], '30');
+          assert.equal(args[args.indexOf('--speed-time') + 1], '60');
+          assert.equal(args[args.indexOf('--speed-limit') + 1], '10240');
+          assert.equal(args[args.indexOf('--max-time') + 1], '3600', '总量上限只防挂死');
           return { status: 1, stderr: '' };
         },
       },
