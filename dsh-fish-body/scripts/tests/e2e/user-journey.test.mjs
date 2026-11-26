@@ -163,8 +163,10 @@ after(async () => {
     ]);
     if (child.exitCode === null) child.kill();
   }
-  rmSync(home, { recursive: true, force: true });
-  rmSync(external, { recursive: true, force: true });
+  // Linux 上 shutdown 与文件系统尾写可能擦肩而过；有限重试只覆盖清理竞态。
+  const cleanOptions = { recursive: true, force: true, maxRetries: 20, retryDelay: 50 };
+  rmSync(home, cleanOptions);
+  rmSync(external, cleanOptions);
 });
 
 test('用户旅程：配置、soul、memory、资源包、皮肤/音效导入都能在真实宿主里走通', async () => {
