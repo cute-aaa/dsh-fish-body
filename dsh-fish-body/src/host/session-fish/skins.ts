@@ -70,6 +70,13 @@ function labelOf(id: string): string {
   return base === '' ? id : base;
 }
 
+/** 文件名按 UTF-16 code unit 排序，避免不同系统的 ICU 语言排序产生不同清单。 */
+function compareSkinNames(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 /** 列一个目录里扩展名白名单内的文件；读不到就当空目录。 */
 function readDirSkins(dir: string): string[] {
   let names: string[];
@@ -78,7 +85,7 @@ function readDirSkins(dir: string): string[] {
   } catch {
     return [];
   }
-  return names.filter((name) => sessionFishSkinKindOf(name) !== null).sort((a, b) => a.localeCompare(b));
+  return names.filter((name) => sessionFishSkinKindOf(name) !== null).sort(compareSkinNames);
 }
 
 /**

@@ -53,8 +53,8 @@ describe('listFishSkins', () => {
       [
         ['共享.webm', 'user', 'video'],
         ['我的鱼.gif', 'user', 'image'],
-        ['封面.png', 'pack', 'image'],
         ['写代码.webm', 'pack', 'video'],
+        ['封面.png', 'pack', 'image'],
       ],
     );
   });

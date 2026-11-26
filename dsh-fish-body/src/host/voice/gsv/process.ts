@@ -74,12 +74,11 @@ function logStdio(logFile: string | undefined): { stdio: StdioOptions; fd?: numb
   }
 }
 
-/** 子进程拿到 fd 之后（或 spawn 失败）关掉父进程那份；重复调用无害。 */
+/** 子进程拿到 fd 之后（或 spawn 失败）关掉父进程那份，并始终消费异步 error；重复调用无害。 */
 function releaseFd(child: ChildProcess, fd: number | undefined): void {
-  if (fd === undefined) return;
   let closed = false;
   const close = (): void => {
-    if (closed) return;
+    if (closed || fd === undefined) return;
     closed = true;
     try {
       closeSync(fd);

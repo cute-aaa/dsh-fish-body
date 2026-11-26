@@ -136,11 +136,16 @@ describe('discoverWeightRoots', () => {
   });
 });
 
-test('sameVolumeOf：判盘符，相对路径一律算不同卷', () => {
-  assert.equal(sameVolumeOf('D:/a/x.ckpt', 'D:/b'), true);
-  assert.equal(sameVolumeOf('D:/a', 'd:/b'), true);
-  assert.equal(sameVolumeOf('D:\\a\\x.ckpt', 'D:/b'), true, '正斜杠与反斜杠混写也要判对');
-  assert.equal(sameVolumeOf('D:/a', 'C:/b'), false);
+test('sameVolumeOf：按当前平台的卷根判断，相对路径一律算不同卷', () => {
+  if (process.platform === 'win32') {
+    assert.equal(sameVolumeOf('D:/a/x.ckpt', 'D:/b'), true);
+    assert.equal(sameVolumeOf('D:/a', 'd:/b'), true);
+    assert.equal(sameVolumeOf('D:\\a\\x.ckpt', 'D:/b'), true, '正斜杠与反斜杠混写也要判对');
+    assert.equal(sameVolumeOf('D:/a', 'C:/b'), false);
+  } else {
+    assert.equal(sameVolumeOf('/a/x.ckpt', '/b'), true);
+    assert.equal(sameVolumeOf('/a', '/a/b'), true);
+  }
   assert.equal(sameVolumeOf('relative/x', 'D:/b'), false);
 });
 

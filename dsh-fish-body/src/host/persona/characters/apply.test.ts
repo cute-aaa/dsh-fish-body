@@ -240,14 +240,16 @@ test('互不影响：a 写 X、b 写 Y，第三只 c 全程一个字段都没动
   }
 });
 
-test('一次 apply 只推进一次 mtime：重复调用 unchanged 不再写盘', async () => {
+test('一次 apply 只落盘一次：首次内容更新，重复调用 unchanged 不再写盘', async () => {
   const { paths, userConfigPath, dir } = await fixture({ pets: [pet('a', { whisperPrompt: 'A-原始' })] });
   try {
+    const initial = await readFile(userConfigPath, 'utf8');
     const before = await stat(userConfigPath);
     await applyCharacter(paths, userConfigPath, record('X', '正文'), 'a');
     const afterFirst = await stat(userConfigPath);
-    assert.ok(afterFirst.mtimeMs > before.mtimeMs, '第一次应用必须落盘');
     const content = await readFile(userConfigPath, 'utf8');
+    assert.notEqual(content, initial, '第一次应用必须更新落盘内容');
+    assert.ok(afterFirst.mtimeMs >= before.mtimeMs, '文件时间不能倒退');
     const again = await applyCharacter(paths, userConfigPath, record('X', '正文'), 'a');
     assert.deepEqual(again, { status: 'unchanged', petId: 'a', characterId: 'X' });
     assert.equal((await stat(userConfigPath)).mtimeMs, afterFirst.mtimeMs, '第二次不该再写一次');

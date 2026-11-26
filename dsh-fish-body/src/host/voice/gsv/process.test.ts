@@ -56,7 +56,7 @@ test('启动：脚本不存在 → 拒绝，不尝试 spawn', () => {
   assert.match(result.message ?? '', /脚本不存在/);
 });
 
-test('启动：配好的脚本会被跑起来（powershell 隐藏窗口执行）', () => {
+test('启动：配好的脚本会被跑起来（powershell 隐藏窗口执行）', { skip: process.platform !== 'win32' }, () => {
   const script = scriptFile('probe.ps1', 'Start-Sleep -Milliseconds 10\n');
   const result = startService(script);
   assert.deepEqual(result, { ok: true });
