@@ -22,8 +22,9 @@ function driverWith(
   sources: ScheduleSource[],
   at: Date,
 ): { driver: ScheduleDriver; rhythm: RhythmStore; clock: ReturnType<typeof clock> } {
-  const rhythm = new RhythmStore();
   const c = clock(at);
+  // RhythmStore 也要吃同一个固定时钟，否则夹具日期会被真实 Date.now() 判成已过期。
+  const rhythm = new RhythmStore({ now: () => c.now().getTime() });
   const driver = new ScheduleDriver({ rhythm, readSources: () => sources, now: c.now });
   return { driver, rhythm, clock: c };
 }
@@ -75,13 +76,13 @@ describe('ScheduleDriver —— 到点进入', () => {
 });
 
 describe('ScheduleDriver —— 出段回到醒着', () => {
-  test('23:30 进、09:00 出 → 清掉自己那条', () => {
+  test('23:30 进、09:00 已到期 → RhythmStore 自动清掉，不把到期误记成 driver.left', () => {
     const { driver, rhythm, clock } = driverWith([{ petId: 'main', text: NIGHT }], new Date(2026, 10, 25, 23, 30));
     driver.tick();
     assert.equal(rhythm.get('main')?.state, 'sleeping');
     clock.set(new Date(2026, 10, 26, 9, 0));
     const result = driver.tick();
-    assert.deepEqual(result.left, ['main']);
+    assert.deepEqual(result.left, []);
     assert.equal(rhythm.get('main'), null);
   });
 
