@@ -31,8 +31,8 @@ import { ROUTE_PATH } from '../shared/constants.ts';
  *  全局 border-box 把内边距算进宽度；断词用 break-word，数字与单位不会被拆行。
  */
 const bubbleCss = [
-  // 本地字体：由 host 从 assets/fonts 提供；font-display:swap 先回退后切换。
-  `@font-face{font-family:"ShangshouSoftCandy";src:url("${ROUTE_PATH}/font/上首软糖体.ttf") format("truetype");font-display:swap;font-weight:400}`,
+  // Dymon 是 OFL-1.1 内置字体；host 从发布白名单里的同路径提供，先回退再切换。
+  `@font-face{font-family:"DymonShouXieTi";src:url("${ROUTE_PATH}/font/Dymon-ShouXieTi.otf") format("opentype");font-display:swap;font-weight:400}`,
   '.dsh-pet-bubble{position:absolute;left:50%;transform:translateX(-50%);' +
     // 锚点由渲染器给（方形画布的头顶在舞台顶以上，见 shared/bubble-anchor）；变量缺席时退回 webm 的 10.8%。
     'bottom:calc(100% - var(--dsh-pet-bubble-y,calc(var(--dsh-pet-size)*0.108)));' +
@@ -44,7 +44,7 @@ const bubbleCss = [
     'border-radius:calc(var(--f)*0.7692);' +
     'background:rgba(255,255,255,.92);' +
     '--f0:var(--dsh-pet-font-bubble,calc(var(--dsh-pet-size)*0.0455));--f:var(--f0);' +
-    'color:#2b2b2b;font-family:var(--dsh-pet-font-family,"ShangshouSoftCandy","Yuanti SC","YouYuan","幼圆","Comic Sans MS","PingFang SC","Microsoft YaHei",sans-serif);' +
+    'color:#2b2b2b;font-family:var(--dsh-pet-font-family,"DymonShouXieTi","Yuanti SC","YouYuan","幼圆","Comic Sans MS","PingFang SC","Microsoft YaHei",sans-serif);' +
     'font-size:var(--f);line-height:1.6;z-index:3;pointer-events:none;' +
     'box-shadow:0 calc(var(--f)*0.1978) calc(var(--f)*0.7692) rgba(0,0,0,.14),0 1px 3px rgba(0,0,0,.08);' +
     'backdrop-filter:blur(6px);opacity:0;transition:opacity .25s ease;' +

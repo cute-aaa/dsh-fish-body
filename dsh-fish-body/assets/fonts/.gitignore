@@ -1,0 +1,6 @@
+# 这个目录历史上放过本机商业字体；发布与版本控制只允许下面三件 Dymon 字体资料。
+*
+!.gitignore
+!Dymon-ShouXieTi.otf
+!OFL-1.1.txt
+!SOURCE.md

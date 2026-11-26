@@ -26,6 +26,7 @@ export const MIME: Record<string, string> = {
   '.json': 'application/json; charset=utf-8',
   '.jsonc': 'application/json; charset=utf-8',
   '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.js': 'text/javascript; charset=utf-8',

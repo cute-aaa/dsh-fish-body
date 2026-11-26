@@ -224,7 +224,7 @@ export interface PhysicsParams {
   hapticEnabled?: boolean;
 }
 
-/** 字体种类预设 id（font.family 白名单；清单与对应字体栈见 shared/fonts.ts）。 */
+/** 字体种类预设 id（font.family 白名单；`candy` 是兼容 id，实际指向 Dymon 手写体）。 */
 export type FontFamilyId = 'candy' | 'yahei' | 'youyuan' | 'kaiti' | 'simsun' | 'comic' | 'system';
 
 /** config.jsonc 的 font 段：字体（全局一份，所有宠物共用）。

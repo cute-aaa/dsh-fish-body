@@ -59,18 +59,23 @@ export function voiceCapabilityNote(input: VoiceCapabilityInput = {}): string {
   const available = providers.filter((provider) => provider.builtin !== true && provider.available);
   const blocked = providers.filter((provider) => provider.builtin !== true && !provider.available);
 
-  const said: string[] = [`你现在说话的嗓子是 edge 在线语音 · ${edgeVoiceName(input.edgeVoice)}`];
+  const edge = `edge 在线语音 · ${edgeVoiceName(input.edgeVoice)}`;
+  const said: string[] =
+    available.length === 0
+      ? [`你能被语音合成朗读；当前基础实现是 ${edge}`]
+      : [`你能被语音合成朗读；检测到可用的语音实现包括：`];
   for (const provider of available) {
     const voices = usableVoices(provider);
     const current = provider.voice === '' ? '' : `，当前「${voiceNameOf(provider, provider.voice)}」`;
     if (voices.length === 0) {
-      said.push(`${provider.name}也接了（音色暂时列不出来${current}）`);
+      said.push(`${provider.name}（音色暂时列不出来${current}）`);
       continue;
     }
     const shown = voices.slice(0, MAX_VOICES).join('、');
     const more = voices.length > MAX_VOICES ? ` 等 ${voices.length} 个` : '';
-    said.push(`${provider.name}也接了：${shown}${more}${current}`);
+    said.push(`${provider.name}：${shown}${more}${current}`);
   }
+  if (available.length > 0) said.push(`暂时都不可用时会回落到 ${edge}`);
   for (const provider of blocked) {
     const why = provider.reason === undefined || provider.reason === '' ? '没连上' : provider.reason;
     said.push(`${provider.name}装了但此刻用不了（${why}）`);
@@ -78,6 +83,9 @@ export function voiceCapabilityNote(input: VoiceCapabilityInput = {}): string {
 
   const lines = ['【你的声音】' + said.join('；') + '。'];
   lines.push('你换不了嗓子：音色、要不要念都由用户在「设置 → 声音」里定，你手上没有这个开关');
+  lines.push(
+    '这些是说话合成，不会生成歌曲旋律；你可以按要求念歌词、带节奏朗读或做语气表演，但不要声称自己能真正唱歌。',
+  );
   const speakOff: string[] = [];
   if (input.replyVoiceOn === false) speakOff.push('对话回复');
   if (input.whisperVoiceOn === false) speakOff.push('碎碎念');

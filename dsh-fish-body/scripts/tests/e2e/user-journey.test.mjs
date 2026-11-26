@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
 
 const PACKAGE_DIR = fileURLToPath(new URL('../../..', import.meta.url));
 const STANDALONE = join(PACKAGE_DIR, 'lib', 'standalone.js');
@@ -170,6 +171,34 @@ test('用户旅程：配置、soul、memory、资源包、皮肤/音效导入都
   const config = await api('/config');
   assert.equal(config.status, 200);
   assert.notEqual(config.body.ok, false, '构建产物应能读到包内默认配置');
+
+  const fontResponse = await fetch(base + ROUTE + '/font/Dymon-ShouXieTi.otf', {
+    headers: { 'x-dsh-pet-token': token },
+  });
+  assert.equal(fontResponse.status, 200, '构建产物应能提供内置 Dymon 字体');
+  assert.equal(fontResponse.headers.get('content-type'), 'font/otf');
+  const fontBytes = Buffer.from(await fontResponse.arrayBuffer());
+  assert.ok(fontBytes.byteLength > 5_000_000, 'Dymon OTF 应完整随包发布');
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const loaded = await page.evaluate(async (base64) => {
+      const binary = atob(base64);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'font/otf' }));
+      try {
+        const face = new FontFace('DymonShouXieTi', `url("${url}")`);
+        await face.load();
+        document.fonts.add(face);
+        return document.fonts.check('16px DymonShouXieTi');
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }, fontBytes.toString('base64'));
+    assert.equal(loaded, true, '浏览器应能实际解析 Dymon OTF');
+  } finally {
+    await browser.close();
+  }
 
   const sources = await api('/persona/sources?pet=main');
   assert.equal(sources.status, 200);

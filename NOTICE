@@ -14,6 +14,7 @@
 ## 2. 素材许可（不随 MIT）
 
 - 动画（`dsh-fish-body/assets/webm`、`video/`、`prompts/`）、分层皮肤、live2d 模型、音效、表情包（`dsh-fish-body/assets/memes`）、图集（`dsh-fish-body/assets/pic`）等**全部素材不适用 MIT**：随动效与形象授权走，**禁止商用**。
+- 内置 webm 动画来自上游 `dsh-pet`，来源记录见 `dsh-fish-body/assets/webm/SOURCE.md`；内置分层皮肤来自 `SurfCore`，来源记录见 `dsh-fish-body/assets/pet/layered/SOURCE.md`。
 - 形象出处：宠物形象为社区二创的 DeepSeek「大肥鱼」（鲸鱼娘），**非 DeepSeek 官方形象**；原型「溟月」出自 B 站 [@上善无形](https://space.bilibili.com/4456176)，DeepSeek 版（女仆鲸鱼娘）设计出自 B 站 [@ZipZipPipe](https://space.bilibili.com/4168597)。
 - 形象授权：[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans)（署名 · 非商业 · 相同方式共享），[声明原文](https://www.bilibili.com/opus/1247156596114456581)：「大肥鱼是遵守 CC BY-NC-SA 4.0 协议的形象，不可以以任何形式商业化。」
 - 本仓库自带的默认音效（`dsh-fish-body/assets/sound/*.wav`）**不是**外部素材：由 `dsh-fish-body/scripts/gen-sfx.mjs` 合成，随 MIT。
@@ -37,17 +38,17 @@
 
 ## 4. Live2D Cubism Core
 
-- **本仓库与 npm 包都不再分发 Cubism Core。** 需要 live2d 渲染时，由使用者在自己的环境里从 Live2D 官方取得后指向本地文件（设置页「渲染方式 → live2d」提供入口）。
+- **本仓库与 npm 包都不再分发 Cubism Core。** 需要 live2d 渲染时，由使用者从 [Live2D 官方 Cubism SDK for Web](https://www.live2d.com/zh-CHS/sdk/download/web/) 取得 `live2dcubismcore.min.js`，按 [`docs/Live2D安装.md`](docs/Live2D安装.md) 放进 `<数据根>/cubism/`。
 - 官方说明：Cubism Core「不发布在 GitHub 上」，须从 Live2D 官网下载 Cubism SDK 包获得；其许可为 **Live2D Proprietary Software License Agreement**，**不是** MIT。该许可第 6.2 条禁止将本软件全部或部分分发、公开，或与衍生作品同捆。
 - 由此产生两项由**使用者**自行承担的义务：① 含 Live2D 模型的衍生作品若要出版，须按该许可第 2 条与 Live2D 签订「出版许可协议」；② 本插件支持加载任意模型，可能被认定为该许可第 1.5 条的「可扩展应用（Expandable Application）」，其出版须事前申请并经 Live2D 批准，且不适用第 2.2 条的一般用户 / 小规模事业者豁免。
 - 本仓库只提供加载器，不代为授权、不承担上述义务。
 
 ## 5. 字体
 
-- **本仓库不再包含任何商业字体。** 此前随附的「上首软糖体」属第三方商业字体，未取得再分发授权，已移除；缺字体时回落系统字体。
-- 内置字体：思源柔黑（GenJyuuGothic）简体子集，**SIL Open Font License 1.1**，可自由使用与再分发——须保留其版权声明与 OFL 文本；若该字体声明了 Reserved Font Name，则改名后分发。
-- 可选字体（霞鹜文楷 / 悠哉 / 得意黑）：由设置页引导使用者从各项目官方发布页下载，本仓库不分发字体文件。
-- 使用者自行导入的字体（含已购商业字体）只写入本地数据根，本仓库不分发、不代为授权。
+- **本仓库不包含任何商业字体。** 此前随附的「上首软糖体」属第三方商业字体，未取得再分发授权，已移出包与版本控制。
+- 内置字体：**Dymon 手写体（DymonShouXieTi）3.0.0**，作者 K99Xmas，采用 **SIL Open Font License 1.1**。字体 OTF、OFL 全文和来源记录随 npm 包发布；详见 [`dsh-fish-body/assets/fonts/SOURCE.md`](dsh-fish-body/assets/fonts/SOURCE.md)。
+- 可选字体（霞鹜文楷 / 悠哉 / 得意黑等）不由本仓库分发；当前设置页只列内置 Dymon 与系统字体预设，不自动扫描数据根里的其它字体文件。
+- 使用者自行安装的字体（含已购商业字体）及其授权由使用者自行负责；本仓库不代为分发或授权。
 
 ## 6. 语音服务
 
@@ -58,7 +59,7 @@
 
 `dsh-fish-body/assets/memes/**`、`dsh-fish-body/assets/pic/**` 中的图片沿用第 2 节的素材条款（非商业 · 署名 · 相同方式共享）。表情包随源仓库 `dsh-pet` 迁入（首次入库提交 `70170a3`，2026-09-13）；这些文件本身不含任何来源元数据，因此按目录补了 `SOURCE.md` 作为唯一来源记录。
 
-**内置分层皮肤**：`dsh-fish-body/assets/pet/layered/{feiyu-05,feiyu-muyu}/` 随 npm 包发布（清单见 `assets/core-skins.json`），用途是让「分层渲染」装完即可试用。两套都是同一形象的分层美术（换头饰 / 换音效），沿用第 2 节的形象授权 **CC BY-NC-SA 4.0**，**禁止商用**。用户可以把自己的一套放进 `<数据根>/skin/layered/<id>/` 覆盖同名内置皮肤，也可以直接删掉包内目录——它不是运行必需项，缺了只是右键「皮肤」菜单少一项。
+**内置分层皮肤**：`dsh-fish-body/assets/pet/layered/{feiyu-05,feiyu-muyu}/` 随 npm 包发布（清单见 `assets/core-skins.json`），来自 [SurfCore](https://github.com/Mieksido/surfcore)，用途是让「分层渲染」装完即可试用。两套都是同一形象的分层美术（换头饰 / 换音效），沿用第 2 节的形象授权 **CC BY-NC-SA 4.0**，**禁止商用**；SurfCore 的代码许可证不自动覆盖其中的皮肤图片。用户可以把自己的一套放进 `<数据根>/skin/layered/<id>/` 覆盖同名内置皮肤，也可以直接删掉包内目录——它不是运行必需项，缺了只是右键「皮肤」菜单少一项。
 
 若你是其中任一张图的作者且不希望它出现在本仓库或发布包中，请开 issue，我们会在下一个版本移除，**不需要你提供额外证明**。
 

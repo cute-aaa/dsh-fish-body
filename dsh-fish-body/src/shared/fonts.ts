@@ -15,13 +15,13 @@ export interface FontPreset {
 }
 
 /** 字体预设清单：顺序即设置页下拉框的显示顺序（第一项为默认）。
- *  candy 是唯一随包发布的字体，CSS 名 "ShangshouSoftCandy" 由我们自己起，改名须同步两端的 @font-face。
+ *  `candy` 是为兼容既有配置保留的内部 id；它现在指向随包发布的 Dymon 手写体，
+ *  CSS 名 "DymonShouXieTi" 必须同步浏览器与桌面两端的 @font-face。
  *  其余都是系统字体，机器上没装时由字体栈后面的兜底自然回退，不报错也不空白。 */
 export const FONT_PRESETS: FontPreset[] = [
   {
     id: 'candy',
-    stack:
-      '"ShangshouSoftCandy","Yuanti SC","YouYuan","幼圆","Comic Sans MS","PingFang SC","Microsoft YaHei",sans-serif',
+    stack: '"DymonShouXieTi","Yuanti SC","YouYuan","幼圆","Comic Sans MS","PingFang SC","Microsoft YaHei",sans-serif',
   },
   { id: 'yahei', stack: '"Microsoft YaHei","PingFang SC",sans-serif' },
   { id: 'youyuan', stack: '"YouYuan","Yuanti SC",sans-serif' },
@@ -43,7 +43,7 @@ export const DEFAULT_FONT: FontConfig = {
   followPet: true,
 };
 
-/** 按 id 取字体栈；id 非法或缺失回退清单首项（软糖体），渲染层不再自行兜底。 */
+/** 按 id 取字体栈；id 非法或缺失回退清单首项（Dymon），渲染层不再自行兜底。 */
 export function fontStackOf(id: string): string {
   return (FONT_PRESETS.find((p) => p.id === id) ?? FONT_PRESETS[0]).stack;
 }

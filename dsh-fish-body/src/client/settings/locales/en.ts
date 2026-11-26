@@ -476,10 +476,10 @@ export const en: Record<Key, string> = {
   invalidPhysics: 'Check the physics values: gravity / ground friction ≥ 0, bounciness 0–1, throw power > 0.',
   fontTitle: 'Appearance & font',
   fontHint:
-    'The family applies to every place that currently uses the candy font: pet bubble, hover tooltip, chat popup, score popup. The size applies only to the pet bubble and the hover tooltip (chat and score popups keep their own size). Global default, shared by every pet (a pet pack may override it in its own kind file); written to the user config on "Save" — instant in the browser, and on the desktop it applies once Save reloads the pet windows.',
+    'The family applies to every place that currently uses the bundled Dymon font: pet bubble, hover tooltip, chat popup, score popup. The size applies only to the pet bubble and the hover tooltip (chat and score popups keep their own size). Global default, shared by every pet (a pet pack may override it in its own kind file); written to the user config on "Save" — instant in the browser, and on the desktop it applies once Save reloads the pet windows.',
   fontFamilyLabel: 'Font',
   fontFamilyHint:
-    '"Candy (bundled)" ships with the plugin; the others are system fonts. If a font is missing on this machine, it falls back to the next one in the stack (never blank, never an error).',
+    '"Dymon handwriting (bundled)" ships with the plugin; the others are system fonts. If a font is missing on this machine, it falls back to the next one in the stack (never blank, never an error).',
   fontSizeLabel: 'Font size (px)',
   fontSizeHint:
     'Bubble body text size; the tooltip and the smaller lines inside the bubble scale proportionally. Range 4–200.',
@@ -488,7 +488,7 @@ export const en: Record<Key, string> = {
     'On (default): the font grows with the pet — at 462 px width it is exactly the size above. Off: the size stays fixed regardless of pet size.',
   invalidFont:
     'Check the font settings: the family must be in the list and the size must be a number between 4 and 200.',
-  'font.candy': 'Candy (bundled)',
+  'font.candy': 'Dymon handwriting (bundled)',
   'font.yahei': 'Microsoft YaHei / PingFang',
   'font.youyuan': 'YouYuan',
   'font.kaiti': 'KaiTi',
@@ -809,7 +809,7 @@ export const en: Record<Key, string> = {
   packsInstalled: 'Installed',
   packsRemoved: 'Removed',
   packsFontsHint:
-    'To use your own font (including a licensed commercial one), drop it into the fonts/ folder of the data root and refresh; it appears in the font list.',
+    'Dymon is bundled. This release does not automatically list other files from the data-root fonts/ folder; the remaining options are system-font presets.',
   packsInstallZip: 'Local ZIP',
   packsInstallDir: 'Local folder',
   packsPickFailed: 'The system picker is unavailable. Try again or check permissions.',

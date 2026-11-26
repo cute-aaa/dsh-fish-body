@@ -110,6 +110,11 @@ const keep = [
   'assets/pic',
   // 点击音效：宿主半侧的 /sound 路由只读包内这一份，漏掉则点击静音。
   'assets/sound',
+  // 内置字体只发 Dymon 的 OTF、OFL 文本与来源说明：授权允许与软件捆绑，且必须随附许可。
+  // 不写整个目录，避免本机其它商业字体被 npm files 白名单意外带进包。
+  'assets/fonts/Dymon-ShouXieTi.otf',
+  'assets/fonts/OFL-1.1.txt',
+  'assets/fonts/SOURCE.md',
   // live2d 的两个浏览器依赖（pixi / pixi-live2d-display UMD）：由本脚本从依赖里拷出，/vendor 路由只读包内这一份。
   'assets/vendor',
   'assets/config.jsonc',
@@ -118,6 +123,8 @@ const keep = [
   'assets/packs.json',
   // 最小内置包的清单本身也随包发：用户能看出「哪些动画是随包带的、其余要走 extras」。
   'assets/core-anims.json',
+  // webm 的来源记录：8 段核心动画拆成逐文件白名单后，目录本身不会自动带上这份说明。
+  'assets/webm/SOURCE.md',
   // 内置分层皮肤的清单：与 core-anims.json 同一用途（内置了什么、其余去哪里拿）。
   'assets/core-skins.json',
   // 插件图标：package.json 顶层 icon 指向这张图；缺图时读取方 dsh-app-boot 的 iconOf 会抛错、退回默认插画。
@@ -128,9 +135,8 @@ const keep = [
   'scripts/ensure-electron.mjs',
   'cordis.patch.yml',
 ];
-// 有意不进包的三个素材目录——**不要加回上面的白名单**：
-//   assets/fonts  —— 商业字体已移除；内置 OFL 字体与用户自备字体都放数据根（`<数据根>/fonts/`），
-//                    包内留一份会让「字体授权」重新变成发布风险（见 NOTICE 第 5 节）。
+// 有意不进包的素材目录——**不要加回上面的目录级白名单**：
+//   assets/fonts  —— 只逐文件发布 Dymon 的 OTF、OFL 与 SOURCE；同目录其它字体可能是用户自备或商业字体。
 //   assets/memes  —— 表情包走 extras 下载包（NOTICE 第 7 节）；宿主半侧已支持从
 //                    `<数据根>/memes/` 优先读，包内不需要这份。
 //   assets/cubism —— Cubism Core 由用户从 Live2D 官方取得后指向本地（NOTICE 第 4 节），

@@ -53,6 +53,14 @@ dsh-fish-body/runtime/electron-helper/layered-core.js
 # live2d 的 UMD 依赖（pixi / pixi-live2d-display）由 scripts/prepare.js 从 node_modules 拷出，/vendor 路由供给
 dsh-fish-body/assets/vendor/
 
+# 字体目录历史上含本机商业字体；只允许 Dymon 的 OTF、OFL 和来源说明进入版本控制。
+!dsh-fish-body/assets/fonts/
+dsh-fish-body/assets/fonts/*
+!dsh-fish-body/assets/fonts/.gitignore
+!dsh-fish-body/assets/fonts/Dymon-ShouXieTi.otf
+!dsh-fish-body/assets/fonts/OFL-1.1.txt
+!dsh-fish-body/assets/fonts/SOURCE.md
+
 # ── dsh-pet 桌宠应用打包产物（electron-builder 输出，`node scripts/dist.mjs` 可重生）──
 dsh-fish-body/dist-app/
 

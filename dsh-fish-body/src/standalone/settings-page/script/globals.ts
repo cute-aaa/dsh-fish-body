@@ -47,7 +47,7 @@ function voiceCard() {
 function fontCard() {
   const g = state.globals;
   return card('外观与字体', '气泡、悬浮提示与对话窗共用的字体。', [
-    selectField('g-font-family', '字体', g.font.family, FONT_IDS.map((id) => ({ value: id, label: id })), (value) => { g.font = Object.assign({}, g.font, { family: value }); }),
+    selectField('g-font-family', '字体', g.font.family, FONT_IDS.map((id) => ({ value: id, label: id === 'candy' ? 'Dymon 手写体' : id })), (value) => { g.font = Object.assign({}, g.font, { family: value }); }),
     numberField('g-font-size', '字号（px）', g.font.size, (value) => { g.font = Object.assign({}, g.font, { size: clampNumber(value, 4, 200, 21) }); }, { min: 4, max: 200, step: 1, hint: '只影响气泡与悬浮提示，对话窗字号不变。' }),
     toggleRow('g-font-follow', '字号随宠物大小缩放', '关掉后恒为上面的字号，不随窗口尺寸变化。', g.font.followPet, (value) => { g.font = Object.assign({}, g.font, { followPet: value }); }),
   ]);

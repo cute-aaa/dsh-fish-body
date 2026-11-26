@@ -6,5 +6,9 @@
     "体积代价约 4 MB（PNG 已压过，gzip 只省一成），所以只收两套：一套换帽子、一套换音效的同一形象。",
     "改这里要同步两处：scripts/prepare.js 的 files[]（决定包里带什么）、scripts/prepack-check.js 的存在性断言。"
   ],
-  "skins": ["feiyu-05", "feiyu-muyu"]
+  "skins": ["feiyu-05", "feiyu-muyu"],
+  "sources": {
+    "feiyu-05": "surfcore",
+    "feiyu-muyu": "surfcore"
+  }
 }

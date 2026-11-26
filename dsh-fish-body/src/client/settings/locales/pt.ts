@@ -477,10 +477,10 @@ export const pt: Record<Key, string> = {
     'Revise os valores de física: gravidade / atrito com o chão ≥ 0, restituição 0–1, força de arremesso > 0.',
   fontTitle: 'Aparência e fonte',
   fontHint:
-    'A família vale para todo texto que hoje usa a fonte candy: balão do pet, dica ao passar o mouse, janela de conversa, popup de pontuação. O tamanho vale só para o balão do pet e a dica (as janelas de conversa e de pontuação mantêm o próprio tamanho). Padrão global, compartilhado por todos os pets (um pet pack pode sobrescrever no arquivo do próprio tipo); gravado na configuração do usuário ao "Salvar" — na hora no navegador, e no desktop quando o "Salvar" recarrega as janelas do pet.',
+    'A família vale para todo texto que hoje usa a fonte Dymon incluída: balão do pet, dica ao passar o mouse, janela de conversa, popup de pontuação. O tamanho vale só para o balão do pet e a dica (as janelas de conversa e de pontuação mantêm o próprio tamanho). Padrão global, compartilhado por todos os pets (um pet pack pode sobrescrever no arquivo do próprio tipo); gravado na configuração do usuário ao "Salvar" — na hora no navegador, e no desktop quando o "Salvar" recarrega as janelas do pet.',
   fontFamilyLabel: 'Fonte',
   fontFamilyHint:
-    '"Candy (embutida)" vem com o plugin; as demais são fontes do sistema. Se faltar na máquina, cai para a próxima da pilha (nunca fica em branco nem dá erro).',
+    '"Dymon manuscrita (embutida)" vem com o plugin; as demais são fontes do sistema. Se faltar na máquina, cai para a próxima da pilha (nunca fica em branco nem dá erro).',
   fontSizeLabel: 'Tamanho da fonte (px)',
   fontSizeHint:
     'Tamanho do texto do balão; a dica e as linhas menores dentro do balão escalam na proporção. Faixa 4–200.',
@@ -489,7 +489,7 @@ export const pt: Record<Key, string> = {
     'Ligado (padrão): a fonte cresce com o pet — com 462 px de largura fica exatamente no tamanho definido acima. Desligado: o tamanho fica fixo, independente do pet.',
   invalidFont:
     'Revise as configurações de fonte: a família precisa estar na lista e o tamanho precisa ser um número entre 4 e 200.',
-  'font.candy': 'Candy (embutida)',
+  'font.candy': 'Dymon manuscrita (embutida)',
   'font.yahei': 'Microsoft YaHei / PingFang',
   'font.youyuan': 'YouYuan',
   'font.kaiti': 'KaiTi',
@@ -815,7 +815,7 @@ export const pt: Record<Key, string> = {
   packsInstalled: 'Instalado',
   packsRemoved: 'Removido',
   packsFontsHint:
-    'Para usar sua própria fonte (inclusive comercial licenciada), coloque-a na pasta fonts/ da raiz de dados e recarregue.',
+    'Dymon vem incluída. Esta versão não lista automaticamente outros arquivos da pasta fonts/ da raiz de dados; as demais opções são fontes do sistema.',
   packsInstallZip: 'ZIP local',
   packsInstallDir: 'Pasta local',
   packsPickFailed: 'O seletor do sistema não está disponível. Verifique as permissões.',

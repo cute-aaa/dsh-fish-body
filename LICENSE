@@ -1,11 +1,12 @@
 本仓库分三层授权，先读这三行再往下：
 
 - 代码（`dsh-fish-body/src/`、`dsh-fish-body/scripts/`、`dsh-fish-body/runtime/`、仓库根脚本）：**MIT**，条款见下方正文。
-- 素材（`dsh-fish-body/assets/` 内的动画、立绘、音效、表情包、图集，以及 `video/`、`prompts/`）：
+- 视觉素材（`dsh-fish-body/assets/` 内的动画、立绘、皮肤、表情包、图集，以及 `video/`、`prompts/`）：
   **CC BY-NC-SA 4.0**（署名 · 非商业 · 相同方式共享），**禁止商用**；逐项来源见各目录 `SOURCE.md` 与根目录 `NOTICE`。
-- 第三方组件、字体与 Live2D Cubism Core：各自的许可，逐项见根目录 `NOTICE`。
+- 内置 Dymon 手写体：**SIL Open Font License 1.1**；授权全文见 `dsh-fish-body/assets/fonts/OFL-1.1.txt`。
+- 默认合成音效及第三方组件、Live2D Cubism Core：各自的许可，逐项见根目录 `NOTICE`。
 
-下方的 MIT 条款**只覆盖第一条**，不覆盖素材与第三方组件。
+下方的 MIT 条款**只覆盖第一条**，不覆盖视觉素材、字体、第三方组件与 Live2D Cubism Core。
 
 ---
 

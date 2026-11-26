@@ -123,8 +123,28 @@ else fail('package.json missing dsh.bundle.patch');
 if (pkg.dsh?.client?.platform === 'web') ok('dsh.client.web declared');
 else fail('package.json missing dsh.client platform web');
 
-// 配图（memes）、字体（fonts）、Cubism Core 自开源改造起一律**不进包**：
-// 它们改由运行期获取（extras 下载包 / 用户自备 / Live2D 官方 SDK），见 NOTICE 第 4、5 节。
+const webmSource = 'assets/webm/SOURCE.md';
+if (!existsSync(join(ROOT, webmSource))) fail(`missing bundled asset source ${webmSource}`);
+else if (!Array.isArray(pkg.files) || !pkg.files.includes(webmSource))
+  fail(`package.json files must include ${webmSource}`);
+else ok(`bundled asset source ${webmSource}`);
+
+// Dymon 手写体是默认字体的实际文件；缺 OTF 会静默回退系统字体，缺 OFL 则失去再分发依据。
+const bundledFonts = ['assets/fonts/Dymon-ShouXieTi.otf', 'assets/fonts/OFL-1.1.txt', 'assets/fonts/SOURCE.md'];
+for (const file of bundledFonts) {
+  if (!existsSync(join(ROOT, file))) fail(`missing bundled font file ${file}`);
+  else if (!Array.isArray(pkg.files) || !pkg.files.includes(file)) fail(`package.json files must include ${file}`);
+  else ok(`bundled font file ${file}`);
+}
+const unexpectedFontFiles = Array.isArray(pkg.files)
+  ? pkg.files.filter((file) => file.startsWith('assets/fonts/') && !bundledFonts.includes(file))
+  : [];
+if (unexpectedFontFiles.length > 0)
+  fail(`package.json files mixes non-bundled font entries: ${unexpectedFontFiles.join(', ')}`);
+else ok('only the reviewed Dymon font files are listed');
+
+// 配图（memes）与 Cubism Core 不进包；字体只允许上面逐文件列出的 Dymon 三件。
+// 其余素材改由运行期获取（extras 下载包 / 用户自备 / Live2D 官方 SDK），见 NOTICE 第 4、5 节。
 // 因此这里不再断言「必须在 files[] 里」；本地开发机可能还留着这些文件，只做提示。
 const memesDir = join(ROOT, 'assets', 'memes');
 const memePngs = existsSync(memesDir) ? readdirSync(memesDir).filter((n) => n.endsWith('.png')) : [];
@@ -176,6 +196,7 @@ if (!existsSync(coreSkinsPath)) {
   const ids = Array.isArray(declared) ? declared.filter((id) => typeof id === 'string') : [];
   const missing = ids.filter((id) => !existsSync(join(petDir, 'layered', id, 'manifest.json')));
   if (missing.length > 0) fail(`core-skins.json 声明的皮肤缺清单：${missing.join('、')}`);
+  else if (!existsSync(join(petDir, 'layered', 'SOURCE.md'))) fail('missing assets/pet/layered/SOURCE.md');
   else if (!Array.isArray(pkg.files) || !pkg.files.includes('assets/pet'))
     fail('package.json files must include assets/pet (built-in layered skins would not ship)');
   else ok(`built-in layered skins shipped (${ids.length}: ${ids.join(', ')})`);

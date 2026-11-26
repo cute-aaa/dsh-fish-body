@@ -204,7 +204,7 @@ export async function handleAssetsRoutes(deps: PetRouteDeps, input: RouteInput):
       return {
         kind: 'text',
         status: 404,
-        body: 'fish-body: cubism core not found（把 live2dcubismcore.min.js 放进 <数据根>/cubism/，或在设置页安装 cubism 资源包）',
+        body: 'fish-body: cubism core not found（按 docs/Live2D安装.md 从 Live2D 官方 SDK 取得 live2dcubismcore.min.js，放进 <数据根>/cubism/）',
       };
     const ext = cubismFile.slice(cubismFile.lastIndexOf('.')).toLowerCase();
     return { kind: 'file', file: cubismFile, contentType: MIME[ext] ?? 'application/octet-stream' };
