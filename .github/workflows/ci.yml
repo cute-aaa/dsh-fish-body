@@ -63,14 +63,15 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      # 两个 UI 用例要读构建生成的文件，必须先产出完整 lib/ 与 helper shared-core。
+      - name: Build distributable artifacts
+        run: npm run build
+
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Settings browser E2E
         run: npm run test:ui
-
-      - name: Build distributable artifacts
-        run: npm run build
 
       - name: Prepack health check
         run: node scripts/prepack-check.js
